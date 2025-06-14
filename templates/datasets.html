@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}데이터셋 다운로드{% endblock %}
+{% block content %}
+<h1>데이터셋 다운로드 페이지</h1>
+<form>
+    <label>데이터셋 선택:
+        <select name="dataset">
+            <option value="dummy1">더미 데이터셋 1</option>
+            <option value="dummy2">더미 데이터셋 2</option>
+        </select>
+    </label>
+    <button type="button">다운로드</button>
+</form>
+<br>
+<a href="/">메인으로</a>
+{% endblock %}

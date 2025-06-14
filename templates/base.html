@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}페이지{% endblock %}</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f8f8f8;
+        }
+        .center-box {
+            background: #fff;
+            padding: 2rem 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            min-width: 320px;
+            max-width: 480px;
+        }
+        a, button, select, input {
+            font-size: 1rem;
+            margin: 0.3rem;
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="center-box">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}특징추출{% endblock %}
+{% block content %}
+<h1>특징추출 페이지</h1>
+<form>
+    <label>모델 선택:
+        <select name="model">
+            <option value="wavelet">Wavelet</option>
+            <option value="dct">DCT</option>
+            <option value="pca">PCA</option>
+            <option value="pq">PQ</option>
+        </select>
+    </label>
+    <br><br>
+    <button type="button">Wavelet</button>
+    <button type="button">DCT</button>
+    <button type="button">PCA</button>
+    <button type="button">PQ</button>
+    <br><br>
+    <label>Wavelet 옵션:
+        <input type="text" name="wavelet_option" placeholder="예: db1, 8">
+    </label>
+    <br><br>
+    <label>이행적 변환:
+        <select name="transitive">
+            <option value="pca_pq">PCA → PQ</option>
+            <option value="zscore_pq">Zscore → PQ</option>
+        </select>
+    </label>
+</form>
+<br>
+<a href="/">메인으로</a>
+{% endblock %}
