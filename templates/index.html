@@ -1,42 +1,11 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <title>{% block title %}Index{% endblock %}</title>
-    <style>
-        .main-btns {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-        .main-btns a {
-            display: inline-block;
-            background: #1976d2;
-            color: #fff;
-            padding: 1rem 2.5rem;
-            border-radius: 8px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            text-decoration: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: background 0.2s;
-        }
-        .main-btns a:hover {
-            background: #1256a0;
-        }
-    </style>
-</head>
-<body>
-    {% block content %}
-    <h1>메인 페이지</h1>
-    <div class="main-btns">
-        <a href="/extract">특징추출 페이지로 이동</a>
-        <a href="/datasets">데이터셋 다운로드 페이지로 이동</a>
-        <a href="/recall">recall 테스트로 이동</a>
-        <a href="/similarity">유사도 테스트로 이동</a>
-    </div>
-    {% endblock %}
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Index{% endblock %}
+{% block content %}
+<h1>메인 페이지</h1>
+<div class="main-btns">
+    <a class="main-btn" href="/datasets">데이터셋 다운로드 페이지로 이동</a>
+    <a class="main-btn" href="/extract">특징추출 페이지로 이동</a>
+    <a class="main-btn" href="/recall">recall 테스트로 이동</a>
+    <a class="main-btn" href="/similarity">유사도 테스트로 이동</a>
+</div>
+{% endblock %}

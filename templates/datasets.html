@@ -2,7 +2,7 @@
 {% block title %}데이터셋 다운로드{% endblock %}
 {% block content %}
 <h1>데이터셋 다운로드 페이지</h1>
-<form>
+<form style="display: flex; flex-direction: column; align-items: center; gap: 1.2rem;">
     <label>데이터셋 선택:
         <select name="dataset">
             <option value="dummy1">더미 데이터셋 1</option>
@@ -12,5 +12,5 @@
     <button type="button">다운로드</button>
 </form>
 <br>
-<a href="/">메인으로</a>
+<a href="/" class="main-btn">메인으로</a>
 {% endblock %}

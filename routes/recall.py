@@ -6,6 +6,7 @@ templates = Jinja2Templates(directory="templates")
 
 router = APIRouter()
 
-@router.get("/recall", response_class=HTMLResponse)
+@router.get("/recall", response_class=HTMLResponse, description="recall 테스트 페이지. 벡터 검색 recall 성능 확인.")
 async def recall(request: Request):
+    """recall 테스트 페이지: 벡터 검색 recall 성능 확인"""
     return templates.TemplateResponse("recall.html", {"request": request})
