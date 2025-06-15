@@ -7,6 +7,7 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <button class="db-reset-btn" onclick="if(confirm('DB를 정말 초기화하시겠습니까?')){fetch('/reset-db', {method: 'POST'}).then(()=>location.reload());}" style="position:fixed;top:32px;right:48px;z-index:1000;background:#d32f2f;color:#fff;border:none;padding:0.7rem 1.5rem;border-radius:8px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12);">DB 초기화</button>
     <div class="center-box">
         {% block content %}{% endblock %}
     </div>

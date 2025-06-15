@@ -9,6 +9,7 @@ from routes.extract import router as extract_router
 from routes.recall import router as recall_router
 from routes.similarity import router as similarity_router
 from routes.datasets import router as datasets_router
+from DB.db_utils import reset_db
 
 app = FastAPI(
     title="특징추출 및 벡터 검색 시스템 API",
@@ -31,6 +32,12 @@ templates = Jinja2Templates(directory="templates")
 async def index(request: Request):
     """메인 페이지: 각 기능별 이동 버튼 제공"""
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.post("/reset-db", description="DB 전체 초기화(모든 데이터 삭제 및 테이블 재생성)")
+async def reset_db_route():
+    reset_db()
+    return {"message": "DB가 초기화되었습니다."}
 
 
 # 라우트 모듈 등록

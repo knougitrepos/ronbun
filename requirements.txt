@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+jinja2
+sqlalchemy>=2.0
+psycopg2-binary
+pgvector
+opencv-python
+insightface
+numpy
+torch
+torchvision
+matplotlib
+pillow
+pywavelets
+python-multipart
