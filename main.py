@@ -5,11 +5,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
 
-from routes.extract import router as extract_router
-from routes.recall import router as recall_router
-from routes.similarity import router as similarity_router
-from routes.datasets import router as datasets_router
+from routes.extract_router import router as extract_router
+from routes.recall_router import router as recall_router
+from routes.similarity_router import router as similarity_router
+from routes.datasets_router import router as datasets_router
 from DB.db_utils import reset_db
+from features.face_analysis_loader import initialize_face_analysis
 
 app = FastAPI(
     title="특징추출 및 벡터 검색 시스템 API",
@@ -23,6 +24,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # 템플릿 디렉토리 설정
 templates = Jinja2Templates(directory="templates")
 
+# 앱 시작 시 모델 초기화
+initialize_face_analysis()
 
 @app.get(
     "/",

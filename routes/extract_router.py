@@ -13,6 +13,7 @@ import numpy as np
 import pywt
 import uuid
 import matplotlib
+from features.face_analysis_loader import get_face_analysis_app
 
 templates = Jinja2Templates(directory="templates")
 
@@ -205,7 +206,10 @@ async def extract_example_post(request: Request, image: UploadFile = File(...)):
     result_imgs = [
         ("Wavelet 모든 level 저주파", img_url1),
         ("Wavelet 모든 level 고주파", img_url2),
-        ("DCT 여러 영역 저주파", img_url3),
-        ("DCT 여러 영역 고주파", img_url4)
+        ("DCT 모든 level 저주파", img_url3),
+        ("DCT 모든 level 고주파", img_url4)
     ]
     return templates.TemplateResponse("extract_example.html", {"request": request, "result_imgs": result_imgs})
+
+# 예시: 특징 추출 시
+# app = get_face_analysis_app()

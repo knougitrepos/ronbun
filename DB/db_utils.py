@@ -2,13 +2,14 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, JSON, TIMESTAMP, Float, text, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pgvector.sqlalchemy import Vector
+from config import Config
 
 # DB 연결 설정
-DB_HOST = os.environ.get("DB_HOST", "localhost")
-DB_PORT = os.environ.get("DB_PORT", "5432")
-DB_USER = os.environ.get("DB_USER", "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "postgres")
-DB_NAME = os.environ.get("DB_NAME", "postgres")
+DB_HOST = Config.DB_HOST
+DB_PORT = Config.DB_PORT
+DB_USER = Config.DB_USER
+DB_PASSWORD = Config.DB_PASS
+DB_NAME = Config.DB_NAME
 DB_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DB_URL, echo=False)
