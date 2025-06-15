@@ -1,5 +1,6 @@
 import numpy as np
 
+# Z-score 정규화 관련 함수 관리
 def zscore_normalize(vec):
     """Z-score 정규화 함수"""
     mean = np.mean(vec)

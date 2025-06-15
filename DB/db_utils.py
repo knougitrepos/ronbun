@@ -4,6 +4,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pgvector.sqlalchemy import Vector
 from config import Config
 
+# 데이터베이스 ORM 모델, 세션, 초기화/리셋 등 DB 유틸리티 관리
+
 # DB 연결 설정
 DB_HOST = Config.DB_HOST
 DB_PORT = Config.DB_PORT

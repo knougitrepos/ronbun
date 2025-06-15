@@ -1,3 +1,4 @@
+# 벡터 검색 recall 테스트 라우트 관리
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates

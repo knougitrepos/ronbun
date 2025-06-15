@@ -2,6 +2,8 @@ from features.face_analysis_loader import get_face_analysis_app
 import cv2
 import numpy as np
 
+# 얼굴 임베딩 추출 등 핵심 비즈니스 로직(서비스 계층) 관리
+
 def extract_embedding_from_image(image_bytes):
     """
     이미지 바이트를 입력받아 얼굴 임베딩 벡터를 추출하는 서비스 함수.

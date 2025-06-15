@@ -1,3 +1,4 @@
+# FastAPI 프로젝트 진입점: 앱, 라우트, 템플릿, 정적파일 관리
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse

@@ -1,3 +1,4 @@
+# 특징 추출, 변환, 예시 등 주요 기능 라우트 관리
 from fastapi import APIRouter, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
