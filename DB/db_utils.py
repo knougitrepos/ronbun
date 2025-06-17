@@ -115,3 +115,43 @@ def get_all_recall_test_results(db: Session):
     return db.query(RecallTestResults).all()
 
 # (필요시 다른 CRUD 함수도 추가 가능)
+
+def add_image_embedding(
+    db: Session,
+    image_path: str,
+    label: str = None,
+    used_feature_extract_model: str = None,
+    used_distance_model: str = None,
+    is_extract_face: bool = False,
+    vec_origin=None,
+    vec_wavelet=None, params_wavelet=None,
+    vec_dct=None, params_dct=None,
+    vec_pca=None, params_pca=None,
+    vec_quantized=None, params_quantized=None,
+    created_at=None, updated_at=None
+):
+    """
+    여러 벡터와 메타 정보를 한 번에 저장하는 함수
+    """
+    embedding = ImageEmbeddings(
+        image_path=image_path,
+        label=label,
+        used_feature_extract_model=used_feature_extract_model,
+        used_distance_model=used_distance_model,
+        is_extract_face=is_extract_face,
+        vec_origin=vec_origin,
+        vec_wavelet=vec_wavelet,
+        params_wavelet=params_wavelet,
+        vec_dct=vec_dct,
+        params_dct=params_dct,
+        vec_pca=vec_pca,
+        params_pca=params_pca,
+        vec_quantized=vec_quantized,
+        params_quantized=params_quantized,
+        created_at=created_at,
+        updated_at=updated_at
+    )
+    db.add(embedding)
+    db.commit()
+    db.refresh(embedding)
+    return embedding

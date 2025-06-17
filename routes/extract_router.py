@@ -1,10 +1,10 @@
 # 특징 추출, 변환, 예시 등 주요 기능 라우트 관리
-from fastapi import APIRouter, Request, Form, UploadFile, File
+from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 import os
 from features.origin_feature_extractor import extract_arcface_feature
-from DB.db_utils import SessionLocal, ImageEmbeddings
+from DB.db_utils import SessionLocal, ImageEmbeddings, add_image_embedding
 from features.extract_example import load_image_gray_from_bytes, dct2, idct2, keep_low_freq_dct, keep_high_freq_dct, keep_low_freq_wavelet, keep_high_freq_wavelet
 import matplotlib.pyplot as plt
 import io
@@ -15,6 +15,10 @@ import pywt
 import uuid
 import matplotlib
 from features.face_analysis_loader import get_face_analysis_app
+from features.embedding_service import ArcFaceFeatureExtractor
+from features.vector_transformer import transform_vector
+import datetime
+import cv2
 
 templates = Jinja2Templates(directory="templates")
 
@@ -25,24 +29,16 @@ async def extract(request: Request):
     """특징추출 페이지: 다양한 특징추출 모델 및 변환 옵션 제공"""
     return templates.TemplateResponse("extract.html", {"request": request})
 
-@router.post("/extract_features/origin")
-async def extract_origin_features(request: Request):
-    # 1. downloaded_datasets 내 모든 이미지 경로 탐색
-    dataset_root = "downloaded_datasets"
-    image_paths = []
-    for root, dirs, files in os.walk(dataset_root):
-        for file in files:
-            if file.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                image_paths.append(os.path.join(root, file))
-
-    def arcface_extract(image_path):
-        return extract_arcface_feature(image_path)
-
+# 대량 특징추출 서비스 함수
+def extract_and_store_features(image_paths):
     db = SessionLocal()
+    extractor = ArcFaceFeatureExtractor()
     for img_path in image_paths:
         is_extract_face = False
         try:
-            vec_origin = arcface_extract(img_path)
+            # 임베딩 추출
+            img = cv2.imread(img_path)
+            vec_origin = extractor.extract(img)
             is_extract_face = True
         except Exception as e:
             print(f"특징 추출 에러: {img_path}, {e}")
@@ -50,34 +46,38 @@ async def extract_origin_features(request: Request):
         label = os.path.basename(os.path.dirname(img_path))
         used_feature_extract_model = "ArcFace"
         used_distance_model = "cosine"
+        # (예시) 벡터 변환 적용
+        vec_pca = transform_vector(vec_origin, 'pca', pca_model=None) if vec_origin is not None else None
+        params_pca = {"desc": "예시, 실제 pca_model 필요"} if vec_origin is not None else None
+        # 기타 변환도 필요시 추가
         try:
-            obj = db.query(ImageEmbeddings).filter_by(image_path=img_path).first()
-            if obj:
-                obj.label = label
-                obj.used_feature_extract_model = used_feature_extract_model
-                obj.used_distance_model = used_distance_model
-                obj.vec_origin = vec_origin
-                obj.is_extract_face = is_extract_face
-                from datetime import datetime
-                obj.updated_at = datetime.now()
-            else:
-                from datetime import datetime
-                obj = ImageEmbeddings(
-                    image_path=img_path,
-                    label=label,
-                    used_feature_extract_model=used_feature_extract_model,
-                    used_distance_model=used_distance_model,
-                    vec_origin=vec_origin,
-                    is_extract_face=is_extract_face,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
-                )
-                db.add(obj)
-            db.commit()
+            add_image_embedding(
+                db=db,
+                image_path=img_path,
+                label=label,
+                used_feature_extract_model=used_feature_extract_model,
+                used_distance_model=used_distance_model,
+                is_extract_face=is_extract_face,
+                vec_origin=vec_origin,
+                vec_pca=vec_pca,
+                params_pca=params_pca,
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now()
+            )
         except Exception as e:
             print(f"DB 저장 에러: {img_path}, {e}")
             db.rollback()
     db.close()
+
+@router.post("/extract_features/origin")
+async def extract_origin_features(request: Request, background_tasks: BackgroundTasks):
+    dataset_root = "downloaded_datasets"
+    image_paths = []
+    for root, dirs, files in os.walk(dataset_root):
+        for file in files:
+            if file.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+                image_paths.append(os.path.join(root, file))
+    background_tasks.add_task(extract_and_store_features, image_paths)
     return RedirectResponse(url="/extract", status_code=303)
 
 @router.get("/extract_example", response_class=HTMLResponse)

@@ -13,3 +13,8 @@ matplotlib
 pillow
 pywavelets
 python-multipart
+mlflow
+optuna
+scikit-learn
+pandas
+pyarrow
