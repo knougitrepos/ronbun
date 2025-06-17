@@ -3,7 +3,6 @@ from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 import os
-from features.origin_feature_extractor import extract_arcface_feature
 from DB.db_utils import SessionLocal, ImageEmbeddings, add_image_embedding
 from features.extract_example import load_image_gray_from_bytes, dct2, idct2, keep_low_freq_dct, keep_high_freq_dct, keep_low_freq_wavelet, keep_high_freq_wavelet
 import matplotlib.pyplot as plt

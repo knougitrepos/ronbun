@@ -55,3 +55,8 @@ with mlflow.start_run():
 ## 6. 참고
 - MLflow 공식 문서: https://mlflow.org/docs/latest/index.html
 - 실험 자동화 예시 코드는 optuna_mlflow/ 디렉토리 참고 
+
+## [2024-06-10] Embedding_128 지원 안내
+- Embedding_128 테이블 및 저장/조회 기능이 추가되어, 128/256/512 등 다양한 차원의 벡터 실험 자동화가 가능합니다.
+- 실험 자동화(Optuna+MLflow)는 벡터 차원에 독립적으로 동작하므로, 128차원 벡터도 기존과 동일하게 실험/평가/로깅이 가능합니다.
+- 예시: repository.add_embedding_128(...), repository.get_embeddings_128(...) 

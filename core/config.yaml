@@ -1,0 +1,27 @@
+experiment:
+  feature_extractor: arcface   # arcface, efficientnet 등
+  normalization: l2           # l2, zscore, none
+  vector_transform:
+    - pca
+    - dct
+    - quantize
+  search_strategy: hnsw       # hnsw, brute_force, IVFFlat 
+  distance_metric: cosine     # cosine, euclidean, inner_product
+  pca_params:
+    n_components: 256
+  hnsw_params:
+    ef_search: 64
+    M: 16
+
+# DB 및 기타 환경설정
+postgres:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  dbname: vector_db
+
+# 모델 경로 등
+model:
+  arcface_path: ./models/arcface.onnx
+  efficientnet_path: ./models/efficientnet_b0.onnx 
