@@ -18,8 +18,8 @@ postgres:
   host: localhost
   port: 5432
   user: postgres
-  password: password
-  dbname: vector_db
+  password: postgres
+  dbname: postgres
 
 # 모델 경로 등
 model:

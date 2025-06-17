@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}자동화{% endblock %}
+{% block content %}
+<h1>실험 자동화/분산 처리</h1>
+<div class="automation-section">
+    <p>이 페이지에서는 Celery 기반 분산 벡터 변환, MLflow 실험 자동화, 작업 모니터링 등을 실행/관리할 수 있습니다.</p>
+    <div style="margin:2rem 0;">
+        <form method="post" action="/automation/run-batch-transform">
+            <button class="main-btn">벡터 변환 작업 실행</button>
+        </form>
+        <button onclick="window.open('http://localhost:5001')" class="main-btn">MLflow UI 열기</button>
+        <button onclick="location.href='/automation/status'" class="main-btn">작업 상태 모니터링</button>
+    </div>
+    <ul>
+        <li>벡터 변환 작업 등록: Celery로 대량 변환 작업을 큐에 등록합니다.</li>
+        <li>MLflow UI: 실험 결과를 웹에서 시각적으로 비교/분석할 수 있습니다.</li>
+        <li>작업 상태 모니터링: 현재 큐/워커 상태, 최근 작업 로그 등을 확인합니다.</li>
+    </ul>
+</div>
+{% endblock %} 

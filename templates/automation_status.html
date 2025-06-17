@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}자동화 상태 모니터링{% endblock %}
+{% block content %}
+<h1>자동화 상태 모니터링</h1>
+<div class="automation-status-section">
+    <ul>
+        <li><b>Celery 상태:</b> {{ status.celery }}</li>
+        <li>
+          <b>MLflow 상태:</b>
+          {% if status.mlflow_running %}
+            <a href="{{ status.mlflow_url }}" target="_blank">MLflow UI 접속</a>
+          {% else %}
+            <form method="post" action="/automation/mlflow/start">
+              <button class="main-btn">MLflow 실행</button>
+            </form>
+            (현재 미실행)
+          {% endif %}
+        </li>
+        <li><b>최근 작업 진행률:</b>
+          <ul>
+            {% for progress in status.progress_list %}
+              <li>{{ progress }}</li>
+            {% endfor %}
+          </ul>
+        </li>
+    </ul>
+    <a class="main-btn" href="/automation">자동화 페이지로 돌아가기</a>
+</div>
+{% endblock %} 

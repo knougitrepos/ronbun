@@ -20,3 +20,4 @@ pandas
 pyarrow
 celery
 redis
+faiss-cpu

@@ -1,5 +1,5 @@
 from core.config import ConfigLoader
-from core.pipeline.transformers.wavelet.py import WaveletTransformer
+from core.pipeline.transformers.wavelet import WaveletTransformer
 from core.pipeline.transformers.dct import DCTTransformer
 
 class VectorPipeline:
@@ -17,7 +17,7 @@ class VectorPipeline:
         pass
 
     def transform_vector(self, vec, method, **kwargs):
-        # method: 'wavelet', 'dct', ...
+        # method: 'wavelet', 'dct', 'pca', 'pq' ...
         if method == 'wavelet':
             transformer = WaveletTransformer(
                 wavelet_name=kwargs.get('wavelet_name', 'haar'),
@@ -29,6 +29,20 @@ class VectorPipeline:
                 keep_dim=kwargs.get('keep_dim', None),
                 mode=kwargs.get('mode', 'low')
             )
+        elif method == 'pca':
+            from core.pipeline.transformers.pca import PCATransformer
+            n_components = kwargs.get('n_components', 0.95)
+            transformer = PCATransformer(n_components=n_components)
+            # fit_transform 필요: vec shape (N, D)
+            return transformer.fit_transform(vec)
+        elif method == 'pq':
+            from core.pipeline.transformers.pq import PQTransformer
+            d = kwargs.get('d', vec.shape[1] if len(vec.shape) > 1 else len(vec))
+            M = kwargs.get('M', 16)
+            nbits = kwargs.get('nbits', 8)
+            transformer = PQTransformer(d=d, M=M, nbits=nbits)
+            # fit_transform 필요: vec shape (N, D)
+            return transformer.fit_transform(vec)
         else:
             raise ValueError(f'Unknown transform method: {method}')
         return transformer.transform(vec)
