@@ -18,3 +18,5 @@ optuna
 scikit-learn
 pandas
 pyarrow
+celery
+redis

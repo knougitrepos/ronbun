@@ -5,6 +5,7 @@ from core.config import ConfigLoader
 from core.pipeline.vector_pipeline import VectorPipeline
 from DB.db_utils import SessionLocal
 from core.database import VectorRepository
+from core.celery_app import celery_app
 
 
 # 데이터셋 경로(예시)
@@ -34,7 +35,7 @@ def get_image_paths(root):
                 image_paths.append(os.path.join(dirpath, file))
     return image_paths
 
-def get_or_create_image_id(img_path):
+def get_or_create_image_id(img_path, repository):
     # DB에 이미지가 이미 있으면 id 반환, 없으면 추가 후 id 반환
     image_obj = repository.get_image_by_path(img_path)
     if image_obj:
@@ -55,14 +56,16 @@ def load_image(img_path):
         print(f"[에러] 이미지 로딩 중 예외: {img_path}, {e}")
         return None
 
-image_paths = get_image_paths(DATASET_ROOT)
-
-for idx, img_path in enumerate(image_paths):
-    print(f"[{idx+1}/{len(image_paths)}] 처리중: {img_path}")
+@celery_app.task
+def process_image(img_path):
+    session = SessionLocal()
+    repository = VectorRepository(session)
+    print(f"[처리중] {img_path}")
     image = load_image(img_path)
     if image is None:
-        continue
-    image_id = get_or_create_image_id(img_path)
+        session.close()
+        return
+    image_id = get_or_create_image_id(img_path, repository)
     try:
         # 1. ArcFace 원본 벡터 추출 및 저장
         vec_origin = pipeline.run(image, transform_method=None)
@@ -110,5 +113,61 @@ for idx, img_path in enumerate(image_paths):
         print(f"[완료] {img_path}")
     except Exception as e:
         print(f"[에러] {img_path}: {e}")
+    finally:
+        session.close()
 
-session.close() 
+if __name__ == "__main__":
+    image_paths = get_image_paths(DATASET_ROOT)
+    session = SessionLocal()
+    repository = VectorRepository(session)
+    count = 0
+    for img_path in image_paths:
+        image_obj = repository.get_image_by_path(img_path)
+        if image_obj is None:
+            process_image.delay(img_path)
+            count += 1
+            continue
+        image_id = image_obj.id
+        # 1. ArcFace origin(원본) 중복 체크
+        origin_exists = repository.get_embeddings_512(image_id=image_id, vector_type='origin', param_filter={})
+        if not origin_exists:
+            process_image.delay(img_path)
+            count += 1
+            continue
+        # 2. Wavelet 변환(level/mode별) 중복 체크
+        wavelet_all_exists = True
+        for level in WAVELET_LEVELS:
+            for mode in WAVELET_MODES:
+                exists = repository.get_embeddings_256(
+                    image_id=image_id,
+                    vector_type='wavelet',
+                    param_filter={'level': level, 'mode': mode}
+                )
+                if not exists:
+                    wavelet_all_exists = False
+        # 3. DCT 변환(keep_dim/mode별) 중복 체크
+        dct_all_exists = True
+        for keep_dim in DCT_KEEP_DIMS:
+            for mode in DCT_MODES:
+                if keep_dim == 128:
+                    exists = repository.get_embeddings_128(
+                        image_id=image_id,
+                        vector_type='dct',
+                        param_filter={'keep_dim': keep_dim, 'mode': mode}
+                    )
+                elif keep_dim == 256:
+                    exists = repository.get_embeddings_256(
+                        image_id=image_id,
+                        vector_type='dct',
+                        param_filter={'keep_dim': keep_dim, 'mode': mode}
+                    )
+                else:
+                    exists = []
+                if not exists:
+                    dct_all_exists = False
+        # 하나라도 미처리면 큐에 등록
+        if not (wavelet_all_exists and dct_all_exists):
+            process_image.delay(img_path)
+            count += 1
+    session.close()
+    print(f"총 {count}개의 미처리 작업이 큐에 등록되었습니다.") 
