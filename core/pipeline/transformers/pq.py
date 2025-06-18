@@ -57,4 +57,17 @@ class PQTransformer:
         transformer = PQTransformer(d=d, M=M, nbits=nbits)
         transformer.index = index
         transformer.trained = True
-        return transformer 
+        return transformer
+
+    def save_or_load_codebook(self, X, codebook_dir="codebook"):
+        path = os.path.join(codebook_dir, f"pq_{self.d}.faiss")
+        if os.path.exists(path):
+            print(f"[PQ] 기존 코드북을 로드합니다: {path}")
+            self.index = faiss.read_index(path)
+            self.trained = True
+            return self
+        else:
+            print(f"[PQ] 코드북이 없어 새로 생성합니다: {path}")
+            self.fit(X)
+            self.save_codebook(codebook_dir)
+            return self 

@@ -33,4 +33,9 @@ def extract_embedding_from_image(image_bytes, extractor: FeatureExtractor = None
     if extractor is None:
         extractor = ArcFaceFeatureExtractor()
     img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
-    return extractor.extract(img) 
+    return extractor.extract(img)
+
+class NoneFaceDetectFeatureExtractor(FeatureExtractor):
+    def extract(self, image: Any) -> np.ndarray:
+        # 이미지를 flatten하여 반환 (얼굴 검출 없이)
+        return image.flatten() 

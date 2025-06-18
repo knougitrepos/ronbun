@@ -3,6 +3,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from core.schemas import Base, Image, Embedding256, Embedding512, Embedding128
 from core.config import ConfigLoader
 from sqlalchemy import and_
+from datetime import datetime
+import os
 
 db_cfg = ConfigLoader().db
 print("[DB CONFIG]", db_cfg)
@@ -16,6 +18,12 @@ class VectorRepository:
         self.db = db_session
 
     def add_image(self, image_path, label=None, created_at=None):
+        # label이 없으면 폴더명에서 자동 추출
+        if label is None:
+            label = os.path.basename(os.path.dirname(image_path))
+        # created_at이 없으면 현재 시각으로 자동 입력
+        if created_at is None:
+            created_at = datetime.now()
         image = Image(image_path=image_path, label=label, created_at=created_at)
         self.db.add(image)
         self.db.commit()

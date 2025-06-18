@@ -336,3 +336,28 @@ cmd.exe /c "taskkill /F /IM celery.exe"
 - Windows에서 병렬처리 실험이 꼭 필요하다면 WSL/리눅스 환경 사용을 권장
 
 ---
+
+# 특징 추출 자동화 기능 안내
+
+## 주요 변경사항
+- `/extract` 페이지에서 Wavelet, DCT, PCA, PQ 각 변환별로 '전체 파라미터 조합 실행' 버튼이 추가됨
+- 각 버튼 클릭 시, 서버에서 미리 정의된 다양한 파라미터 조합(예: wavelet 종류, level, 저주파/고주파 등)을 자동 반복 적용하여 특징 추출 및 DB 저장이 이루어짐
+- 각 변환별 파라미터 조합 예시:
+    - **Wavelet**: wavelet_name=['haar','db2','sym2'], level=[1,2,3,4], mode=['low','high']
+    - **DCT**: keep_dim=[16,32,64,128,256], mode=['low','high']
+    - **PCA**: n_components=[0.95,0.99,100,256]
+    - **PQ**: M=[8,16,32], nbits=[4,8]
+- 각 변환별 엔드포인트는 `/extract_features/wavelet`, `/extract_features/dct`, `/extract_features/pca`, `/extract_features/pq`로 구성됨
+
+## 사용법
+- `/extract` 페이지에서 원하는 변환의 전체 파라미터 조합 실행 버튼을 클릭하면, 모든 이미지에 대해 다양한 파라미터 조합으로 특징 추출이 자동 수행됨
+- 결과는 DB에 저장됨
+
+## 참고
+- 파라미터 조합 및 자동화 방식은 `routes/extract_router.py` 참고
+- 실험/운영/확장 시 혼동 방지를 위해 본 문서를 항상 최신으로 유지할 것
+
+## [업데이트] PCA 코드북 자동 저장/로드
+- PCA 변환 시, 코드북(주성분 행렬)이 이미 존재하면 자동으로 로드하고, 없으면 fit 후 코드북을 저장합니다.
+- 코드북은 기본적으로 `codebook/pca_{n_components}.joblib` 경로에 저장됩니다.
+- 파이프라인에서 PCA 변환을 반복적으로 사용할 때, 동일한 파라미터라면 재학습 없이 빠르게 변환이 가능합니다.

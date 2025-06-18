@@ -1,6 +1,6 @@
 # 특징 추출, 변환, 예시 등 주요 기능 라우트 관리
 from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import os
 from DB.db_utils import SessionLocal, ImageEmbeddings, add_image_embedding
@@ -14,10 +14,12 @@ import pywt
 import uuid
 import matplotlib
 from features.face_analysis_loader import get_face_analysis_app
-from features.embedding_service import ArcFaceFeatureExtractor
+from features.embedding_service import ArcFaceFeatureExtractor, NoneFaceDetectFeatureExtractor
 from features.vector_transformer import transform_vector
 import datetime
 import cv2
+from core.pipeline.vector_pipeline import VectorPipeline
+from core.schemas import Image
 
 templates = Jinja2Templates(directory="templates")
 
@@ -30,43 +32,15 @@ async def extract(request: Request):
 
 # 대량 특징추출 서비스 함수
 def extract_and_store_features(image_paths):
-    db = SessionLocal()
-    extractor = ArcFaceFeatureExtractor()
+    vp = VectorPipeline(extractor=ArcFaceFeatureExtractor())
     for img_path in image_paths:
-        is_extract_face = False
         try:
-            # 임베딩 추출
             img = cv2.imread(img_path)
-            vec_origin = extractor.extract(img)
-            is_extract_face = True
+            feat = vp.extract_features(img)
+            meta = {'image_path': img_path}
+            vp.load_to_db(feat, meta, dim=512, vector_type='origin', parameters={})
         except Exception as e:
             print(f"특징 추출 에러: {img_path}, {e}")
-            vec_origin = None
-        label = os.path.basename(os.path.dirname(img_path))
-        used_feature_extract_model = "ArcFace"
-        used_distance_model = "cosine"
-        # (예시) 벡터 변환 적용
-        vec_pca = transform_vector(vec_origin, 'pca', pca_model=None) if vec_origin is not None else None
-        params_pca = {"desc": "예시, 실제 pca_model 필요"} if vec_origin is not None else None
-        # 기타 변환도 필요시 추가
-        try:
-            add_image_embedding(
-                db=db,
-                image_path=img_path,
-                label=label,
-                used_feature_extract_model=used_feature_extract_model,
-                used_distance_model=used_distance_model,
-                is_extract_face=is_extract_face,
-                vec_origin=vec_origin,
-                vec_pca=vec_pca,
-                params_pca=params_pca,
-                created_at=datetime.datetime.now(),
-                updated_at=datetime.datetime.now()
-            )
-        except Exception as e:
-            print(f"DB 저장 에러: {img_path}, {e}")
-            db.rollback()
-    db.close()
 
 @router.post("/extract_features/origin")
 async def extract_origin_features(request: Request, background_tasks: BackgroundTasks):
@@ -210,6 +184,134 @@ async def extract_example_post(request: Request, image: UploadFile = File(...)):
         ("DCT 모든 level 고주파", img_url4)
     ]
     return templates.TemplateResponse("extract_example.html", {"request": request, "result_imgs": result_imgs})
+
+@router.post("/extract_features/wavelet")
+async def extract_wavelet_features(request: Request):
+    from core.database import SessionLocal
+    from core.schemas import Embedding128, Embedding256, Embedding512, Image
+    session = SessionLocal()
+    pca_vecs = []
+    for Emb in [Embedding128, Embedding256, Embedding512]:
+        pca_vecs.extend(session.query(Emb).filter(Emb.vector_type == 'pca').all())
+    session.close()
+    if not pca_vecs:
+        return RedirectResponse(url="/extract?done=wavelet&count=0", status_code=303)
+    wavelet_names = ['haar', 'db2', 'sym2']
+    levels = [1, 2, 3, 4]
+    modes = ['low', 'high']
+    vp = VectorPipeline()
+    count = 0
+    for pca_vec in pca_vecs:
+        vec = pca_vec.embedding
+        dim = vec.shape[0]
+        # image_id로부터 image_path 조회
+        image_obj = session.query(Image).filter(Image.id == pca_vec.image_id).first()
+        image_path = image_obj.image_path if image_obj else None
+        meta = {'image_path': image_path}
+        for wname in wavelet_names:
+            for level in levels:
+                for mode in modes:
+                    vec_trans, log = vp.transform_vector(vec, method='wavelet', wavelet_name=wname, level=level, mode=mode)
+                    params = {'wavelet_name': wname, 'level': level, 'mode': mode}
+                    vp.load_to_db(vec_trans, meta, dim=dim, vector_type='wavelet', parameters=params, log=log)
+                    count += 1
+    return RedirectResponse(url=f"/extract?done=wavelet&count={count}", status_code=303)
+
+@router.post("/extract_features/dct")
+async def extract_dct_features(request: Request):
+    from core.database import SessionLocal
+    from core.schemas import Embedding128, Embedding256, Embedding512, Image
+    session = SessionLocal()
+    pca_vecs = []
+    for Emb in [Embedding128, Embedding256, Embedding512]:
+        pca_vecs.extend(session.query(Emb).filter(Emb.vector_type == 'pca').all())
+    session.close()
+    if not pca_vecs:
+        return RedirectResponse(url="/extract?done=dct&count=0", status_code=303)
+    keep_dims = [16, 32, 64, 128, 256]
+    modes = ['low', 'high']
+    vp = VectorPipeline()
+    count = 0
+    for pca_vec in pca_vecs:
+        vec = pca_vec.embedding
+        dim = vec.shape[0]
+        # image_id로부터 image_path 조회
+        image_obj = session.query(Image).filter(Image.id == pca_vec.image_id).first()
+        image_path = image_obj.image_path if image_obj else None
+        meta = {'image_path': image_path}
+        for keep_dim in keep_dims:
+            for mode in modes:
+                vec_trans, log = vp.transform_vector(vec, method='dct', keep_dim=keep_dim, mode=mode)
+                params = {'keep_dim': keep_dim, 'mode': mode}
+                vp.load_to_db(vec_trans, meta, dim=dim, vector_type='dct', parameters=params, log=log)
+                count += 1
+    return RedirectResponse(url=f"/extract?done=dct&count={count}", status_code=303)
+
+@router.post("/extract_features/pca")
+async def extract_pca_features(request: Request):
+    from core.database import SessionLocal
+    from core.schemas import Embedding512
+    import numpy as np
+    session = SessionLocal()
+    # 원본 특징벡터만 사용
+    origin_vecs = session.query(Embedding512).filter(Embedding512.vector_type == 'origin').all()
+    if not origin_vecs:
+        session.close()
+        return RedirectResponse(url="/extract?done=pca&count=0", status_code=303)
+    n_components_list = [128, 256, 512]
+    feats = [vec.embedding for vec in origin_vecs]
+    feats_np = np.stack(feats)
+    count = 0
+    from core.pipeline.vector_pipeline import VectorPipeline
+    vp = VectorPipeline()
+    for n_components in n_components_list:
+        vecs_trans, log = vp.transform_vector(feats_np, method='pca', n_components=n_components)
+        print(log)
+        for i, _ in enumerate(origin_vecs):
+            image_obj = session.query(Image).filter(Image.id == origin_vecs[i].image_id).first()
+            image_path = image_obj.image_path if image_obj else None
+            meta = {'image_path': image_path}
+            params = {'n_components': n_components}
+            vp.load_to_db(vecs_trans[i], meta, dim=vecs_trans[i].shape[0], vector_type='pca', parameters=params, log=log)
+            count += 1
+    session.close()
+    return RedirectResponse(url=f"/extract?done=pca&count={count}", status_code=303)
+
+@router.post("/extract_features/pq")
+async def extract_pq_features(request: Request):
+    from core.database import SessionLocal
+    from core.schemas import Embedding128, Embedding256, Embedding512
+    session = SessionLocal()
+    pca_vecs = []
+    for Emb in [Embedding128, Embedding256, Embedding512]:
+        pca_vecs.extend(session.query(Emb).filter(Emb.vector_type == 'pca').all())
+    session.close()
+    if not pca_vecs:
+        return RedirectResponse(url="/extract?done=pq&count=0", status_code=303)
+    M_list = [8, 16, 32]
+    nbits_list = [4, 8]
+    vp = VectorPipeline()
+    count = 0
+    for pca_vec in pca_vecs:
+        vec = pca_vec.embedding
+        dim = vec.shape[0]
+        meta = {'image_path': None}
+        for M in M_list:
+            for nbits in nbits_list:
+                vec_trans = vp.transform_vector(vec, method='pq', M=M, nbits=nbits)
+                params = {'M': M, 'nbits': nbits}
+                vp.load_to_db(vec_trans, meta, dim=dim, vector_type='pq', parameters=params)
+                count += 1
+    return RedirectResponse(url=f"/extract?done=pq&count={count}", status_code=303)
+
+@router.get("/extract_features/check_pca")
+async def check_pca_exists():
+    from core.database import SessionLocal
+    session = SessionLocal()
+    from core.schemas import Embedding256
+    has_pca = session.query(Embedding256).filter(Embedding256.vector_type == 'pca').first() is not None
+    session.close()
+    return JSONResponse(content={"has_pca": has_pca})
 
 # 예시: 특징 추출 시
 # app = get_face_analysis_app()

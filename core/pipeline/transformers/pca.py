@@ -39,7 +39,7 @@ class PCATransformer(BaseTransformer):
         n_dim = self.pca.n_components_ if hasattr(self.pca, 'n_components_') else self.n_components
         log = f"[PCA] n_components: {n_dim}, explained_variance_ratio: {evr}, cumulative: {cum_evr[-1]:.4f}"
         if cum_evr[-1] < 0.95:
-            log += f"\n[경고] 누적 분산 설명력 0.95 미만! ({cum_evr[-1]:.4f})"
+            log += f"\n[WARNING] Cumulative explained variance below 0.95! ({cum_evr[-1]:.4f})"
         return log
 
     def save_codebook(self, codebook_dir="codebook"):
@@ -57,4 +57,18 @@ class PCATransformer(BaseTransformer):
         pca = joblib.load(path)
         transformer = PCATransformer(n_components=n_dim)
         transformer.pca = pca
-        return transformer 
+        return transformer
+
+    def save_or_load_codebook(self, X, codebook_dir="codebook"):
+        n_dim = self.n_components
+        path = os.path.join(codebook_dir, f"pca_{n_dim}.joblib")
+        if os.path.exists(path):
+            print(f"[PCA] 기존 코드북을 로드합니다: {path}")
+            loaded = joblib.load(path)
+            self.pca = loaded
+            return self
+        else:
+            print(f"[PCA] 코드북이 없어 새로 생성합니다: {path}")
+            self.fit(X)
+            self.save_codebook(codebook_dir)
+            return self 

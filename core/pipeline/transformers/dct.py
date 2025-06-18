@@ -9,6 +9,7 @@ class DCTTransformer(BaseTransformer):
 
     def transform(self, vec):
         dct_vec = dct(vec, norm='ortho')
+        log = f"[DCT] keep_dim: {self.keep_dim}, mode: {self.mode}, input_dim: {len(vec)}"
         if self.keep_dim is not None:
             if self.mode == 'low':
                 dct_vec[self.keep_dim:] = 0
@@ -16,4 +17,4 @@ class DCTTransformer(BaseTransformer):
                 dct_vec[:self.keep_dim] = 0
             else:
                 raise ValueError("mode는 'low' 또는 'high'만 허용")
-        return dct_vec 
+        return dct_vec, log 

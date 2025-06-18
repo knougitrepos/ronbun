@@ -2,31 +2,55 @@
 {% block title %}특징추출{% endblock %}
 {% block content %}
 <h1>특징추출 페이지</h1>
-<form>
-    <label>모델 선택:
-        <select name="model">
-            <option value="wavelet">Wavelet</option>
-            <option value="dct">DCT</option>
-            <option value="pca">PCA</option>
-            <option value="pq">PQ</option>
-        </select>
-    </label>
-    <br><br>
-    <button type="button">Wavelet</button>
-    <button type="button">DCT</button>
-    <button type="button">PCA</button>
-    <button type="button">PQ</button>
-    <br><br>
-    <label>Wavelet 옵션:
-        <input type="text" name="wavelet_option" placeholder="예: db1, 8">
-    </label>
-    <br><br>
-    <label>이행적 변환:
-        <select name="transitive">
-            <option value="pca_pq">PCA → PQ</option>
-            <option value="zscore_pq">Zscore → PQ</option>
-        </select>
-    </label>
+<script>
+function showRunningAlert() {
+    alert('실행중');
+}
+function checkPCAAndSubmit(form, type) {
+    event.preventDefault();
+    fetch('/extract_features/check_pca')
+        .then(response => response.json())
+        .then(data => {
+            if (data.has_pca) {
+                form.submit();
+            } else {
+                alert('PCA 벡터가 DB에 없습니다. 먼저 PCA 전체 파라미터 조합 실행을 해주세요.');
+            }
+        })
+        .catch(() => {
+            alert('PCA 벡터 확인 중 오류가 발생했습니다.');
+        });
+}
+window.onload = function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('done') && params.has('count')) {
+        const done = params.get('done');
+        const count = params.get('count');
+        alert(`종료: ${count}건 변환완료 (${done})`);
+    }
+}
+</script>
+<form action="/extract_features/pca" method="post" style="display:inline-block;margin-right:10px;" onsubmit="showRunningAlert()">
+    <button type="submit">PCA 전체 파라미터 조합 실행</button>
+</form>
+<form action="/extract_features/wavelet" method="post" style="display:inline-block;margin-right:10px;" onsubmit="checkPCAAndSubmit(this, 'wavelet')">
+    <button type="submit">Wavelet 전체 파라미터 조합 실행</button>
+</form>
+<form action="/extract_features/dct" method="post" style="display:inline-block;margin-right:10px;" onsubmit="checkPCAAndSubmit(this, 'dct')">
+    <button type="submit">DCT 전체 파라미터 조합 실행</button>
+</form>
+<form action="/extract_features/pq" method="post" style="display:inline-block;" onsubmit="checkPCAAndSubmit(this, 'pq')">
+    <button type="submit">PQ 전체 파라미터 조합 실행</button>
+</form>
+<br><br>
+<label>이행적 변환:
+    <select name="transitive">
+        <option value="pca_pq">PCA → PQ</option>
+        <option value="zscore_pq">Zscore → PQ</option>
+    </select>
+</label>
+<form action="/extract_features/transitive" method="post" style="display:block;margin-top:10px;" onsubmit="showRunningAlert()">
+    <button type="submit">이행적 변환 실행</button>
 </form>
 <br>
 <form action="/extract_features/origin" method="post">

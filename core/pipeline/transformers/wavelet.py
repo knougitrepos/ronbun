@@ -10,10 +10,10 @@ class WaveletTransformer(BaseTransformer):
 
     def transform(self, vec):
         coeffs = pywt.wavedec(vec, self.wavelet_name, level=self.level)
+        log = f"[Wavelet] wavelet_name: {self.wavelet_name}, level: {self.level}, mode: {self.mode}, input_dim: {len(vec)}, coeffs_len: {[len(c) for c in coeffs]}"
         if self.mode == 'low':
-            return coeffs[0]  # 저주파 성분
+            return coeffs[0], log
         elif self.mode == 'high':
-            # 고주파: 모든 세부 성분을 합쳐 반환
-            return np.concatenate(coeffs[1:])
+            return np.concatenate(coeffs[1:]), log
         else:
             raise ValueError("mode는 'low' 또는 'high'만 허용") 
