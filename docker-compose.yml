@@ -15,6 +15,9 @@ services:
       - "5432:5432"
     volumes:
       - ./initdb:/docker-entrypoint-initdb.d
+    depends_on:
+      - redis
+    restart: always
 
   redis:
     image: redis:7.2-alpine

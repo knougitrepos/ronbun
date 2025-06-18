@@ -1,3 +1,10 @@
+# Celery 및 분산처리 관련
+celery==5.2.7
+billiard==3.6.4.0
+kombu==5.2.4
+redis==4.5.5
+
+# 기존 패키지(예시)
 fastapi
 uvicorn
 jinja2
@@ -6,7 +13,7 @@ psycopg2-binary
 pgvector
 opencv-python
 insightface
-numpy
+numpy==1.26.4
 torch
 torchvision
 matplotlib
@@ -18,6 +25,4 @@ optuna
 scikit-learn
 pandas
 pyarrow
-celery
-redis
 faiss-cpu

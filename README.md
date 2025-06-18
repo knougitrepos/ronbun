@@ -153,7 +153,8 @@ pip install -r requirements.txt
 - **DB 준비**: PostgreSQL 서버가 반드시 실행 중이어야 함
 - **Celery 워커 실행**: (터미널에서)
   ```bash
-  celery -A core.pipeline.vector_tasks worker --loglevel=info
+  # Windows 환경에서는 반드시 --pool=solo 옵션을 추가해야 함
+  celery -A core.pipeline.vector_tasks worker --loglevel=info --pool=solo
   ```
   - 반드시 위와 같이 -A 옵션에 태스크가 정의된 모듈을 지정해야 함
   - core/celery_app.py에서 vector_tasks 임포트하지 않도록 유지(순환참조 방지)
@@ -216,7 +217,7 @@ pip install -r requirements.txt
 
 #### 1. 반드시 아래와 같이 Celery 워커를 실행해야 태스크가 정상 등록됨
 ```bash
-celery -A core.pipeline.vector_tasks worker --loglevel=info
+celery -A core.pipeline.vector_tasks worker --loglevel=info --pool=solo
 ```
 - `-A` 옵션에 태스크가 정의된 모듈(`core.pipeline.vector_tasks`)을 지정해야 함
 - core/celery_app.py에서는 태스크 임포트하지 않음(순환참조 방지)
@@ -235,7 +236,7 @@ celery -A core.pipeline.vector_tasks worker --loglevel=info
 #### 4. 해결 방법
 - 반드시 워커를 아래 명령어로 실행
   ```bash
-  celery -A core.pipeline.vector_tasks worker --loglevel=info
+  celery -A core.pipeline.vector_tasks worker --loglevel=info --pool=solo
   ```
 - 코드 수정(특히 태스크 정의/등록 구조 변경) 후 워커를 재시작
 - 큐 등록 스크립트도 같은 PYTHONPATH에서 실행 (예: export PYTHONPATH=$(pwd))
@@ -260,16 +261,78 @@ Get-Process celery | Stop-Process -Force
 taskkill /F /IM celery.exe
 ```
 
-#### Linux/WSL/Mac에서 모든 celery 프로세스 종료
+#### Windows의 Git Bash/MINGW64/bash에서 celery 프로세스 종료
 ```bash
-pkill -f 'celery'
+# bash에서는 아래 명령어를 사용하세요
+taskkill //F //IM celery.exe
 # 또는
-ps aux | grep celery
-# 위 명령으로 PID 확인 후
-kill -9 <PID>
+cmd.exe /c "taskkill /F /IM celery.exe"
 ```
 
 - 여러 워커/백그라운드 celery 프로세스가 남아 있을 때 위 명령으로 모두 종료 가능
 - 작업 중인 큐/워커가 모두 종료되므로, 재시작 전 반드시 필요한 작업이 없는지 확인
+
+---
+
+### [실행 로그 파일로 저장하는 방법]
+
+- 로그가 너무 빠르게 지나가서 콘솔에서 확인이 어려울 때, 아래와 같이 log 디렉토리에 로그를 저장하세요.
+
+1. log 디렉토리 생성(최초 1회)
+   ```bash
+   mkdir log
+   ```
+
+2. Celery 워커 로그 저장
+   ```bash
+   celery -A core.pipeline.vector_tasks worker --loglevel=info --pool=solo > log/celery_worker.log 2>&1
+   ```
+
+3. batch_vector_transform_and_save.py 로그 저장
+   - (bash/WSL)
+     ```bash
+     export PYTHONPATH=$(pwd)
+     python scripts/batch_vector_transform_and_save.py > log/batch_script.log 2>&1
+     ```
+   - (Windows CMD)
+     ```cmd
+     set PYTHONPATH=%cd%
+     python scripts/batch_vector_transform_and_save.py > log\batch_script.log 2>&1
+     ```
+
+4. 로그 파일 실시간 확인
+   ```bash
+   tail -f log/celery_worker.log
+   ```
+
+---
+
+### [Windows 환경 Celery 워커 실행 시 --pool=solo 옵션 필수 안내]
+
+#### 1. 현상 및 원인
+- Windows 환경에서 Celery 워커를 기본(prefork) 모드로 실행하면
+  - 태스크를 받자마자 `ValueError: not enough values to unpack (expected 3, got 0)` 에러가 반복 발생
+  - 태스크 함수 내부 코드(print, try/except 등)에 진입하지 못하고, 로그가 전혀 찍히지 않음
+  - Redis 큐, pycache, 환경 동기화 등 모든 조치 후에도 동일 현상 반복
+- 이는 Windows+prefork 모드의 구조적 한계, 메시지 포맷/프로세스간 직렬화 문제, 내부 버그 등으로 인해 발생
+
+#### 2. 해결 방법
+- 반드시 Celery 워커를 --pool=solo 옵션(단일 프로세스 모드)으로 실행해야 함
+- 예시:
+  ```bash
+  celery -A core.pipeline.vector_tasks worker --loglevel=info --pool=solo > log/celery_worker.log 2>&1
+  ```
+- solo 모드에서는 모든 print/log가 정상적으로 찍히고, 태스크 함수가 정상적으로 실행됨
+- 병렬처리가 필요하다면 Linux/WSL 환경에서 prefork 사용을 권장
+
+#### 3. 실전 운영 체크리스트
+- [ ] Windows에서는 항상 --pool=solo 옵션으로 워커 실행
+- [ ] 코드/큐/환경 변경 시 Redis 큐 비우기(`redis-cli FLUSHALL`), 워커 재시작, pycache 삭제
+- [ ] Celery 워커와 batch 등록 스크립트가 동일한 conda 환경, 동일한 PYTHONPATH에서 실행되는지 확인
+- [ ] 로그 파일로 모든 실행 내역을 남기고, 문제 발생 시 로그를 먼저 확인
+
+#### 4. 참고
+- prefork 모드에서만 발생하는 에러이므로, Linux/WSL/Mac 환경에서는 --pool=solo 옵션 없이 병렬처리 가능
+- Windows에서 병렬처리 실험이 꼭 필요하다면 WSL/리눅스 환경 사용을 권장
 
 ---
