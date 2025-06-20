@@ -2,6 +2,53 @@
 
 ---
 
+## 0. Origin Vector DB 구조 및 통합 정책
+
+### Origin Vector 테이블 구조
+- **테이블명:** `origin_vector`
+- **목적:** ArcFace 임베딩과 이미지 정보를 일원화하여 저장
+- **주요 컬럼:**
+  - `id`: Primary Key
+  - `image_path`: 이미지 경로 (downloaded_datasets 기준)
+  - `label`: 인물 라벨 (폴더명)
+  - `vector_type`: 벡터 타입 ('origin')
+  - `parameters`: JSON 파라미터 (빈 객체 {})
+  - `embedding`: 512차원 ArcFace 임베딩 벡터
+  - `created_at`: 생성 시간
+  - `log`: 처리 로그 ('Face detected successfully' 등)
+
+### 다른 변환 테이블과의 관계
+- **DCT 변환:** `dct_vector` 테이블, `origin_vector_id`로 참조
+- **Wavelet 변환:** `wavelet_vector` 테이블, `origin_vector_id`로 참조
+- **향후 PCA/PQ:** 각각 별도 테이블에서 `origin_vector_id`로 참조
+
+### 데이터 흐름
+1. **ArcFace 추출:** `notebooks/origin_extractor.ipynb` → `origin_vector` 테이블
+2. **DCT 변환:** `notebooks/dct_extractor.ipynb` → `dct_vector` 테이블
+3. **Wavelet 변환:** `notebooks/wavelet_extractor.ipynb` → `wavelet_vector` 테이블
+
+**예시 코드 (origin_vector 조회):**
+```python
+# 성공적으로 처리된 origin vector 조회
+cur.execute("""
+    SELECT id, embedding, image_path, label
+    FROM origin_vector 
+    WHERE log LIKE 'Face detected%'
+    ORDER BY id
+""")
+origin_vectors = cur.fetchall()
+
+# 임베딩 데이터 변환 (문자열 → numpy 배열)
+for origin_id, embedding_data, image_path, label in origin_vectors:
+    if isinstance(embedding_data, str):
+        embedding_list = json.loads(embedding_data)
+    else:
+        embedding_list = embedding_data
+    embedding_vector = np.array(embedding_list, dtype=np.float32)
+```
+
+---
+
 ## 1. DCT(이산 코사인 변환) 벡터 추출 및 저장 정책
 
 - **transform_method:** 'dct'
@@ -46,27 +93,45 @@ for keep_dim in [128, 256]:
 
 - **transform_method:** 'wavelet'
 - **지원 파라미터:**
-  - level: 1, 2, 3
-  - mode: 'low', 'high'
-- **저장 차원 및 함수:**
-  - 256차원: `add_embedding_256`
-- **설명:**
-  - Wavelet 변환은 이미지 임베딩을 다중 레벨로 분해하여 저주파/고주파 성분을 추출합니다.
-  - level, mode 조합별로 256차원 벡터로 저장합니다.
+  - wavelet_family: 'haar', 'db2', 'db4', 'sym2', 'sym4', 'coif1', 'bior1.3', 'rbio1.3'
+  - level: 1, 2, 3 (각 family별 최대 레벨은 다름)
+  - mode: 'low', 'high' (DCT와 동일한 개념)
+- **저장 구조:**
+  - DB 테이블: `wavelet_vector`
+  - 식별 방식: origin_vector_id + wavelet_family + level + mode
+- **keep_dim 개념:**
+  - DCT와 달리 사용자가 지정하지 않음
+  - level과 wavelet_family에 따라 자동으로 결정됨 (첫 번째 계수의 길이)
+- **mode 설명:**
+  - `low`: 저주파 성분만 유지 (처음 keep_dim개 계수)
+  - `high`: 고주파 성분만 유지 (처음 keep_dim개 제거 후 나머지)
 
-**예시 코드:**
+**예시 코드 (notebooks/wavelet_extractor.ipynb):**
 ```python
-for level in [1, 2, 3]:
-    for mode in ['low', 'high']:
-        vec_wavelet = pipeline.run(image, transform_method='wavelet', transform_params={'level': level, 'mode': mode})
-        if vec_wavelet is not None:
-            repository.add_embedding_256(
-                image_id=image_id,
-                vector_type='wavelet',
-                parameters={'level': level, 'mode': mode},
-                embedding=vec_wavelet,
-                created_at=None
-            )
+def wavelet_transform_extract(vector, wavelet_name='haar', level=1, mode='low'):
+    # 1D wavelet decomposition
+    coeffs = pywt.wavedec(vector, wavelet_name, level=level)
+    all_coeffs = np.concatenate(coeffs)
+    
+    # keep_dim은 첫 번째 계수의 길이로 자동 결정
+    keep_dim = len(coeffs[0])
+    
+    if mode == 'low':
+        compressed_vector = all_coeffs[:keep_dim]
+    elif mode == 'high':
+        compressed_vector = all_coeffs[keep_dim:]
+    
+    return compressed_vector
+
+# DB 저장
+cur.execute("""
+    INSERT INTO wavelet_vector 
+    (origin_vector_id, wavelet_family, level, mode, original_dim, 
+     compressed_dim, compression_ratio, parameters, embedding, created_at, log)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+""", (origin_id, wavelet_name, level, mode, original_dim,
+      compressed_dim, compression_ratio, Json(parameters), 
+      compressed_vec.tolist(), datetime.now(), log_msg))
 ```
 
 ---

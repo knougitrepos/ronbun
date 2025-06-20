@@ -267,3 +267,4 @@ cython_debug/
 .idea/inspectionProfiles/profiles_settings.xml
 static/**
 mlruns/**
+dbdata/**

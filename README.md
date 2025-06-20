@@ -46,6 +46,23 @@ cosine 유사도 비교로 업로드된 이미지를 유사도 판단
 - 실험 자동화(Optuna+MLflow) 구조상 벡터 차원(128/256/512 등) 확장에 문제 없음
 - 예시: repository.add_embedding_128(...), repository.get_embeddings_128(...) 사용
 
+### [2024-12-28] Origin Vector DB 구조 개선 및 통합
+- ArcFace 임베딩 추출 시 origin_vector 테이블로 이미지와 벡터를 일원화하여 저장
+- notebooks/origin_extractor.ipynb: ArcFace로 downloaded_datasets의 26,466개 이미지 처리
+- 13,195개 성공적 추출, 38개 얼굴 검출 실패 (나머지는 중복/처리불가)
+- origin_vector 테이블 구조: id, image_path, label, vector_type, parameters, embedding(512), created_at, log
+
+### [2024-12-28] Wavelet/DCT 변환 구조 통일 및 mode 확장
+- **Wavelet 변환 개선**: 기존 저주파만 → low/high 모드 지원으로 DCT와 동일한 구조
+- **통일된 Mode 개념**: 
+  - `low`: 저주파 성분만 유지 (처음 keep_dim개 계수)
+  - `high`: 고주파 성분만 유지 (처음 keep_dim개 제거 후 나머지)
+- **Wavelet vs DCT의 keep_dim**:
+  - DCT: 사용자 지정 (8, 16, 32, 64, 128, 256)
+  - Wavelet: 자동 결정 (level과 wavelet family에 따라 첫 번째 계수 길이)
+- **notebooks/wavelet_extractor.ipynb**: 임베딩 데이터 형식 문제 해결, JSON 파싱 추가
+- **DB 구조**: wavelet_vector 테이블에 origin_vector_id + wavelet_family + level + mode로 식별
+
 ### [ArcFace origin(원본) 벡터 저장 원칙]
 - ArcFace 등 임베딩 모델의 원본 벡터(origin)는 Embedding_512 테이블에 저장
 - vector_type='origin', parameters={}로 구분하여 저장(예시 코드 참고)
