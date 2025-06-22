@@ -332,7 +332,7 @@ pip install -r requirements.txt
 celery -A core.pipeline.vector_tasks worker --loglevel=info --pool=solo
 ```
 - `-A` 옵션에 태스크가 정의된 모듈(`core.pipeline.vector_tasks`)을 지정해야 함
-- core/celery_app.py에서는 태스크 임포트하지 않음(순환참조 방지)
+- core/celery_app.py에서는 태스크 임포트하지 않도록 유지(순환참조 방지)
 - 태스크 정의 파일(vector_tasks.py)에서는 from core.celery_app import celery_app만 사용
 
 #### 2. [tasks] 아래에 `core.pipeline.vector_tasks.process_image`가 보이면 정상 등록된 것임
@@ -502,3 +502,25 @@ cmd.exe /c "taskkill /F /IM celery.exe"
 - **사용자 경험 개선**:
   - 복잡한 재시작 절차 없이 단순히 노트북 전체 실행으로 해결
   - 처음 사용자와 재시작 사용자 모두 동일한 실행 방법 사용
+
+### [2025-01-22] C-AE 복합 Loss 함수 도입으로 성능 향상
+- **복합 Loss 함수**: `total_loss = α * MSE + β * (1 - cosine_similarity)` 방식 도입
+- **핵심 개선사항**:
+  - MSE Loss: 점별 복원 정확도 최적화
+  - 코사인 유사도 Loss: 벡터 방향성 보존 최적화
+  - 마스킹 적용: 패딩 부분 제외한 유효 영역만 계산
+  - 동적 가중치 조절: α(MSE), β(코사인) 파라미터로 학습 목표 조정
+- **TrainingConfig 설정**:
+  ```python
+  use_composite_loss: bool = True  # 복합 loss 사용 여부
+  mse_weight: float = 1.0         # α: MSE 가중치
+  cosine_weight: float = 0.5      # β: 코사인 유사도 가중치
+  ```
+- **Loss 가중치 조절 가이드**:
+  - 정확한 복원: α=1.0, β=0.1 (MSE 중심)
+  - 균형잡힌 학습: α=1.0, β=0.5 (기본 권장)
+  - 방향성 중시: α=0.7, β=1.0 (코사인 유사도 중심)
+- **성능 향상 기대**:
+  - 벡터 방향성 보존으로 검색 성능 향상
+  - MSE + 코사인 유사도 결합으로 더 견고한 복원
+  - 다양한 벡터 타입(origin, dct, wavelet)에 적응적 학습
