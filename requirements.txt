@@ -3,26 +3,48 @@ celery==5.2.7
 billiard==3.6.4.0
 kombu==5.2.4
 redis==4.5.5
+seaborn
+matplotlib
 
-# 기존 패키지(예시)
+# 웹 프레임워크 및 데이터베이스
 fastapi
 uvicorn
 jinja2
 sqlalchemy>=2.0
 psycopg2-binary
 pgvector
+
+# 컴퓨터 비전 및 이미지 처리
 opencv-python
 insightface
-numpy==1.26.4
-torch
-torchvision
 matplotlib
 pillow
 pywavelets
+
+# 웹 관련
 python-multipart
+
+# 머신러닝 및 최적화
 mlflow
 optuna
-scikit-learn
-pandas
+scikit-learn>=1.1.0
+
+# 데이터 처리 및 분석
+pandas>=1.5.0
+numpy>=1.21.0
+scipy>=1.7.0
+
+# 딥러닝 프레임워크
+torch>=1.12.0
+torchvision>=0.13.0
+
+# 벡터 검색
 pyarrow
 faiss-cpu
+
+# 진행률 표시
+tqdm>=4.64.0
+
+# Jupyter 노트북 환경 (선택사항)
+jupyter>=1.0.0
+ipykernel>=6.0.0

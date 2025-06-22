@@ -25,6 +25,9 @@ def initialize_face_analysis():
     - providers=['CPUExecutionProvider']: CPU에서 실행 (GPU 사용 시 변경)
     - det_size=(640, 640): 얼굴 검출 입력 이미지 크기
     """
+
+
+    #  640x640은 얼굴을 찾기 위한 크기이고, 실제 ArcFace 임베딩 추출은 검출된 얼굴을 112x112로 크롭한 후에 수행됩니다.
     global face_app
     if face_app is None:
         print("Initializing FaceAnalysis model...")

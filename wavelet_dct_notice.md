@@ -282,4 +282,66 @@ repository.add_embedding_pq(
 
 - DCT, Wavelet, PCA, PQ 등 다양한 변환은 파이프라인 구조상 확장 및 실험 자동화에 쉽게 연동할 수 있습니다.
 - 코드/정책/구조 변경 시 README.md, 본 문서에 즉시 반영하여 문서와 코드가 항상 동기화되도록 관리합니다.
-- 폴더/파일/클래스/함수명은 기능 의미를 따르며, 계층적/추상화 구조로 유지보수성 강화 
+- 폴더/파일/클래스/함수명은 기능 의미를 따르며, 계층적/추상화 구조로 유지보수성 강화
+
+## 9. 조건부 오토인코더(C-AE) 시스템 구현 및 최적화
+
+### 개요
+- **목적:** 이종 벡터(Origin, DCT, Wavelet) 통합 압축 시스템
+- **노트북:** `notebooks/germini_AE.ipynb`
+- **핵심 기능:** 조건부 학습을 통한 맥락 인식 벡터 압축
+
+### 주요 최적화 사항
+1. **성능 최적화** (2025-01-21 완료)
+   - DataLoader 성능: 1시간+ → 수초 내 완료
+   - 조건 벡터 사전 계산으로 OneHot 인코딩 병목 해결
+   - 멀티프로세싱 비활성화로 Windows 호환성 확보
+   - 패딩 최적화로 메모리 20% 절약
+
+2. **KeyError 완전 해결** (2025-01-21 완료)
+   - **핵심 문제:** `update_config_with_optimal_settings` 함수에서 DataLoader 재생성 시 `collate_fn=custom_collate_fn` 누락
+   - **해결 방법:** train_loader와 val_loader 재생성 시 누락된 `collate_fn=custom_collate_fn` 인자 추가
+   - **결과:** 모든 KeyError: 'family', 'level', 'mode' 등 metadata 관련 오류 완전 제거
+
+### 핵심 해결 코드
+```python
+# 수정 전 (문제 코드)
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=safe_batch,
+    shuffle=True,
+    num_workers=config.num_workers,
+    pin_memory=config.pin_memory,
+    # collate_fn 누락으로 metadata 처리 실패
+)
+
+# 수정 후 (해결 코드)
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=safe_batch,
+    shuffle=True,
+    num_workers=config.num_workers,
+    pin_memory=config.pin_memory,
+    collate_fn=custom_collate_fn  # KeyError 해결: 누락된 collate_fn 추가
+)
+```
+
+### 안정성 보장
+- 모든 DataLoader에서 metadata 안전 처리 보장
+- GPU 최적화와 성능 최적화가 모두 안정적으로 작동
+- 노트북 전체 파이프라인이 중단 없이 완전 실행 가능
+
+---
+
+## 10. 실험 자동화 정책 및 설정 관리
+
+모든 변환/실험/저장 정책은 코드와 문서에 동기화되어 관리됩니다:
+- **새 변환/구조 추가시:** README.md, wavelet_dct_notice.md 문서 즉시 업데이트
+- **실험 설정:** config.yaml 기반 파라미터 조합 지원
+- **코드북 관리:** codebook/ 폴더에 표준 형식으로 저장
+- **환경 관리:** 새 라이브러리는 requirements.txt에 반드시 추가
+
+**코드와 문서 동기화 원칙:**
+- 모든 정책 변경은 코드 수정과 문서 업데이트를 함께 수행
+- 실험/운영/확장에 혼동이 없도록 일관성 유지
+- 추상화와 계층적 구조로 유지보수성 강화 

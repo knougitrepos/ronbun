@@ -268,3 +268,5 @@ cython_debug/
 static/**
 mlruns/**
 dbdata/**
+notebooks/logs/**
+notebooks/checkpoints/**
