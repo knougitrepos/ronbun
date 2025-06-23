@@ -48,3 +48,9 @@ tqdm>=4.64.0
 # Jupyter 노트북 환경 (선택사항)
 jupyter>=1.0.0
 ipykernel>=6.0.0
+
+umap-learn>=0.5.0
+faiss-cpu
+plotly>=5.0.0
+scikit-learn>=1.0.0
+seaborn>=0.11.0
