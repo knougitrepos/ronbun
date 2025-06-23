@@ -1,3 +1,35 @@
+### [2025-01-24] 한글 폰트 문제 및 OpenMP 충돌 완전 해결
+- **core/pipeline/font_utils.py**: Windows 환경에서 matplotlib 한글 폰트 문제 완전 해결
+- **core/pipeline/openmp_fix.py**: Intel OpenMP와 LLVM OpenMP 충돌 문제 해결
+- **자동 한글 폰트 감지 및 설정**:
+  - 시스템 설치 폰트 자동 스캔 (Malgun Gothic, Batang, Dotum, Gulim 등)
+  - 우선순위 기반 최적 한글 폰트 선택 (Malgun Gothic > NanumGothic > Batang 순)
+  - 한글 폰트 미설치 시 설치 가이드 자동 제공
+- **matplotlib 한글 지원 기능**:
+  - `setup_korean_font()`: 자동 한글 폰트 설정 및 검증
+  - `get_korean_fonts()`: 시스템 한글 폰트 목록 반환
+  - `reset_font_cache()`: matplotlib 폰트 캐시 리셋 기능
+  - `install_korean_font_guide()`: 상세한 폰트 설치 안내
+- **OpenMP 충돌 해결 기능**:
+  - `fix_openmp_conflicts()`: KMP_DUPLICATE_LIB_OK 환경변수 설정으로 충돌 방지
+  - `check_openmp_status()`: 현재 OpenMP 환경 변수 상태 확인
+  - `test_numpy_performance()`: NumPy 성능 테스트로 충돌 영향 검증
+  - `fix_conda_openmp()`: Conda 환경에서 OpenMP 패키지 충돌 해결 가이드
+- **노트북 통합 적용**:
+  - **notebooks/unified_beta_vae_enhanced.ipynb**: 한글 폰트 + OpenMP 충돌 해결 적용
+  - **notebooks/germini_AE.ipynb**: 한글 폰트 자동 설정 로직 통합
+  - try-except 구조로 폰트 유틸리티 실패 시 수동 설정 fallback
+  - OpenMP 경고 메시지 필터링 및 환경 변수 자동 설정
+- **문제 해결 완료**:
+  - **한글 폰트**: `Glyph missing from font(s) DejaVu Sans` 경고 완전 제거
+  - **OpenMP 충돌**: `Found Intel OpenMP and LLVM OpenMP loaded` 경고 해결
+  - 시스템의 `Malgun Gothic` 폰트로 자동 설정하여 모든 한글 문자 정상 표시
+- **기술적 특징**:
+  - Windows 기본 폰트 우선 활용 (별도 설치 불필요)
+  - unicode_minus=False 설정으로 마이너스 기호 문제도 동시 해결
+  - 폰트 검증 메커니즘으로 설정 성공 여부 자동 확인
+  - threadpoolctl 런타임 경고 자동 필터링
+
 ### [2025-01-24] Enhanced β-VAE 통합 시스템 완전 구축 완료
 - **notebooks/unified_beta_vae_enhanced.ipynb**: 기존 `unified_beta_vae.ipynb`와 7가지 개선사항 완전 통합
 - **완전 통합된 시스템 특징**:
