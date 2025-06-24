@@ -270,3 +270,6 @@ mlruns/**
 dbdata/**
 notebooks/logs/**
 notebooks/checkpoints/**
+notebooks/advanced_b_vae_checkpoints/**
+notebooks/enhanced_beta_vae_checkpoints/**
+
