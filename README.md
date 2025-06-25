@@ -662,3 +662,25 @@ cmd.exe /c "taskkill /F /IM celery.exe"
   - 벡터 방향성 보존으로 검색 성능 향상
   - MSE + 코사인 유사도 결합으로 더 견고한 복원
   - 다양한 벡터 타입(origin, dct, wavelet)에 적응적 학습
+
+### [2025-01-25] ArcFace Teacher Learning β-VAE 구현 완료
+- **notebooks/unified_beta_vae_enhanced.ipynb**: ArcFace origin vector를 teacher로 하는 Enhanced β-VAE 완전 구현
+- **핵심 변경사항**:
+  - **Loss 함수 개선**: 기존 `MSE + β·KL + λ·(1-cosine(recon_x, x))` → 새로운 `MSE + β·KL + λ_cos·(1-cosine(z_output, origin))`
+  - **ArcFace Teacher Learning**: latent vector(z)가 ArcFace origin vector의 방향(structure)을 모방하도록 학습
+  - **압축된 벡터 품질 향상**: 128D 압축 벡터가 검색 성능을 유지할 수 있도록 정렬 유도
+- **기술적 구현**:
+  - `load_origin_vectors_with_paths()`: origin_vector 테이블에서 ArcFace 벡터(512D) 로딩
+  - `VAEOriginDataset`: 입력 벡터와 origin 벡터를 쌍으로 제공하는 커스텀 데이터셋
+  - `origin_projector`: origin vector(512D)를 latent space(128D)로 projection하는 linear layer
+  - Enhanced loss function: `cosine_similarity(z_output, origin_projected)` 계산
+- **데이터 흐름**:
+  - 입력: (x_input, origin_vector) 쌍
+  - 출력: latent vector z가 origin vector 방향과 유사하도록 학습
+  - 순환 반복 + 랜덤 셔플 매핑으로 다양성 확보
+- **모니터링 개선**:
+  - 진행 바에 `Arc_Cos` 지표 추가 (latent-origin cosine similarity)
+  - 훈련 설정에 "ArcFace Teacher: latent vector → origin vector 정렬 학습" 표시
+  - Enhanced Training Manager의 cosine similarity 계산 업데이트
+- **하이퍼파라미터 조정**: `cosine_lambda: 3.0` (ArcFace teacher loss 가중치)
+- **목적**: AE의 latent vector가 검색 성능을 유지하면서도 의미적 구조를 보존하도록 학습
