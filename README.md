@@ -1,3 +1,29 @@
+### [2025-01-25] 딥러닝 실험 재현성 문제 완전 해결
+- **notebooks/unified_beta_vae_enhanced.ipynb**: "같은 파라미터, 다른 결과" 문제의 3가지 핵심 원인 해결
+- **🎯 3가지 핵심 문제 및 해결방안**:
+  1. **DB 쿼리 순서 미고정 → ORDER BY 추가**:
+     - wavelet_vector, dct_vector: `ORDER BY origin_vector_id, id`
+     - origin_vector: `ORDER BY id, image_path`
+     - 매번 동일한 순서로 데이터 로딩하여 train/val split 일관성 확보
+  2. **비결정적 origin 매핑 → 시드 고정된 RNG 사용**:
+     - 기존: `np.random.shuffle()` → 매번 다른 매핑
+     - 개선: `np.random.default_rng(seed=42).shuffle()` → 완전 결정적 매핑
+     - cosine loss 학습 목표 자체가 일관되어 동일한 수렴 경로 보장
+  3. **글로벌 시드 미고정 → 전역 시드 동기화**:
+     - `random.seed(42)`, `np.random.seed(42)`, `torch.manual_seed(42)`
+     - `torch.cuda.manual_seed_all(42)` + `torch.backends.cudnn.deterministic=True`
+     - 모든 난수 생성기(모델 초기화, 데이터 로더, dropout 등) 완전 동기화
+- **🔧 기술적 특징**:
+  - **완전한 재현성**: 동일 하이퍼파라미터 → 동일 로그, 동일 최종 성능(±ε)
+  - **DB 정렬 최적화**: Primary Key 기반 정렬로 쿼리 성능 유지
+  - **결정적 매핑**: 수학적으로 동일한 origin-sample 페어링 보장
+  - **GPU/CPU 시드 통합**: CUDA 포함 모든 연산 장치 시드 동기화
+- **🎯 실험 효과**:
+  - 의도적인 변경(validation 비율 등)만이 결과를 바꾸게 됨
+  - 디버깅 시 정확한 원인 파악 가능 (재현 가능한 실험)
+  - 하이퍼파라미터 튜닝 결과 신뢰성 확보
+  - A/B 테스트 및 모델 비교 실험의 객관성 보장
+
 ### [2025-01-24] 한글 폰트 문제 및 OpenMP 충돌 완전 해결
 - **core/pipeline/font_utils.py**: Windows 환경에서 matplotlib 한글 폰트 문제 완전 해결
 - **core/pipeline/openmp_fix.py**: Intel OpenMP와 LLVM OpenMP 충돌 문제 해결
@@ -470,7 +496,7 @@ pip install -r requirements.txt
 celery -A core.pipeline.vector_tasks worker --loglevel=info --pool=solo
 ```
 - `-A` 옵션에 태스크가 정의된 모듈(`core.pipeline.vector_tasks`)을 지정해야 함
-- core/celery_app.py에서는 태스크 임포트하지 않도록 유지(순환참조 방지)
+- core/celery_app.py에서 vector_tasks 임포트하지 않도록 유지(순환참조 방지)
 - 태스크 정의 파일(vector_tasks.py)에서는 from core.celery_app import celery_app만 사용
 
 #### 2. [tasks] 아래에 `core.pipeline.vector_tasks.process_image`가 보이면 정상 등록된 것임
