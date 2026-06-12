@@ -19,7 +19,6 @@ opencv-python
 insightface
 matplotlib
 pillow
-pywavelets
 
 # 웹 관련
 python-multipart
@@ -32,7 +31,6 @@ scikit-learn>=1.1.0
 # 데이터 처리 및 분석
 pandas>=1.5.0
 numpy>=1.21.0
-scipy>=1.7.0
 
 # 딥러닝 프레임워크
 torch>=1.12.0

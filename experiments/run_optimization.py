@@ -6,8 +6,8 @@ from core.pipeline.vector_pipeline import VectorPipeline
 
 def objective(trial):
     norm_type = trial.suggest_categorical("norm", ["l2", "zscore"])
-    pca_dim = trial.suggest_int("pca_dim", 64, 512, step=64)
-    use_wavelet = trial.suggest_categorical("use_wavelet", [True, False])
+    pca_dim = trial.suggest_categorical("pca_dim", [256])
+    use_pq = trial.suggest_categorical("use_pq", [True, False])
     # config, pipeline, repository 등 연동 예시
     config = ConfigLoader()
     pipeline = VectorPipeline(config)
@@ -18,7 +18,7 @@ def objective(trial):
     with mlflow.start_run():
         mlflow.log_param("norm", norm_type)
         mlflow.log_param("pca_dim", pca_dim)
-        mlflow.log_param("use_wavelet", use_wavelet)
+        mlflow.log_param("use_pq", use_pq)
         mlflow.log_metric("recall_1", result["recall_1"])
         mlflow.log_metric("recall_5", result["recall_5"])
         mlflow.log_metric("query_time", result["query_time"])
@@ -28,4 +28,4 @@ if __name__ == "__main__":
     mlflow.set_tracking_uri("file:./mlruns")
     mlflow.set_experiment("vector_search_optimization")
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=30) 
+    study.optimize(objective, n_trials=30)

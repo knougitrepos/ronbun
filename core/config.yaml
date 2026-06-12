@@ -3,8 +3,7 @@ experiment:
   normalization: l2           # l2, zscore, none
   vector_transform:
     - pca
-    - dct
-    - quantize
+    - pq
   search_strategy: hnsw       # hnsw, brute_force, IVFFlat 
   distance_metric: cosine     # cosine, euclidean, inner_product
   pca_params:
@@ -24,4 +23,4 @@ postgres:
 # 모델 경로 등
 model:
   arcface_path: ./models/arcface.onnx
-  efficientnet_path: ./models/efficientnet_b0.onnx 
+  efficientnet_path: ./models/efficientnet_b0.onnx

@@ -1,6 +1,4 @@
 from core.config import ConfigLoader
-from core.pipeline.transformers.wavelet import WaveletTransformer
-from core.pipeline.transformers.dct import DCTTransformer
 import numpy as np
 from features.embedding_service import ArcFaceFeatureExtractor, NoneFaceDetectFeatureExtractor
 from core.database import SessionLocal, VectorRepository
@@ -25,21 +23,8 @@ class VectorPipeline:
             return NoneFaceDetectFeatureExtractor().extract(image)
 
     def transform_vector(self, vec, method, **kwargs):
-        # method: 'wavelet', 'dct', 'pca', 'pq' ...
-        if method == 'wavelet':
-            transformer = WaveletTransformer(
-                wavelet_name=kwargs.get('wavelet_name', 'haar'),
-                level=kwargs.get('level', 1),
-                mode=kwargs.get('mode', 'low')
-            )
-            result, log = transformer.transform(vec)
-        elif method == 'dct':
-            transformer = DCTTransformer(
-                keep_dim=kwargs.get('keep_dim', None),
-                mode=kwargs.get('mode', 'low')
-            )
-            result, log = transformer.transform(vec)
-        elif method == 'pca':
+        # Thesis scope: ArcFace origin -> PCA -> PQ.
+        if method == 'pca':
             from core.pipeline.transformers.pca import PCATransformer
             n_components = kwargs.get('n_components', 0.95)
             transformer = PCATransformer(n_components=n_components)
@@ -114,4 +99,4 @@ class VectorPipeline:
         else:
             vec = feat
         self.load_to_db(vec, meta or {}, 512, log=log)
-        return vec 
+        return vec

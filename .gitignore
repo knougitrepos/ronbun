@@ -1,5 +1,14 @@
-downloaded_datasets/**
-.conda/**
+downloaded_datasets/
+.conda/
+dbdata/
+mlruns/
+static/extract_example/
+codebook/
+tmp/
+log/
+temp/
+.cursor/
+.idea/
 
 
 
@@ -266,6 +275,8 @@ cython_debug/
 .idea/vcs.xml
 .idea/inspectionProfiles/profiles_settings.xml
 static/**
+!static/
+!static/style.css
 mlruns/**
 dbdata/**
 notebooks/logs/**

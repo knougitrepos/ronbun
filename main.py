@@ -123,22 +123,10 @@ async def automation_status(request: Request):
     repo = VectorRepository(session)
     total_images = session.query(func.count(Image.id)).scalar() or 1
     progress_list = []
-    # PCA 128/256
-    for keep_dim in [128, 256]:
-        done = len(repo.get_embeddings_128(vector_type='pca', param_filter={'n_components': keep_dim})) if keep_dim == 128 else len(repo.get_embeddings_256(vector_type='pca', param_filter={'n_components': keep_dim}))
-        progress = f"PCA({keep_dim}): {done}/{total_images} ({done/total_images*100:.1f}%)"
-        progress_list.append(progress)
-    # DCT 128/256
-    for keep_dim in [128, 256]:
-        done = len(repo.get_embeddings_128(vector_type='dct', param_filter={'keep_dim': keep_dim})) if keep_dim == 128 else len(repo.get_embeddings_256(vector_type='dct', param_filter={'keep_dim': keep_dim}))
-        progress = f"DCT({keep_dim}): {done}/{total_images} ({done/total_images*100:.1f}%)"
-        progress_list.append(progress)
-    # Wavelet 256
-    done = len(repo.get_embeddings_256(vector_type='wavelet'))
-    progress = f"Wavelet(256): {done}/{total_images} ({done/total_images*100:.1f}%)"
-    progress_list.append(progress)
-    # PQ 128/256 (예시, 실제 PQ 테이블 구현 시 수정)
-    # ... PQ 진행률 추가 가능 ...
+    pca_done = len(repo.get_embeddings_256(vector_type='pca', param_filter={'n_components': 256}))
+    progress_list.append(f"PCA(256): {pca_done}/{total_images} ({pca_done/total_images*100:.1f}%)")
+    pq_done = session.query(func.count(EmbeddingPQ.id)).scalar() or 0
+    progress_list.append(f"PQ: {pq_done}/{total_images} ({pq_done/total_images*100:.1f}%)")
     session.close()
 
     return templates.TemplateResponse(
