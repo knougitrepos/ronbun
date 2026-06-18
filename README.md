@@ -1,6 +1,6 @@
 # Thesis Image Retrieval Project
 
-이 저장소는 **PostgreSQL/pgvector 기반 인물 이미지 검색에서 얼굴 전용 임베딩의 압축 가능성과 검색 효율을 분석**하기 위한 연구 프로젝트입니다.
+이 저장소는 **PostgreSQL/pgvector 기반 얼굴 검색에서 품질 적응형 템플릿 집계와 압축 인지형 미등록 인물 거부를 연구**하기 위한 석사논문 프로젝트입니다.
 
 자세한 연구 방향은 [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)를 기준으로 합니다.
 
@@ -8,22 +8,21 @@
 
 핵심 연구 질문은 다음과 같습니다.
 
-> PostgreSQL/pgvector 기반 인물 이미지 검색에서 ArcFace 임베딩의 PCA/PQ 압축은 검색 정확도를 유지하면서 저장공간과 질의시간을 줄일 수 있는가?
+> 품질 적응형 템플릿 집계와 압축 인지형 점수 보정은 압축된 ArcFace 임베딩 기반 얼굴 검색에서 등록 인물 식별과 미등록 인물 거부 성능을 동시에 보존할 수 있는가?
 
-본 연구의 novelty는 새로운 정규화 수식을 주장하는 것이 아니라, **얼굴 전용 임베딩을 실제 관계형 데이터베이스 검색 환경에서 압축했을 때의 정확도-속도-저장공간 trade-off를 정량적으로 분석**하는 데 있습니다.
+연구는 정렬된 얼굴 crop, 동결된 ArcFace, 공개 데이터셋을 사용합니다. 핵심 novelty는 **이상치 제거 및 품질 가중 템플릿 집계와 품질·템플릿 분산·압축 오차를 이용한 미등록 인물 거부 보정**입니다.
 
 ## 실험군
 
-핵심 실험군은 4개로 제한합니다.
+핵심 실험은 세 단계로 구성합니다.
 
-| 실험군 | 목적 |
+| 단계 | 비교 항목 |
 | --- | --- |
-| ArcFace 512D | 얼굴 전용 임베딩 원본 기준선 |
-| ArcFace PCA-256D | 실용적 차원 축소 기준선 |
-| ArcFace PCA-256D + PQ | 강한 압축에서 정확도와 효율 trade-off 확인 |
-| General Model 512D | 일반 이미지 모델 ablation 및 실패 양상 비교 |
+| 템플릿 집계 | Single, Mean, Outlier+Mean, 규칙 기반 품질 가중, FIQA 품질 가중 |
+| 압축 | ArcFace 512D, PCA-256D, PostgreSQL 검색 가능한 강한 압축 프로파일 |
+| 미등록 거부 | 전역 임계값, 압축별 임계값, 품질·압축 인지형 보정 |
 
-DCT/Wavelet 및 autoencoder 계열 실험은 본 논문의 핵심 실험군에서 제외하고, 필요 시 향후 연구나 부록 후보로만 다룹니다.
+PQ는 pgvector HNSW가 `LargeBinary` code를 직접 검색하지 못하므로 Faiss 또는 복원 오차 기반 보조 실험으로 분리합니다.
 
 ## 주요 구성
 
@@ -35,15 +34,23 @@ DCT/Wavelet 및 autoencoder 계열 실험은 본 논문의 핵심 실험군에�
 - `notebooks/origin_extractor.ipynb`: ArcFace 원본 임베딩 추출 실험
 - `notebooks/arcface_grad_cam.ipynb`: ArcFace 분석용 노트북
 - `THESIS_RESEARCH_PLAN.md`: 논문 방향, novelty, 실험군, 평가 지표 정리
+- `docs/superpowers/specs/2026-06-19-quality-compression-aware-face-search-design.md`: 승인된 연구 설계
+- `docs/superpowers/plans/2026-06-19-quality-compression-aware-face-search.md`: 구현 계획
 
 ## 평가 지표
 
-검색 정확도:
+등록 검색:
 
-- `Recall@1`
-- `Recall@5`
-- `Recall@K`
+- `Rank-1`
+- `Rank-5`
 - `mAP`
+
+미등록 거부:
+
+- `DIR@FPIR`
+- `FNIR@FPIR`
+- `Expected Calibration Error`
+- `Brier Score`
 
 시스템 효율:
 
@@ -51,23 +58,12 @@ DCT/Wavelet 및 autoencoder 계열 실험은 본 논문의 핵심 실험군에�
 - `Storage Size`
 - `Index Build Time`
 
-압축 분석:
+압축 및 강건성:
 
 - `Compression Ratio`
-- `Accuracy Loss`
-- 원본 대비 성능 유지율
-
-보조 통합 지표:
-
-```text
-A_norm = Recall_compressed / Recall_original
-T_norm = Time_original / Time_compressed
-S_norm = Storage_original / Storage_compressed
-
-NRES = A_norm^0.5 * T_norm^0.25 * S_norm^0.25
-```
-
-`NRES`는 핵심 novelty가 아니라 결과를 요약하기 위한 보조 지표로 사용합니다.
+- `Reconstruction Error`
+- 압축 전후 식별 및 미등록 거부 성능
+- 품질 구간별 성능
 
 ## 로컬 산출물 관리
 
