@@ -100,4 +100,69 @@ class RecallTestResultsSummary(Base):
     updated_at = Column(TIMESTAMP)
     explain = Column(Text)
 
-# 필요시 Embedding128, Embedding1024 등 추가 가능 
+class ResearchRun(Base):
+    __tablename__ = 'research_runs'
+    id = Column(Integer, primary_key=True)
+    run_name = Column(Text, unique=True, nullable=False)
+    config_hash = Column(String(64), nullable=False)
+    config = Column(JSON, nullable=False)
+    status = Column(String(32), nullable=False, default='created')
+    artifact_dir = Column(Text)
+    created_at = Column(TIMESTAMP)
+
+class ResearchSplit(Base):
+    __tablename__ = 'research_splits'
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, ForeignKey('research_runs.id'), nullable=False)
+    split_name = Column(String(32), nullable=False)
+    identity_id = Column(Text, nullable=False)
+    role = Column(String(64), nullable=False)
+    details = Column('metadata', JSON)
+    created_at = Column(TIMESTAMP)
+
+class ResearchTemplate(Base):
+    __tablename__ = 'research_templates'
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, ForeignKey('research_runs.id'), nullable=False)
+    identity_id = Column(Text, nullable=False)
+    compression_profile = Column(String(64), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    source_image_ids = Column(JSON)
+    embedding_artifact = Column(Text)
+    details = Column('metadata', JSON)
+    created_at = Column(TIMESTAMP)
+
+class ResearchSearchResult(Base):
+    __tablename__ = 'research_search_results'
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, ForeignKey('research_runs.id'), nullable=False)
+    query_id = Column(Text, nullable=False)
+    query_identity_id = Column(Text)
+    probe_type = Column(String(64), nullable=False)
+    compression_profile = Column(String(64), nullable=False)
+    top1_identity = Column(Text)
+    top1_score = Column(Float)
+    top2_score = Column(Float)
+    score_margin = Column(Float)
+    y_true_accept = Column(Boolean, nullable=False)
+    ranked_identities = Column(JSON)
+    details = Column('metadata', JSON)
+    created_at = Column(TIMESTAMP)
+
+class ResearchCalibrationResult(Base):
+    __tablename__ = 'research_calibration_results'
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, ForeignKey('research_runs.id'), nullable=False)
+    model_name = Column(String(128), nullable=False)
+    compression_profile = Column(String(64))
+    target_fpir = Column(Float, nullable=False)
+    threshold = Column(Float)
+    metrics = Column(JSON)
+    feature_columns = Column(JSON)
+    details = Column('metadata', JSON)
+    created_at = Column(TIMESTAMP)
+
+# 필요시 Embedding128, Embedding1024 등 추가 가능

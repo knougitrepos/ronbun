@@ -1,0 +1,38 @@
+run:
+  name: thesis2_face_search_v1
+  artifact_root: artifacts/research_runs
+
+dataset:
+  manifest_path: data/face_manifest.csv
+  embedding_column: embedding
+  identity_column: identity_id
+  image_id_column: image_id
+
+protocol:
+  split_seed: 42
+  enrollment_counts: [1, 2, 5]
+  gallery_identities_path: data/gallery_identities.txt
+  unknown_unknown_identities_path: data/unknown_unknown_identities.txt
+
+compression:
+  profiles:
+    - origin_512
+    - pca_256
+    - pq_auxiliary
+  pca:
+    n_components: 256
+  pq:
+    m: 16
+    nbits: 8
+
+calibration:
+  target_fpir: 0.01
+  models:
+    - global_threshold
+    - per_compression_threshold
+    - logistic_regression
+    - shallow_mlp
+
+output:
+  save_csv: true
+  save_parquet: true
