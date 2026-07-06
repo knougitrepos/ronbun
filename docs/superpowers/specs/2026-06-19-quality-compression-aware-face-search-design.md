@@ -6,16 +6,19 @@
 
 1. 동일 인물의 등록 이미지가 여러 장일 때 저품질 이미지와 이상치가 대표 임베딩을 오염시키는 문제
 2. PCA, 저정밀 표현 또는 PQ가 유사도 분포를 변경하여 미등록 인물 거부 임계값을 불안정하게 만드는 문제
-3. 모든 identity에 동일한 압축률을 적용하여 쉬운 템플릿에는 저장공간을 낭비하고 어려운 템플릿에는 식별 정보를 과도하게 손실하는 문제
+3. PCA와 PQ의 재구성 오차가 서로 다른 분포를 갖는데도 같은 feature처럼 다루면 calibration이 왜곡되는 문제
+4. 같은 도메인의 미등록 인물과 완전히 새로운 도메인의 미등록 인물을 하나의 unknown으로 합치면 open-set 평가가 약해지는 문제
 
 ArcFace는 동결하고, 경량 통계 처리와 calibration만 학습한다.
+모든 identity에 동일한 압축률을 적용하지 않는 adaptive compression은 선택 확장으로 둔다.
 
 ## 2. 연구 가설
 
-- H1: 이상치 제거 후 품질 가중 평균은 단순 평균보다 다중 등록 템플릿의 Rank-1과 open-set DIR을 개선한다.
-- H2: 압축 프로파일별 고정 임계값보다 품질·분산·압축 오차를 함께 사용하는 보정 모델이 목표 FPIR에서 높은 DIR을 제공한다.
-- H3: 템플릿 품질과 내부 분산에 따라 제한된 압축 프로파일을 선택하면 균일 압축보다 동일 저장공간에서 높은 식별 성능을 제공한다.
-- H4: FIQA 품질 점수와 규칙 기반 품질 점수는 데이터 품질 구간에 따라 서로 다른 장단점을 보인다.
+- H1: PCA/PQ 압축은 top-1 score, score margin, unknown score distribution, optimal threshold를 압축 profile별로 다르게 변화시킨다.
+- H2: 압축 profile별 고정 임계값보다 품질·분산·압축 오차를 함께 사용하는 경량 BCE calibration이 목표 FPIR에서 높은 DIR을 제공한다.
+- H3: known unknown과 unknown unknown을 분리하면 단순 threshold가 특히 어려운 unknown 조건에서 취약한지 확인할 수 있다.
+- H4: 이상치 제거와 품질 가중 평균은 핵심 novelty는 아니지만 압축 전후 Rank-1과 open-set DIR을 안정화하는 보조 효과를 보일 수 있다.
+- H5: logistic regression과 shallow MLP의 차이가 작다면 복잡한 calibration 모델보다 경량 모델이 충분하다는 결론을 낼 수 있다.
 
 ## 3. 시스템 경계
 
@@ -30,11 +33,15 @@ ArcFace는 동결하고, 경량 통계 처리와 calibration만 학습한다.
 - PostgreSQL/pgvector exact 및 HNSW 검색
 - PCA와 PostgreSQL에서 검색 가능한 저정밀 표현
 - PQ 보조 실험
+- known unknown / unknown unknown 분리 평가
+- calibration model ablation
+- calibration feature ablation
 
 ### 제외
 
 - ArcFace 재학습
 - 대형 딥러닝 calibration 모델
+- rank loss와 consistency loss를 포함한 복잡한 QCU-ATC 본문 기법
 - 일반 이미지 모델의 배경 편향
 - segmentation 기반 영역 가중
 - 얼굴 검출이 포함된 원본 장면 검색
@@ -69,13 +76,15 @@ ArcFace는 동결하고, 경량 통계 처리와 calibration만 학습한다.
 ### Search observation
 
 - probe ID
-- known/unknown 여부
+- probe group: registered / known_unknown / unknown_unknown
 - top-1 identity와 score
 - top-2 score와 margin
 - probe quality
 - matched template statistics
 - compression profile
+- normalized reconstruction error
 - calibrated registration probability
+- calibration model type
 - 최종 identity 또는 unknown
 
 ## 5. 구성요소
@@ -83,6 +92,14 @@ ArcFace는 동결하고, 경량 통계 처리와 calibration만 학습한다.
 ### 5.1 Dataset protocol
 
 identity 단위로 development, calibration, test를 분리한다. Test identity나 이미지는 PCA/PQ, 품질 결합식, 보정 모델 또는 임계값 선택에 사용하지 않는다.
+
+Test probe는 다음 세 그룹으로 구성한다.
+
+- registered: gallery에 등록된 identity의 enrollment 제외 이미지
+- known_unknown: 같은 공개 데이터셋 또는 같은 도메인에서 오지만 gallery에 등록하지 않은 identity
+- unknown_unknown: development, calibration, gallery 구성에 사용하지 않은 별도 hold-out identity 또는 별도 공개 데이터셋 identity
+
+최종 결과는 전체 unknown뿐 아니라 known_unknown과 unknown_unknown을 분리 보고한다.
 
 ### 5.2 Quality scoring
 
@@ -113,6 +130,8 @@ identity 단위로 development, calibration, test를 분리한다. Test identity
 
 PQ는 별도의 Faiss 평가기로 관리한다. PQ code byte와 codebook byte를 저장공간에 포함한다. PQ 복원 벡터를 pgvector에 저장한 경우 검색 편의를 위한 복원 표현임을 명시하고 PQ 저장량으로 계산하지 않는다.
 
+재구성 오차는 압축 profile별로 정규화한다. PCA와 PQ의 raw reconstruction error는 서로 다른 분포를 갖기 때문에 공통 scalar로 바로 섞지 않는다.
+
 ### 5.5 Search
 
 각 profile에 대해 exact search 결과를 기준값으로 저장한다. HNSW는 동일 distance와 동일 Top-K 조건에서 평가한다. profile을 혼합하는 적응형 정책은 profile별 후보 검색 후 원본 cosine과 호환되는 보정 score로 통합한다.
@@ -128,13 +147,24 @@ PQ는 별도의 Faiss 평가기로 관리한다. PQ code byte와 codebook byte�
 - template dispersion
 - enrollment count
 - compression profile one-hot
-- reconstruction error
+- profile-normalized reconstruction error
 
-첫 구현은 표준화된 feature를 입력으로 받는 L2-regularized logistic regression을 사용한다. 비교군은 global threshold와 per-profile threshold다.
+기본 학습 손실은 BCE 하나로 제한한다. `rank loss`와 `consistency loss`는 본문 핵심 구현에 넣지 않고, 성능 향상이 분명할 때만 선택 ablation으로 둔다.
+
+첫 구현은 표준화된 feature를 입력으로 받는 L2-regularized logistic regression을 사용한다. 비교군은 global threshold, per-profile threshold, shallow MLP다. Random forest 또는 LightGBM은 선택 실험으로 둔다.
+
+Feature ablation은 최소한 다음을 포함한다.
+
+- reconstruction error 제외
+- compression profile one-hot 제외
+- quality feature 제외
+- template dispersion 제외
 
 Calibration split에서 목표 FPIR별 threshold를 선택하고 Test split에서 고정한다.
 
 ### 5.7 Adaptive compression policy
+
+선택 확장이다. 핵심 calibration 결과가 확보되지 않으면 구현하지 않는다.
 
 세 개 이하의 profile만 사용한다. Development split에서 quality, dispersion, enrollment count에 대한 threshold grid를 검색한다.
 
@@ -169,6 +199,8 @@ Calibration split에서 목표 FPIR별 threshold를 선택하고 Test split에�
 - DIR@FPIR
 - FNIR@FPIR
 - FPIR
+- AUROC
+- FPR@95TPR
 - ECE
 - Brier score
 
@@ -188,6 +220,8 @@ Calibration split에서 목표 FPIR별 threshold를 선택하고 Test split에�
 - aggregation method
 - compression profile
 - rejection method
+- unknown group
+- calibration model type
 
 ## 8. 검증 전략
 

@@ -2,7 +2,9 @@
 
 ## 1. 최종 연구 방향
 
-본 연구는 **PostgreSQL/pgvector 기반 얼굴 검색에서 품질 적응형 얼굴 템플릿 집계와 압축 인지형 미등록 인물 거부 보정이 검색 정확도, 거부 신뢰성, 저장공간 및 질의시간에 미치는 영향**을 분석한다.
+본 연구는 **PostgreSQL/pgvector 기반 압축 얼굴 임베딩 검색에서 압축으로 인해 변형되는 유사도 분포와 미등록 인물 거부 임계값을 경량 calibration으로 보정할 수 있는지**를 분석한다.
+
+품질 적응형 얼굴 템플릿 집계는 독립적인 핵심 novelty로 주장하지 않고, 압축 환경에서 검색과 미등록 인물 거부를 안정화하는 보조 구성 및 ablation 축으로 둔다.
 
 연구 대상은 정렬된 얼굴 crop이며, 얼굴 임베딩 모델은 사전학습된 `ArcFace/InsightFace`를 동결하여 사용한다. 대규모 모델 재학습은 수행하지 않는다.
 
@@ -18,7 +20,7 @@
 
 핵심 연구 질문은 다음과 같다.
 
-> 품질 적응형 템플릿 집계와 압축 인지형 점수 보정은 압축된 ArcFace 임베딩 기반 얼굴 검색에서 등록 인물 식별 성능과 미등록 인물 거부 성능을 동시에 보존할 수 있는가?
+> 압축된 ArcFace 얼굴 임베딩을 PostgreSQL/pgvector 기반 검색 시스템에 저장할 때, 압축으로 변형되는 유사도 분포를 경량 calibration으로 보정하여 등록 인물 식별 성능과 미등록 인물 거부 성능을 동시에 보존할 수 있는가?
 
 ## 2. 연구 범위와 제약
 
@@ -34,6 +36,8 @@
 ## 3. 핵심 Novelty
 
 ### 3.1 이상치 제거와 품질 적응형 얼굴 템플릿 집계
+
+이 구성은 핵심 novelty가 아니라 압축 인지형 거부 보정을 보조하는 실험 축이다. 단일 등록 이미지와 단순 평균을 기준선으로 두고, 품질 기반 템플릿이 압축 전후의 검색 안정성과 open-set 거부 성능을 추가로 개선하는지 확인한다.
 
 동일 인물의 등록 이미지가 여러 장인 경우 단순 평균만 사용하지 않는다.
 
@@ -67,20 +71,50 @@
 
 고정 코사인 유사도 임계값만으로 미등록 여부를 판단하지 않는다. 압축으로 유사도 분포가 변하는 현상을 고려하여 등록 확률을 보정한다.
 
-보정 모델의 입력 후보는 다음과 같다.
+본 연구의 핵심 기법은 **Quality-Compression Aware Threshold Calibration(QCU-ATC)**로 부르되, 복잡한 end-to-end 학습 모델이 아니라 다음 feature를 사용하는 경량 accept/reject calibration 모듈로 정의한다.
 
 ```text
-최고 유사도
-1위와 2위 유사도 차이
-질의 이미지 품질
-대표 템플릿 품질
-템플릿 내부 분산
-등록 이미지 수
-압축 프로파일
-압축 재구성 오차
+x_q = [
+  s_1,
+  s_1 - s_2,
+  Q_q,
+  Q_T,
+  Var(T_i),
+  enrollment_count,
+  E_rec_norm,
+  compression_profile_one_hot
+]
+
+y_hat = g_theta(x_q)
+L = L_BCE
 ```
 
-보정 모델은 로지스틱 회귀 또는 isotonic regression처럼 계산량이 작은 모델을 사용한다. ArcFace는 학습하지 않는다.
+각 feature의 의미는 다음과 같다.
+
+| Feature | 의미 |
+| --- | --- |
+| `s_1` | top-1 후보와의 cosine similarity |
+| `s_1 - s_2` | top-1과 top-2 후보의 score margin |
+| `Q_q` | 질의 이미지 품질 |
+| `Q_T` | top-1 후보 템플릿의 평균 품질 |
+| `Var(T_i)` | top-1 후보 템플릿 내부 분산 |
+| `enrollment_count` | 해당 identity의 등록 이미지 수 |
+| `E_rec_norm` | 압축 방식별 z-score 정규화된 재구성 오차 |
+| `compression_profile_one_hot` | original/PCA/PQ/PCA+PQ 등 압축 방식 categorical feature |
+
+PCA와 PQ의 재구성 오차는 분포와 의미가 다르므로 raw `E_rec`를 하나의 공통 변수처럼 사용하지 않는다. 각 압축 profile별 평균과 표준편차로 `E_rec_norm = (E_rec - mu_C) / sigma_C`를 계산하고, 압축 방식 one-hot feature를 함께 넣는다.
+
+보정 모델은 ArcFace를 재학습하지 않고, 다음 모델 복잡도 ablation으로 비교한다.
+
+| 모델 | 목적 |
+| --- | --- |
+| Fixed global threshold | 가장 단순한 기준선 |
+| Per-compression threshold | 압축 profile별 임계값 보정 기준선 |
+| Logistic regression | 기본 제안 모델 |
+| Shallow MLP | 약한 비선형 calibration 효과 확인 |
+| Random forest 또는 LightGBM | 선택 실험. feature interaction 확인용 |
+
+본문 핵심 학습 손실은 binary cross entropy 하나로 제한한다. `rank loss`와 `consistency loss`는 본문 필수 구성으로 넣지 않고, 성능 향상과 구현 여유가 있을 때만 선택 ablation 또는 부록으로 둔다. consistency loss를 다룰 경우에는 압축 전후 cosine score 차이를 줄이는 `score consistency`인지, 압축 전후 보정 확률 차이를 줄이는 `decision consistency`인지 명시해야 한다.
 
 비교 대상은 다음과 같다.
 
@@ -88,11 +122,13 @@
 | --- | --- |
 | Global threshold | 모든 조건에 동일한 임계값 |
 | Per-compression threshold | 압축 프로파일별 개별 임계값 |
-| Proposed calibration | 품질, 템플릿 통계, 압축 오차를 이용한 등록 확률 보정 |
+| QCU-ATC / learned calibration | 품질, 템플릿 통계, 압축 방식별 정규화 오차를 이용한 등록 확률 보정 |
 
 ### 3.3 제한적인 품질 적응형 압축 정책
 
 모든 대표 템플릿에 동일한 압축률을 적용하지 않고 템플릿의 식별 위험에 따라 압축 프로파일을 선택한다.
+
+이 요소는 핵심 기여가 아니라 선택 확장이다. 본문 핵심 결과가 충분히 확보된 뒤에만 수행하며, 구현 범위가 커지면 Phase D 또는 부록으로 내린다.
 
 초기 압축 정책은 다음처럼 제한한다.
 
@@ -123,10 +159,10 @@
 
 안전한 기여 주장은 다음과 같다.
 
-1. 압축된 얼굴 템플릿에서 품질 집계 방식별 open-set 성능 변화를 체계적으로 분석한다.
-2. 품질과 압축 불확실성을 함께 사용하는 경량 미등록 거부 보정 방법을 제안한다.
-3. 품질 적응형 압축 정책이 정확도와 저장공간 사이의 trade-off를 개선하는지 검증한다.
-4. PostgreSQL/pgvector 환경에서 실제 검색 지연시간과 저장비용을 함께 측정한다.
+1. PostgreSQL/pgvector 기반 얼굴 임베딩 검색에서 PCA/PQ 압축이 closed-set 검색 정확도, open-set 미등록 거부, 유사도 분포, 임계값 안정성에 미치는 영향을 분석한다.
+2. top-1 유사도, score margin, 얼굴 품질, 템플릿 분산, 압축 방식별 정규화 재구성 오차를 이용한 경량 압축 인지형 미등록 거부 보정 방법을 제안한다.
+3. 단일 등록, 단순 평균, 이상치 제거, 품질 기반 템플릿 집계가 압축 전후 성능에 주는 영향을 ablation으로 검증한다.
+4. PostgreSQL/pgvector 환경에서 실제 검색 지연시간, 저장비용, HNSW recall-latency trade-off를 함께 측정한다.
 
 ## 5. 데이터셋과 분할 원칙
 
@@ -154,10 +190,13 @@ identity 누수를 방지하기 위해 다음 세 집합의 identity를 서로 �
    - 모든 최종 결과 보고
    - 개발 및 임계값 선택에 사용하지 않음
 
-Test probe는 다음 두 종류로 구성한다.
+Test probe는 다음 세 종류로 구성한다.
 
 - 등록 identity의 새로운 이미지
-- Gallery에 포함되지 않은 미등록 identity 이미지
+- **Known unknown**: 같은 공개 데이터셋 또는 같은 도메인에서 오지만 gallery에는 등록하지 않은 identity 이미지
+- **Unknown unknown**: 학습, calibration, gallery 구성에 전혀 사용하지 않은 별도 hold-out identity 또는 별도 공개 데이터셋의 identity 이미지
+
+`known unknown`과 `unknown unknown`은 최종 결과에서 분리 보고한다. 이 구분 없이 모든 미등록 인물을 하나로 합치면, 단순 threshold가 데이터 분포가 비슷한 미등록 인물에서 취약한지 검증하기 어렵다.
 
 ### 5.3 등록 장수 실험
 
@@ -226,11 +265,14 @@ PQ 복원 벡터를 일반 `vector(256)`로 저장하고 이를 PQ 저장공간�
 - DIR@FPIR
 - FNIR@FPIR
 - FPIR
+- AUROC
+- FPR@95TPR
 - ROC 또는 DET curve
 - Expected Calibration Error
 - Brier score
 
 주요 목표 FPIR은 개발 세트에서 고정한 뒤 Test에서 보고한다.
+모든 open-set 지표는 전체 unknown뿐 아니라 `known unknown`과 `unknown unknown`으로 나누어 보고한다.
 
 ### 8.3 압축 및 시스템 효율
 
@@ -272,7 +314,13 @@ PQ 복원 벡터를 일반 `vector(256)`로 저장하고 이를 PQ 저장공간�
 
 - Global threshold
 - Per-compression threshold
-- Proposed calibration
+- Logistic regression calibration
+- Shallow MLP calibration
+- Feature ablation
+  - reconstruction error 제외
+  - quality feature 제외
+  - template dispersion 제외
+  - compression categorical feature 제외
 
 ### Phase D: 제한적 적응형 압축
 
@@ -300,7 +348,7 @@ PQ 복원 벡터를 일반 `vector(256)`로 저장하고 이를 PQ 저장공간�
 5. **공정성 분석**
    - 데이터셋에 허용된 demographic annotation이 있을 경우 품질·압축 정책이 집단별 오류율을 악화시키는지 검증한다.
 
-이번 석사논문에서는 1~5를 모두 구현하지 않는다. 핵심 범위는 품질 적응형 집계, 압축 인지형 거부 보정, 제한적 압축 프로파일 선택이다.
+이번 석사논문에서는 1~5를 모두 구현하지 않는다. 핵심 범위는 압축 인지형 거부 보정과 그 ablation이며, 품질 적응형 집계는 보조 실험, 제한적 압축 프로파일 선택은 선택 확장으로 둔다.
 
 ## 11. 구현 진행 순서
 
@@ -308,25 +356,35 @@ PQ 복원 벡터를 일반 `vector(256)`로 저장하고 이를 PQ 저장공간�
 2. ArcFace 임베딩 및 품질 메타데이터 추출
 3. 템플릿 이상치 제거와 집계 ablation 구현
 4. PostgreSQL 검색용 압축 프로파일 구현
-5. 등록 및 미등록 probe 평가 프로토콜 구현
-6. 압축 인지형 보정 모델 구현
-7. 제한적 품질 적응형 압축 정책 구현
-8. pgvector HNSW 성능 측정
-9. bootstrap 신뢰구간과 결과 표 생성
-10. 논문 결과 및 실패 사례 정리
+5. 등록 probe, known unknown probe, unknown unknown probe 평가 프로토콜 구현
+6. 압축 방식별 `E_rec` 정규화와 압축 categorical feature 생성
+7. 압축 인지형 보정 모델 및 model/feature ablation 구현
+8. 선택적으로 제한적 품질 적응형 압축 정책 구현
+9. pgvector HNSW 성능 측정
+10. bootstrap 신뢰구간과 결과 표 생성
+11. 논문 결과 및 실패 사례 정리
 
 ## 12. 제목 후보
 
 추천 제목:
 
-> `PostgreSQL 기반 압축 얼굴 검색에서 품질 적응형 템플릿 집계와 미등록 인물 거부 보정`
+> `PostgreSQL/pgvector 기반 압축 얼굴 임베딩 검색에서 유사도 분포 보정을 통한 미등록 인물 거부 성능 개선`
 
 대안:
 
-1. `품질 및 압축 불확실성을 고려한 얼굴 템플릿 검색과 Open-Set 식별`
-2. `압축 얼굴 임베딩의 Open-Set 검색을 위한 품질 적응형 집계 및 점수 보정`
-3. `PostgreSQL/pgvector 기반 얼굴 검색에서 템플릿 품질과 임베딩 압축의 영향 분석`
+1. `압축 얼굴 임베딩 검색에서 유사도 보정을 통한 미등록 인물 거부 성능 개선`
+2. `압축 얼굴 임베딩의 Open-Set 검색을 위한 경량 점수 보정`
+3. `PostgreSQL/pgvector 기반 얼굴 검색에서 임베딩 압축과 미등록 거부 성능 분석`
 
 ## 13. 최종 논문 주장
 
-> 본 연구는 정렬된 얼굴 crop으로 구성된 PostgreSQL/pgvector 검색 환경에서 ArcFace 임베딩의 품질 적응형 템플릿 집계 방법을 비교하고, 얼굴 품질·템플릿 내부 분산·압축 재구성 오차를 이용한 경량 점수 보정으로 압축 이후의 등록 인물 식별과 미등록 인물 거부 성능을 함께 개선할 수 있는지 검증한다.
+> 본 연구는 정렬된 얼굴 crop으로 구성된 PostgreSQL/pgvector 검색 환경에서 ArcFace 임베딩 압축이 유사도 분포와 open-set 임계값 안정성에 미치는 영향을 분석하고, top-1 유사도, score margin, 얼굴 품질, 템플릿 내부 분산, 압축 방식별 정규화 재구성 오차를 이용한 경량 calibration으로 압축 이후의 등록 인물 식별과 미등록 인물 거부 성능을 보존할 수 있는지 검증한다.
+
+## 14. 연관 논문 우선순위
+
+자세한 읽기 순서와 논문별 사용 위치는 [`docs/related_papers.md`](docs/related_papers.md)에 정리한다. 우선순위는 다음 축으로 정한다.
+
+1. 본 연구의 핵심 주장인 open-set 미등록 거부와 압축 이후 score calibration에 직접 연결되는가
+2. 실험 프로토콜, 지표, 데이터 분할을 설계하는 데 필수인가
+3. ArcFace, FIQA, 템플릿 집계, PCA/PQ, HNSW를 이해하는 사전지식인가
+4. 구현 또는 비교 baseline으로 바로 사용할 수 있는가

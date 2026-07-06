@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a reproducible ArcFace template-search experiment that compares robust quality-aware aggregation, evaluates known and unknown probes, calibrates rejection under compression, and measures PostgreSQL/pgvector efficiency.
+**Goal:** Build a reproducible ArcFace template-search experiment that compares robust quality-aware aggregation as an ablation, evaluates registered / known-unknown / unknown-unknown probes separately, calibrates rejection under compression with lightweight BCE-based models, and measures PostgreSQL/pgvector efficiency.
 
 **Architecture:** Add a research pipeline beside the existing FastAPI application instead of coupling experiments to web routes. Pure NumPy/scikit-learn modules handle protocols, aggregation, compression, calibration, and statistics; SQLAlchemy models persist templates and run results; a CLI composes the modules. Every learned transform is fit only on the development split and serialized with split metadata.
 
@@ -29,7 +29,7 @@ research/
     profiles.py               # original, PCA, low-precision and reconstruction metadata
   search/
     __init__.py
-    open_set.py               # ranking, unknown rejection and metrics
+    open_set.py               # ranking, known-unknown/unknown-unknown rejection and metrics
   calibration/
     __init__.py
     rejection.py              # global, per-profile and logistic calibrators
@@ -157,7 +157,7 @@ git add requirements.txt research tests/research/test_protocol.py
 git commit -m "test: establish face research protocol package"
 ```
 
-### Task 2: Build deterministic gallery and known/unknown probe protocols
+### Task 2: Build deterministic gallery and registered/known-unknown/unknown-unknown probe protocols
 
 **Files:**
 - Modify: `research/protocol.py`
@@ -165,33 +165,35 @@ git commit -m "test: establish face research protocol package"
 - Create: `scripts/build_face_manifest.py`
 - Create: `experiments/configs/face_search.yaml`
 
-- [ ] **Step 1: Write tests for gallery and unknown identities**
+- [ ] **Step 1: Write tests for gallery and separated unknown identities**
 
 ```python
 from research.protocol import build_open_set_protocol
 
 
-def test_builds_gallery_known_and_unknown_probes_without_overlap():
+def test_builds_gallery_registered_and_unknown_probes_without_overlap():
     manifest = pd.DataFrame(
         {
-            "image_id": ["a1", "a2", "b1", "b2", "u1", "u2"],
-            "identity_id": ["a", "a", "b", "b", "u", "u"],
-            "split": ["test"] * 6,
-            "image_path": [f"{value}.jpg" for value in ["a1", "a2", "b1", "b2", "u1", "u2"]],
+            "image_id": ["a1", "a2", "b1", "b2", "u1", "u2", "x1", "x2"],
+            "identity_id": ["a", "a", "b", "b", "u", "u", "x", "x"],
+            "split": ["test"] * 8,
+            "image_path": [f"{value}.jpg" for value in ["a1", "a2", "b1", "b2", "u1", "u2", "x1", "x2"]],
         }
     )
 
     protocol = build_open_set_protocol(
         manifest,
         gallery_identities=["a", "b"],
+        unknown_unknown_identities=["x"],
         enrollment_count=1,
         seed=7,
     )
 
     assert set(protocol.gallery["identity_id"]) == {"a", "b"}
-    assert set(protocol.known_probes["identity_id"]) == {"a", "b"}
-    assert set(protocol.unknown_probes["identity_id"]) == {"u"}
-    assert set(protocol.gallery["image_id"]).isdisjoint(protocol.known_probes["image_id"])
+    assert set(protocol.registered_probes["identity_id"]) == {"a", "b"}
+    assert set(protocol.known_unknown_probes["identity_id"]) == {"u"}
+    assert set(protocol.unknown_unknown_probes["identity_id"]) == {"x"}
+    assert set(protocol.gallery["image_id"]).isdisjoint(protocol.registered_probes["image_id"])
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -199,7 +201,7 @@ def test_builds_gallery_known_and_unknown_probes_without_overlap():
 Run:
 
 ```powershell
-pytest tests/research/test_protocol.py::test_builds_gallery_known_and_unknown_probes_without_overlap -v
+pytest tests/research/test_protocol.py::test_builds_gallery_registered_and_unknown_probes_without_overlap -v
 ```
 
 Expected: FAIL because `build_open_set_protocol` is undefined.
@@ -215,13 +217,15 @@ from collections.abc import Sequence
 @dataclass(frozen=True)
 class OpenSetProtocol:
     gallery: pd.DataFrame
-    known_probes: pd.DataFrame
-    unknown_probes: pd.DataFrame
+    registered_probes: pd.DataFrame
+    known_unknown_probes: pd.DataFrame
+    unknown_unknown_probes: pd.DataFrame
 
 
 def build_open_set_protocol(
     manifest: pd.DataFrame,
     gallery_identities: Sequence[str],
+    unknown_unknown_identities: Sequence[str],
     enrollment_count: int,
     seed: int,
 ) -> OpenSetProtocol:
@@ -229,22 +233,29 @@ def build_open_set_protocol(
         raise ValueError("enrollment_count must be positive")
 
     test_rows = manifest.loc[manifest["split"] == "test"].copy()
-    known = test_rows.loc[test_rows["identity_id"].isin(gallery_identities)]
-    unknown = test_rows.loc[~test_rows["identity_id"].isin(gallery_identities)]
+    registered = test_rows.loc[test_rows["identity_id"].isin(gallery_identities)]
+    unknown_unknown = test_rows.loc[test_rows["identity_id"].isin(unknown_unknown_identities)]
+    known_unknown = test_rows.loc[
+        ~test_rows["identity_id"].isin(gallery_identities)
+        & ~test_rows["identity_id"].isin(unknown_unknown_identities)
+    ]
 
     gallery = (
-        known.groupby("identity_id", group_keys=False)
+        registered.groupby("identity_id", group_keys=False)
         .sample(n=enrollment_count, random_state=seed, replace=False)
         .sort_values(["identity_id", "image_id"])
     )
-    known_probes = known.loc[~known["image_id"].isin(gallery["image_id"])]
-    if known_probes.empty:
-        raise ValueError("known probe set is empty after enrollment")
+    registered_probes = registered.loc[~registered["image_id"].isin(gallery["image_id"])]
+    if registered_probes.empty:
+        raise ValueError("registered probe set is empty after enrollment")
+    if known_unknown.empty or unknown_unknown.empty:
+        raise ValueError("both known_unknown and unknown_unknown probe sets are required")
 
     return OpenSetProtocol(
         gallery=gallery.reset_index(drop=True),
-        known_probes=known_probes.reset_index(drop=True),
-        unknown_probes=unknown.reset_index(drop=True),
+        registered_probes=registered_probes.reset_index(drop=True),
+        known_unknown_probes=known_unknown.reset_index(drop=True),
+        unknown_unknown_probes=unknown_unknown.reset_index(drop=True),
     )
 ```
 
@@ -273,6 +284,7 @@ compression:
     bits: 8
 open_set:
   target_fpirs: [0.001, 0.01]
+  unknown_groups: [known_unknown, unknown_unknown]
 bootstrap:
   samples: 2000
 ```
@@ -715,7 +727,7 @@ git add research/compression tests/research/test_compression.py core/schemas.py
 git commit -m "feat: add face template compression profiles"
 ```
 
-### Task 6: Implement known ranking and open-set metrics
+### Task 6: Implement registered ranking and group-aware open-set metrics
 
 **Files:**
 - Create: `research/search/__init__.py`
@@ -741,14 +753,17 @@ def test_open_set_metrics_count_unknown_false_accepts():
         ],
         dtype=np.float32,
     )
-    probe_ids = np.array(["a", "b", "unknown-1", "unknown-2"])
+    probe_ids = np.array(["a", "b", "known-unknown-1", "unknown-unknown-1"])
+    probe_groups = np.array(["registered", "registered", "known_unknown", "unknown_unknown"])
     gallery_ids = np.array(["a", "b"])
 
-    metrics = evaluate_open_set(scores, probe_ids, gallery_ids, threshold=0.65)
+    metrics = evaluate_open_set(scores, probe_ids, probe_groups, gallery_ids, threshold=0.65)
 
     assert metrics.rank1 == 1.0
     assert metrics.dir == 1.0
     assert metrics.fpir == 0.5
+    assert metrics.fpir_by_group["known_unknown"] == 1.0
+    assert metrics.fpir_by_group["unknown_unknown"] == 0.0
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -775,18 +790,20 @@ class OpenSetMetrics:
     dir: float
     fpir: float
     fnir: float
+    fpir_by_group: dict[str, float]
 
 
 def evaluate_open_set(
     scores: np.ndarray,
     probe_ids: np.ndarray,
+    probe_groups: np.ndarray,
     gallery_ids: np.ndarray,
     threshold: float,
 ) -> OpenSetMetrics:
     top_index = np.argmax(scores, axis=1)
     top_score = scores[np.arange(len(scores)), top_index]
     predicted = gallery_ids[top_index]
-    known = np.isin(probe_ids, gallery_ids)
+    known = probe_groups == "registered"
     accepted = top_score >= threshold
     correct = predicted == probe_ids
 
@@ -794,12 +811,17 @@ def evaluate_open_set(
     dir_value = float((accepted[known] & correct[known]).mean())
     fpir = float(accepted[~known].mean())
     fnir = 1.0 - dir_value
-    return OpenSetMetrics(rank1=rank1, dir=dir_value, fpir=fpir, fnir=fnir)
+    fpir_by_group = {
+        group: float(accepted[probe_groups == group].mean())
+        for group in ["known_unknown", "unknown_unknown"]
+        if np.any(probe_groups == group)
+    }
+    return OpenSetMetrics(rank1=rank1, dir=dir_value, fpir=fpir, fnir=fnir, fpir_by_group=fpir_by_group)
 ```
 
 - [ ] **Step 4: Add threshold selection**
 
-Implement `threshold_at_target_fpir(unknown_top_scores, target_fpir)` using the conservative empirical quantile. Test that the selected threshold does not exceed the requested FPIR on calibration data.
+Implement `threshold_at_target_fpir(unknown_top_scores, target_fpir)` using the conservative empirical quantile. Test that the selected threshold does not exceed the requested FPIR on calibration data. Report the selected threshold against both known_unknown and unknown_unknown groups.
 
 - [ ] **Step 5: Run open-set tests**
 
@@ -837,10 +859,10 @@ from research.calibration.rejection import RejectionCalibrator
 def test_calibrator_outputs_registration_probabilities():
     features = np.array(
         [
-            [0.90, 0.20, 0.9, 0.8, 0.01, 5.0, 0.0],
-            [0.82, 0.12, 0.7, 0.7, 0.03, 2.0, 0.1],
-            [0.45, 0.01, 0.3, 0.4, 0.12, 1.0, 0.3],
-            [0.40, 0.02, 0.2, 0.5, 0.15, 1.0, 0.4],
+            [0.90, 0.20, 0.9, 0.8, 0.01, 5.0, -0.3, 1.0, 0.0],
+            [0.82, 0.12, 0.7, 0.7, 0.03, 2.0, 0.1, 1.0, 0.0],
+            [0.45, 0.01, 0.3, 0.4, 0.12, 1.0, 1.7, 0.0, 1.0],
+            [0.40, 0.02, 0.2, 0.5, 0.15, 1.0, 2.1, 0.0, 1.0],
         ],
         dtype=np.float64,
     )
@@ -917,11 +939,26 @@ CALIBRATION_FEATURES = (
     "template_quality",
     "template_dispersion",
     "enrollment_count",
-    "reconstruction_error",
+    "reconstruction_error_norm",
 )
 ```
 
-Compression profile is represented by one-hot columns appended in sorted profile-name order. Serialize both ordered lists beside the model.
+Compression profile is represented by one-hot columns appended in sorted profile-name order. Serialize both ordered lists beside the model. Compute `reconstruction_error_norm` with development-split mean and standard deviation per compression profile; never mix PCA and PQ raw reconstruction errors as the same unnormalized feature.
+
+- [ ] **Step 4b: Add model and feature ablation runners**
+
+Implement these calibration variants using the same feature extraction and the same calibration/test splits:
+
+- global threshold
+- per-compression threshold
+- L2 logistic regression
+- shallow MLP
+- logistic regression without reconstruction error
+- logistic regression without quality features
+- logistic regression without template dispersion
+- logistic regression without compression one-hot
+
+Keep BCE as the only required training objective. Rank loss and consistency loss are optional follow-up experiments only.
 
 - [ ] **Step 5: Add calibration metrics**
 
@@ -944,7 +981,9 @@ git add research/calibration tests/research/test_rejection.py
 git commit -m "feat: calibrate unknown rejection under compression"
 ```
 
-### Task 8: Implement constrained adaptive compression
+### Task 8: Optional constrained adaptive compression
+
+Run this task only after Task 7 produces a defensible compression-aware calibration result. This is an extension, not a required main contribution.
 
 **Files:**
 - Create: `research/policy/__init__.py`
@@ -1246,8 +1285,11 @@ git commit -m "feat: add reproducible face search study runner"
 - [ ] Development, calibration, and test identities are disjoint.
 - [ ] PCA/PQ and normalization parameters are fit only on development identities.
 - [ ] Unknown probe identities never appear in the gallery.
-- [ ] Global threshold, per-profile threshold, and proposed calibration use the same probe scores.
+- [ ] Known-unknown and unknown-unknown probes are reported separately.
+- [ ] Global threshold, per-profile threshold, logistic calibration, and MLP calibration use the same probe scores.
 - [ ] Thresholds are selected on calibration and frozen for Test.
+- [ ] Reconstruction error is normalized per compression profile before entering the calibrator.
+- [ ] Calibration ablations include removal of reconstruction error, quality features, template dispersion, and compression one-hot features.
 - [ ] PQ code bytes and codebook bytes are reported separately from reconstructed pgvector storage.
 - [ ] Exact and HNSW results use identical distance definitions.
 - [ ] All main metric differences include identity-level paired bootstrap intervals.
