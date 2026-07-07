@@ -25,6 +25,24 @@ compression:
     m: 16
     nbits: 8
 
+search:
+  # Set these paths to generate search/certified_features.csv directly.
+  # The embedding columns must contain JSON arrays, for example: "[1.0, 0.0]".
+  # Optional fallback_embedding columns can contain full-precision JSON arrays
+  # for exact fallback when the certified compressed decision is defer.
+  # probes_path: artifacts/face_search/probes.csv
+  # templates_path: artifacts/face_search/templates.csv
+  # Use candidate_set when templates_path contains an approximate pgvector/HNSW
+  # candidate subset rather than the full gallery.
+  # candidate_scope: exhaustive
+  # gallery_size must be a positive integer. It is required for candidate_set
+  # and must equal the supplied template count for exhaustive when set.
+  # gallery_size: 100000
+  # Or set this to pass through a precomputed certified feature table.
+  # input_certified_features_path: artifacts/face_search/certified_features.csv
+  compression_profile: pca_256
+  top_k: 2
+
 calibration:
   target_fpir: 0.01
   models:
@@ -32,6 +50,11 @@ calibration:
     - per_compression_threshold
     - logistic_regression
     - shallow_mlp
+
+certification:
+  enabled: true
+  threshold: 0.8
+  fallback_profile: origin_512
 
 output:
   save_csv: true

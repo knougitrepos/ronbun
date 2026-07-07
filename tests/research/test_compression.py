@@ -32,6 +32,26 @@ def test_original_and_pca_profiles_record_searchability_and_reconstruction_error
     assert np.all(pca.reconstruction_error >= 0.0)
 
 
+def test_compression_profiles_report_angular_error():
+    vectors = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [0.9, 0.1, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.9, 0.1],
+        ],
+        dtype=np.float32,
+    )
+
+    original = original_profile(vectors)
+    pca = fit_pca_profile(vectors, n_components=2, random_state=0)
+
+    assert np.allclose(original.angular_error, np.zeros(4))
+    assert pca.angular_error.shape == (4,)
+    assert np.all(pca.angular_error >= 0.0)
+    assert np.all(pca.angular_error <= np.pi)
+
+
 def test_reconstruction_error_is_normalized_per_profile():
     errors = {
         "origin_512": np.array([0.0, 0.0, 0.0]),

@@ -18,6 +18,7 @@ class CompressionResult:
     profile_name: str
     vectors: np.ndarray
     reconstruction_error: np.ndarray
+    angular_error: np.ndarray
     pgvector_searchable: bool
     metadata: dict
     codes: np.ndarray | None = None
@@ -50,12 +51,31 @@ def _as_float_matrix(vectors: np.ndarray) -> np.ndarray:
     return matrix
 
 
+def _row_normalize(matrix: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    if np.any(norms <= 0.0):
+        raise ValueError("vectors must be non-zero to compute angular error")
+    return matrix / norms
+
+
+def _angular_error(original: np.ndarray, reconstructed: np.ndarray) -> np.ndarray:
+    source = _as_float_matrix(original)
+    restored = _as_float_matrix(reconstructed)
+    if source.shape != restored.shape:
+        raise ValueError("original and reconstructed vectors must have the same shape")
+    source_unit = _row_normalize(source)
+    restored_unit = _row_normalize(restored)
+    cosines = np.sum(source_unit * restored_unit, axis=1)
+    return np.arccos(np.clip(cosines, -1.0, 1.0)).astype(np.float32)
+
+
 def original_profile(vectors: np.ndarray) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
     return CompressionResult(
         profile_name="origin_512",
         vectors=matrix.copy(),
         reconstruction_error=np.zeros(len(matrix), dtype=np.float32),
+        angular_error=np.zeros(len(matrix), dtype=np.float32),
         pgvector_searchable=True,
         metadata={"source_dim": int(matrix.shape[1])},
         reconstructed_vectors=matrix.copy(),
@@ -80,6 +100,7 @@ def fit_pca_profile(
         profile_name=profile_name,
         vectors=compressed.astype(np.float32),
         reconstruction_error=reconstruction_error.astype(np.float32),
+        angular_error=_angular_error(matrix, reconstructed),
         pgvector_searchable=True,
         metadata={
             "n_components": int(n_components),
@@ -120,6 +141,7 @@ def fit_pq_auxiliary_profile(
         profile_name="pq",
         vectors=reconstructed.astype(np.float32),
         reconstruction_error=reconstruction_error.astype(np.float32),
+        angular_error=_angular_error(matrix, reconstructed),
         pgvector_searchable=False,
         metadata={"M": int(m), "nbits": int(nbits), "source_dim": int(matrix.shape[1])},
         codes=codes,

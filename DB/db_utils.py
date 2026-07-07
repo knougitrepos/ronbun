@@ -3,7 +3,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, JSON, TIMES
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pgvector.sqlalchemy import Vector
 from core.schemas import *  # 모든 테이블 강제 import
-from core.database import engine, Base, SessionLocal
+from core.database import engine, Base, SessionLocal, ensure_vector_extension, init_database
 
 # 데이터베이스 ORM 모델, 세션, 초기화/리셋 등 DB 유틸리티 관리
 
@@ -71,13 +71,7 @@ from core.database import engine, Base, SessionLocal
 # 테이블 생성 함수
 def init_db():
     try:
-        with engine.connect() as conn:
-            conn.execute(text("DROP TABLE IF EXISTS recall_test_results CASCADE;"))
-            conn.execute(text("DROP TABLE IF EXISTS image_embeddings CASCADE;"))
-            conn.execute(text("DROP TABLE IF EXISTS image_embeddings_summary CASCADE;"))
-            conn.execute(text("DROP TABLE IF EXISTS recall_test_results_summary CASCADE;"))
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        Base.metadata.create_all(bind=engine)
+        init_database(bind=engine)
         print("테이블 및 EXTENSION 생성 완료")
     except Exception as e:
         print(f"init_db 에러: {e}")
@@ -85,6 +79,7 @@ def init_db():
 # DB 전체 초기화 함수 (테이블 드롭 후 재생성)
 def reset_db():
     try:
+        ensure_vector_extension(bind=engine)
         Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
         print("core/schemas.py has been reset")
