@@ -5,7 +5,7 @@ from datetime import datetime
 import sys
 import threading
 from time import perf_counter
-from typing import Iterator, TextIO
+from typing import Callable, Iterator, TextIO
 
 
 def _duration(seconds: float) -> str:
@@ -52,17 +52,25 @@ class ProgressReporter:
             )
 
     @contextmanager
-    def step(self, name: str, *, expected: str | None = None) -> Iterator[None]:
+    def step(
+        self,
+        name: str,
+        *,
+        expected: str | None = None,
+        heartbeat_details: Callable[[], dict[str, object]] | None = None,
+    ) -> Iterator[None]:
         step_started = perf_counter()
         self.emit(f"START {name}", expected=expected)
         stop = threading.Event()
 
         def heartbeat() -> None:
             while not stop.wait(self.heartbeat_seconds):
+                dynamic_details = heartbeat_details() if heartbeat_details else {}
                 self.emit(
                     f"RUNNING {name}",
                     step_elapsed=_duration(perf_counter() - step_started),
                     expected=expected,
+                    **dynamic_details,
                 )
 
         worker = threading.Thread(

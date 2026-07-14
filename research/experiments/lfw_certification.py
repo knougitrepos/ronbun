@@ -183,6 +183,7 @@ def assemble_lfw_certification_inputs(
     *,
     project_root: str | Path,
     compression_profile: str,
+    allow_empty_unknown_unknown: bool = False,
 ) -> LFWCertificationInputs:
     """Create leakage-safe probe/template frames after extraction filtering."""
 
@@ -236,6 +237,8 @@ def assemble_lfw_certification_inputs(
     if effective["registered_probes"].empty:
         raise ValueError("no registered probes remain for available gallery identities")
     for role in ("known_unknown_probes", "unknown_unknown_probes"):
+        if role == "unknown_unknown_probes" and allow_empty_unknown_unknown:
+            continue
         if effective[role].empty:
             raise ValueError(f"no {role} remain after extraction filtering")
 
@@ -244,8 +247,16 @@ def assemble_lfw_certification_inputs(
         rows = vectors.loc[group["canonical_path"].tolist()]
         exact_vectors = np.stack(rows["origin_embedding"].tolist())
         approximate_vectors = np.stack(rows["approximate_embedding"].tolist())
+        retrieval_vectors = np.stack(
+            rows[
+                "retrieval_embedding"
+                if "retrieval_embedding" in rows.columns
+                else "approximate_embedding"
+            ].tolist()
+        )
         exact_template = _l2(exact_vectors.mean(axis=0))
         approximate_template = _l2(approximate_vectors.mean(axis=0))
+        retrieval_template = _l2(retrieval_vectors.mean(axis=0))
         distances = 1.0 - np.clip(
             approximate_vectors @ approximate_template, -1.0, 1.0
         )
@@ -253,6 +264,7 @@ def assemble_lfw_certification_inputs(
             {
                 "identity_id": str(identity_id),
                 "embedding": approximate_template,
+                "retrieval_embedding": retrieval_template,
                 "fallback_embedding": exact_template,
                 "quality": 0.0,
                 "variance": float(np.mean(distances**2)),
@@ -282,6 +294,9 @@ def assemble_lfw_certification_inputs(
                     "identity_id": str(row.identity_id),
                     "probe_type": probe_type,
                     "embedding": vector["approximate_embedding"],
+                    "retrieval_embedding": vector.get(
+                        "retrieval_embedding", vector["approximate_embedding"]
+                    ),
                     "fallback_embedding": vector["origin_embedding"],
                     "quality": 0.0,
                     "angular_error": float(vector["angular_error"]),
@@ -314,6 +329,7 @@ def build_lfw_certification_inputs(
     project_root: str | Path,
     compression_profile: str,
     pca: PCACompressor | None = None,
+    allow_empty_unknown_unknown: bool = False,
 ) -> LFWCertificationInputs:
     _validate_protocol_frames(protocol_frames)
     image_paths = {
@@ -334,6 +350,7 @@ def build_lfw_certification_inputs(
         records,
         project_root=project_root,
         compression_profile=compression_profile,
+        allow_empty_unknown_unknown=allow_empty_unknown_unknown,
     )
 
 
@@ -345,10 +362,13 @@ def write_vector_frame_csv(frame: pd.DataFrame, path: str | Path) -> Path:
     serialized = frame.copy()
     for column in (
         "embedding",
+        "retrieval_embedding",
         "fallback_embedding",
         "source_image_ids",
         "ranked_identities",
         "ranked_scores",
+        "pca_exact_ranked_identities",
+        "pca_hnsw_ranked_identities",
     ):
         if column in serialized.columns:
             serialized[column] = serialized[column].map(

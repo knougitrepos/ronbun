@@ -413,11 +413,18 @@ class VectorRepository:
         model_uid: str,
         top_k: int = 5,
         search_mode: str = "hnsw",
+        ef_search: int | None = None,
     ):
         if top_k < 1:
             raise ValueError("top_k must be positive")
         if search_mode not in {"exact", "hnsw"}:
             raise ValueError("search_mode must be 'exact' or 'hnsw'")
+        if ef_search is not None and (
+            isinstance(ef_search, bool)
+            or not isinstance(ef_search, int)
+            or ef_search < 1
+        ):
+            raise ValueError("ef_search must be a positive integer")
         values = query_vec.tolist() if hasattr(query_vec, "tolist") else list(query_vec)
         if len(values) != expected_dim:
             raise ValueError(f"query vector must have {expected_dim} dimensions")
@@ -438,6 +445,7 @@ class VectorRepository:
             else {
                 "enable_seqscan": "off",
                 "hnsw.iterative_scan": "strict_order",
+                **({"hnsw.ef_search": str(ef_search)} if ef_search is not None else {}),
             }
         )
 
@@ -473,6 +481,7 @@ class VectorRepository:
                 "similarity": 1.0 - float(row_distance),
                 "search_mode": search_mode,
                 "query_elapsed_ms": elapsed_ms,
+                "ef_search": ef_search if search_mode == "hnsw" else None,
             }
             for template, row_distance in rows
         ]

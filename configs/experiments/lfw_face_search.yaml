@@ -30,7 +30,8 @@ compression:
 
 search:
   compression_profile: pca_256
-  top_k: 2
+  candidate_k: 10
+  hnsw_ef_search: 40
 
 calibration:
   fit_split: development

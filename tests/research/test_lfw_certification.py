@@ -50,6 +50,7 @@ def _records(protocol, tmp_path):
                 "canonical_path": str((tmp_path / f"{image_id}.jpg").resolve()).lower(),
                 "origin_embedding": np.asarray(exact, dtype=np.float32),
                 "approximate_embedding": np.asarray(approximate, dtype=np.float32),
+                "retrieval_embedding": np.asarray(approximate, dtype=np.float32),
                 "angular_error": 0.02,
                 "reconstruction_error_norm": 0.5,
             }
@@ -71,6 +72,8 @@ def test_assemble_filters_registered_identity_without_gallery(tmp_path):
 
     assert bundle.certificate_space == "pca_reconstructed_512"
     assert bundle.templates["identity_id"].tolist() == ["a", "b"]
+    assert "retrieval_embedding" in bundle.templates.columns
+    assert "retrieval_embedding" in bundle.probes.columns
     assert set(bundle.probes["probe_type"]) == {
         "registered",
         "known_unknown",
@@ -81,6 +84,21 @@ def test_assemble_filters_registered_identity_without_gallery(tmp_path):
     assert dropped["dropped_identity_ids"] == ["c"]
     assert dropped["dropped_image_ids"] == ["pc"]
     assert bundle.coverage["gallery"]["missing_image_ids"] == ["gc"]
+
+
+def test_assemble_allows_empty_unknown_unknown_for_calibration(tmp_path):
+    protocol = _protocol(tmp_path)
+    protocol["unknown_unknown_probes"] = protocol["unknown_unknown_probes"].iloc[0:0]
+
+    bundle = assemble_lfw_certification_inputs(
+        protocol,
+        _records(_protocol(tmp_path), tmp_path),
+        project_root=tmp_path,
+        compression_profile=PCA_256,
+        allow_empty_unknown_unknown=True,
+    )
+
+    assert set(bundle.probes["probe_type"]) == {"registered", "known_unknown"}
 
 
 def test_vector_csv_serializes_arrays_and_lists(tmp_path):

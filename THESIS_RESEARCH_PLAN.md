@@ -368,11 +368,16 @@ LFW 기본 흐름은 다음과 같다.
    - 압축 프로파일, 학습 입력 hash, 모델 checksum을 기록한다.
 4. `notebooks/lfw/03_compressed_materialization_and_index.ipynb`
    - DB의 원본 임베딩을 PCA 등 검색 가능한 표현으로 변환해 별도 테이블에 저장한다.
-   - pgvector HNSW 인덱스를 생성하고 저장 byte와 인덱스 생성 시간을 기록한다.
+   - test/calibration identity의 원본 512D template과 PCA-256 retrieval template을 각각 `template_embedding_512`와 `template_embedding_256`에 저장한다.
+   - pgvector HNSW 인덱스 존재 여부와 저장 byte를 확인한다. 실제 index build time은 빈 테이블에 미리 생성된 전역 index의 `IF NOT EXISTS` 시간을 사용하지 않고, 별도의 깨끗한 DB snapshot 실험에서 측정한다.
    - PQ code는 pgvector 검색 벡터로 취급하지 않고 Faiss/복원 오차 보조 실험으로 분리한다.
 5. `notebooks/lfw/04_probe_search_and_certification.ipynb`
-   - 세 probe 유형을 검색하고 top-1, margin, 품질, 템플릿 분산, 정규화 재구성 오차를 생성한다.
-   - global threshold, per-compression threshold, BCE 기반 경량 calibration을 비교한다.
+   - calibration split의 origin-512와 PCA-256 pgvector exact 검색 결과로 점수 공간별 목표 FPIR threshold를 고정한다.
+   - test probe마다 origin-512 exact, PCA-256 exact, PCA-256 HNSW Top-K를 분리 실행한다.
+   - candidate recall, 압축 rank inversion, HNSW rank inversion, threshold crossing, P50/P95 latency를 기록한다.
+   - certificate는 원본 query 512D와 reconstructed template 512D를 사용하여 query angular error를 0으로 둔다.
+   - HNSW 후보 집합의 certificate는 전역 보증으로 주장하지 않으며 candidate recall과 함께 보고한다.
+   - BCE 기반 logistic calibration은 profile별 threshold 시스템 baseline이 안정화된 뒤 추가한다.
 6. `notebooks/lfw/05_evaluation_and_visualization.ipynb`
    - DIR@FPIR, FNIR@FPIR, Rank-K, calibration, 저장량, 지연시간을 계산한다.
    - bootstrap 신뢰구간, 결과 표, 실패 사례, 논문용 그림을 생성한다.
@@ -382,6 +387,14 @@ SurvFace 흐름은 공식 MAT/CSV 순서, 3,000개 gallery identity의 모든 �
 재사용되거나 잘못 바꾸면 결과 전체에 영향을 주는 DB 처리, ArcFace 추론, 압축, 검색, calibration, 지표 계산은 `.py` 모듈로 유지한다. 노트북은 설정 고정, 단계 호출, 결과 검토만 담당한다.
 
 실험 기록은 `runs/YYYY/MM/DD/YYYYMMDD-RNNN-<config-hash>_<name>/`에 저장한다. 각 run에는 비밀정보를 제거한 manifest, 구조화된 JSONL 로그, phase별 attempt, 산출물 checksum을 남긴다. 완료된 run은 덮어쓰지 않는다. 중단 후에는 커널을 재시작하고 bootstrap과 입력 검증부터 실행하며, 상위 단계 hash가 달라졌다면 영향을 받는 단계부터 새 attempt 또는 새 run으로 다시 수행한다.
+
+### 11.1 2026-07-14 구현 상태
+
+- `research/experiments/lfw_pgvector.py`에 identity template materialization, origin/PCA별 calibration exact 검색, test exact/HNSW 후보 검색, candidate recall, 원본 query certificate, 선택적 origin exact fallback 측정을 구현했다.
+- 실제 PostgreSQL smoke test에서는 임시 test/calibration template scope를 생성하여 exact/HNSW 검색과 query angular error 0을 확인한 뒤 임시 행을 모두 삭제했다.
+- 이 smoke test는 30개 calibration probe와 15개 test probe의 기능 검증이므로 논문 결과로 사용하지 않는다.
+- 다음 정식 실행은 변경된 config hash로 00부터 새 LFW run을 만들고 05까지 순서대로 수행한다.
+- 정식 LFW baseline이 확보된 뒤 per-compression/logistic calibration, `ef_search`·candidate K sweep, PQ Faiss baseline, SurvFace 공식 실험 순으로 확장한다.
 
 ## 12. 제목 후보
 

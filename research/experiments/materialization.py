@@ -463,7 +463,7 @@ def _materialize_compressed_embeddings(
 
     index_started = perf_counter()
     ensure_vector_indexes(engine)
-    index_elapsed_seconds = perf_counter() - index_started
+    index_ensure_elapsed_seconds = perf_counter() - index_started
     with engine.connect() as connection:
         storage_bytes = {
             table: int(
@@ -510,7 +510,11 @@ def _materialize_compressed_embeddings(
         "row_counts": row_counts,
         "error_normalization": error_stats,
         "measurements_path": str(destination),
-        "index_elapsed_seconds": float(index_elapsed_seconds),
+        "index_ensure_elapsed_seconds": float(index_ensure_elapsed_seconds),
+        "index_measurement_note": (
+            "Time spent ensuring indexes exist; this is not a clean HNSW build-time "
+            "measurement when indexes were created before row insertion."
+        ),
         "storage_bytes": storage_bytes,
         "pca_model_uid": pca_uid,
         "pq_model_uid": pq_uid,

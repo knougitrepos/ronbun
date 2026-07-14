@@ -44,6 +44,21 @@ def test_progress_reporter_prints_heartbeat_for_long_step():
     assert "phase-04 | RUNNING search" in output.getvalue()
 
 
+def test_progress_reporter_heartbeat_includes_dynamic_details():
+    output = StringIO()
+    reporter = ProgressReporter("phase-01", heartbeat_seconds=0.01, stream=output)
+    state = {"processed": 0, "current_file": "a.jpg"}
+
+    with reporter.step("extract", heartbeat_details=lambda: dict(state)):
+        state["processed"] = 7
+        state["current_file"] = "person/b.jpg"
+        threading.Event().wait(0.04)
+
+    text = output.getvalue()
+    assert "processed=7" in text
+    assert "current_file=person/b.jpg" in text
+
+
 def test_progress_reporter_rejects_non_positive_heartbeat():
     with pytest.raises(ValueError, match="heartbeat_seconds must be positive"):
         ProgressReporter("invalid", heartbeat_seconds=0)

@@ -100,6 +100,7 @@ def _package_versions() -> dict[str, str | None]:
         "faiss-cpu",
         "insightface",
         "onnxruntime",
+        "onnxruntime-gpu",
         "opencv-python",
     )
     versions: dict[str, str | None] = {}
