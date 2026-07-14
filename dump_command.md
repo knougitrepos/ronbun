@@ -1,1 +1,0 @@
-"C:/Program Files/PostgreSQL/16/bin/psql.exe" --username=postgres --dbname=postgres --host=localhost --port=5432 -f "C:/Users/Administrator/Desktop/db/postgres_origin_vector-2025_06_21_09_48_22-dump.sql"

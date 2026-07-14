@@ -1,52 +1,30 @@
-# Celery 및 분산처리 관련
-celery==5.2.7
-billiard==3.6.4.0
-kombu==5.2.4
-redis==4.5.5
-matplotlib
-seaborn
-
-# 웹 프레임워크 및 데이터베이스
-fastapi
-uvicorn
-jinja2
-sqlalchemy>=2.0
-psycopg2-binary
-pgvector
-
-# 컴퓨터 비전 및 이미지 처리
-opencv-python
-insightface
-pillow
-
-# 웹 관련
-python-multipart
-
-# 머신러닝 및 최적화
-mlflow
-optuna
-scikit-learn>=1.1.0
-pytest>=8.0
-pyyaml>=6.0
-
-# 데이터 처리 및 분석
-pandas>=1.5.0
+# Core numerical and experiment stack
 numpy>=1.21.0
+pandas>=1.5.0
+scikit-learn>=1.1.0
+scipy>=1.8.0
+joblib>=1.2.0
+pyyaml>=6.0
+pyarrow>=10.0.0
 
-# 딥러닝 프레임워크
-torch>=1.12.0
-torchvision>=0.13.0
+# Face embeddings and vector compression
+opencv-python>=4.7.0
+insightface>=0.7.3
+onnxruntime>=1.15.0
+pillow>=9.0.0
+faiss-cpu>=1.7.4
 
-# 벡터 검색
-pyarrow
-faiss-cpu
+# PostgreSQL and pgvector
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+pgvector>=0.2.0
 
-# 진행률 표시
+# Evaluation and visualization
+matplotlib>=3.6.0
+seaborn>=0.12.0
 tqdm>=4.64.0
 
-# Jupyter 노트북 환경 (선택사항)
+# Notebook and tests
 jupyter>=1.0.0
 ipykernel>=6.0.0
-
-umap-learn>=0.5.0
-plotly>=5.0.0
+pytest>=8.0

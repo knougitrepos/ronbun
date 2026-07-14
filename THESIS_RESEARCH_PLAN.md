@@ -352,17 +352,32 @@ PQ 복원 벡터를 일반 `vector(256)`로 저장하고 이를 PQ 저장공간�
 
 ## 11. 구현 진행 순서
 
-1. 재현 가능한 데이터셋 manifest와 identity-disjoint 분할 구축
-2. ArcFace 임베딩 및 품질 메타데이터 추출
-3. 템플릿 이상치 제거와 집계 ablation 구현
-4. PostgreSQL 검색용 압축 프로파일 구현
-5. 등록 probe, known unknown probe, unknown unknown probe 평가 프로토콜 구현
-6. 압축 방식별 `E_rec` 정규화와 압축 categorical feature 생성
-7. 압축 인지형 보정 모델 및 model/feature ablation 구현
-8. 선택적으로 제한적 품질 적응형 압축 정책 구현
-9. pgvector HNSW 성능 측정
-10. bootstrap 신뢰구간과 결과 표 생성
-11. 논문 결과 및 실패 사례 정리
+실험은 계산 로직을 담은 `research/` 모듈과 그 모듈을 순서대로 호출하는 여섯 개의 노트북으로 분리한다. DB 연결 정보는 `configs/database.yaml`과 Git에서 제외되는 `configs/database.local.yaml`에 두며 노트북에 직접 작성하지 않는다.
+
+1. `00_protocol_and_run_freeze.ipynb`
+   - 데이터셋 manifest와 identity-disjoint development/calibration/test 분할을 확정한다.
+   - 등록 probe, known unknown, unknown unknown 구성을 고정한다.
+   - 전체 설정 hash와 Git 상태를 기록하고 새 실험 run을 생성한다.
+2. `01_arcface_embedding_extraction.ipynb`
+   - ArcFace 512D 원본 임베딩과 얼굴 검출·품질 메타데이터를 추출한다.
+   - 원본 임베딩을 PostgreSQL의 원본 테이블에 저장한다.
+3. `02_compressor_fit.ipynb`
+   - development split만 사용해 PCA와 보조 PQ codebook을 학습한다.
+   - 압축 프로파일, 학습 입력 hash, 모델 checksum을 기록한다.
+4. `03_compressed_materialization_and_index.ipynb`
+   - DB의 원본 임베딩을 PCA 등 검색 가능한 표현으로 변환해 별도 테이블에 저장한다.
+   - pgvector HNSW 인덱스를 생성하고 저장 byte와 인덱스 생성 시간을 기록한다.
+   - PQ code는 pgvector 검색 벡터로 취급하지 않고 Faiss/복원 오차 보조 실험으로 분리한다.
+5. `04_probe_search_and_certification.ipynb`
+   - 세 probe 유형을 검색하고 top-1, margin, 품질, 템플릿 분산, 정규화 재구성 오차를 생성한다.
+   - global threshold, per-compression threshold, BCE 기반 경량 calibration을 비교한다.
+6. `05_evaluation_and_visualization.ipynb`
+   - DIR@FPIR, FNIR@FPIR, Rank-K, calibration, 저장량, 지연시간을 계산한다.
+   - bootstrap 신뢰구간, 결과 표, 실패 사례, 논문용 그림을 생성한다.
+
+재사용되거나 잘못 바꾸면 결과 전체에 영향을 주는 DB 처리, ArcFace 추론, 압축, 검색, calibration, 지표 계산은 `.py` 모듈로 유지한다. 노트북은 설정 고정, 단계 호출, 결과 검토만 담당한다.
+
+실험 기록은 `runs/YYYY/MM/DD/YYYYMMDD-RNNN-<config-hash>_<name>/`에 저장한다. 각 run에는 비밀정보를 제거한 manifest, 구조화된 JSONL 로그, phase별 attempt, 산출물 checksum을 남긴다. 완료된 run은 덮어쓰지 않는다. 중단 후에는 커널을 재시작하고 bootstrap과 입력 검증부터 실행하며, 상위 단계 hash가 달라졌다면 영향을 받는 단계부터 새 attempt 또는 새 run으로 다시 수행한다.
 
 ## 12. 제목 후보
 

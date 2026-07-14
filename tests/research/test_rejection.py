@@ -6,6 +6,7 @@ from research.calibration.rejection import (
     LogisticRegressionCalibrator,
     PerCompressionThresholdCalibrator,
     ShallowMLPCalibrator,
+    choose_threshold,
 )
 
 
@@ -29,10 +30,23 @@ def _features():
                 "enrollment_count": 2,
                 "reconstruction_error_norm": 0.0 if profile == "origin_512" else 1.0,
                 "compression_profile": profile,
+                "probe_type": "registered" if label else "known_unknown",
+                "top1_correct": bool(label),
                 "y_true_accept": label,
             }
         )
     return pd.DataFrame(rows)
+
+
+def test_threshold_uses_non_mated_fpir_and_mated_top1_correctness():
+    threshold = choose_threshold(
+        scores=[0.90, 0.95, 0.60, 0.55],
+        is_mated=[True, True, False, False],
+        top1_correct=[True, False, False, False],
+        target_fpir=0.0,
+    )
+
+    assert threshold == 0.90
 
 
 def test_threshold_calibrators_fit_on_calibration_rows_and_predict_acceptance():

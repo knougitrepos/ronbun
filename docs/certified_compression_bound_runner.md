@@ -1,12 +1,17 @@
 # Certified Compression-Bound Runner
 
-This document describes the `thesis2` experiment runner path for the
-compression-error-bound open-set face search method.
+This document describes the `thesis3` experiment runner path for the
+compression-error-bound open-set face search method. Generated files are kept
+inside a dated, immutable run directory:
+
+```text
+runs/YYYY/MM/DD/YYYYMMDD-RNNN-<config-hash>_<experiment-name>/
+```
 
 ## Dry run
 
 ```powershell
-py experiments/run_face_search_study.py --config experiments/configs/face_search.yaml --phase all --dry-run
+py experiments/run_face_search_study.py --config configs/experiments/face_search.yaml --phase all --dry-run
 ```
 
 The expected phase order is:
@@ -17,12 +22,13 @@ protocol,templates,compression,search,certification,calibration
 
 ## Search inputs
 
-To generate `search/certified_features.csv`, set these keys in the config:
+To generate `artifacts/search/certified_features.csv` inside the dated run,
+set these keys in the config:
 
 ```yaml
 search:
-  probes_path: artifacts/face_search/probes.csv
-  templates_path: artifacts/face_search/templates.csv
+  probes_path: data/derived/face_search/probes.csv
+  templates_path: data/derived/face_search/templates.csv
   compression_profile: pca_256
   top_k: 2
   candidate_scope: exhaustive
@@ -72,14 +78,14 @@ As a temporary bridge, the runner also accepts a precomputed feature table:
 
 ```yaml
 search:
-  input_certified_features_path: artifacts/face_search/certified_features.csv
+  input_certified_features_path: data/derived/face_search/certified_features.csv
 ```
 
 When this is set, the file is copied to the run artifact directory as
-`search/certified_features.csv`. If the table already contains
+`artifacts/search/certified_features.csv`. If the table already contains
 `certification_candidate_scope`, `certification_candidate_count`,
 `certification_gallery_size`, and `certification_global_claim`, those fields are
-also summarized in `search/phase_metadata.json`. If
+also summarized in `artifacts/search/phase_metadata.json`. If
 `certification_candidate_scope` contains `candidate_set`, the precomputed table
 must include `certification_candidate_count`, `certification_gallery_size`, and
 `certification_global_claim`; otherwise the runner rejects the table. The only
@@ -94,21 +100,21 @@ metadata fields, `certification_gallery_size` must equal
 
 ## Certification outputs
 
-The certification phase reads `search/certified_features.csv` by default when
-`certification.input_features_path` is not set.
+The certification phase reads `artifacts/search/certified_features.csv` from
+the same run by default when `certification.input_features_path` is not set.
 
 If `certification.input_features_path` points directly to a precomputed feature
 table, the certification phase preserves the same candidate-scope metadata in
-`certification/phase_metadata.json` and applies the same scope-value,
+`artifacts/certification/phase_metadata.json` and applies the same scope-value,
 required-column, boolean, gallery-size, and global-claim consistency checks
 described above.
 
 It writes:
 
-- `certification/certification_config.json`
-- `certification/certification_method.json`
-- `certification/certification_summary.json`
-- `certification/phase_metadata.json`
+- `artifacts/certification/certification_config.json`
+- `artifacts/certification/certification_method.json`
+- `artifacts/certification/certification_summary.json`
+- `artifacts/certification/phase_metadata.json`
 
 `certification_method.json` is the method card for the bound-based decision
 layer. It records the cosine score type, angular-error unit, unit-vector

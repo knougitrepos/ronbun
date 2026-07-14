@@ -1,5 +1,6 @@
 import json
 import hashlib
+from pathlib import Path
 import subprocess
 import sys
 
@@ -11,13 +12,24 @@ def _sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _run_dir(result):
+    artifact_line = next(
+        line for line in result.stdout.splitlines() if line.startswith("artifact_dir=")
+    )
+    return Path(artifact_line.split("=", 1)[1])
+
+
+def _phase_dir(run_dir, phase):
+    return run_dir / "artifacts" / phase
+
+
 def test_face_search_cli_dry_run_accepts_all_phase_config():
     result = subprocess.run(
         [
             sys.executable,
             "experiments/run_face_search_study.py",
             "--config",
-            "experiments/configs/face_search.yaml",
+            "configs/experiments/face_search.yaml",
             "--phase",
             "all",
             "--dry-run",
@@ -80,15 +92,15 @@ def test_face_search_cli_writes_certification_phase_artifacts(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    run_dir = artifact_root / "artifact_test"
-    phase_dir = run_dir / "certification"
+    run_dir = _run_dir(result)
+    phase_dir = _phase_dir(run_dir, "certification")
     metadata = json.loads((phase_dir / "phase_metadata.json").read_text(encoding="utf-8"))
     certification_config = json.loads((phase_dir / "certification_config.json").read_text(encoding="utf-8"))
     certification_method = json.loads((phase_dir / "certification_method.json").read_text(encoding="utf-8"))
 
     assert (run_dir / "run_config.json").is_file()
     assert metadata["phase"] == "certification"
-    assert metadata["status"] == "planned"
+    assert metadata["status"] == "completed"
     assert metadata["config_hash"]
     assert metadata["manifest_path"] == manifest.as_posix()
     assert metadata["outputs"] == ["certification_config.json", "certification_method.json"]
@@ -218,7 +230,8 @@ def test_face_search_cli_writes_certification_summary_from_feature_csv(tmp_path)
     )
 
     assert result.returncode == 0, result.stderr
-    phase_dir = artifact_root / "summary_test" / "certification"
+    run_dir = _run_dir(result)
+    phase_dir = _phase_dir(run_dir, "certification")
     metadata = json.loads((phase_dir / "phase_metadata.json").read_text(encoding="utf-8"))
     summary = json.loads((phase_dir / "certification_summary.json").read_text(encoding="utf-8"))
 
@@ -314,14 +327,16 @@ def test_face_search_cli_hands_search_certified_features_to_certification_by_def
     )
 
     assert result.returncode == 0, result.stderr
-    run_dir = artifact_root / "handoff_test"
-    search_features = run_dir / "search" / "certified_features.csv"
-    search_metadata = json.loads((run_dir / "search" / "phase_metadata.json").read_text(encoding="utf-8"))
+    run_dir = _run_dir(result)
+    search_dir = _phase_dir(run_dir, "search")
+    certification_dir = _phase_dir(run_dir, "certification")
+    search_features = search_dir / "certified_features.csv"
+    search_metadata = json.loads((search_dir / "phase_metadata.json").read_text(encoding="utf-8"))
     certification_metadata = json.loads(
-        (run_dir / "certification" / "phase_metadata.json").read_text(encoding="utf-8")
+        (certification_dir / "phase_metadata.json").read_text(encoding="utf-8")
     )
     certification_summary = json.loads(
-        (run_dir / "certification" / "certification_summary.json").read_text(encoding="utf-8")
+        (certification_dir / "certification_summary.json").read_text(encoding="utf-8")
     )
 
     assert search_features.read_text(encoding="utf-8") == source_features.read_text(encoding="utf-8")
@@ -970,11 +985,13 @@ def test_face_search_cli_generates_certified_features_from_probe_and_template_cs
     )
 
     assert result.returncode == 0, result.stderr
-    run_dir = artifact_root / "generated_search_test"
-    features = pd.read_csv(run_dir / "search" / "certified_features.csv")
-    search_metadata = json.loads((run_dir / "search" / "phase_metadata.json").read_text(encoding="utf-8"))
-    generated_features_path = run_dir / "search" / "certified_features.csv"
-    summary = json.loads((run_dir / "certification" / "certification_summary.json").read_text(encoding="utf-8"))
+    run_dir = _run_dir(result)
+    search_dir = _phase_dir(run_dir, "search")
+    certification_dir = _phase_dir(run_dir, "certification")
+    features = pd.read_csv(search_dir / "certified_features.csv")
+    search_metadata = json.loads((search_dir / "phase_metadata.json").read_text(encoding="utf-8"))
+    generated_features_path = search_dir / "certified_features.csv"
+    summary = json.loads((certification_dir / "certification_summary.json").read_text(encoding="utf-8"))
 
     assert list(features["query_id"]) == ["qa", "qu"]
     assert list(features["certified_decision"]) == ["accept", "reject"]
@@ -1224,9 +1241,11 @@ def test_face_search_cli_generates_final_decisions_with_fallback_embeddings(tmp_
     )
 
     assert result.returncode == 0, result.stderr
-    run_dir = artifact_root / "fallback_search_test"
-    features = pd.read_csv(run_dir / "search" / "certified_features.csv")
-    summary = json.loads((run_dir / "certification" / "certification_summary.json").read_text(encoding="utf-8"))
+    run_dir = _run_dir(result)
+    search_dir = _phase_dir(run_dir, "search")
+    certification_dir = _phase_dir(run_dir, "certification")
+    features = pd.read_csv(search_dir / "certified_features.csv")
+    summary = json.loads((certification_dir / "certification_summary.json").read_text(encoding="utf-8"))
 
     assert list(features["certified_decision"]) == ["defer"]
     assert list(features["fallback_used"]) == [True]

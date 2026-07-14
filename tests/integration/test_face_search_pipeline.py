@@ -3,7 +3,7 @@ import pandas as pd
 
 from research.calibration.rejection import LogisticRegressionCalibrator
 from research.compression.profiles import COMPRESSION_PROFILES, fit_pca_profile
-from research.protocol import build_open_set_protocol
+from research.protocols.open_set import build_open_set_protocol
 from research.search.open_set import build_certified_search_features
 from research.templates.aggregation import aggregate_templates
 

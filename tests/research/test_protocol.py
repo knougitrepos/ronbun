@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from research.protocol import build_open_set_protocol, validate_identity_disjoint_splits
+from research.protocols.open_set import build_open_set_protocol, validate_identity_disjoint_splits
 
 
 def test_rejects_identity_leakage_between_splits():

@@ -1,6 +1,11 @@
 import pandas as pd
 
-from research.metrics import brier_score, expected_calibration_error, rank_at_k
+from research.evaluation.metrics import (
+    brier_score,
+    expected_calibration_error,
+    open_set_identification_metrics,
+    rank_at_k,
+)
 
 
 def test_metrics_cover_rank_and_calibration_quality():
@@ -18,3 +23,44 @@ def test_metrics_cover_rank_and_calibration_quality():
     assert rank_at_k(rows, k=2) == 1.0
     assert brier_score(rows["y_true_accept"], rows["accept_probability"]) > 0.0
     assert expected_calibration_error(rows["y_true_accept"], rows["accept_probability"], n_bins=2) >= 0.0
+
+
+def test_open_set_metrics_separate_mated_identification_from_non_mated_acceptance():
+    rows = pd.DataFrame(
+        {
+            "probe_type": ["registered", "registered", "known_unknown", "unknown_unknown"],
+            "query_identity_id": ["a", "b", "u", "x"],
+            "top1_identity": ["a", "a", "a", "b"],
+            "accepted": [True, True, False, True],
+        }
+    )
+
+    metrics = open_set_identification_metrics(rows)
+
+    assert metrics == {
+        "mated_count": 2,
+        "non_mated_count": 2,
+        "dir_rank1": 0.5,
+        "fnir_rank1": 0.5,
+        "fpir": 0.5,
+    }
+
+
+def test_open_set_metrics_can_score_exact_fallback_identity():
+    rows = pd.DataFrame(
+        {
+            "probe_type": ["registered", "known_unknown"],
+            "query_identity_id": ["a", "u"],
+            "top1_identity": ["wrong", "a"],
+            "final_identity": ["a", None],
+            "accepted": [True, False],
+        }
+    )
+
+    metrics = open_set_identification_metrics(
+        rows,
+        predicted_identity_column="final_identity",
+    )
+
+    assert metrics["dir_rank1"] == 1.0
+    assert metrics["fpir"] == 0.0

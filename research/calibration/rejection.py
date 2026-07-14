@@ -17,26 +17,46 @@ def _target(frame: pd.DataFrame) -> np.ndarray:
     return frame["y_true_accept"].astype(int).to_numpy()
 
 
-def choose_threshold(scores: np.ndarray, labels: np.ndarray, target_fpir: float) -> float:
+def choose_threshold(
+    scores: np.ndarray,
+    is_mated: np.ndarray,
+    top1_correct: np.ndarray,
+    target_fpir: float,
+) -> float:
     if not 0.0 <= target_fpir <= 1.0:
         raise ValueError("target_fpir must be between 0 and 1")
     scores = np.asarray(scores, dtype=float)
-    labels = np.asarray(labels, dtype=int)
+    is_mated = np.asarray(is_mated, dtype=bool)
+    top1_correct = np.asarray(top1_correct, dtype=bool)
+    if not (len(scores) == len(is_mated) == len(top1_correct)):
+        raise ValueError("scores, is_mated, and top1_correct must have equal length")
     thresholds = np.r_[np.inf, np.sort(np.unique(scores))[::-1], -np.inf]
     best_threshold = float(np.inf)
     best_dir = -1.0
     for threshold in thresholds:
         accepted = scores >= threshold
-        unknown = labels == 0
-        registered = labels == 1
-        fpir = float(np.mean(accepted[unknown])) if unknown.any() else 0.0
+        non_mated = ~is_mated
+        fpir = float(np.mean(accepted[non_mated])) if non_mated.any() else 0.0
         if fpir > target_fpir:
             continue
-        directory_identification_rate = float(np.mean(accepted[registered])) if registered.any() else 0.0
+        directory_identification_rate = (
+            float(np.mean(accepted[is_mated] & top1_correct[is_mated]))
+            if is_mated.any()
+            else 0.0
+        )
         if directory_identification_rate > best_dir:
             best_dir = directory_identification_rate
             best_threshold = float(threshold)
     return best_threshold
+
+
+def _decision_labels(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    if "probe_type" not in frame.columns or "top1_correct" not in frame.columns:
+        raise ValueError("probe_type and top1_correct columns are required")
+    return (
+        frame["probe_type"].astype(str).eq("registered").to_numpy(),
+        frame["top1_correct"].astype(bool).to_numpy(),
+    )
 
 
 class GlobalThresholdCalibrator:
@@ -45,9 +65,11 @@ class GlobalThresholdCalibrator:
         self.threshold: float | None = None
 
     def fit(self, frame: pd.DataFrame) -> "GlobalThresholdCalibrator":
+        is_mated, top1_correct = _decision_labels(frame)
         self.threshold = choose_threshold(
             frame["top1_score"].astype(float).to_numpy(),
-            _target(frame),
+            is_mated,
+            top1_correct,
             self.target_fpir,
         )
         return self
@@ -66,9 +88,11 @@ class PerCompressionThresholdCalibrator:
     def fit(self, frame: pd.DataFrame) -> "PerCompressionThresholdCalibrator":
         self.thresholds = {}
         for profile, group in frame.groupby("compression_profile"):
+            is_mated, top1_correct = _decision_labels(group)
             self.thresholds[str(profile)] = choose_threshold(
                 group["top1_score"].astype(float).to_numpy(),
-                _target(group),
+                is_mated,
+                top1_correct,
                 self.target_fpir,
             )
         return self

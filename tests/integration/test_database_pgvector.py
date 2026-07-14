@@ -1,29 +1,23 @@
 import numpy as np
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
-from core.config import ConfigLoader
-from core.database import (
+from research.database import (
+    Base,
+    VectorRepository,
     check_database_health,
+    create_database_engine,
     ensure_vector_extension,
     ensure_vector_indexes,
     init_database,
-    VectorRepository,
+    load_database_settings,
 )
-from core.schemas import Base
 
 
 def _engine():
-    cfg = ConfigLoader().db
-    url = "postgresql+psycopg2://{}:{}@{}:{}/{}".format(
-        cfg["user"],
-        cfg["password"],
-        cfg["host"],
-        cfg["port"],
-        cfg["dbname"],
-    )
-    engine = create_engine(url)
+    settings = load_database_settings()
+    engine = create_database_engine(settings)
     try:
         with engine.connect() as conn:
             conn.execute(text("select 1"))
@@ -62,34 +56,53 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
                 vector_type="origin",
                 parameters={},
                 embedding=np.r_[1.0, np.zeros(511)].tolist(),
+                run_uid="pgvector-integration",
             )
             repo.add_embedding_512(
                 image_b.id,
                 vector_type="origin",
                 parameters={},
                 embedding=np.r_[0.0, 1.0, np.zeros(510)].tolist(),
+                run_uid="pgvector-integration",
             )
             repo.add_embedding_256(
                 image_a.id,
                 vector_type="pca",
                 parameters={"n_components": 256},
                 embedding=np.r_[1.0, np.zeros(255)].tolist(),
+                run_uid="pgvector-integration",
             )
             repo.add_embedding_256(
                 image_b.id,
                 vector_type="pca",
                 parameters={"n_components": 256},
                 embedding=np.r_[0.0, 1.0, np.zeros(254)].tolist(),
+                run_uid="pgvector-integration",
             )
 
-            results = repo.find_similar_512(np.r_[1.0, np.zeros(511)], top_k=2, vector_type="origin")
+            duplicate = repo.add_embedding_512(
+                image_a.id,
+                vector_type="origin",
+                parameters={"retry": True},
+                embedding=np.r_[1.0, np.zeros(511)].tolist(),
+                run_uid="pgvector-integration",
+            )
+            results = repo.find_similar_512(
+                np.r_[1.0, np.zeros(511)],
+                top_k=2,
+                vector_type="origin",
+                run_uid="pgvector-integration",
+            )
             pca_results = repo.find_similar_256(
                 np.r_[1.0, np.zeros(255)],
                 top_k=1,
                 vector_type="pca",
                 param_filter={"n_components": 256},
+                run_uid="pgvector-integration",
             )
 
+            assert duplicate.image_id == image_a.id
+            assert len(repo.get_embeddings_512(run_uid="pgvector-integration")) == 2
             assert [row["label"] for row in results] == ["a", "b"]
             assert results[0]["distance"] < results[1]["distance"]
             assert results[0]["similarity"] > 0.99

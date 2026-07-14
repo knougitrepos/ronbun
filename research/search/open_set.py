@@ -103,7 +103,13 @@ def build_search_features(
                 "reconstruction_error_norm": float(probe.get("reconstruction_error_norm", 0.0)),
                 "ranked_identities": template_rows.iloc[order]["identity_id"].astype(str).tolist(),
                 "ranked_scores": [float(scores[idx]) for idx in order],
-                "y_true_accept": int(probe_type == "registered" and top1_identity == query_identity),
+                "is_mated": int(probe_type == "registered"),
+                "top1_correct": int(
+                    probe_type == "registered" and top1_identity == query_identity
+                ),
+                "y_true_accept": int(
+                    probe_type == "registered" and top1_identity == query_identity
+                ),
             }
         )
 

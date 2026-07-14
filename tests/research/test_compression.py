@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from research.compression.profiles import (
     COMPRESSION_PROFILES,
@@ -78,6 +79,13 @@ def test_pq_profile_is_auxiliary_not_pgvector_searchable():
         ],
         dtype=np.float32,
     )
+
+    try:
+        import faiss  # noqa: F401
+    except ImportError:
+        with pytest.raises(RuntimeError, match="Faiss is required for the PQ baseline"):
+            fit_pq_auxiliary_profile(vectors, m=1, nbits=2)
+        return
 
     pq = fit_pq_auxiliary_profile(vectors, m=1, nbits=2)
 

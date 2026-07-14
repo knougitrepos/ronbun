@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
+from pathlib import Path
+import tempfile
 
+import joblib
 import numpy as np
 from sklearn.decomposition import PCA
 
@@ -34,12 +38,12 @@ COMPRESSION_PROFILES = {
     "pca_256": CompressionProfileSpec(
         name="pca_256",
         pgvector_searchable=True,
-        description="PCA-reduced vector stored as pgvector vector.",
+        description="PCA retrieval vector stored as pgvector vector.",
     ),
     "pq": CompressionProfileSpec(
         name="pq",
         pgvector_searchable=False,
-        description="Faiss PQ codes stored as auxiliary compression artifacts.",
+        description="Faiss PQ codes stored as auxiliary artifacts, not pgvector vectors.",
     ),
 }
 
@@ -48,6 +52,8 @@ def _as_float_matrix(vectors: np.ndarray) -> np.ndarray:
     matrix = np.asarray(vectors, dtype=np.float32)
     if matrix.ndim != 2:
         raise ValueError("vectors must be a 2D array")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("vectors must contain only finite values")
     return matrix
 
 
@@ -58,7 +64,7 @@ def _row_normalize(matrix: np.ndarray) -> np.ndarray:
     return matrix / norms
 
 
-def _angular_error(original: np.ndarray, reconstructed: np.ndarray) -> np.ndarray:
+def angular_error(original: np.ndarray, reconstructed: np.ndarray) -> np.ndarray:
     source = _as_float_matrix(original)
     restored = _as_float_matrix(reconstructed)
     if source.shape != restored.shape:
@@ -69,6 +75,196 @@ def _angular_error(original: np.ndarray, reconstructed: np.ndarray) -> np.ndarra
     return np.arccos(np.clip(cosines, -1.0, 1.0)).astype(np.float32)
 
 
+def _atomic_joblib_dump(payload, destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+    )
+    os.close(fd)
+    temporary = Path(temporary_name)
+    try:
+        joblib.dump(payload, temporary)
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return destination
+
+
+class PCACompressor:
+    def __init__(self, n_components: int = 256, random_state: int | None = None):
+        self.n_components = int(n_components)
+        self.random_state = random_state
+        self.model: PCA | None = None
+        self.fit_count: int | None = None
+        self.source_dim: int | None = None
+
+    def fit(self, development_vectors: np.ndarray) -> "PCACompressor":
+        matrix = _as_float_matrix(development_vectors)
+        if self.n_components < 1 or self.n_components > min(matrix.shape):
+            raise ValueError("n_components must be between 1 and min(n_samples, n_features)")
+        self.model = PCA(n_components=self.n_components, random_state=self.random_state)
+        self.model.fit(matrix)
+        self.fit_count = int(matrix.shape[0])
+        self.source_dim = int(matrix.shape[1])
+        return self
+
+    def _require_fit(self) -> PCA:
+        if self.model is None:
+            raise ValueError("PCA compressor has not been fit")
+        return self.model
+
+    def transform(self, vectors: np.ndarray) -> np.ndarray:
+        matrix = _as_float_matrix(vectors)
+        return self._require_fit().transform(matrix).astype(np.float32)
+
+    def inverse_transform(self, retrieval_vectors: np.ndarray) -> np.ndarray:
+        matrix = _as_float_matrix(retrieval_vectors)
+        return self._require_fit().inverse_transform(matrix).astype(np.float32)
+
+    def transform_profile(self, vectors: np.ndarray) -> CompressionResult:
+        source = _as_float_matrix(vectors)
+        retrieval = self.transform(source)
+        reconstructed = self.inverse_transform(retrieval)
+        reconstruction_error = np.mean((source - reconstructed) ** 2, axis=1)
+        model = self._require_fit()
+        return CompressionResult(
+            profile_name=f"pca_{self.n_components}",
+            vectors=retrieval,
+            reconstruction_error=reconstruction_error.astype(np.float32),
+            angular_error=angular_error(source, reconstructed),
+            pgvector_searchable=True,
+            metadata={
+                "method": "pca",
+                "n_components": self.n_components,
+                "source_dim": int(source.shape[1]),
+                "fit_count": self.fit_count,
+                "explained_variance_ratio_sum": float(np.sum(model.explained_variance_ratio_)),
+                "retrieval_space": f"pca_{self.n_components}",
+                "certificate_space": f"reconstructed_{source.shape[1]}",
+            },
+            reconstructed_vectors=reconstructed,
+        )
+
+    def save(self, path: str | Path) -> Path:
+        model = self._require_fit()
+        return _atomic_joblib_dump(
+            {
+                "kind": "pca",
+                "n_components": self.n_components,
+                "random_state": self.random_state,
+                "fit_count": self.fit_count,
+                "source_dim": self.source_dim,
+                "model": model,
+            },
+            Path(path),
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> "PCACompressor":
+        payload = joblib.load(path)
+        if payload.get("kind") != "pca":
+            raise ValueError("artifact is not a PCA compressor")
+        compressor = cls(payload["n_components"], payload.get("random_state"))
+        compressor.model = payload["model"]
+        compressor.fit_count = payload.get("fit_count")
+        compressor.source_dim = payload.get("source_dim")
+        return compressor
+
+
+class PQCompressor:
+    def __init__(self, source_dim: int, m: int = 16, nbits: int = 8):
+        self.source_dim = int(source_dim)
+        self.m = int(m)
+        self.nbits = int(nbits)
+        self.index = None
+        self.fit_count: int | None = None
+
+    def fit(self, development_vectors: np.ndarray) -> "PQCompressor":
+        try:
+            import faiss  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError("Faiss is required for the PQ baseline") from exc
+        matrix = _as_float_matrix(development_vectors)
+        if matrix.shape[1] != self.source_dim:
+            raise ValueError(f"PQ expected {self.source_dim} dimensions, got {matrix.shape[1]}")
+        if self.source_dim % self.m != 0:
+            raise ValueError("PQ source_dim must be divisible by m")
+        index = faiss.IndexPQ(self.source_dim, self.m, self.nbits)
+        try:
+            index.train(np.ascontiguousarray(matrix))
+        except Exception as exc:
+            raise RuntimeError(
+                f"Faiss PQ training failed for d={self.source_dim}, m={self.m}, nbits={self.nbits}"
+            ) from exc
+        if not index.is_trained:
+            raise RuntimeError("Faiss PQ did not report a trained index")
+        self.index = index
+        self.fit_count = int(matrix.shape[0])
+        return self
+
+    def _require_fit(self):
+        if self.index is None or not self.index.is_trained:
+            raise ValueError("PQ compressor has not been fit")
+        return self.index
+
+    def encode(self, vectors: np.ndarray) -> np.ndarray:
+        matrix = _as_float_matrix(vectors)
+        if matrix.shape[1] != self.source_dim:
+            raise ValueError(f"PQ expected {self.source_dim} dimensions, got {matrix.shape[1]}")
+        return self._require_fit().sa_encode(np.ascontiguousarray(matrix))
+
+    def decode(self, codes: np.ndarray) -> np.ndarray:
+        return self._require_fit().sa_decode(np.ascontiguousarray(codes)).astype(np.float32)
+
+    def transform_profile(self, vectors: np.ndarray) -> CompressionResult:
+        source = _as_float_matrix(vectors)
+        codes = self.encode(source)
+        reconstructed = self.decode(codes)
+        reconstruction_error = np.mean((source - reconstructed) ** 2, axis=1)
+        return CompressionResult(
+            profile_name=f"pq_m{self.m}_b{self.nbits}",
+            vectors=reconstructed,
+            reconstruction_error=reconstruction_error.astype(np.float32),
+            angular_error=angular_error(source, reconstructed),
+            pgvector_searchable=False,
+            metadata={
+                "method": "faiss_pq",
+                "M": self.m,
+                "nbits": self.nbits,
+                "source_dim": self.source_dim,
+                "fit_count": self.fit_count,
+            },
+            codes=codes,
+            reconstructed_vectors=reconstructed,
+        )
+
+    def save(self, path: str | Path) -> Path:
+        try:
+            import faiss  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError("Faiss is required for the PQ baseline") from exc
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name(f".{destination.name}.tmp")
+        try:
+            faiss.write_index(self._require_fit(), str(temporary))
+            os.replace(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return destination
+
+    @classmethod
+    def load(cls, path: str | Path) -> "PQCompressor":
+        try:
+            import faiss  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError("Faiss is required for the PQ baseline") from exc
+        index = faiss.read_index(str(path))
+        compressor = cls(index.d, index.pq.M, index.pq.nbits)
+        compressor.index = index
+        return compressor
+
+
 def original_profile(vectors: np.ndarray) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
     return CompressionResult(
@@ -77,7 +273,7 @@ def original_profile(vectors: np.ndarray) -> CompressionResult:
         reconstruction_error=np.zeros(len(matrix), dtype=np.float32),
         angular_error=np.zeros(len(matrix), dtype=np.float32),
         pgvector_searchable=True,
-        metadata={"source_dim": int(matrix.shape[1])},
+        metadata={"method": "none", "source_dim": int(matrix.shape[1])},
         reconstructed_vectors=matrix.copy(),
     )
 
@@ -88,27 +284,8 @@ def fit_pca_profile(
     n_components: int = 256,
     random_state: int | None = None,
 ) -> CompressionResult:
-    matrix = _as_float_matrix(vectors)
-    if n_components < 1 or n_components > min(matrix.shape):
-        raise ValueError("n_components must be between 1 and min(n_samples, n_features)")
-    pca = PCA(n_components=n_components, random_state=random_state)
-    compressed = pca.fit_transform(matrix)
-    reconstructed = pca.inverse_transform(compressed)
-    reconstruction_error = np.mean((matrix - reconstructed) ** 2, axis=1)
-    profile_name = f"pca_{n_components}"
-    return CompressionResult(
-        profile_name=profile_name,
-        vectors=compressed.astype(np.float32),
-        reconstruction_error=reconstruction_error.astype(np.float32),
-        angular_error=_angular_error(matrix, reconstructed),
-        pgvector_searchable=True,
-        metadata={
-            "n_components": int(n_components),
-            "source_dim": int(matrix.shape[1]),
-            "explained_variance_ratio_sum": float(np.sum(pca.explained_variance_ratio_)),
-        },
-        reconstructed_vectors=reconstructed.astype(np.float32),
-    )
+    compressor = PCACompressor(n_components=n_components, random_state=random_state).fit(vectors)
+    return compressor.transform_profile(vectors)
 
 
 def fit_pq_auxiliary_profile(
@@ -118,35 +295,8 @@ def fit_pq_auxiliary_profile(
     nbits: int = 8,
 ) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
-    try:
-        import faiss  # type: ignore
-
-        index = faiss.IndexPQ(matrix.shape[1], m, nbits)
-        contiguous = np.ascontiguousarray(matrix.astype(np.float32))
-        index.train(contiguous)
-        codes = index.sa_encode(contiguous)
-        reconstructed = index.sa_decode(codes)
-    except Exception:
-        # Test-friendly fallback for environments without Faiss. This remains
-        # auxiliary and is never marked pgvector-searchable.
-        levels = float((2**nbits) - 1)
-        mins = matrix.min(axis=0, keepdims=True)
-        maxs = matrix.max(axis=0, keepdims=True)
-        scale = np.where(maxs > mins, maxs - mins, 1.0)
-        codes = np.round((matrix - mins) / scale * levels).astype(np.uint8)
-        reconstructed = (codes.astype(np.float32) / levels * scale + mins).astype(np.float32)
-
-    reconstruction_error = np.mean((matrix - reconstructed) ** 2, axis=1)
-    return CompressionResult(
-        profile_name="pq",
-        vectors=reconstructed.astype(np.float32),
-        reconstruction_error=reconstruction_error.astype(np.float32),
-        angular_error=_angular_error(matrix, reconstructed),
-        pgvector_searchable=False,
-        metadata={"M": int(m), "nbits": int(nbits), "source_dim": int(matrix.shape[1])},
-        codes=codes,
-        reconstructed_vectors=reconstructed.astype(np.float32),
-    )
+    compressor = PQCompressor(source_dim=matrix.shape[1], m=m, nbits=nbits).fit(matrix)
+    return compressor.transform_profile(matrix)
 
 
 def normalize_reconstruction_error_by_profile(

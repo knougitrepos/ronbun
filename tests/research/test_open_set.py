@@ -35,7 +35,11 @@ def test_build_search_features_has_stable_schema_for_registered_and_unknown_prob
 
     assert list(features["query_id"]) == ["qa", "qu"]
     assert features.loc[0, "top1_identity"] == "a"
+    assert bool(features.loc[0, "is_mated"]) is True
+    assert bool(features.loc[0, "top1_correct"]) is True
     assert features.loc[0, "y_true_accept"] == 1
+    assert bool(features.loc[1, "is_mated"]) is False
+    assert bool(features.loc[1, "top1_correct"]) is False
     assert features.loc[1, "y_true_accept"] == 0
     assert features.loc[0, "score_margin"] > 0.0
     assert set(CALIBRATION_FEATURE_COLUMNS).issubset(features.columns)
