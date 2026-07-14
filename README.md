@@ -62,6 +62,15 @@ py experiments/run_face_search_study.py `
   --dry-run
 ```
 
+## 데이터 매니페스트 준비
+
+| 데이터셋 | 준비 노트북 | 기본 출력 폴더 |
+| --- | --- | --- |
+| LFW deep-funneled | `notebooks/data_preparation/prepare_lfw_manifest.ipynb` | `data/interim/lfw/` |
+| QMUL-SurvFace-v1 | `notebooks/data_preparation/prepare_survface_manifest.ipynb` | `data/interim/survface/` |
+
+두 노트북 모두 기본 `WRITE_OUTPUTS=False`에서 전체 데이터와 프로토콜을 검사하되 파일은 저장하지 않습니다. 검증 통과 후 `True`로 바꾸어 위에서 아래로 다시 실행합니다. LFW 결과는 일반 00 노트북에 연결할 수 있습니다. SurvFace 결과는 공식 gallery/mated/unmated 역할을 보존하므로, gallery를 다시 표본추출하는 일반 00 노트북 대신 전용 공식 프로토콜 어댑터에서 사용해야 합니다.
+
 ## 노트북 실행 순서
 
 | 순서 | 노트북 | 산출물 |
