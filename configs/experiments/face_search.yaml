@@ -3,7 +3,8 @@ run:
   root: runs
 
 dataset:
-  manifest_path: data/face_manifest.csv
+  # manifest_path: data/face_manifest.csv
+  manifest_path: data/interim/lfw/face_manifest.csv
   embedding_column: embedding
   identity_column: identity_id
   image_id_column: image_id
@@ -11,8 +12,10 @@ dataset:
 protocol:
   split_seed: 42
   enrollment_counts: [1, 2, 5]
-  gallery_identities_path: data/gallery_identities.txt
-  unknown_unknown_identities_path: data/unknown_unknown_identities.txt
+  # gallery_identities_path: data/gallery_identities.txt
+  # unknown_unknown_identities_path: data/unknown_unknown_identities.txt
+  gallery_identities_path: data/interim/lfw/gallery_identities.txt
+  unknown_unknown_identities_path: data/interim/lfw/unknown_unknown_identities.txt
 
 compression:
   profiles:

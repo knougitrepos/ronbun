@@ -25,6 +25,7 @@ from research.runtime.redaction import redact
 KST = ZoneInfo("Asia/Seoul")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _WRITE_LOCK = threading.Lock()
+ACTIVE_RUN_POINTER = "active_run.json"
 
 
 def _iso_utc(now: datetime | None = None) -> str:
@@ -290,6 +291,7 @@ class RunStore:
         }
         _atomic_write_json(run_dir / "run_manifest.json", manifest)
         run.record_event("run_created", sequence=sequence, config_hash=config_hash)
+        _write_active_run_pointer(run)
         return run
 
     @classmethod
@@ -486,3 +488,93 @@ class RunStore:
         self.record_event(
             "run_failed", level="ERROR", error_type=type(error).__name__, error_message=str(error)
         )
+
+
+def _write_active_run_pointer(run: RunStore) -> Path:
+    pointer_path = Path(run.root).expanduser().resolve() / ACTIVE_RUN_POINTER
+    _atomic_write_json(
+        pointer_path,
+        {
+            "run_dir": str(run.run_dir.resolve()),
+            "run_id": run.run_id,
+            "config_hash": run.config_hash,
+            "updated_at_utc": _iso_utc(),
+        },
+    )
+    return pointer_path
+
+
+def _validate_active_run(
+    run_dir: str | Path,
+    *,
+    expected_run_id: str | None = None,
+    expected_config_hash: str | None = None,
+) -> Path:
+    directory = Path(run_dir).expanduser().resolve()
+    run = RunStore.open(directory)
+    manifest = run._read_manifest()
+    if manifest.get("status") == "completed" or (directory / "COMPLETED").exists():
+        raise RuntimeError(f"active run is already completed: {directory}")
+    if expected_run_id is not None and run.run_id != expected_run_id:
+        raise ValueError(
+            f"active run pointer run_id mismatch: expected={expected_run_id}, actual={run.run_id}"
+        )
+    if expected_config_hash is not None and run.config_hash != expected_config_hash:
+        raise ValueError(
+            "active run pointer config_hash mismatch: "
+            f"expected={expected_config_hash}, actual={run.config_hash}"
+        )
+    return directory
+
+
+def resolve_active_run(
+    run_root: str | Path,
+    *,
+    environment_variable: str = "RONBUN_RUN_DIR",
+) -> Path:
+    """Resolve the run shared by notebooks 01-05.
+
+    An explicit environment-variable override has highest priority. Otherwise
+    the pointer written by notebook 00/RunStore.create is validated. For runs
+    created before the pointer feature existed, exactly one incomplete run may
+    be discovered as a safe fallback; ambiguous candidates are never guessed.
+    """
+
+    explicit = os.environ.get(environment_variable, "").strip()
+    if explicit:
+        return _validate_active_run(explicit)
+
+    root = Path(run_root).expanduser().resolve()
+    pointer_path = root / ACTIVE_RUN_POINTER
+    if pointer_path.is_file():
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+        required = {"run_dir", "run_id", "config_hash"}
+        missing = sorted(required.difference(pointer))
+        if missing:
+            raise ValueError(f"active run pointer is missing fields: {missing}")
+        return _validate_active_run(
+            str(pointer["run_dir"]),
+            expected_run_id=str(pointer["run_id"]),
+            expected_config_hash=str(pointer["config_hash"]),
+        )
+
+    candidates: list[Path] = []
+    for manifest_path in sorted(root.rglob("run_manifest.json")) if root.is_dir() else []:
+        directory = manifest_path.parent
+        try:
+            candidates.append(_validate_active_run(directory))
+        except RuntimeError as exc:
+            if "already completed" not in str(exc):
+                raise
+
+    if not candidates:
+        raise FileNotFoundError(
+            f"no active run found under {root}; execute notebook 00 first"
+        )
+    if len(candidates) > 1:
+        choices = ", ".join(str(path) for path in candidates[:5])
+        raise RuntimeError(
+            "multiple active runs found and none is selected by active_run.json; "
+            f"rerun notebook 00 or set {environment_variable} explicitly: {choices}"
+        )
+    return candidates[0]
