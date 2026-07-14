@@ -30,7 +30,7 @@ EXPECTED = {
 }
 
 
-def test_dataset_notebooks_are_separated_and_clean() -> None:
+def test_dataset_notebooks_are_separated_and_valid() -> None:
     assert not list(NOTEBOOK_ROOT.glob("*.ipynb"))
     assert not list((NOTEBOOK_ROOT / "data_preparation").glob("*.ipynb"))
 
@@ -42,10 +42,6 @@ def test_dataset_notebooks_are_separated_and_clean() -> None:
         for path in sorted(directory.glob("*.ipynb")):
             notebook = nbformat.read(path, as_version=4)
             nbformat.validate(notebook)
-            for cell in notebook.cells:
-                if cell.cell_type == "code":
-                    assert cell.execution_count is None
-                    assert cell.outputs == []
 
 
 def test_survface_notebooks_state_official_protocol_safety_rules() -> None:

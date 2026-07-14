@@ -4,8 +4,18 @@ from research.experiments.materialization import (
     materialize_compressed_embeddings,
     materialize_compressed_embeddings_with_frozen_stats,
 )
+from research.experiments.lfw_certification import (
+    LFWCertificationInputs,
+    assemble_lfw_certification_inputs,
+    build_lfw_certification_inputs,
+    write_vector_frame_csv,
+)
 
 __all__ = [
     "materialize_compressed_embeddings",
     "materialize_compressed_embeddings_with_frozen_stats",
+    "LFWCertificationInputs",
+    "assemble_lfw_certification_inputs",
+    "build_lfw_certification_inputs",
+    "write_vector_frame_csv",
 ]
