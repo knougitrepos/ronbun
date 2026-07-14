@@ -29,8 +29,7 @@ downloaded_datasets/
 codebook/
 runs/**
 !runs/README.md
-results/paper/**
-!results/paper/README.md
+# Compact publication results are intentionally tracked.
 tmp/
 temp/
 

@@ -1,0 +1,29 @@
+{
+  "config_hash": "d750079ce402da51d7e4baa83ff875e1f941c0a37d9422bdbb7411765260e9cb",
+  "dataset": "lfw",
+  "files": {
+    "decisions_by_probe.png": {
+      "bytes": 36364,
+      "sha256": "00f15c2047303a9c6bbc96aa6957987c8bdaa470b4c660cc48b0d3e1adbfad3e"
+    },
+    "evaluation_metrics.json": {
+      "bytes": 3968,
+      "sha256": "3c4a92831b2fee4fafeb44a3023129e8c29c6c3a07558c503779534490cc9041"
+    },
+    "probe_type_summary.csv": {
+      "bytes": 190,
+      "sha256": "02456a1915c6d7259d2922eb26a8bde281db979f232b6d755780048fdcb2054e"
+    },
+    "top1_score_distribution.png": {
+      "bytes": 27773,
+      "sha256": "96488b054a9e7a55ceb53e1931af808d6574e202cb84cbfe1c7272c527d7fe07"
+    }
+  },
+  "run_id": "20260714-R001-d750079c",
+  "schema_version": 1,
+  "source": {
+    "attempt": "A001",
+    "phase": "05_evaluation_and_visualization",
+    "run_directory": "D:\\ronbun\\runs\\2026\\07\\14\\20260714-R001-d750079c_thesis3_face_search_v1"
+  }
+}
