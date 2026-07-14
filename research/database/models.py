@@ -80,6 +80,78 @@ class EmbeddingPQ(Base):
     log = Column(Text)
 
 
+class TemplateEmbedding512(Base):
+    __tablename__ = "template_embedding_512"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_uid",
+            "protocol_name",
+            "vector_type",
+            "aggregation_method",
+            "enrollment_policy",
+            "enrollment_target",
+            "identity_id",
+            "model_uid",
+            name="uq_template_embedding_512_scope",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    run_uid = Column(String(96), nullable=False)
+    protocol_name = Column(String(64), nullable=False)
+    vector_type = Column(String(32), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_policy = Column(String(32), nullable=False)
+    enrollment_target = Column(Integer, nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    identity_id = Column(Text, nullable=False)
+    model_uid = Column(String(128), nullable=False)
+    source_image_ids = Column(JSON, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    angular_error = Column(Float)
+    reconstruction_error_norm = Column(Float)
+    parameters = Column(JSON)
+    embedding = Column(Vector(512), nullable=False)
+    created_at = Column(TIMESTAMP)
+
+
+class TemplateEmbedding256(Base):
+    __tablename__ = "template_embedding_256"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_uid",
+            "protocol_name",
+            "vector_type",
+            "aggregation_method",
+            "enrollment_policy",
+            "enrollment_target",
+            "identity_id",
+            "model_uid",
+            name="uq_template_embedding_256_scope",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    run_uid = Column(String(96), nullable=False)
+    protocol_name = Column(String(64), nullable=False)
+    vector_type = Column(String(32), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_policy = Column(String(32), nullable=False)
+    enrollment_target = Column(Integer, nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    identity_id = Column(Text, nullable=False)
+    model_uid = Column(String(128), nullable=False)
+    source_image_ids = Column(JSON, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    angular_error = Column(Float)
+    reconstruction_error_norm = Column(Float)
+    parameters = Column(JSON)
+    embedding = Column(Vector(256), nullable=False)
+    created_at = Column(TIMESTAMP)
+
+
 class ResearchRun(Base):
     __tablename__ = "research_runs"
 
@@ -119,6 +191,7 @@ class ResearchTemplate(Base):
             "identity_id",
             "compression_profile",
             "aggregation_method",
+            "enrollment_count",
             name="uq_research_template",
         ),
     )
@@ -171,6 +244,7 @@ class ResearchCalibrationResult(Base):
             "compression_profile",
             "target_fpir",
             name="uq_research_calibration_result",
+            postgresql_nulls_not_distinct=True,
         ),
     )
 

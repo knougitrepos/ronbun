@@ -1,6 +1,7 @@
 from research.database.connection import (
     check_database_health,
     create_database_engine,
+    ensure_database_schema,
     ensure_vector_extension,
     ensure_vector_indexes,
     init_database,
@@ -17,6 +18,7 @@ __all__ = [
     "VectorRepository",
     "check_database_health",
     "create_database_engine",
+    "ensure_database_schema",
     "ensure_vector_extension",
     "ensure_vector_indexes",
     "init_database",

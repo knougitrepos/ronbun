@@ -11,8 +11,13 @@ runs/YYYY/MM/DD/YYYYMMDD-RNNN-<config-hash>_<experiment-name>/
 ## Dry run
 
 ```powershell
-py experiments/run_face_search_study.py --config configs/experiments/face_search.yaml --phase all --dry-run
+py experiments/run_face_search_study.py --config configs/experiments/lfw_face_search.yaml --phase all --dry-run
 ```
+
+이 문서의 generic runner 예시는 LFW 흐름을 기준으로 합니다. SurvFace 공식
+평가는 `notebooks/survface/`와
+`configs/experiments/survface_face_search.yaml`을 사용하며, 공식 test에서
+압축기나 calibration 모델을 학습하지 않습니다.
 
 The expected phase order is:
 

@@ -30,7 +30,7 @@
 | `research/evaluation/` | 식별, FPIR/DIR, calibration 지표 |
 | `research/templates/` | 템플릿 집계 ablation |
 | `research/runtime/` | 날짜·회차별 실행 기록과 안정적인 실행 코드 |
-| `notebooks/` | 순서대로 실행하는 여섯 개의 실험 runbook |
+| `notebooks/lfw/`, `notebooks/survface/` | 데이터셋별로 분리한 준비 및 00~05 실험 runbook |
 | `runs/` | 실행별 manifest, 로그, phase 산출물. Git에서 제외 |
 | `results/paper/` | 검증 후 논문 표·그림으로 선별한 결과 |
 
@@ -58,7 +58,7 @@ py scripts/setup_postgres_pgvector.py
 
 ```powershell
 py experiments/run_face_search_study.py `
-  --config configs/experiments/face_search.yaml `
+  --config configs/experiments/lfw_face_search.yaml `
   --dry-run
 ```
 
@@ -66,21 +66,40 @@ py experiments/run_face_search_study.py `
 
 | 데이터셋 | 준비 노트북 | 기본 출력 폴더 |
 | --- | --- | --- |
-| LFW deep-funneled | `notebooks/data_preparation/prepare_lfw_manifest.ipynb` | `data/interim/lfw/` |
-| QMUL-SurvFace-v1 | `notebooks/data_preparation/prepare_survface_manifest.ipynb` | `data/interim/survface/` |
+| LFW deep-funneled | `notebooks/lfw/data_preparation.ipynb` | `data/interim/lfw/` |
+| QMUL-SurvFace-v1 | `notebooks/survface/data_preparation.ipynb` | `data/interim/survface/` |
 
-두 노트북 모두 기본 `WRITE_OUTPUTS=False`에서 전체 데이터와 프로토콜을 검사하되 파일은 저장하지 않습니다. 검증 통과 후 `True`로 바꾸어 위에서 아래로 다시 실행합니다. LFW 결과는 일반 00 노트북에 연결할 수 있습니다. SurvFace 결과는 공식 gallery/mated/unmated 역할을 보존하므로, gallery를 다시 표본추출하는 일반 00 노트북 대신 전용 공식 프로토콜 어댑터에서 사용해야 합니다.
+두 노트북 모두 기본 `WRITE_OUTPUTS=False`에서 전체 데이터와 프로토콜을 검사하되 파일은 저장하지 않습니다. 검증 통과 후 `True`로 바꾸어 위에서 아래로 다시 실행합니다. LFW와 SurvFace는 이후 단계도 서로 다른 폴더에서 실행합니다. SurvFace는 공식 gallery/mated/unmated 역할과 `protocol_index`를 보존하며 gallery를 다시 표본추출하지 않습니다.
 
 ## 노트북 실행 순서
 
-| 순서 | 노트북 | 산출물 |
+LFW는 `notebooks/lfw/`에서 `data_preparation` 뒤 00~05를 순서대로 실행합니다. 설정은 `configs/experiments/lfw_face_search.yaml`, 새 run은 `runs/lfw/`에 기록합니다.
+
+| 순서 | LFW 노트북 | 산출물 |
 | --- | --- | --- |
+| 준비 | `data_preparation.ipynb` | identity-disjoint manifest와 ID 목록 |
 | 00 | `00_protocol_and_run_freeze.ipynb` | 데이터 분할, 설정 hash, 새 run 고정 |
 | 01 | `01_arcface_embedding_extraction.ipynb` | 원본 ArcFace 임베딩과 추출 메타데이터 |
 | 02 | `02_compressor_fit.ipynb` | development split으로 학습한 PCA/PQ 프로파일 |
 | 03 | `03_compressed_materialization_and_index.ipynb` | 압축 벡터 materialization과 pgvector 인덱스 |
-| 04 | `04_probe_search_and_certification.ipynb` | probe 검색, open-set feature, 인증 결과 |
+| 04 | `04_probe_search_and_certification.ipynb` | 세 probe 유형의 검색·보정·인증 결과 |
 | 05 | `05_evaluation_and_visualization.ipynb` | 최종 지표, 표, 그림 |
+
+SurvFace는 `notebooks/survface/`에서 공식 프로토콜 전용 파일을 실행합니다. 설정은 `configs/experiments/survface_face_search.yaml`, run은 `runs/survface/`에 기록합니다. 공식 test로 PCA/PQ 또는 calibration을 학습하지 않으며, 02에서 development 데이터로 학습된 외부 frozen run을 명시해야 합니다.
+
+| 순서 | SurvFace 노트북 | 핵심 차이 |
+| --- | --- | --- |
+| 준비 | `data_preparation.ipynb` | 공식 MAT 순서와 gallery/mated/unmated 역할 보존 |
+| 00 | `00_official_protocol_and_run_freeze.ipynb` | 공식 protocol과 checksum 고정, known unknown 0건 |
+| 01 | `01_official_arcface_embedding_extraction.ipynb` | 242,453개 공식 행을 순서대로 추출하고 실패 분모 기록 |
+| 02 | `02_external_compressor_import.ipynb` | 공식 test 학습 금지, 외부 development-trained 모델 고정 |
+| 03 | `03_official_compressed_materialization_and_index.ipynb` | 압축 materialization과 ID별 `official_all` 평균 template |
+| 04 | `04_official_probe_search.ipynb` | 3,000 template 대상 exact/HNSW rank-20 검색 분리 |
+| 05 | `05_official_evaluation_and_visualization.ipynb` | TPIR@FPIR 0.1/0.2/0.3, rank-20, AUC 및 성공 분모 |
+
+현재 SurvFace 04는 `official_all` template 생성과 공식 순서 보존을 강제하는
+공통 search API가 연결되기 전에는 `EXECUTE_STAGE=True`에서 명확히 중단합니다.
+일반 LFW 검색 결과를 공식 SurvFace 결과처럼 재사용하지 않습니다.
 
 각 노트북은 위에서 아래로 실행합니다. 중단 후 재개할 때는 임의의 중간 셀부터 시작하지 말고 커널을 재시작한 뒤 bootstrap과 입력 검증 셀을 먼저 실행합니다. 이전 단계의 설정 hash나 산출물 checksum이 달라졌으면 새 run을 만들고 영향을 받는 단계부터 다시 실행합니다.
 

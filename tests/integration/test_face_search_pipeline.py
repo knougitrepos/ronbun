@@ -2,7 +2,11 @@ import numpy as np
 import pandas as pd
 
 from research.calibration.rejection import LogisticRegressionCalibrator
-from research.compression.profiles import COMPRESSION_PROFILES, fit_pca_profile
+from research.compression.profiles import (
+    COMPRESSION_PROFILES,
+    PQ_AUXILIARY,
+    fit_pca_profile,
+)
 from research.protocols.open_set import build_open_set_protocol
 from research.search.open_set import build_certified_search_features
 from research.templates.aggregation import aggregate_templates
@@ -55,7 +59,7 @@ def test_synthetic_pipeline_runs_protocol_to_calibration():
     templates = aggregate_templates(gallery, method="mean").assign(angular_error=0.0)
     pca = fit_pca_profile(np.stack(templates["embedding"].to_numpy()), n_components=1, random_state=0)
     assert pca.pgvector_searchable is True
-    assert COMPRESSION_PROFILES["pq"].pgvector_searchable is False
+    assert COMPRESSION_PROFILES[PQ_AUXILIARY].pgvector_searchable is False
 
     features = build_certified_search_features(
         probes,

@@ -1,0 +1,54 @@
+run:
+  name: thesis3_lfw_face_search_v1
+  root: runs/lfw
+
+dataset:
+  name: lfw
+  manifest_path: data/interim/lfw/face_manifest.csv
+  embedding_column: embedding
+  identity_column: identity_id
+  image_id_column: image_id
+
+protocol:
+  adapter: lfw_identity_disjoint
+  split_seed: 42
+  enrollment_counts: [1, 2, 5]
+  gallery_identities_path: data/interim/lfw/gallery_identities.txt
+  unknown_unknown_identities_path: data/interim/lfw/unknown_unknown_identities.txt
+
+compression:
+  fit_split: development
+  profiles:
+    - origin_512
+    - pca_256
+    - pq_auxiliary
+  pca:
+    n_components: 256
+  pq:
+    m: 16
+    nbits: 8
+
+search:
+  compression_profile: pca_256
+  top_k: 2
+
+calibration:
+  fit_split: development
+  cutoff_split: calibration
+  evaluation_split: test
+  target_fpir: 0.01
+  models:
+    - global_threshold
+    - per_compression_threshold
+    - logistic_regression
+  optional_ablations:
+    - shallow_mlp
+
+certification:
+  enabled: true
+  threshold: 0.8
+  fallback_profile: origin_512
+
+output:
+  save_csv: true
+  save_parquet: true

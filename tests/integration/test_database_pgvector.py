@@ -13,6 +13,7 @@ from research.database import (
     init_database,
     load_database_settings,
 )
+from research.compression import ORIGIN_512, PCA_256
 
 
 def _engine():
@@ -46,6 +47,9 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
         try:
             ensure_vector_extension(bind=conn)
             init_database(bind=conn)
+            health = check_database_health(bind=conn)
+            assert health["missing_tables"] == []
+            assert health["schema_issues"] == []
             session = sessionmaker(bind=conn, autoflush=False)()
             repo = VectorRepository(session)
 
@@ -53,28 +57,28 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
             image_b = repo.add_image("tmp/b.jpg", label="b")
             repo.add_embedding_512(
                 image_a.id,
-                vector_type="origin",
+                vector_type=ORIGIN_512,
                 parameters={},
                 embedding=np.r_[1.0, np.zeros(511)].tolist(),
                 run_uid="pgvector-integration",
             )
             repo.add_embedding_512(
                 image_b.id,
-                vector_type="origin",
+                vector_type=ORIGIN_512,
                 parameters={},
                 embedding=np.r_[0.0, 1.0, np.zeros(510)].tolist(),
                 run_uid="pgvector-integration",
             )
             repo.add_embedding_256(
                 image_a.id,
-                vector_type="pca",
+                vector_type=PCA_256,
                 parameters={"n_components": 256},
                 embedding=np.r_[1.0, np.zeros(255)].tolist(),
                 run_uid="pgvector-integration",
             )
             repo.add_embedding_256(
                 image_b.id,
-                vector_type="pca",
+                vector_type=PCA_256,
                 parameters={"n_components": 256},
                 embedding=np.r_[0.0, 1.0, np.zeros(254)].tolist(),
                 run_uid="pgvector-integration",
@@ -82,7 +86,7 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
 
             duplicate = repo.add_embedding_512(
                 image_a.id,
-                vector_type="origin",
+                vector_type=ORIGIN_512,
                 parameters={"retry": True},
                 embedding=np.r_[1.0, np.zeros(511)].tolist(),
                 run_uid="pgvector-integration",
@@ -90,23 +94,115 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
             results = repo.find_similar_512(
                 np.r_[1.0, np.zeros(511)],
                 top_k=2,
-                vector_type="origin",
+                vector_type=ORIGIN_512,
                 run_uid="pgvector-integration",
             )
             pca_results = repo.find_similar_256(
                 np.r_[1.0, np.zeros(255)],
                 top_k=1,
-                vector_type="pca",
+                vector_type=PCA_256,
                 param_filter={"n_components": 256},
                 run_uid="pgvector-integration",
             )
+            _, unchanged_action = repo.upsert_embedding_256(
+                image_a.id,
+                vector_type=PCA_256,
+                parameters={"n_components": 256},
+                embedding=np.r_[1.0, np.zeros(255)].tolist(),
+                run_uid="pgvector-integration",
+            )
+            with pytest.raises(ValueError, match="different provenance"):
+                repo.upsert_embedding_256(
+                    image_a.id,
+                    vector_type=PCA_256,
+                    parameters={"n_components": 128},
+                    embedding=np.r_[1.0, np.zeros(255)].tolist(),
+                    run_uid="pgvector-integration",
+                )
+            for image, vector in (
+                (image_a, np.r_[1.0, np.zeros(511)]),
+                (image_b, np.r_[0.0, 1.0, np.zeros(510)]),
+            ):
+                repo.upsert_template_512(
+                    run_uid="pgvector-integration",
+                    protocol_name="lfw-test",
+                    vector_type=ORIGIN_512,
+                    aggregation_method="mean",
+                    enrollment_policy="fixed",
+                    enrollment_target=1,
+                    enrollment_count=1,
+                    identity_id=image.label,
+                    model_uid="arcface-test-model",
+                    source_image_ids=[image.id],
+                    embedding=vector.tolist(),
+                    parameters={"attempt": "fixed"},
+                )
+            _, unchanged_template_action = repo.upsert_template_512(
+                run_uid="pgvector-integration",
+                protocol_name="lfw-test",
+                vector_type=ORIGIN_512,
+                aggregation_method="mean",
+                enrollment_policy="fixed",
+                enrollment_target=1,
+                enrollment_count=1,
+                identity_id="a",
+                model_uid="arcface-test-model",
+                source_image_ids=[image_a.id],
+                embedding=np.r_[1.0, np.zeros(511)].tolist(),
+                parameters={"attempt": "fixed"},
+            )
+            with pytest.raises(ValueError, match="different provenance"):
+                repo.upsert_template_512(
+                    run_uid="pgvector-integration",
+                    protocol_name="lfw-test",
+                    vector_type=ORIGIN_512,
+                    aggregation_method="mean",
+                    enrollment_policy="fixed",
+                    enrollment_target=1,
+                    enrollment_count=1,
+                    identity_id="a",
+                    model_uid="arcface-test-model",
+                    source_image_ids=[image_a.id],
+                    embedding=np.r_[1.0, np.zeros(511)].tolist(),
+                    parameters={"attempt": "changed"},
+                )
+            exact_templates = repo.find_similar_templates_512(
+                np.r_[1.0, np.zeros(511)],
+                run_uid="pgvector-integration",
+                protocol_name="lfw-test",
+                vector_type=ORIGIN_512,
+                aggregation_method="mean",
+                enrollment_policy="fixed",
+                enrollment_target=1,
+                model_uid="arcface-test-model",
+                top_k=2,
+                search_mode="exact",
+            )
+            hnsw_templates = repo.find_similar_templates_512(
+                np.r_[1.0, np.zeros(511)],
+                run_uid="pgvector-integration",
+                protocol_name="lfw-test",
+                vector_type=ORIGIN_512,
+                aggregation_method="mean",
+                enrollment_policy="fixed",
+                enrollment_target=1,
+                model_uid="arcface-test-model",
+                top_k=2,
+                search_mode="hnsw",
+            )
 
             assert duplicate.image_id == image_a.id
+            assert unchanged_action == "skipped"
+            assert unchanged_template_action == "skipped"
             assert len(repo.get_embeddings_512(run_uid="pgvector-integration")) == 2
             assert [row["label"] for row in results] == ["a", "b"]
             assert results[0]["distance"] < results[1]["distance"]
             assert results[0]["similarity"] > 0.99
             assert [row["label"] for row in pca_results] == ["a"]
+            assert [row["identity_id"] for row in exact_templates] == ["a", "b"]
+            assert [row["identity_id"] for row in hnsw_templates] == ["a", "b"]
+            assert {row["search_mode"] for row in exact_templates} == {"exact"}
+            assert {row["search_mode"] for row in hnsw_templates} == {"hnsw"}
         finally:
             outer.rollback()
 
@@ -126,12 +222,17 @@ def test_vector_indexes_are_created_for_pgvector_search_profiles():
                     text(
                         "SELECT indexname FROM pg_indexes "
                         "WHERE schemaname = 'public' "
-                        "AND tablename IN ('embedding_512', 'embedding_256')"
+                        "AND tablename IN ("
+                        "'embedding_512', 'embedding_256', "
+                        "'template_embedding_512', 'template_embedding_256'"
+                        ")"
                     )
                 )
             }
 
             assert "ix_embedding_512_embedding_hnsw_cosine" in index_names
             assert "ix_embedding_256_embedding_hnsw_cosine" in index_names
+            assert "ix_template_embedding_512_hnsw_cosine" in index_names
+            assert "ix_template_embedding_256_hnsw_cosine" in index_names
         finally:
             outer.rollback()

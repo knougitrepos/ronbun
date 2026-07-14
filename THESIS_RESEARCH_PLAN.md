@@ -352,28 +352,32 @@ PQ 복원 벡터를 일반 `vector(256)`로 저장하고 이를 PQ 저장공간�
 
 ## 11. 구현 진행 순서
 
-실험은 계산 로직을 담은 `research/` 모듈과 그 모듈을 순서대로 호출하는 여섯 개의 노트북으로 분리한다. DB 연결 정보는 `configs/database.yaml`과 Git에서 제외되는 `configs/database.local.yaml`에 두며 노트북에 직접 작성하지 않는다.
+실험은 계산 로직을 담은 `research/` 모듈과 그 모듈을 순서대로 호출하는 데이터셋별 노트북으로 분리한다. LFW는 `notebooks/lfw/`, SurvFace 공식 평가는 `notebooks/survface/`에 두며 공통 위험 로직은 복제하지 않고 `research/`에서 공유한다. DB 연결 정보는 `configs/database.yaml`과 Git에서 제외되는 `configs/database.local.yaml`에 두며 노트북에 직접 작성하지 않는다.
 
-1. `00_protocol_and_run_freeze.ipynb`
+LFW 기본 흐름은 다음과 같다.
+
+1. `notebooks/lfw/00_protocol_and_run_freeze.ipynb`
    - 데이터셋 manifest와 identity-disjoint development/calibration/test 분할을 확정한다.
    - 등록 probe, known unknown, unknown unknown 구성을 고정한다.
    - 전체 설정 hash와 Git 상태를 기록하고 새 실험 run을 생성한다.
-2. `01_arcface_embedding_extraction.ipynb`
+2. `notebooks/lfw/01_arcface_embedding_extraction.ipynb`
    - ArcFace 512D 원본 임베딩과 얼굴 검출·품질 메타데이터를 추출한다.
    - 원본 임베딩을 PostgreSQL의 원본 테이블에 저장한다.
-3. `02_compressor_fit.ipynb`
+3. `notebooks/lfw/02_compressor_fit.ipynb`
    - development split만 사용해 PCA와 보조 PQ codebook을 학습한다.
    - 압축 프로파일, 학습 입력 hash, 모델 checksum을 기록한다.
-4. `03_compressed_materialization_and_index.ipynb`
+4. `notebooks/lfw/03_compressed_materialization_and_index.ipynb`
    - DB의 원본 임베딩을 PCA 등 검색 가능한 표현으로 변환해 별도 테이블에 저장한다.
    - pgvector HNSW 인덱스를 생성하고 저장 byte와 인덱스 생성 시간을 기록한다.
    - PQ code는 pgvector 검색 벡터로 취급하지 않고 Faiss/복원 오차 보조 실험으로 분리한다.
-5. `04_probe_search_and_certification.ipynb`
+5. `notebooks/lfw/04_probe_search_and_certification.ipynb`
    - 세 probe 유형을 검색하고 top-1, margin, 품질, 템플릿 분산, 정규화 재구성 오차를 생성한다.
    - global threshold, per-compression threshold, BCE 기반 경량 calibration을 비교한다.
-6. `05_evaluation_and_visualization.ipynb`
+6. `notebooks/lfw/05_evaluation_and_visualization.ipynb`
    - DIR@FPIR, FNIR@FPIR, Rank-K, calibration, 저장량, 지연시간을 계산한다.
    - bootstrap 신뢰구간, 결과 표, 실패 사례, 논문용 그림을 생성한다.
+
+SurvFace 흐름은 공식 MAT/CSV 순서, 3,000개 gallery identity의 모든 이미지를 평균한 template, registered 및 unknown-unknown probe만을 사용한다. 공식 test는 PCA/PQ 또는 calibration 학습에 사용하지 않고 development 데이터에서 동결한 모델을 가져온다. 평가는 rank-20과 TPIR@FPIR 0.1/0.2/0.3 및 AUC를 포함한다.
 
 재사용되거나 잘못 바꾸면 결과 전체에 영향을 주는 DB 처리, ArcFace 추론, 압축, 검색, calibration, 지표 계산은 `.py` 모듈로 유지한다. 노트북은 설정 고정, 단계 호출, 결과 검토만 담당한다.
 

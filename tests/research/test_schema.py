@@ -8,7 +8,10 @@ from research.database.models import (
     ResearchSearchResult,
     ResearchSplit,
     ResearchTemplate,
+    TemplateEmbedding256,
+    TemplateEmbedding512,
 )
+from research.database.migrations import _reject_null_pq_codes
 
 
 def test_research_tables_are_registered_without_replacing_existing_tables():
@@ -28,3 +31,27 @@ def test_research_tables_are_registered_without_replacing_existing_tables():
     assert "is_mated" in ResearchSearchResult.__table__.columns
     assert "top1_correct" in ResearchSearchResult.__table__.columns
     assert "target_fpir" in ResearchCalibrationResult.__table__.columns
+    assert TemplateEmbedding512.__tablename__ == "template_embedding_512"
+    assert TemplateEmbedding256.__tablename__ == "template_embedding_256"
+    assert TemplateEmbedding512.__table__.columns["embedding"].type.dim == 512
+    assert TemplateEmbedding256.__table__.columns["embedding"].type.dim == 256
+    assert EmbeddingPQ.__table__.columns["codes"].nullable is False
+
+
+def test_null_legacy_pq_codes_are_rejected_before_not_null_migration():
+    class Result:
+        @staticmethod
+        def scalar_one():
+            return 2
+
+    class Connection:
+        @staticmethod
+        def execute(_statement):
+            return Result()
+
+    try:
+        _reject_null_pq_codes(Connection())
+    except RuntimeError as exc:
+        assert "2 legacy rows have NULL codes" in str(exc)
+    else:
+        raise AssertionError("NULL PQ codes must block the migration")

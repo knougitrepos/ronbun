@@ -3,6 +3,9 @@ import pytest
 
 from research.compression.profiles import (
     COMPRESSION_PROFILES,
+    PQ_AUXILIARY,
+    apply_reconstruction_error_stats,
+    fit_reconstruction_error_stats,
     fit_pca_profile,
     fit_pq_auxiliary_profile,
     normalize_reconstruction_error_by_profile,
@@ -89,7 +92,31 @@ def test_pq_profile_is_auxiliary_not_pgvector_searchable():
 
     pq = fit_pq_auxiliary_profile(vectors, m=1, nbits=2)
 
-    assert COMPRESSION_PROFILES["pq"].pgvector_searchable is False
+    assert COMPRESSION_PROFILES[PQ_AUXILIARY].pgvector_searchable is False
     assert pq.pgvector_searchable is False
     assert pq.codes is not None
     assert pq.reconstruction_error.shape == (8,)
+
+
+def test_reconstruction_error_stats_are_fit_once_and_applied_without_test_refit():
+    development = {"pca_256": np.array([1.0, 2.0, 3.0], dtype=np.float32)}
+    test = {"pca_256": np.array([10.0, 11.0], dtype=np.float32)}
+
+    stats = fit_reconstruction_error_stats(development)
+    normalized = apply_reconstruction_error_stats(test, stats)
+
+    assert stats["pca_256"]["fit_count"] == 3
+    assert np.allclose(normalized["pca_256"], np.array([9.797959, 11.022704]))
+
+
+def test_apply_reconstruction_error_stats_rejects_missing_or_nonfinite_inputs():
+    stats = fit_reconstruction_error_stats(
+        {"pca_256": np.array([1.0, 2.0], dtype=np.float32)}
+    )
+
+    with pytest.raises(ValueError, match="missing reconstruction error statistics"):
+        apply_reconstruction_error_stats({"pq_auxiliary": np.array([1.0])}, stats)
+    with pytest.raises(ValueError, match="reconstruction errors are invalid"):
+        apply_reconstruction_error_stats(
+            {"pca_256": np.array([np.nan], dtype=np.float32)}, stats
+        )

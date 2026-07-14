@@ -141,6 +141,9 @@ def test_build_survface_manifest_preserves_official_roles_and_order(tmp_path: Pa
     }
     assert bundle.summary["registered_identity_count"] == 2
     assert bundle.summary["known_unknown_identity_count"] == 0
+    assert bundle.summary["unknown_unknown_identity_count"] is None
+    assert bundle.summary["unknown_unknown_identity_labels_available"] is False
+    assert bundle.summary["unmated_probe_count"] == 2
     assert len(set(bundle.unknown_unknown_identities)) == 2
 
     output_dir = tmp_path / "output"

@@ -394,11 +394,17 @@ def build_survface_official_manifest(
         "unknown_unknown_probe_image_count": int(len(unknown_unknown_probes)),
         "registered_identity_count": int(len(gallery_identity_ids)),
         "known_unknown_identity_count": 0,
-        "unknown_unknown_identity_count": int(len(unknown_identity_ids)),
+        # The official bundle does not publish identity labels for unmated
+        # probes.  The opaque per-image keys above are implementation keys,
+        # not evidence that every image belongs to a different person.
+        "unknown_unknown_identity_count": None,
+        "unknown_unknown_identity_labels_available": False,
+        "unmated_probe_count": int(len(unknown_unknown_probes)),
         "training_set_included": False,
         "protocol_note": (
             "Official gallery roles and MAT ordering are fixed; do not resample the gallery. "
-            "The official protocol has no known-unknown probe group."
+            "The official protocol has no known-unknown probe group and does not "
+            "publish identity labels for unmated probes."
         ),
     }
     return SurvFaceOfficialBundle(

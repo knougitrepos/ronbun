@@ -29,19 +29,24 @@ class CompressionResult:
     reconstructed_vectors: np.ndarray | None = None
 
 
+ORIGIN_512 = "origin_512"
+PCA_256 = "pca_256"
+PQ_AUXILIARY = "pq_auxiliary"
+
+
 COMPRESSION_PROFILES = {
-    "origin_512": CompressionProfileSpec(
-        name="origin_512",
+    ORIGIN_512: CompressionProfileSpec(
+        name=ORIGIN_512,
         pgvector_searchable=True,
         description="Original ArcFace vector stored as pgvector vector.",
     ),
-    "pca_256": CompressionProfileSpec(
-        name="pca_256",
+    PCA_256: CompressionProfileSpec(
+        name=PCA_256,
         pgvector_searchable=True,
         description="PCA retrieval vector stored as pgvector vector.",
     ),
-    "pq": CompressionProfileSpec(
-        name="pq",
+    PQ_AUXILIARY: CompressionProfileSpec(
+        name=PQ_AUXILIARY,
         pgvector_searchable=False,
         description="Faiss PQ codes stored as auxiliary artifacts, not pgvector vectors.",
     ),
@@ -268,7 +273,7 @@ class PQCompressor:
 def original_profile(vectors: np.ndarray) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
     return CompressionResult(
-        profile_name="origin_512",
+        profile_name=ORIGIN_512,
         vectors=matrix.copy(),
         reconstruction_error=np.zeros(len(matrix), dtype=np.float32),
         angular_error=np.zeros(len(matrix), dtype=np.float32),
@@ -302,12 +307,47 @@ def fit_pq_auxiliary_profile(
 def normalize_reconstruction_error_by_profile(
     errors_by_profile: dict[str, np.ndarray],
 ) -> dict[str, np.ndarray]:
+    stats = fit_reconstruction_error_stats(errors_by_profile)
+    return apply_reconstruction_error_stats(errors_by_profile, stats)
+
+
+def fit_reconstruction_error_stats(
+    development_errors_by_profile: dict[str, np.ndarray],
+) -> dict[str, dict[str, float | int]]:
+    """Fit profile-specific normalization statistics on development data only."""
+
+    stats: dict[str, dict[str, float | int]] = {}
+    for profile, values in development_errors_by_profile.items():
+        errors = np.asarray(values, dtype=np.float32)
+        if errors.ndim != 1 or len(errors) == 0 or not np.all(np.isfinite(errors)):
+            raise ValueError(f"development reconstruction errors are invalid for {profile}")
+        stats[str(profile)] = {
+            "mean": float(np.mean(errors)),
+            "std": float(np.std(errors)),
+            "fit_count": int(len(errors)),
+        }
+    return stats
+
+
+def apply_reconstruction_error_stats(
+    errors_by_profile: dict[str, np.ndarray],
+    stats: dict[str, dict[str, float | int]],
+) -> dict[str, np.ndarray]:
+    """Apply frozen development statistics without refitting on calibration/test."""
+
     normalized: dict[str, np.ndarray] = {}
     for profile, values in errors_by_profile.items():
+        if profile not in stats:
+            raise ValueError(f"missing reconstruction error statistics for {profile}")
         errors = np.asarray(values, dtype=np.float32)
-        std = float(np.std(errors))
+        if errors.ndim != 1 or not np.all(np.isfinite(errors)):
+            raise ValueError(f"reconstruction errors are invalid for {profile}")
+        mean = float(stats[profile]["mean"])
+        std = float(stats[profile]["std"])
+        if not np.isfinite(mean) or not np.isfinite(std) or std < 0.0:
+            raise ValueError(f"invalid reconstruction error statistics for {profile}")
         if std == 0.0:
             normalized[profile] = np.zeros_like(errors, dtype=np.float32)
         else:
-            normalized[profile] = ((errors - float(np.mean(errors))) / std).astype(np.float32)
+            normalized[profile] = ((errors - mean) / std).astype(np.float32)
     return normalized
