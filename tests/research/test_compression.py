@@ -3,6 +3,8 @@ import pytest
 
 from research.compression.profiles import (
     COMPRESSION_PROFILES,
+    PCA_PROFILE_DIMENSIONS,
+    PCA_SWEEP_PROFILES,
     PQ_AUXILIARY,
     apply_reconstruction_error_stats,
     fit_reconstruction_error_stats,
@@ -10,7 +12,18 @@ from research.compression.profiles import (
     fit_pq_auxiliary_profile,
     normalize_reconstruction_error_by_profile,
     original_profile,
+    pca_profile_dimension,
+    pca_profile_name,
 )
+
+
+def test_pca_sweep_profiles_have_fixed_pgvector_dimensions():
+    assert PCA_SWEEP_PROFILES == ("pca_448", "pca_384", "pca_256", "pca_128")
+    assert set(PCA_PROFILE_DIMENSIONS.values()) == {128, 256, 384, 448}
+    for profile, dimension in PCA_PROFILE_DIMENSIONS.items():
+        assert COMPRESSION_PROFILES[profile].pgvector_searchable is True
+        assert pca_profile_name(dimension) == profile
+        assert pca_profile_dimension(profile) == dimension
 
 
 def test_original_and_pca_profiles_record_searchability_and_reconstruction_error():

@@ -365,6 +365,7 @@ def test_summarizes_certified_search_feature_frame_for_result_tables():
                 "certified_bound",
                 "defer_unresolved",
             ],
+            "fallback_used": [False, False, True, False, False],
             "certified_top1_bound_width": [0.10, 0.20, 0.40, 0.30, 0.50],
             "certified_decision_margin": [0.05, 0.07, np.nan, 0.09, np.nan],
             "certified_query_angular_error": [0.01, 0.02, 0.03, 0.04, 0.05],
@@ -399,3 +400,26 @@ def test_summarizes_certified_search_feature_frame_for_result_tables():
     }
     assert summary["by_probe_type"]["unknown_unknown"]["exact_fallback_rate"] == 0.5
     assert summary["by_probe_type"]["unknown_unknown"]["fallback_resolution_rate"] == 0.5
+
+
+def test_exact_fallback_rate_uses_execution_flag_for_pgvector_source_name():
+    features = pd.DataFrame(
+        {
+            "probe_type": ["registered", "known_unknown", "unknown_unknown"],
+            "certified_decision": ["accept", "defer", "defer"],
+            "certified_fallback_required": [False, True, True],
+            "fallback_used": [False, True, True],
+            "final_decision_source": [
+                "candidate_certificate",
+                "origin_512_db_exact_fallback",
+                "origin_512_db_exact_fallback",
+            ],
+        }
+    )
+
+    summary = summarize_certified_search_features(features)
+
+    assert summary["defer_rate"] == pytest.approx(2 / 3)
+    assert summary["fallback_rate"] == pytest.approx(2 / 3)
+    assert summary["exact_fallback_rate"] == pytest.approx(2 / 3)
+    assert summary["fallback_resolution_rate"] == 1.0

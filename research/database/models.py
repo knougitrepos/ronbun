@@ -48,6 +48,38 @@ class Embedding512(Base):
     log = Column(Text)
 
 
+class Embedding448(Base):
+    __tablename__ = "embedding_448"
+    __table_args__ = (
+        UniqueConstraint("run_uid", "image_id", "vector_type", name="uq_embedding_448_run_image_type"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
+    run_uid = Column(String(96))
+    vector_type = Column(String(32), nullable=False)
+    parameters = Column(JSON)
+    embedding = Column(Vector(448), nullable=False)
+    created_at = Column(TIMESTAMP)
+    log = Column(Text)
+
+
+class Embedding384(Base):
+    __tablename__ = "embedding_384"
+    __table_args__ = (
+        UniqueConstraint("run_uid", "image_id", "vector_type", name="uq_embedding_384_run_image_type"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
+    run_uid = Column(String(96))
+    vector_type = Column(String(32), nullable=False)
+    parameters = Column(JSON)
+    embedding = Column(Vector(384), nullable=False)
+    created_at = Column(TIMESTAMP)
+    log = Column(Text)
+
+
 class Embedding256(Base):
     __tablename__ = "embedding_256"
     __table_args__ = (
@@ -60,6 +92,22 @@ class Embedding256(Base):
     vector_type = Column(String(32), nullable=False)
     parameters = Column(JSON)
     embedding = Column(Vector(256), nullable=False)
+    created_at = Column(TIMESTAMP)
+    log = Column(Text)
+
+
+class Embedding128(Base):
+    __tablename__ = "embedding_128"
+    __table_args__ = (
+        UniqueConstraint("run_uid", "image_id", "vector_type", name="uq_embedding_128_run_image_type"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
+    run_uid = Column(String(96))
+    vector_type = Column(String(32), nullable=False)
+    parameters = Column(JSON)
+    embedding = Column(Vector(128), nullable=False)
     created_at = Column(TIMESTAMP)
     log = Column(Text)
 
@@ -116,6 +164,66 @@ class TemplateEmbedding512(Base):
     created_at = Column(TIMESTAMP)
 
 
+class TemplateEmbedding448(Base):
+    __tablename__ = "template_embedding_448"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_uid", "protocol_name", "vector_type", "aggregation_method",
+            "enrollment_policy", "enrollment_target", "identity_id", "model_uid",
+            name="uq_template_embedding_448_scope",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    run_uid = Column(String(96), nullable=False)
+    protocol_name = Column(String(64), nullable=False)
+    vector_type = Column(String(32), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_policy = Column(String(32), nullable=False)
+    enrollment_target = Column(Integer, nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    identity_id = Column(Text, nullable=False)
+    model_uid = Column(String(128), nullable=False)
+    source_image_ids = Column(JSON, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    angular_error = Column(Float)
+    reconstruction_error_norm = Column(Float)
+    parameters = Column(JSON)
+    embedding = Column(Vector(448), nullable=False)
+    created_at = Column(TIMESTAMP)
+
+
+class TemplateEmbedding384(Base):
+    __tablename__ = "template_embedding_384"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_uid", "protocol_name", "vector_type", "aggregation_method",
+            "enrollment_policy", "enrollment_target", "identity_id", "model_uid",
+            name="uq_template_embedding_384_scope",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    run_uid = Column(String(96), nullable=False)
+    protocol_name = Column(String(64), nullable=False)
+    vector_type = Column(String(32), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_policy = Column(String(32), nullable=False)
+    enrollment_target = Column(Integer, nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    identity_id = Column(Text, nullable=False)
+    model_uid = Column(String(128), nullable=False)
+    source_image_ids = Column(JSON, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    angular_error = Column(Float)
+    reconstruction_error_norm = Column(Float)
+    parameters = Column(JSON)
+    embedding = Column(Vector(384), nullable=False)
+    created_at = Column(TIMESTAMP)
+
+
 class TemplateEmbedding256(Base):
     __tablename__ = "template_embedding_256"
     __table_args__ = (
@@ -150,6 +258,51 @@ class TemplateEmbedding256(Base):
     parameters = Column(JSON)
     embedding = Column(Vector(256), nullable=False)
     created_at = Column(TIMESTAMP)
+
+
+class TemplateEmbedding128(Base):
+    __tablename__ = "template_embedding_128"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_uid", "protocol_name", "vector_type", "aggregation_method",
+            "enrollment_policy", "enrollment_target", "identity_id", "model_uid",
+            name="uq_template_embedding_128_scope",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    run_uid = Column(String(96), nullable=False)
+    protocol_name = Column(String(64), nullable=False)
+    vector_type = Column(String(32), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_policy = Column(String(32), nullable=False)
+    enrollment_target = Column(Integer, nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    identity_id = Column(Text, nullable=False)
+    model_uid = Column(String(128), nullable=False)
+    source_image_ids = Column(JSON, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    angular_error = Column(Float)
+    reconstruction_error_norm = Column(Float)
+    parameters = Column(JSON)
+    embedding = Column(Vector(128), nullable=False)
+    created_at = Column(TIMESTAMP)
+
+
+PCA_EMBEDDING_MODELS = {
+    128: Embedding128,
+    256: Embedding256,
+    384: Embedding384,
+    448: Embedding448,
+}
+
+PCA_TEMPLATE_MODELS = {
+    128: TemplateEmbedding128,
+    256: TemplateEmbedding256,
+    384: TemplateEmbedding384,
+    448: TemplateEmbedding448,
+}
 
 
 class ResearchRun(Base):

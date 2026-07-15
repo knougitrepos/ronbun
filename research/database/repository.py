@@ -10,6 +10,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from research.database.models import (
+    PCA_EMBEDDING_MODELS,
+    PCA_TEMPLATE_MODELS,
     Embedding256,
     Embedding512,
     EmbeddingPQ,
@@ -287,6 +289,15 @@ class VectorRepository:
     def upsert_template_256(self, **values):
         return self._upsert_template(TemplateEmbedding256, **values)
 
+    def upsert_pca_template(self, dimension: int, **values):
+        try:
+            model = PCA_TEMPLATE_MODELS[int(dimension)]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"unsupported PCA template dimension: {dimension}"
+            ) from exc
+        return self._upsert_template(model, **values)
+
     def _upsert_template(
         self,
         model,
@@ -396,6 +407,50 @@ class VectorRepository:
     def find_similar_templates_256(self, query_vec, **kwargs):
         return self._find_similar_templates(
             TemplateEmbedding256, query_vec, expected_dim=256, **kwargs
+        )
+
+    def find_similar_pca_templates(self, dimension: int, query_vec, **kwargs):
+        try:
+            expected_dim = int(dimension)
+            model = PCA_TEMPLATE_MODELS[expected_dim]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"unsupported PCA template dimension: {dimension}"
+            ) from exc
+        return self._find_similar_templates(
+            model, query_vec, expected_dim=expected_dim, **kwargs
+        )
+
+    def upsert_pca_embedding(
+        self,
+        dimension: int,
+        image_id,
+        vector_type,
+        parameters,
+        embedding,
+        created_at=None,
+        log=None,
+        *,
+        run_uid: str,
+        replace_if_changed: bool = False,
+    ):
+        try:
+            model = PCA_EMBEDDING_MODELS[int(dimension)]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"unsupported PCA embedding dimension: {dimension}"
+            ) from exc
+        return self._upsert_embedding(
+            model,
+            image_id=image_id,
+            vector_type=vector_type,
+            parameters=parameters,
+            payload_name="embedding",
+            payload=embedding,
+            created_at=created_at,
+            log=log,
+            run_uid=run_uid,
+            replace_if_changed=replace_if_changed,
         )
 
     def _find_similar_templates(

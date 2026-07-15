@@ -4,7 +4,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from research.database import (
-    Base,
     VectorRepository,
     check_database_health,
     create_database_engine,
@@ -13,7 +12,7 @@ from research.database import (
     init_database,
     load_database_settings,
 )
-from research.compression import ORIGIN_512, PCA_256
+from research.compression import ORIGIN_512, PCA_128, PCA_256
 
 
 def _engine():
@@ -74,6 +73,14 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
                 vector_type=PCA_256,
                 parameters={"n_components": 256},
                 embedding=np.r_[1.0, np.zeros(255)].tolist(),
+                run_uid="pgvector-integration",
+            )
+            repo.upsert_pca_embedding(
+                128,
+                image_a.id,
+                vector_type=PCA_128,
+                parameters={"n_components": 128},
+                embedding=np.r_[1.0, np.zeros(127)].tolist(),
                 run_uid="pgvector-integration",
             )
             repo.add_embedding_256(
@@ -137,6 +144,25 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
                     embedding=vector.tolist(),
                     parameters={"attempt": "fixed"},
                 )
+            for image, vector in (
+                (image_a, np.r_[1.0, np.zeros(127)]),
+                (image_b, np.r_[0.0, 1.0, np.zeros(126)]),
+            ):
+                repo.upsert_pca_template(
+                    128,
+                    run_uid="pgvector-integration",
+                    protocol_name="lfw-test",
+                    vector_type=PCA_128,
+                    aggregation_method="mean",
+                    enrollment_policy="fixed",
+                    enrollment_target=1,
+                    enrollment_count=1,
+                    identity_id=image.label,
+                    model_uid="pca-128-test-model",
+                    source_image_ids=[image.id],
+                    embedding=vector.tolist(),
+                    parameters={"attempt": "fixed"},
+                )
             _, unchanged_template_action = repo.upsert_template_512(
                 run_uid="pgvector-integration",
                 protocol_name="lfw-test",
@@ -190,6 +216,19 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
                 top_k=2,
                 search_mode="hnsw",
             )
+            pca_128_templates = repo.find_similar_pca_templates(
+                128,
+                np.r_[1.0, np.zeros(127)],
+                run_uid="pgvector-integration",
+                protocol_name="lfw-test",
+                vector_type=PCA_128,
+                aggregation_method="mean",
+                enrollment_policy="fixed",
+                enrollment_target=1,
+                model_uid="pca-128-test-model",
+                top_k=2,
+                search_mode="hnsw",
+            )
 
             assert duplicate.image_id == image_a.id
             assert unchanged_action == "skipped"
@@ -201,6 +240,7 @@ def test_init_database_and_pgvector_search_work_inside_rollback_transaction():
             assert [row["label"] for row in pca_results] == ["a"]
             assert [row["identity_id"] for row in exact_templates] == ["a", "b"]
             assert [row["identity_id"] for row in hnsw_templates] == ["a", "b"]
+            assert [row["identity_id"] for row in pca_128_templates] == ["a", "b"]
             assert {row["search_mode"] for row in exact_templates} == {"exact"}
             assert {row["search_mode"] for row in hnsw_templates} == {"hnsw"}
         finally:
@@ -223,8 +263,11 @@ def test_vector_indexes_are_created_for_pgvector_search_profiles():
                         "SELECT indexname FROM pg_indexes "
                         "WHERE schemaname = 'public' "
                         "AND tablename IN ("
-                        "'embedding_512', 'embedding_256', "
-                        "'template_embedding_512', 'template_embedding_256'"
+                        "'embedding_512', 'embedding_448', 'embedding_384', "
+                        "'embedding_256', 'embedding_128', "
+                        "'template_embedding_512', 'template_embedding_448', "
+                        "'template_embedding_384', 'template_embedding_256', "
+                        "'template_embedding_128'"
                         ")"
                     )
                 )
@@ -232,7 +275,13 @@ def test_vector_indexes_are_created_for_pgvector_search_profiles():
 
             assert "ix_embedding_512_embedding_hnsw_cosine" in index_names
             assert "ix_embedding_256_embedding_hnsw_cosine" in index_names
+            assert "ix_embedding_128_embedding_hnsw_cosine" in index_names
+            assert "ix_embedding_384_embedding_hnsw_cosine" in index_names
+            assert "ix_embedding_448_embedding_hnsw_cosine" in index_names
             assert "ix_template_embedding_512_hnsw_cosine" in index_names
             assert "ix_template_embedding_256_hnsw_cosine" in index_names
+            assert "ix_template_embedding_128_hnsw_cosine" in index_names
+            assert "ix_template_embedding_384_hnsw_cosine" in index_names
+            assert "ix_template_embedding_448_hnsw_cosine" in index_names
         finally:
             outer.rollback()

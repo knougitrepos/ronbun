@@ -55,34 +55,39 @@ def ensure_vector_extension(bind: Engine | Connection) -> None:
 
 
 def ensure_vector_indexes(bind: Engine | Connection) -> None:
-    statements = (
+    statements = [
         """
         CREATE INDEX IF NOT EXISTS ix_embedding_512_embedding_hnsw_cosine
         ON embedding_512 USING hnsw (embedding vector_cosine_ops)
-        """,
-        """
-        CREATE INDEX IF NOT EXISTS ix_embedding_256_embedding_hnsw_cosine
-        ON embedding_256 USING hnsw (embedding vector_cosine_ops)
         """,
         """
         CREATE INDEX IF NOT EXISTS ix_template_embedding_512_hnsw_cosine
         ON template_embedding_512 USING hnsw (embedding vector_cosine_ops)
         """,
         """
-        CREATE INDEX IF NOT EXISTS ix_template_embedding_256_hnsw_cosine
-        ON template_embedding_256 USING hnsw (embedding vector_cosine_ops)
-        """,
-        """
         CREATE INDEX IF NOT EXISTS ix_template_embedding_512_scope
         ON template_embedding_512
         (run_uid, protocol_name, vector_type, aggregation_method, enrollment_policy, enrollment_target, model_uid)
         """,
-        """
-        CREATE INDEX IF NOT EXISTS ix_template_embedding_256_scope
-        ON template_embedding_256
-        (run_uid, protocol_name, vector_type, aggregation_method, enrollment_policy, enrollment_target, model_uid)
-        """,
-    )
+    ]
+    for dimension in (128, 256, 384, 448):
+        statements.extend(
+            [
+                f"""
+                CREATE INDEX IF NOT EXISTS ix_embedding_{dimension}_embedding_hnsw_cosine
+                ON embedding_{dimension} USING hnsw (embedding vector_cosine_ops)
+                """,
+                f"""
+                CREATE INDEX IF NOT EXISTS ix_template_embedding_{dimension}_hnsw_cosine
+                ON template_embedding_{dimension} USING hnsw (embedding vector_cosine_ops)
+                """,
+                f"""
+                CREATE INDEX IF NOT EXISTS ix_template_embedding_{dimension}_scope
+                ON template_embedding_{dimension}
+                (run_uid, protocol_name, vector_type, aggregation_method, enrollment_policy, enrollment_target, model_uid)
+                """,
+            ]
+        )
 
     def _create(conn: Connection) -> None:
         for statement in statements:

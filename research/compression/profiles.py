@@ -30,8 +30,19 @@ class CompressionResult:
 
 
 ORIGIN_512 = "origin_512"
+PCA_128 = "pca_128"
 PCA_256 = "pca_256"
+PCA_384 = "pca_384"
+PCA_448 = "pca_448"
 PQ_AUXILIARY = "pq_auxiliary"
+
+PCA_PROFILE_DIMENSIONS = {
+    PCA_128: 128,
+    PCA_256: 256,
+    PCA_384: 384,
+    PCA_448: 448,
+}
+PCA_SWEEP_PROFILES = (PCA_448, PCA_384, PCA_256, PCA_128)
 
 
 COMPRESSION_PROFILES = {
@@ -40,17 +51,37 @@ COMPRESSION_PROFILES = {
         pgvector_searchable=True,
         description="Original ArcFace vector stored as pgvector vector.",
     ),
-    PCA_256: CompressionProfileSpec(
-        name=PCA_256,
-        pgvector_searchable=True,
-        description="PCA retrieval vector stored as pgvector vector.",
-    ),
+    **{
+        profile: CompressionProfileSpec(
+            name=profile,
+            pgvector_searchable=True,
+            description=f"PCA {dimension}D retrieval vector stored as pgvector vector.",
+        )
+        for profile, dimension in PCA_PROFILE_DIMENSIONS.items()
+    },
     PQ_AUXILIARY: CompressionProfileSpec(
         name=PQ_AUXILIARY,
         pgvector_searchable=False,
         description="Faiss PQ codes stored as auxiliary artifacts, not pgvector vectors.",
     ),
 }
+
+
+def pca_profile_name(n_components: int) -> str:
+    profile = f"pca_{int(n_components)}"
+    if profile not in PCA_PROFILE_DIMENSIONS:
+        raise ValueError(
+            f"unsupported PCA dimension {n_components}; "
+            f"expected one of {sorted(PCA_PROFILE_DIMENSIONS.values())}"
+        )
+    return profile
+
+
+def pca_profile_dimension(profile: str) -> int:
+    try:
+        return PCA_PROFILE_DIMENSIONS[str(profile)]
+    except KeyError as exc:
+        raise ValueError(f"unsupported PCA profile: {profile}") from exc
 
 
 def _as_float_matrix(vectors: np.ndarray) -> np.ndarray:

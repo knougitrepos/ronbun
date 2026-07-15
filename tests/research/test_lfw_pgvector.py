@@ -94,6 +94,10 @@ class _FakeRepository:
         self.template_calls.append((256, values))
         return object(), "inserted"
 
+    def upsert_pca_template(self, dimension, **values):
+        self.template_calls.append((int(dimension), values))
+        return object(), "inserted"
+
     def find_similar_templates_512(self, query, **kwargs):
         return [
             self._result("a", 0.95, kwargs),
@@ -111,6 +115,10 @@ class _FakeRepository:
             self._result("a", 0.90, kwargs),
             self._result("b", 0.20, kwargs),
         ]
+
+    def find_similar_pca_templates(self, dimension, query, **kwargs):
+        assert len(np.asarray(query)) == int(dimension) or int(dimension) == 256
+        return self.find_similar_templates_256(query, **kwargs)
 
     @staticmethod
     def _result(identity, similarity, kwargs):
@@ -207,3 +215,15 @@ def test_pgvector_search_separates_candidates_certificate_and_exact_baseline(mon
     assert bool(row["threshold_crossing"])
     assert summary["candidate_contains_origin_top1_rate"] == 1.0
     assert summary["candidate_contains_true_identity_rate_registered"] == 1.0
+    assert summary["registered_compressed_rank_inversion_rate"] == 0.0
+    assert summary["registered_identity_loss_rate"] == 0.0
+    assert summary["registered_identity_gain_rate"] == 0.0
+    assert summary["candidate_miss_caused_by_compression_rate"] == 0.0
+    assert summary["candidate_miss_caused_by_hnsw_rate"] == 0.0
+    assert summary["origin_open_set"]["dir_rank1"] == 1.0
+    assert summary["compressed_open_set"]["dir_rank1"] == 0.0
+    assert summary["final_open_set"]["dir_rank1"] == 1.0
+    assert summary["certification"]["exact_fallback_rate"] == summary["certification"]["defer_rate"]
+    assert summary["by_probe_type"]["registered"]["exact_fallback_rate"] == (
+        summary["certification"]["by_probe_type"]["registered"]["exact_fallback_rate"]
+    )

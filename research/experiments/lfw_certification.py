@@ -10,9 +10,18 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.engine import Engine
 
-from research.compression import ORIGIN_512, PCA_256, PCACompressor
+from research.compression import (
+    ORIGIN_512,
+    PCA_PROFILE_DIMENSIONS,
+    PCACompressor,
+    pca_profile_dimension,
+)
 from research.database.connection import session_scope
-from research.database.models import Embedding256, Embedding512, Image
+from research.database.models import (
+    PCA_EMBEDDING_MODELS,
+    Embedding512,
+    Image,
+)
 
 
 PROTOCOL_ROLES = (
@@ -78,15 +87,23 @@ def fetch_lfw_vector_records(
 ) -> pd.DataFrame:
     """Fetch exact vectors and construct certificate-space approximations.
 
-    PCA retrieval remains stored and searched in 256D. Certification is a
+    PCA retrieval remains stored and searched in its configured dimension. Certification is a
     separate analysis in reconstructed 512D because its angular error must be
     measured against the original 512D ArcFace vector.
     """
 
-    if compression_profile not in {ORIGIN_512, PCA_256}:
-        raise ValueError("compression_profile must be origin_512 or pca_256")
-    if compression_profile == PCA_256 and pca is None:
-        raise ValueError("pca compressor is required for pca_256 certification")
+    if compression_profile != ORIGIN_512 and compression_profile not in PCA_PROFILE_DIMENSIONS:
+        raise ValueError(
+            "compression_profile must be origin_512 or a supported PCA profile"
+        )
+    if compression_profile in PCA_PROFILE_DIMENSIONS and pca is None:
+        raise ValueError(f"pca compressor is required for {compression_profile} certification")
+    if pca is not None and compression_profile in PCA_PROFILE_DIMENSIONS:
+        expected_dimension = pca_profile_dimension(compression_profile)
+        if pca.n_components != expected_dimension:
+            raise ValueError(
+                f"{compression_profile} requires PCA n_components={expected_dimension}"
+            )
     target_paths = {
         _canonical_path(path, project_root) for path in image_paths
     }
@@ -111,13 +128,15 @@ def fetch_lfw_vector_records(
         }
 
         pca_rows: dict[str, dict[str, object]] = {}
-        if compression_profile == PCA_256:
+        if compression_profile in PCA_PROFILE_DIMENSIONS:
+            dimension = pca_profile_dimension(compression_profile)
+            embedding_model = PCA_EMBEDDING_MODELS[dimension]
             rows = (
-                session.query(Embedding256, Image)
-                .join(Image, Embedding256.image_id == Image.id)
+                session.query(embedding_model, Image)
+                .join(Image, embedding_model.image_id == Image.id)
                 .filter(
-                    Embedding256.run_uid == run_uid,
-                    Embedding256.vector_type == PCA_256,
+                    embedding_model.run_uid == run_uid,
+                    embedding_model.vector_type == compression_profile,
                 )
                 .all()
             )
@@ -138,7 +157,7 @@ def fetch_lfw_vector_records(
         else set(origins).intersection(pca_rows)
     )
     reconstructed: dict[str, np.ndarray] = {}
-    if compression_profile == PCA_256 and available_paths:
+    if compression_profile in PCA_PROFILE_DIMENSIONS and available_paths:
         retrieval_matrix = np.stack(
             [pca_rows[path]["retrieval_embedding"] for path in available_paths]
         )
@@ -310,9 +329,12 @@ def assemble_lfw_certification_inputs(
         str(probe_type): int(count)
         for probe_type, count in probes["probe_type"].value_counts().sort_index().items()
     }
-    certificate_space = (
-        ORIGIN_512 if compression_profile == ORIGIN_512 else "pca_reconstructed_512"
-    )
+    if compression_profile == ORIGIN_512:
+        certificate_space = ORIGIN_512
+    elif compression_profile == "pca_256":
+        certificate_space = "pca_reconstructed_512"
+    else:
+        certificate_space = f"{compression_profile}_reconstructed_512"
     return LFWCertificationInputs(
         probes=probes,
         templates=templates,

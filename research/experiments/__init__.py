@@ -3,6 +3,7 @@
 from research.experiments.materialization import (
     materialize_compressed_embeddings,
     materialize_compressed_embeddings_with_frozen_stats,
+    materialize_pca_sweep_embeddings,
 )
 from research.experiments.lfw_certification import (
     LFWCertificationInputs,
@@ -22,6 +23,7 @@ from research.experiments.lfw_pgvector import (
 __all__ = [
     "materialize_compressed_embeddings",
     "materialize_compressed_embeddings_with_frozen_stats",
+    "materialize_pca_sweep_embeddings",
     "LFWCertificationInputs",
     "assemble_lfw_certification_inputs",
     "build_lfw_certification_inputs",

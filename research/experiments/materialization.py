@@ -22,17 +22,268 @@ from research.compression import (
     PQCompressor,
     apply_reconstruction_error_stats,
     fit_reconstruction_error_stats,
+    pca_profile_name,
 )
 from research.database.connection import (
     ensure_database_schema,
     ensure_vector_indexes,
     session_scope,
 )
-from research.database.models import Embedding256, Embedding512, EmbeddingPQ, Image
+from research.database.models import (
+    PCA_EMBEDDING_MODELS,
+    Embedding256,
+    Embedding512,
+    EmbeddingPQ,
+    Image,
+)
 
 
 ProgressCallback = Callable[[str, dict[str, object]], None]
 ErrorNormalizationStats = dict[str, dict[str, float | int]]
+
+
+def materialize_pca_sweep_embeddings(
+    engine: Engine,
+    *,
+    run_uid: str,
+    pcas: dict[str, PCACompressor],
+    pca_artifact_paths: dict[str, str | Path],
+    pca_artifact_sha256: dict[str, str],
+    development_image_paths: set[str | Path],
+    measurements_path: str | Path,
+    batch_size: int = 512,
+    progress: ProgressCallback | None = None,
+) -> dict[str, object]:
+    """Materialize a reproducible multi-dimension PCA sweep into pgvector tables."""
+
+    if not run_uid:
+        raise ValueError("run_uid is required")
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    if not pcas:
+        raise ValueError("pcas must not be empty")
+    profiles: dict[str, PCACompressor] = {}
+    for requested_profile, compressor in pcas.items():
+        profile = pca_profile_name(compressor.n_components)
+        if str(requested_profile) != profile:
+            raise ValueError(
+                f"PCA profile key {requested_profile} does not match compressor {profile}"
+            )
+        if profile not in pca_artifact_paths or profile not in pca_artifact_sha256:
+            raise ValueError(f"missing PCA artifact provenance for {profile}")
+        profiles[profile] = compressor
+
+    ensure_database_schema(engine)
+    development = {_canonical_path(path) for path in development_image_paths}
+    if not development:
+        raise ValueError("development_image_paths must not be empty")
+    development_vectors: list[np.ndarray] = []
+    source_count = 0
+    for batch in _source_batches(engine, run_uid=run_uid, batch_size=batch_size):
+        source_count += len(batch)
+        development_vectors.extend(
+            row.vector for row in batch if _canonical_path(row.image_path) in development
+        )
+        _emit(
+            progress,
+            "PCA sweep development normalization scan",
+            scanned=source_count,
+            development_vectors=len(development_vectors),
+        )
+    if not development_vectors:
+        raise ValueError("no development embeddings matched the frozen manifest")
+    development_matrix = np.stack(development_vectors)
+    development_results = {
+        profile: compressor.transform_profile(development_matrix)
+        for profile, compressor in profiles.items()
+    }
+    error_stats = fit_reconstruction_error_stats(
+        {
+            profile: result.reconstruction_error
+            for profile, result in development_results.items()
+        }
+    )
+    del development_vectors, development_matrix, development_results
+
+    destination = Path(measurements_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
+    fields = [
+        "run_uid",
+        "image_id",
+        "source_embedding_id",
+        "image_path",
+        "identity_id",
+        "compression_profile",
+        "compressor_uid",
+        "dimension",
+        "reconstruction_error",
+        "reconstruction_error_norm",
+        "angular_error",
+        "action",
+    ]
+    counts: dict[str, int] = {"source_vectors": source_count}
+    for profile in profiles:
+        counts[f"{profile}_inserted"] = 0
+        counts[f"{profile}_skipped"] = 0
+    model_uids = {
+        profile: _artifact_uid(
+            pca_artifact_paths[profile], pca_artifact_sha256[profile]
+        )
+        for profile in profiles
+    }
+    processed = 0
+    try:
+        with temporary.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
+            writer.writeheader()
+            for batch in _source_batches(engine, run_uid=run_uid, batch_size=batch_size):
+                matrix = np.stack([row.vector for row in batch])
+                results = {
+                    profile: compressor.transform_profile(matrix)
+                    for profile, compressor in profiles.items()
+                }
+                normalized = apply_reconstruction_error_stats(
+                    {
+                        profile: result.reconstruction_error
+                        for profile, result in results.items()
+                    },
+                    error_stats,
+                )
+                image_ids = [row.image_id for row in batch]
+                actions_by_profile: dict[str, list[str]] = {}
+                with session_scope(engine) as session:
+                    for profile, compressor in profiles.items():
+                        dimension = compressor.n_components
+                        model = PCA_EMBEDDING_MODELS[dimension]
+                        existing = {
+                            int(row.image_id): row
+                            for row in session.query(model).filter(
+                                model.run_uid == run_uid,
+                                model.vector_type == profile,
+                                model.image_id.in_(image_ids),
+                            )
+                        }
+                        profile_actions: list[str] = []
+                        result = results[profile]
+                        for index, source in enumerate(batch):
+                            parameters = {
+                                "run_uid": run_uid,
+                                "compressor_uid": model_uids[profile],
+                                "compressor_artifact_sha256": pca_artifact_sha256[profile],
+                                "source_embedding_id": source.embedding_id,
+                                "dimension": dimension,
+                                "reconstruction_error": float(
+                                    result.reconstruction_error[index]
+                                ),
+                                "reconstruction_error_norm": float(
+                                    normalized[profile][index]
+                                ),
+                                "angular_error": float(result.angular_error[index]),
+                                "error_normalization": error_stats[profile],
+                            }
+                            current = existing.get(source.image_id)
+                            if current is None:
+                                session.add(
+                                    model(
+                                        image_id=source.image_id,
+                                        run_uid=run_uid,
+                                        vector_type=profile,
+                                        parameters=parameters,
+                                        embedding=result.vectors[index],
+                                        created_at=datetime.now(timezone.utc),
+                                        log=(
+                                            f"PCA {dimension}D retrieval vector; "
+                                            "certification uses inverse-transformed 512D"
+                                        ),
+                                    )
+                                )
+                                action = "inserted"
+                            elif current.parameters == parameters:
+                                action = "skipped"
+                            else:
+                                raise ValueError(
+                                    f"existing {profile} row has different compressor "
+                                    "provenance; start a new run"
+                                )
+                            profile_actions.append(action)
+                        actions_by_profile[profile] = profile_actions
+
+                for profile, compressor in profiles.items():
+                    result = results[profile]
+                    for index, source in enumerate(batch):
+                        action = actions_by_profile[profile][index]
+                        counts[f"{profile}_{action}"] += 1
+                        writer.writerow(
+                            {
+                                "run_uid": run_uid,
+                                "image_id": source.image_id,
+                                "source_embedding_id": source.embedding_id,
+                                "image_path": source.image_path,
+                                "identity_id": source.identity_id,
+                                "compression_profile": profile,
+                                "compressor_uid": model_uids[profile],
+                                "dimension": compressor.n_components,
+                                "reconstruction_error": float(
+                                    result.reconstruction_error[index]
+                                ),
+                                "reconstruction_error_norm": float(
+                                    normalized[profile][index]
+                                ),
+                                "angular_error": float(result.angular_error[index]),
+                                "action": action,
+                            }
+                        )
+                handle.flush()
+                processed += len(batch)
+                _emit(
+                    progress,
+                    "PCA sweep embedding batch committed",
+                    processed=processed,
+                    total=source_count,
+                    **counts,
+                )
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+    index_started = perf_counter()
+    ensure_vector_indexes(engine)
+    index_elapsed_seconds = perf_counter() - index_started
+    storage_bytes: dict[str, int] = {}
+    row_counts: dict[str, int] = {}
+    with engine.connect() as connection:
+        for profile, compressor in profiles.items():
+            table_name = f"embedding_{compressor.n_components}"
+            storage_bytes[profile] = int(
+                connection.execute(
+                    text("SELECT pg_total_relation_size(CAST(:table_name AS regclass))"),
+                    {"table_name": table_name},
+                ).scalar_one()
+            )
+            row_counts[profile] = int(
+                connection.execute(
+                    text(
+                        f"SELECT count(1) FROM {table_name} "
+                        "WHERE run_uid=:run_uid AND vector_type=:vector_type"
+                    ),
+                    {"run_uid": run_uid, "vector_type": profile},
+                ).scalar_one()
+            )
+    return {
+        "profiles": list(profiles),
+        "counts": counts,
+        "row_counts": row_counts,
+        "error_normalization": error_stats,
+        "measurements_path": str(destination),
+        "index_ensure_elapsed_seconds": float(index_elapsed_seconds),
+        "storage_bytes": storage_bytes,
+        "vector_payload_bytes_per_row": {
+            profile: int(compressor.n_components * np.dtype(np.float32).itemsize)
+            for profile, compressor in profiles.items()
+        },
+        "pca_model_uids": model_uids,
+    }
 
 
 @dataclass(frozen=True)

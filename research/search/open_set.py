@@ -16,6 +16,10 @@ CALIBRATION_FEATURE_COLUMNS = [
 ]
 
 CERTIFICATION_CANDIDATE_SCOPES = {"exhaustive", "candidate_set"}
+EXACT_FALLBACK_SOURCES = {
+    "exact_fallback",
+    "origin_512_db_exact_fallback",
+}
 
 
 def _l2(vector: np.ndarray) -> np.ndarray:
@@ -333,8 +337,13 @@ def summarize_certified_search_features(features: pd.DataFrame) -> dict:
                 decision: int((frame["final_decision"] == decision).sum())
                 for decision in ["accept", "reject", "defer"]
             }
-        if "final_decision_source" in frame.columns:
-            exact_fallback_mask = frame["final_decision_source"] == "exact_fallback"
+        if "fallback_used" in frame.columns or "final_decision_source" in frame.columns:
+            if "fallback_used" in frame.columns:
+                exact_fallback_mask = frame["fallback_used"].fillna(False).astype(bool)
+            else:
+                exact_fallback_mask = frame["final_decision_source"].isin(
+                    EXACT_FALLBACK_SOURCES
+                )
             result["exact_fallback_rate"] = float(exact_fallback_mask.mean())
             fallback_required_mask = frame["certified_fallback_required"].astype(bool)
             if fallback_required_mask.any():

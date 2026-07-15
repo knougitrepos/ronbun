@@ -8,7 +8,19 @@ _ADDITIVE_RESEARCH_SCHEMA_SQL = (
     "ALTER TABLE images ADD COLUMN IF NOT EXISTS content_sha256 VARCHAR(64)",
     "ALTER TABLE images ADD COLUMN IF NOT EXISTS file_size_bytes BIGINT",
     "ALTER TABLE embedding_512 ADD COLUMN IF NOT EXISTS run_uid VARCHAR(96)",
+    "ALTER TABLE embedding_448 ADD COLUMN IF NOT EXISTS run_uid VARCHAR(96)",
+    "ALTER TABLE embedding_448 ADD COLUMN IF NOT EXISTS vector_type VARCHAR(32)",
+    "UPDATE embedding_448 SET vector_type = 'pca_448' WHERE vector_type IS NULL",
+    "ALTER TABLE embedding_448 ALTER COLUMN vector_type SET NOT NULL",
+    "ALTER TABLE embedding_384 ADD COLUMN IF NOT EXISTS run_uid VARCHAR(96)",
+    "ALTER TABLE embedding_384 ADD COLUMN IF NOT EXISTS vector_type VARCHAR(32)",
+    "UPDATE embedding_384 SET vector_type = 'pca_384' WHERE vector_type IS NULL",
+    "ALTER TABLE embedding_384 ALTER COLUMN vector_type SET NOT NULL",
     "ALTER TABLE embedding_256 ADD COLUMN IF NOT EXISTS run_uid VARCHAR(96)",
+    "ALTER TABLE embedding_128 ADD COLUMN IF NOT EXISTS run_uid VARCHAR(96)",
+    "ALTER TABLE embedding_128 ADD COLUMN IF NOT EXISTS vector_type VARCHAR(32)",
+    "UPDATE embedding_128 SET vector_type = 'pca_128' WHERE vector_type IS NULL",
+    "ALTER TABLE embedding_128 ALTER COLUMN vector_type SET NOT NULL",
     "ALTER TABLE embedding_pq ADD COLUMN IF NOT EXISTS run_uid VARCHAR(96)",
     (
         "UPDATE embedding_512 SET vector_type = 'origin_512' "
@@ -49,11 +61,26 @@ _ADDITIVE_RESEARCH_SCHEMA_SQL = (
         "ON embedding_256 (run_uid, image_id, vector_type) WHERE run_uid IS NOT NULL"
     ),
     (
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_embedding_448_run_image_type_unique "
+        "ON embedding_448 (run_uid, image_id, vector_type) WHERE run_uid IS NOT NULL"
+    ),
+    (
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_embedding_384_run_image_type_unique "
+        "ON embedding_384 (run_uid, image_id, vector_type) WHERE run_uid IS NOT NULL"
+    ),
+    (
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_embedding_128_run_image_type_unique "
+        "ON embedding_128 (run_uid, image_id, vector_type) WHERE run_uid IS NOT NULL"
+    ),
+    (
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_embedding_pq_run_image_type "
         "ON embedding_pq (run_uid, image_id, vector_type) WHERE run_uid IS NOT NULL"
     ),
     "CREATE INDEX IF NOT EXISTS ix_embedding_512_run_type ON embedding_512 (run_uid, vector_type)",
     "CREATE INDEX IF NOT EXISTS ix_embedding_256_run_type ON embedding_256 (run_uid, vector_type)",
+    "CREATE INDEX IF NOT EXISTS ix_embedding_448_run_type ON embedding_448 (run_uid, vector_type)",
+    "CREATE INDEX IF NOT EXISTS ix_embedding_384_run_type ON embedding_384 (run_uid, vector_type)",
+    "CREATE INDEX IF NOT EXISTS ix_embedding_128_run_type ON embedding_128 (run_uid, vector_type)",
     "CREATE INDEX IF NOT EXISTS ix_embedding_pq_run_type ON embedding_pq (run_uid, vector_type)",
     "ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS run_uid VARCHAR(96)",
     "ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS started_at TIMESTAMP",
