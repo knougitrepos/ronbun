@@ -17,6 +17,7 @@ from research.compression import (
 )
 from research.database.connection import ensure_vector_indexes, session_scope
 from research.database.repository import VectorRepository
+from research.evaluation.metrics import certified_open_set_metrics
 from research.experiments.lfw_certification import LFWCertificationInputs
 from research.protocols.open_set import OpenSetProtocol
 from research.search.open_set import (
@@ -479,15 +480,37 @@ def run_lfw_pgvector_search(
                     "fallback_latency_ms": fallback_latency,
                     "simulated_system_latency_ms": float(pca_hnsw_top1["query_elapsed_ms"]) + certificate_elapsed_ms + fallback_latency,
                     "final_matches_origin_exact": final_decision == origin_decision and (final_decision == "reject" or str(final_identity) == str(origin_identity)),
-                    "certified_accept_correct": (
+                    "certified_accept_agrees_with_origin": (
                         origin_decision == "accept"
                         and str(certified["certified_identity"]) == str(origin_identity)
                         if certified["certified_decision"] == "accept"
                         else None
                     ),
-                    "certified_reject_correct": (
+                    "certified_reject_agrees_with_origin": (
                         origin_decision == "reject"
                         if certified["certified_decision"] == "reject"
+                        else None
+                    ),
+                    "certified_accept_ground_truth_correct": (
+                        registered
+                        and str(certified["certified_identity"]) == true_identity
+                        if certified["certified_decision"] == "accept"
+                        else None
+                    ),
+                    "certified_reject_ground_truth_correct": (
+                        non_mated
+                        if certified["certified_decision"] == "reject"
+                        else None
+                    ),
+                    "certified_dir_rank1_hit": (
+                        certified["certified_decision"] == "accept"
+                        and str(certified["certified_identity"]) == true_identity
+                        if registered
+                        else None
+                    ),
+                    "certified_fpir_event": (
+                        certified["certified_decision"] == "accept"
+                        if non_mated
                         else None
                     ),
                 }
@@ -528,13 +551,18 @@ def summarize_lfw_pgvector_search(features: pd.DataFrame) -> dict[str, object]:
         values = frame[column].dropna().astype(bool)
         return float(values.mean()) if len(values) else None
 
-    def correctness(column: str, frame: pd.DataFrame) -> dict[str, float | int | None]:
+    def counted_rate(
+        column: str,
+        frame: pd.DataFrame,
+        *,
+        positive_label: str,
+    ) -> dict[str, float | int | None]:
         if column not in frame.columns:
-            return {"count": 0, "correct": 0, "rate": None}
+            return {"count": 0, positive_label: 0, "rate": None}
         values = frame[column].dropna().astype(bool)
         return {
             "count": int(len(values)),
-            "correct": int(values.sum()),
+            positive_label: int(values.sum()),
             "rate": float(values.mean()) if len(values) else None,
         }
 
@@ -568,6 +596,7 @@ def summarize_lfw_pgvector_search(features: pd.DataFrame) -> dict[str, object]:
         }
 
     def detailed_metrics(frame: pd.DataFrame) -> dict[str, object]:
+        ground_truth = certified_open_set_metrics(frame)
         return {
             "rows": int(len(frame)),
             "registered_compressed_rank_inversion_rate": optional_rate(
@@ -588,12 +617,16 @@ def summarize_lfw_pgvector_search(features: pd.DataFrame) -> dict[str, object]:
             "candidate_miss_caused_by_hnsw_rate": optional_rate(
                 "candidate_miss_caused_by_hnsw", frame
             ),
-            "certified_accept_correctness": correctness(
-                "certified_accept_correct", frame
+            "certified_accept_agreement_with_origin": counted_rate(
+                "certified_accept_agrees_with_origin", frame, positive_label="agreed"
             ),
-            "certified_reject_correctness": correctness(
-                "certified_reject_correct", frame
+            "certified_reject_agreement_with_origin": counted_rate(
+                "certified_reject_agrees_with_origin", frame, positive_label="agreed"
             ),
+            "certified_accept_precision": ground_truth["certified_accept_precision"],
+            "certified_reject_accuracy": ground_truth["certified_reject_accuracy"],
+            "certified_DIR": ground_truth["certified_DIR"],
+            "certified_FPIR": ground_truth["certified_FPIR"],
             "exact_fallback_rate": optional_rate("fallback_used", frame),
         }
 
@@ -601,6 +634,7 @@ def summarize_lfw_pgvector_search(features: pd.DataFrame) -> dict[str, object]:
     compression_profile = str(features["compression_profile"].iloc[0])
     compression_dimension = int(features["compression_dimension"].iloc[0])
     certification = summarize_certified_search_features(features)
+    certified_ground_truth = certified_open_set_metrics(features)
     result = {
         "rows": int(len(features)),
         "compression_profile": compression_profile,
@@ -677,12 +711,20 @@ def summarize_lfw_pgvector_search(features: pd.DataFrame) -> dict[str, object]:
             decision_column="final_decision",
             identity_column="final_identity",
         ),
-        "certified_accept_correctness": correctness(
-            "certified_accept_correct", features
+        "certified_accept_agreement_with_origin": counted_rate(
+            "certified_accept_agrees_with_origin", features, positive_label="agreed"
         ),
-        "certified_reject_correctness": correctness(
-            "certified_reject_correct", features
+        "certified_reject_agreement_with_origin": counted_rate(
+            "certified_reject_agrees_with_origin", features, positive_label="agreed"
         ),
+        "certified_accept_precision": certified_ground_truth[
+            "certified_accept_precision"
+        ],
+        "certified_reject_accuracy": certified_ground_truth[
+            "certified_reject_accuracy"
+        ],
+        "certified_DIR": certified_ground_truth["certified_DIR"],
+        "certified_FPIR": certified_ground_truth["certified_FPIR"],
         "certification": certification,
         "by_probe_type": {
             str(probe_type): detailed_metrics(group)

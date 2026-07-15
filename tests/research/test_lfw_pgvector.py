@@ -213,6 +213,11 @@ def test_pgvector_search_separates_candidates_certificate_and_exact_baseline(mon
     assert row["origin_calibrated_threshold"] == 0.5
     assert row["pca_calibrated_threshold"] == 0.95
     assert bool(row["threshold_crossing"])
+    assert "certified_accept_correct" not in features.columns
+    assert "certified_reject_correct" not in features.columns
+    assert bool(row["certified_accept_agrees_with_origin"])
+    assert bool(row["certified_accept_ground_truth_correct"])
+    assert bool(row["certified_dir_rank1_hit"])
     assert summary["candidate_contains_origin_top1_rate"] == 1.0
     assert summary["candidate_contains_true_identity_rate_registered"] == 1.0
     assert summary["registered_compressed_rank_inversion_rate"] == 0.0
@@ -223,6 +228,12 @@ def test_pgvector_search_separates_candidates_certificate_and_exact_baseline(mon
     assert summary["origin_open_set"]["dir_rank1"] == 1.0
     assert summary["compressed_open_set"]["dir_rank1"] == 0.0
     assert summary["final_open_set"]["dir_rank1"] == 1.0
+    assert "certified_accept_correctness" not in summary
+    assert "certified_reject_correctness" not in summary
+    assert summary["certified_accept_agreement_with_origin"]["rate"] == 1.0
+    assert summary["certified_accept_precision"]["rate"] == 1.0
+    assert summary["certified_DIR"] == 1.0
+    assert summary["certified_FPIR"] == 0.0
     assert summary["certification"]["exact_fallback_rate"] == summary["certification"]["defer_rate"]
     assert summary["by_probe_type"]["registered"]["exact_fallback_rate"] == (
         summary["certification"]["by_probe_type"]["registered"]["exact_fallback_rate"]

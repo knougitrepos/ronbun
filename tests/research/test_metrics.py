@@ -2,6 +2,7 @@ import pandas as pd
 
 from research.evaluation.metrics import (
     brier_score,
+    certified_open_set_metrics,
     expected_calibration_error,
     open_set_identification_metrics,
     rank_at_k,
@@ -64,3 +65,43 @@ def test_open_set_metrics_can_score_exact_fallback_identity():
 
     assert metrics["dir_rank1"] == 1.0
     assert metrics["fpir"] == 0.0
+
+
+def test_certified_metrics_use_ground_truth_instead_of_origin_agreement():
+    rows = pd.DataFrame(
+        {
+            "probe_type": [
+                "registered",
+                "registered",
+                "registered",
+                "known_unknown",
+                "unknown_unknown",
+                "known_unknown",
+            ],
+            "query_identity_id": ["a", "b", "c", "u", "x", "y"],
+            "certified_decision": [
+                "accept",
+                "reject",
+                "defer",
+                "accept",
+                "reject",
+                "defer",
+            ],
+            "certified_identity": ["a", None, None, "a", None, None],
+        }
+    )
+
+    metrics = certified_open_set_metrics(rows)
+
+    assert metrics["certified_accept_precision"] == {
+        "count": 2,
+        "correct": 1,
+        "rate": 0.5,
+    }
+    assert metrics["certified_reject_accuracy"] == {
+        "count": 2,
+        "correct": 1,
+        "rate": 0.5,
+    }
+    assert metrics["certified_DIR"] == 1 / 3
+    assert metrics["certified_FPIR"] == 1 / 3

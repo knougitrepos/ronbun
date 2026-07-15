@@ -74,3 +74,5 @@ def test_completed_pointer_is_rejected(tmp_path: Path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="already completed"):
         resolve_active_run(root)
+
+    assert resolve_active_run(root, allow_completed=True) == run.run_dir.resolve()

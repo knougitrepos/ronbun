@@ -510,11 +510,15 @@ def _validate_active_run(
     *,
     expected_run_id: str | None = None,
     expected_config_hash: str | None = None,
+    allow_completed: bool = False,
 ) -> Path:
     directory = Path(run_dir).expanduser().resolve()
     run = RunStore.open(directory)
     manifest = run._read_manifest()
-    if manifest.get("status") == "completed" or (directory / "COMPLETED").exists():
+    if (
+        not allow_completed
+        and (manifest.get("status") == "completed" or (directory / "COMPLETED").exists())
+    ):
         raise RuntimeError(f"active run is already completed: {directory}")
     if expected_run_id is not None and run.run_id != expected_run_id:
         raise ValueError(
@@ -532,18 +536,21 @@ def resolve_active_run(
     run_root: str | Path,
     *,
     environment_variable: str = "RONBUN_RUN_DIR",
+    allow_completed: bool = False,
 ) -> Path:
     """Resolve the run shared by notebooks 01-05.
 
     An explicit environment-variable override has highest priority. Otherwise
     the pointer written by notebook 00/RunStore.create is validated. For runs
-    created before the pointer feature existed, exactly one incomplete run may
-    be discovered as a safe fallback; ambiguous candidates are never guessed.
+    created before the pointer feature existed, exactly one run may be
+    discovered as a safe fallback; ambiguous candidates are never guessed.
+    ``allow_completed`` is intended only for read-only reanalysis. Mutation
+    remains blocked by :class:`RunStore` even when a completed run is resolved.
     """
 
     explicit = os.environ.get(environment_variable, "").strip()
     if explicit:
-        return _validate_active_run(explicit)
+        return _validate_active_run(explicit, allow_completed=allow_completed)
 
     root = Path(run_root).expanduser().resolve()
     pointer_path = root / ACTIVE_RUN_POINTER
@@ -557,13 +564,16 @@ def resolve_active_run(
             str(pointer["run_dir"]),
             expected_run_id=str(pointer["run_id"]),
             expected_config_hash=str(pointer["config_hash"]),
+            allow_completed=allow_completed,
         )
 
     candidates: list[Path] = []
     for manifest_path in sorted(root.rglob("run_manifest.json")) if root.is_dir() else []:
         directory = manifest_path.parent
         try:
-            candidates.append(_validate_active_run(directory))
+            candidates.append(
+                _validate_active_run(directory, allow_completed=allow_completed)
+            )
         except RuntimeError as exc:
             if "already completed" not in str(exc):
                 raise

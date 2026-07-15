@@ -78,3 +78,65 @@ def open_set_identification_metrics(
         "fnir_rank1": 1.0 - dir_rank1,
         "fpir": fpir,
     }
+
+
+def certified_open_set_metrics(
+    results: pd.DataFrame,
+    *,
+    decision_column: str = "certified_decision",
+    predicted_identity_column: str = "certified_identity",
+) -> dict[str, object]:
+    """Score certificate-only decisions against open-set ground truth.
+
+    Deferred probes are included in the DIR/FPIR denominators but are excluded
+    from accept precision and reject accuracy because no certificate decision
+    was issued for them.
+    """
+
+    required = {
+        "probe_type",
+        "query_identity_id",
+        decision_column,
+        predicted_identity_column,
+    }
+    missing = required.difference(results.columns)
+    if missing:
+        raise ValueError(f"missing certified metric columns: {sorted(missing)}")
+
+    decisions = results[decision_column].astype(str)
+    certified_accept = decisions.eq("accept").to_numpy()
+    certified_reject = decisions.eq("reject").to_numpy()
+    is_mated = results["probe_type"].astype(str).eq("registered").to_numpy()
+    non_mated = ~is_mated
+    identity_correct = (
+        results[predicted_identity_column].astype(str).to_numpy()
+        == results["query_identity_id"].astype(str).to_numpy()
+    )
+
+    accept_correct = certified_accept & is_mated & identity_correct
+    reject_correct = certified_reject & non_mated
+    accept_count = int(certified_accept.sum())
+    reject_count = int(certified_reject.sum())
+    accept_correct_count = int(accept_correct.sum())
+    reject_correct_count = int(reject_correct.sum())
+    mated_count = int(is_mated.sum())
+    non_mated_count = int(non_mated.sum())
+
+    return {
+        "certified_accept_precision": {
+            "count": accept_count,
+            "correct": accept_correct_count,
+            "rate": accept_correct_count / accept_count if accept_count else None,
+        },
+        "certified_reject_accuracy": {
+            "count": reject_count,
+            "correct": reject_correct_count,
+            "rate": reject_correct_count / reject_count if reject_count else None,
+        },
+        "mated_count": mated_count,
+        "non_mated_count": non_mated_count,
+        "certified_DIR": accept_correct_count / mated_count if mated_count else 0.0,
+        "certified_FPIR": int((certified_accept & non_mated).sum()) / non_mated_count
+        if non_mated_count
+        else 0.0,
+    }
