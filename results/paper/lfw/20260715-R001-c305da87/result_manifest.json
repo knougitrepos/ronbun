@@ -1,0 +1,37 @@
+{
+  "config_hash": "c305da878c6bcc60f36ca4640f9004726cab393851502c3e468e9db65e27de6d",
+  "dataset": "lfw",
+  "files": {
+    "decisions_by_probe.png": {
+      "bytes": 36312,
+      "sha256": "47251fadc7ae05ee186cfd657654a5735f237c1a4b917659af8fff85c9568910"
+    },
+    "evaluation_metrics.json": {
+      "bytes": 72596,
+      "sha256": "32167f0bb9682ddc29d6168568025c681637d06162b94d0a944d8ee7ebb298a5"
+    },
+    "pca_dimension_sweep.csv": {
+      "bytes": 1238,
+      "sha256": "418873d71c78d3aadf7e4a781c6f95257b7eeae23d2b11c9213be6764bd73e19"
+    },
+    "pgvector_system_summary.csv": {
+      "bytes": 6968,
+      "sha256": "9869dce4f4651b9c08ebd5aa6efb29a2004a19456744ff32011a34df8d9cca41"
+    },
+    "probe_type_summary.csv": {
+      "bytes": 1813,
+      "sha256": "307f7c87ae41e9d848ad6ee06faaa85c3b758212dcb9a6eedd2e38dfde139801"
+    },
+    "top1_score_distribution.png": {
+      "bytes": 29717,
+      "sha256": "8540ad2f43adc3e34de3604b99559de98c9b0aab647aa335b4f9dcbac22ebce0"
+    }
+  },
+  "run_id": "20260715-R001-c305da87",
+  "schema_version": 1,
+  "source": {
+    "attempt": "A001",
+    "phase": "05_evaluation_and_visualization",
+    "run_directory": "D:\\ronbun\\runs\\lfw\\2026\\07\\15\\20260715-R001-c305da87_thesis3_lfw_face_search_v1"
+  }
+}
