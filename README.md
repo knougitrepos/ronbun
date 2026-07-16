@@ -6,6 +6,54 @@
 
 > 임베딩 압축으로 변형된 유사도 분포와 거부 임계값을 경량 calibration으로 보정하여 등록 인물 식별과 미등록 인물 거부 성능을 함께 보존할 수 있는가?
 
+---
+## 연구방향 정리
+
+### 고정 baseline
+
+> **압축된 ArcFace 임베딩의 1:N open-set 검색에서 압축 오차와 검색 점수 특성을 이용해 결정 안정성을 평가하고, 불확실한 질의에 대해서만 saliency 특징과 원본 512차원 검색을 단계적으로 적용하는 위험 제약 기반 선택적 검색 방법**
+
+### 핵심 구성
+
+1. InsightFace SCRFD 검출 및 5-point 정렬  
+2. 동일한 PyTorch ArcFace로 512차원 임베딩 추출  
+3. PCA-448/384/256/128 및 PQ 압축  
+4. PostgreSQL/pgvector HNSW 후보 검색  
+5. score·margin·angular error 기반 1차 보정  
+6. 불확실 질의만 pair-conditioned Grad-CAM 적용  
+7. landmark 영역별 saliency 특징 추출  
+8. accept/reject/defer 결정  
+9. 최종 불확실 질의만 원본 exact fallback  
+10. FPIR(False Positive Identification Rate, 오인 수락 식별률)·DIR(Detection and Identification Rate, 탐지 및 식별률)·저장량·지연시간 제약을 만족하는 최소 압축 차원 선택
+
+기존 연구의 핵심이 DB 알고리즘 자체가 아니라 **압축으로 흔들리는 유사도 분포와 open-set 임계값을 분석·보정하는 것**이라는 방향과도 일치합니다.
+---
+
+## 진행 원칙
+
+Grad-CAM과 saliency는 처음부터 핵심 방법으로 확정하지 않고 **검증 대상 특징**으로 둡니다.
+
+```text
+압축오차 기반 baseline
+→ saliency 추가 ablation
+→ 잔차·분산 예측 개선 확인
+→ fallback 및 전체 latency 개선 확인
+→ 효과가 재현될 때 핵심 기여로 승격
+```
+
+효과가 없거나 계산비용이 지나치게 크면 saliency는 오류 분석용 보조 실험으로 내리고, **위험 제약 기반 압축 프로파일 선택과 결정 안정성 보정**을 주 기여로 유지합니다.
+
+## 우선 구현 순서
+
+1. 동일 ArcFace의 PyTorch 추론과 기존 ONNX 출력 일치 검증  
+2. 4분면 pair-conditioned Grad-CAM 최소 구현  
+3. 영역 가림으로 Grad-CAM 신뢰성 확인  
+4. 압축 점수 잔차와 saliency 특징의 상관성 분석  
+5. 기존 보정 모델 대비 saliency 추가 ablation  
+6. 효과 확인 후 106-point landmark 영역으로 확장  
+7. 선택적 Grad-CAM과 원본 fallback을 포함한 전체 시스템 평가  
+
+이 기준을 이후 코드 구조, 실험 설계, 관련연구 분류 및 논문 기여 분석의 기본 전제로 삼으면 됩니다.
 ## 연구 범위
 
 - 동결된 `ArcFace/InsightFace`로 512차원 원본 임베딩을 추출합니다.
