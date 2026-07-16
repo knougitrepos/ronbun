@@ -37,3 +37,4 @@ temp/
 dbdata/
 *.log
 
+publish/
