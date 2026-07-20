@@ -8,8 +8,10 @@ from scipy.io import savemat
 from research.datasets import (
     build_lfw_manifest,
     build_survface_official_manifest,
+    build_survface_training_manifest,
     write_lfw_manifest_bundle,
     write_survface_official_bundle,
+    write_survface_training_bundle,
 )
 
 
@@ -152,6 +154,44 @@ def test_build_survface_manifest_preserves_official_roles_and_order(tmp_path: Pa
     assert paths["gallery.csv"].is_file()
     assert paths["registered_probes.csv"].is_file()
     assert paths["unknown_unknown_probes.csv"].is_file()
+
+
+def test_build_survface_training_manifest_is_identity_disjoint(tmp_path: Path):
+    root = tmp_path / "data" / "raw" / "QMUL-SurvFace"
+    for identity_index in range(10):
+        identity = str(100 + identity_index)
+        _touch_images(
+            root / "training_set" / identity,
+            [f"{identity}_cam1.jpg", f"{identity}_cam2.jpg"],
+        )
+
+    first = build_survface_training_manifest(
+        root,
+        tmp_path,
+        seed=7,
+        development_fraction=0.70,
+    )
+    second = build_survface_training_manifest(
+        root,
+        tmp_path,
+        seed=7,
+        development_fraction=0.70,
+    )
+
+    pd.testing.assert_frame_equal(first.manifest, second.manifest)
+    assert first.summary["development_identity_count"] == 7
+    assert first.summary["calibration_identity_count"] == 3
+    assert first.summary["official_test_included"] is False
+    assert first.manifest.groupby("identity_id")["split"].nunique().max() == 1
+    assert set(first.manifest["split"]) == {"development", "calibration"}
+    assert all(
+        path.startswith("data/raw/QMUL-SurvFace/training_set/")
+        for path in first.manifest["image_path"]
+    )
+
+    paths = write_survface_training_bundle(first, tmp_path / "output")
+    assert pd.read_csv(paths["training_manifest.csv"]).shape[0] == 20
+    assert paths["training_summary.json"].is_file()
 
 
 def test_survface_manifest_rejects_files_not_listed_by_official_mat(tmp_path: Path):

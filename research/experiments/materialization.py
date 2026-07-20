@@ -64,7 +64,15 @@ def materialize_pca_sweep_embeddings(
         raise ValueError("pcas must not be empty")
     profiles: dict[str, PCACompressor] = {}
     for requested_profile, compressor in pcas.items():
-        profile = pca_profile_name(compressor.n_components)
+        if compressor.n_components not in PCA_EMBEDDING_MODELS:
+            raise ValueError(
+                f"PCA {compressor.n_components}D has no current PostgreSQL table; "
+                "use the Step-1 in-memory evaluation path"
+            )
+        # This DB materializer also serves immutable thesis3 runs, including
+        # the historical PCA-448 table. Step-1 PCA-64/32 remains rejected by
+        # the table guard above and is evaluated in memory instead.
+        profile = pca_profile_name(compressor.n_components, allow_legacy=True)
         if str(requested_profile) != profile:
             raise ValueError(
                 f"PCA profile key {requested_profile} does not match compressor {profile}"

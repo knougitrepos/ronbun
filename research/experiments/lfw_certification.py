@@ -12,7 +12,6 @@ from sqlalchemy.engine import Engine
 
 from research.compression import (
     ORIGIN_512,
-    PCA_PROFILE_DIMENSIONS,
     PCACompressor,
     pca_profile_dimension,
 )
@@ -30,6 +29,28 @@ PROTOCOL_ROLES = (
     "known_unknown_probes",
     "unknown_unknown_probes",
 )
+
+
+def _stored_pca_dimension(compression_profile: str) -> int:
+    """Resolve PCA profiles that have a persisted embedding table.
+
+    PCA-448 is retained for historical run replay. Step-1 PCA-64/32 is
+    intentionally evaluated in memory because the current DB schema has no
+    corresponding tables.
+    """
+
+    try:
+        dimension = pca_profile_dimension(compression_profile, allow_legacy=True)
+    except ValueError as exc:
+        raise ValueError(
+            "compression_profile must be origin_512 or a stored PCA profile"
+        ) from exc
+    if dimension not in PCA_EMBEDDING_MODELS:
+        raise ValueError(
+            f"{compression_profile} has no current PostgreSQL embedding table; "
+            "use the Step-1 in-memory evaluation path"
+        )
+    return dimension
 
 
 @dataclass(frozen=True)
@@ -92,17 +113,17 @@ def fetch_lfw_vector_records(
     measured against the original 512D ArcFace vector.
     """
 
-    if compression_profile != ORIGIN_512 and compression_profile not in PCA_PROFILE_DIMENSIONS:
-        raise ValueError(
-            "compression_profile must be origin_512 or a supported PCA profile"
-        )
-    if compression_profile in PCA_PROFILE_DIMENSIONS and pca is None:
+    pca_dimension = (
+        None
+        if compression_profile == ORIGIN_512
+        else _stored_pca_dimension(compression_profile)
+    )
+    if pca_dimension is not None and pca is None:
         raise ValueError(f"pca compressor is required for {compression_profile} certification")
-    if pca is not None and compression_profile in PCA_PROFILE_DIMENSIONS:
-        expected_dimension = pca_profile_dimension(compression_profile)
-        if pca.n_components != expected_dimension:
+    if pca is not None and pca_dimension is not None:
+        if pca.n_components != pca_dimension:
             raise ValueError(
-                f"{compression_profile} requires PCA n_components={expected_dimension}"
+                f"{compression_profile} requires PCA n_components={pca_dimension}"
             )
     target_paths = {
         _canonical_path(path, project_root) for path in image_paths
@@ -128,9 +149,8 @@ def fetch_lfw_vector_records(
         }
 
         pca_rows: dict[str, dict[str, object]] = {}
-        if compression_profile in PCA_PROFILE_DIMENSIONS:
-            dimension = pca_profile_dimension(compression_profile)
-            embedding_model = PCA_EMBEDDING_MODELS[dimension]
+        if pca_dimension is not None:
+            embedding_model = PCA_EMBEDDING_MODELS[pca_dimension]
             rows = (
                 session.query(embedding_model, Image)
                 .join(Image, embedding_model.image_id == Image.id)
@@ -157,7 +177,7 @@ def fetch_lfw_vector_records(
         else set(origins).intersection(pca_rows)
     )
     reconstructed: dict[str, np.ndarray] = {}
-    if compression_profile in PCA_PROFILE_DIMENSIONS and available_paths:
+    if pca_dimension is not None and available_paths:
         retrieval_matrix = np.stack(
             [pca_rows[path]["retrieval_embedding"] for path in available_paths]
         )

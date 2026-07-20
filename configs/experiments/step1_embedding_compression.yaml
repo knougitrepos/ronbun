@@ -1,0 +1,61 @@
+run:
+  name: step1_embedding_compression_characterization
+  root: runs/step1
+
+# mode labels the run intent; data_fraction controls the deterministic identity
+# subset. Only mode=real with data_fraction=1.0 is a full paper run.
+execution:
+  mode: dev
+  data_fraction: 0.10
+  seed: 42
+
+models:
+  # Only ArcFace has an extractor adapter in the current repository. Planned
+  # models must not be interpreted as executable until their adapters and
+  # preprocessing parity checks are implemented.
+  enabled: [arcface]
+  planned: [adaface, magface]
+
+datasets:
+  lfw:
+    manifest_path: data/interim/lfw/face_manifest.csv
+    protocol_adapter: lfw_identity_disjoint
+  survface:
+    training_manifest_path: data/interim/survface/training_manifest.csv
+    manifest_path: data/interim/survface/official_manifest.csv
+    protocol_adapter: survface_official
+    fit_source: same_dataset_training_development
+    official_manifest_role: evaluation_only
+
+compression:
+  baseline_profile: origin_512
+  fit_split: development
+  families:
+    pca:
+      source_profile: origin_512
+      source_dimension: 512
+      dimensions: [384, 256, 128, 64, 32]
+    pq:
+      source_profile: origin_512
+      source_dimension: 512
+      # Each setting is fitted directly on origin_512. PCA output is never an
+      # input to PQ, and no pca_pq family is defined. At nbits=8, code bytes are
+      # m * nbits / 8, so these settings use 8/16/32/64/128 bytes per vector.
+      settings:
+        - {m: 8, nbits: 8}
+        - {m: 16, nbits: 8}
+        - {m: 32, nbits: 8}
+        - {m: 64, nbits: 8}
+        - {m: 128, nbits: 8}
+
+evaluation:
+  full_precision_baseline: true
+  exact_fallback: false
+  certification: false
+  compare_frozen_and_recalibrated_thresholds: true
+  metrics:
+    - angular_error
+    - cosine_score_drift
+    - rank_flip
+    - threshold_crossing
+    - dir_at_fpir

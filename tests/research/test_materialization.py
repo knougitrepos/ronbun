@@ -1,7 +1,7 @@
 import pytest
 
 import research.experiments.materialization as materialization
-from research.compression import PCA_256, PQ_AUXILIARY
+from research.compression import PCA_256, PQ_AUXILIARY, PCACompressor, pca_profile_name
 
 
 def _frozen_stats():
@@ -56,3 +56,19 @@ def test_frozen_error_normalization_requires_development_provenance(stats):
     with pytest.raises(ValueError, match="frozen error normalization"):
         materialization._validate_error_normalization(stats)
 
+
+def test_db_materialization_rejects_step1_only_pca_dimensions_before_db_access(tmp_path):
+    with pytest.raises(ValueError, match="no current PostgreSQL table"):
+        materialization.materialize_pca_sweep_embeddings(
+            object(),
+            run_uid="step1",
+            pcas={"pca_64": PCACompressor(64)},
+            pca_artifact_paths={"pca_64": "pca64.joblib"},
+            pca_artifact_sha256={"pca_64": "a" * 64},
+            development_image_paths={"image.jpg"},
+            measurements_path=tmp_path / "measurements.csv",
+        )
+
+
+def test_db_materialization_keeps_legacy_pca_448_profile_resolvable():
+    assert pca_profile_name(448, allow_legacy=True) == "pca_448"

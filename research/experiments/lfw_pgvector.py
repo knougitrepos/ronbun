@@ -10,9 +10,9 @@ from sqlalchemy.engine import Engine
 
 from research.calibration.rejection import GlobalThresholdCalibrator
 from research.compression import (
+    COMPRESSION_PROFILES,
     ORIGIN_512,
     PCA_256,
-    PCA_PROFILE_DIMENSIONS,
     pca_profile_dimension,
 )
 from research.database.connection import ensure_vector_indexes, session_scope
@@ -56,6 +56,21 @@ def _emit(progress: ProgressCallback | None, message: str, **details: object) ->
         progress(message, details)
 
 
+def _db_pca_dimension(compression_profile: str) -> int:
+    """Resolve only PCA profiles backed by the current PostgreSQL schema."""
+
+    profile = str(compression_profile)
+    spec = COMPRESSION_PROFILES.get(profile)
+    if spec is None or spec.family != "pca":
+        raise ValueError("compression_profile must be a supported PCA profile")
+    if not spec.pgvector_searchable:
+        raise ValueError(
+            f"{profile} is not supported by the current PostgreSQL schema; "
+            "use the Step-1 in-memory evaluation path"
+        )
+    return pca_profile_dimension(profile, allow_legacy=True)
+
+
 def materialize_lfw_templates(
     engine: Engine,
     *,
@@ -80,9 +95,7 @@ def materialize_lfw_templates(
         raise ValueError(f"template bundle is missing columns: {sorted(missing)}")
 
     compression_profile = str(bundle.coverage.get("compression_profile", PCA_256))
-    if compression_profile not in PCA_PROFILE_DIMENSIONS:
-        raise ValueError("LFW compressed template materialization requires a PCA profile")
-    pca_dimension = pca_profile_dimension(compression_profile)
+    pca_dimension = _db_pca_dimension(compression_profile)
     actions = {
         "template_512_inserted": 0,
         "template_512_skipped": 0,
@@ -154,26 +167,23 @@ def _exact_feature_frame(
     with session_scope(engine) as session:
         repository = VectorRepository(session)
         for index, probe in enumerate(probes.itertuples(index=False), start=1):
-            if compression_profile in PCA_PROFILE_DIMENSIONS:
+            if compression_profile != ORIGIN_512:
+                pca_dimension = _db_pca_dimension(compression_profile)
                 ranked = repository.find_similar_pca_templates(
-                    pca_profile_dimension(compression_profile),
+                    pca_dimension,
                     probe.retrieval_embedding,
                     **scope.repository_kwargs(),
                     vector_type=compression_profile,
                     top_k=2,
                     search_mode="exact",
                 )
-            elif compression_profile == ORIGIN_512:
+            else:
                 ranked = repository.find_similar_templates_512(
                     probe.fallback_embedding,
                     **scope.repository_kwargs(),
                     vector_type=ORIGIN_512,
                     top_k=2,
                     search_mode="exact",
-                )
-            else:
-                raise ValueError(
-                    "compression_profile must be origin_512 or a supported PCA profile"
                 )
             if len(ranked) < 2:
                 raise RuntimeError("calibration requires at least two gallery templates")
@@ -299,9 +309,7 @@ def run_lfw_pgvector_search(
     gallery_size = int(len(templates))
     if candidate_k > gallery_size:
         raise ValueError("candidate_k must not exceed gallery size")
-    if compression_profile not in PCA_PROFILE_DIMENSIONS:
-        raise ValueError("compression_profile must be a supported PCA profile")
-    pca_dimension = pca_profile_dimension(compression_profile)
+    pca_dimension = _db_pca_dimension(compression_profile)
     mean_template_angular_error = float(
         pd.to_numeric(templates["angular_error"], errors="raise").mean()
     )

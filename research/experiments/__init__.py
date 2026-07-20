@@ -1,5 +1,12 @@
 """Reusable experiment-stage orchestration used by dataset-specific notebooks."""
 
+from research.experiments.scope import (
+    EXPERIMENT_MODES,
+    ExperimentScope,
+    select_manifest_fraction,
+    select_open_set_protocol_fraction,
+)
+
 from research.experiments.materialization import (
     materialize_compressed_embeddings,
     materialize_compressed_embeddings_with_frozen_stats,
@@ -21,6 +28,8 @@ from research.experiments.lfw_pgvector import (
 )
 
 __all__ = [
+    "EXPERIMENT_MODES",
+    "ExperimentScope",
     "materialize_compressed_embeddings",
     "materialize_compressed_embeddings_with_frozen_stats",
     "materialize_pca_sweep_embeddings",
@@ -32,6 +41,8 @@ __all__ = [
     "materialize_lfw_templates",
     "protocol_frames",
     "run_lfw_pgvector_search",
+    "select_manifest_fraction",
+    "select_open_set_protocol_fraction",
     "summarize_lfw_pgvector_search",
     "write_vector_frame_csv",
 ]

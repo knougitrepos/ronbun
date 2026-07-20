@@ -55,6 +55,14 @@ class SurvFaceOfficialBundle:
         return self._rows_for("unknown_unknown_probe")
 
 
+@dataclass(frozen=True)
+class SurvFaceTrainingBundle:
+    """Identity-disjoint development/calibration rows from SurvFace training_set."""
+
+    manifest: pd.DataFrame
+    summary: dict[str, Any]
+
+
 def _resolved_directory(path: str | Path, label: str) -> Path:
     resolved = Path(path).expanduser().resolve()
     if not resolved.is_dir():
@@ -309,6 +317,95 @@ def _survface_frame(
     )
 
 
+def build_survface_training_manifest(
+    survface_root: str | Path,
+    project_root: str | Path,
+    *,
+    seed: int = 42,
+    development_fraction: float = 0.80,
+) -> SurvFaceTrainingBundle:
+    """Build a leakage-safe manifest from the official SurvFace training_set.
+
+    The official identification test gallery and probes are not read here.
+    Identities, rather than image rows, are deterministically divided between
+    development and calibration so PCA/PQ fitting never observes calibration
+    or official-test identities through this helper.
+    """
+
+    root = _resolved_directory(survface_root, "QMUL-SurvFace root")
+    project = _resolved_directory(project_root, "project root")
+    training_dir = _resolved_directory(
+        root / "training_set", "SurvFace training set"
+    )
+    if not 0.0 < development_fraction < 1.0:
+        raise ValueError("development_fraction must be between 0 and 1")
+
+    identity_images: dict[str, list[Path]] = {}
+    empty_identity_count = 0
+    for identity_dir in sorted(path for path in training_dir.iterdir() if path.is_dir()):
+        images = _image_files(identity_dir)
+        if images:
+            identity_images[identity_dir.name] = images
+        else:
+            empty_identity_count += 1
+    if len(identity_images) < 2:
+        raise ValueError("SurvFace training_set requires at least two non-empty identities")
+
+    shuffled_identities = sorted(identity_images)
+    random.Random(seed).shuffle(shuffled_identities)
+    development_count = max(
+        1,
+        min(
+            len(shuffled_identities) - 1,
+            int(len(shuffled_identities) * development_fraction),
+        ),
+    )
+    development_ids = set(shuffled_identities[:development_count])
+    split_by_identity = {
+        identity: "development" if identity in development_ids else "calibration"
+        for identity in identity_images
+    }
+
+    rows: list[dict[str, Any]] = []
+    for identity in sorted(identity_images):
+        stable_identity = f"survface:train:{identity}"
+        for image in identity_images[identity]:
+            rows.append(
+                {
+                    "image_id": f"{stable_identity}:{image.stem}",
+                    "identity_id": stable_identity,
+                    "split": split_by_identity[identity],
+                    "image_path": _relative_posix(image, project),
+                    "dataset": "qmul-survface-v1",
+                    "protocol_role": "training",
+                    "probe_type": "not_applicable",
+                }
+            )
+
+    manifest = pd.DataFrame(rows)
+    _validate_manifest(manifest)
+    validate_identity_disjoint_splits(manifest)
+    split_identity_counts = (
+        manifest.groupby("split")["identity_id"].nunique().astype(int).to_dict()
+    )
+    split_image_counts = manifest["split"].value_counts().astype(int).to_dict()
+    summary = {
+        "dataset": "qmul-survface-v1",
+        "protocol": "official-training-identity-disjoint",
+        "seed": int(seed),
+        "development_fraction": float(development_fraction),
+        "image_count": int(len(manifest)),
+        "identity_count": int(manifest["identity_id"].nunique()),
+        "development_identity_count": int(split_identity_counts["development"]),
+        "calibration_identity_count": int(split_identity_counts["calibration"]),
+        "development_image_count": int(split_image_counts["development"]),
+        "calibration_image_count": int(split_image_counts["calibration"]),
+        "empty_identity_directory_count": int(empty_identity_count),
+        "official_test_included": False,
+    }
+    return SurvFaceTrainingBundle(manifest=manifest, summary=summary)
+
+
 def build_survface_official_manifest(
     survface_root: str | Path,
     project_root: str | Path,
@@ -519,6 +616,27 @@ def write_survface_official_bundle(
     )
     _atomic_write_text(
         targets["summary.json"],
+        json.dumps(bundle.summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    )
+    return targets
+
+
+def write_survface_training_bundle(
+    bundle: SurvFaceTrainingBundle,
+    output_dir: str | Path,
+    *,
+    overwrite: bool = False,
+) -> dict[str, Path]:
+    """Atomically write SurvFace development/calibration manifest files."""
+
+    targets = _prepare_targets(
+        output_dir,
+        ("training_manifest.csv", "training_summary.json"),
+        overwrite,
+    )
+    _atomic_write_csv(targets["training_manifest.csv"], bundle.manifest)
+    _atomic_write_text(
+        targets["training_summary.json"],
         json.dumps(bundle.summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
     )
     return targets

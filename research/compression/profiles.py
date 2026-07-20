@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -13,8 +14,13 @@ from sklearn.decomposition import PCA
 @dataclass(frozen=True)
 class CompressionProfileSpec:
     name: str
+    family: str
+    source_profile: str | None
+    source_dimension: int
+    output_dimension: int | None
     pgvector_searchable: bool
     description: str
+    active: bool = True
 
 
 @dataclass
@@ -29,59 +35,138 @@ class CompressionResult:
     reconstructed_vectors: np.ndarray | None = None
 
 
+ORIGIN_EMBEDDING_DIMENSION = 512
 ORIGIN_512 = "origin_512"
+PCA_32 = "pca_32"
+PCA_64 = "pca_64"
 PCA_128 = "pca_128"
 PCA_256 = "pca_256"
 PCA_384 = "pca_384"
+# Kept only so historical fallback/search artifacts can still be identified.
+# It is intentionally excluded from the active Step-1 PCA family below.
 PCA_448 = "pca_448"
+# Step-1 PQ is fitted directly on the original 512D embedding.  The historical
+# name remains available for old DB artifacts, but is not an active family.
+PQ_ORIGIN_512 = "pq_origin_512"
 PQ_AUXILIARY = "pq_auxiliary"
 
 PCA_PROFILE_DIMENSIONS = {
-    PCA_128: 128,
-    PCA_256: 256,
     PCA_384: 384,
-    PCA_448: 448,
+    PCA_256: 256,
+    PCA_128: 128,
+    PCA_64: 64,
+    PCA_32: 32,
 }
-PCA_SWEEP_PROFILES = (PCA_448, PCA_384, PCA_256, PCA_128)
+PCA_SWEEP_PROFILES = (PCA_384, PCA_256, PCA_128, PCA_64, PCA_32)
+PCA_SWEEP_DIMENSIONS = tuple(
+    PCA_PROFILE_DIMENSIONS[profile] for profile in PCA_SWEEP_PROFILES
+)
+
+# PostgreSQL tables are intentionally not expanded in Step-1. PCA-64/32 are
+# evaluated in NumPy/Faiss only until an explicit DB schema migration exists.
+CURRENT_DB_PCA_DIMENSIONS = frozenset({128, 256, 384, 448})
+
+LEGACY_PCA_PROFILE_DIMENSIONS = {PCA_448: 448}
 
 
 COMPRESSION_PROFILES = {
     ORIGIN_512: CompressionProfileSpec(
         name=ORIGIN_512,
+        family="origin",
+        source_profile=None,
+        source_dimension=ORIGIN_EMBEDDING_DIMENSION,
+        output_dimension=ORIGIN_EMBEDDING_DIMENSION,
         pgvector_searchable=True,
-        description="Original ArcFace vector stored as pgvector vector.",
+        description="Original full-precision 512D face embedding.",
     ),
     **{
         profile: CompressionProfileSpec(
             name=profile,
-            pgvector_searchable=True,
-            description=f"PCA {dimension}D retrieval vector stored as pgvector vector.",
+            family="pca",
+            source_profile=ORIGIN_512,
+            source_dimension=ORIGIN_EMBEDDING_DIMENSION,
+            output_dimension=dimension,
+            pgvector_searchable=dimension in CURRENT_DB_PCA_DIMENSIONS,
+            description=(
+                f"Independent PCA {dimension}D projection fitted directly on "
+                "original 512D embeddings."
+            ),
         )
         for profile, dimension in PCA_PROFILE_DIMENSIONS.items()
     },
+    PQ_ORIGIN_512: CompressionProfileSpec(
+        name=PQ_ORIGIN_512,
+        family="pq",
+        source_profile=ORIGIN_512,
+        source_dimension=ORIGIN_EMBEDDING_DIMENSION,
+        output_dimension=None,
+        pgvector_searchable=False,
+        description=(
+            "Independent Faiss PQ codes fitted directly on original 512D "
+            "embeddings; PCA-to-PQ chaining is not permitted."
+        ),
+    ),
+    # Legacy descriptors are inactive and are not included in either Step-1
+    # sweep.  They remain recognizable to the pre-existing DB/fallback path.
+    PCA_448: CompressionProfileSpec(
+        name=PCA_448,
+        family="pca",
+        source_profile=ORIGIN_512,
+        source_dimension=ORIGIN_EMBEDDING_DIMENSION,
+        output_dimension=448,
+        pgvector_searchable=True,
+        description="Legacy PCA 448D profile retained for historical artifacts.",
+        active=False,
+    ),
     PQ_AUXILIARY: CompressionProfileSpec(
         name=PQ_AUXILIARY,
+        family="pq",
+        source_profile=ORIGIN_512,
+        source_dimension=ORIGIN_EMBEDDING_DIMENSION,
+        output_dimension=None,
         pgvector_searchable=False,
-        description="Faiss PQ codes stored as auxiliary artifacts, not pgvector vectors.",
+        description=(
+            "Legacy name for direct-origin Faiss PQ auxiliary artifacts; not "
+            "part of the active Step-1 family."
+        ),
+        active=False,
     ),
 }
 
 
-def pca_profile_name(n_components: int) -> str:
+def pca_profile_name(n_components: int, *, allow_legacy: bool = False) -> str:
     profile = f"pca_{int(n_components)}"
-    if profile not in PCA_PROFILE_DIMENSIONS:
+    supported = dict(PCA_PROFILE_DIMENSIONS)
+    if allow_legacy:
+        supported.update(LEGACY_PCA_PROFILE_DIMENSIONS)
+    if profile not in supported:
         raise ValueError(
             f"unsupported PCA dimension {n_components}; "
-            f"expected one of {sorted(PCA_PROFILE_DIMENSIONS.values())}"
+            f"expected one of {sorted(supported.values())}"
         )
     return profile
 
 
-def pca_profile_dimension(profile: str) -> int:
+def pca_profile_dimension(profile: str, *, allow_legacy: bool = False) -> int:
+    supported = dict(PCA_PROFILE_DIMENSIONS)
+    if allow_legacy:
+        supported.update(LEGACY_PCA_PROFILE_DIMENSIONS)
     try:
-        return PCA_PROFILE_DIMENSIONS[str(profile)]
+        return supported[str(profile)]
     except KeyError as exc:
         raise ValueError(f"unsupported PCA profile: {profile}") from exc
+
+
+def pq_profile_name(m: int, nbits: int) -> str:
+    """Return the unique direct-origin PQ budget name used by run artifacts."""
+
+    if isinstance(m, bool) or isinstance(nbits, bool):
+        raise ValueError("PQ m and nbits must be positive integers")
+    m_value = int(m)
+    nbits_value = int(nbits)
+    if m_value != m or nbits_value != nbits or m_value < 1 or nbits_value < 1:
+        raise ValueError("PQ m and nbits must be positive integers")
+    return f"pq_{ORIGIN_EMBEDDING_DIMENSION}_m{m_value}_b{nbits_value}"
 
 
 def _as_float_matrix(vectors: np.ndarray) -> np.ndarray:
@@ -168,11 +253,21 @@ class PCACompressor:
             vectors=retrieval,
             reconstruction_error=reconstruction_error.astype(np.float32),
             angular_error=angular_error(source, reconstructed),
+            # Low-level PCA output remains a generic dense float32 vector.
+            # Whether a named Step-1 profile has a physical PostgreSQL table is
+            # enforced by the DB/materialization boundary, not this codec.
             pgvector_searchable=True,
             metadata={
                 "method": "pca",
+                "family": "pca",
+                "source_profile": ORIGIN_512,
+                "chained_from": None,
                 "n_components": self.n_components,
                 "source_dim": int(source.shape[1]),
+                "output_dtype": "float32",
+                "storage_bytes_per_vector": int(
+                    self.n_components * np.dtype(np.float32).itemsize
+                ),
                 "fit_count": self.fit_count,
                 "explained_variance_ratio_sum": float(np.sum(model.explained_variance_ratio_)),
                 "retrieval_space": f"pca_{self.n_components}",
@@ -207,11 +302,46 @@ class PCACompressor:
         return compressor
 
 
+def _pq_codebook_storage(index) -> tuple[int, str]:
+    """Return PQ centroid storage without depending on a Faiss SWIG layout."""
+
+    source_dim = int(index.d)
+    nbits = int(index.pq.nbits)
+    formula_bytes = int(
+        source_dim * (1 << nbits) * np.dtype(np.float32).itemsize
+    )
+    try:
+        import faiss  # type: ignore
+
+        centroids = faiss.vector_to_array(index.pq.centroids)
+        measured_bytes = int(np.asarray(centroids).nbytes)
+    except (AttributeError, RuntimeError, TypeError, ValueError):
+        return formula_bytes, "float32_formula"
+    if measured_bytes <= 0:
+        return formula_bytes, "float32_formula"
+    return measured_bytes, "faiss_centroids"
+
+
 class PQCompressor:
-    def __init__(self, source_dim: int, m: int = 16, nbits: int = 8):
+    """Low-level product quantizer retained for legacy and Step-1 artifacts.
+
+    This class remains dimension-generic so historical indexes can be loaded.
+    Step-1's direct-origin boundary is enforced by ``fit_pq_origin_profile`` and
+    the experiment config, rather than by this low-level codec.
+    """
+
+    def __init__(
+        self,
+        source_dim: int = ORIGIN_EMBEDDING_DIMENSION,
+        m: int = 16,
+        nbits: int = 8,
+        *,
+        source_profile: str | None = None,
+    ):
         self.source_dim = int(source_dim)
         self.m = int(m)
         self.nbits = int(nbits)
+        self.source_profile = str(source_profile) if source_profile is not None else None
         self.index = None
         self.fit_count: int | None = None
 
@@ -257,16 +387,36 @@ class PQCompressor:
         codes = self.encode(source)
         reconstructed = self.decode(codes)
         reconstruction_error = np.mean((source - reconstructed) ** 2, axis=1)
+        index = self._require_fit()
+        code_bits = int(self.m * self.nbits)
+        code_bytes = int((code_bits + 7) // 8)
+        codebook_bytes, codebook_bytes_source = _pq_codebook_storage(index)
+        direct_origin = (
+            self.source_profile == ORIGIN_512
+            and self.source_dim == ORIGIN_EMBEDDING_DIMENSION
+        )
         return CompressionResult(
-            profile_name=f"pq_m{self.m}_b{self.nbits}",
+            profile_name=(
+                pq_profile_name(self.m, self.nbits)
+                if direct_origin
+                else f"pq_m{self.m}_b{self.nbits}"
+            ),
             vectors=reconstructed,
             reconstruction_error=reconstruction_error.astype(np.float32),
             angular_error=angular_error(source, reconstructed),
             pgvector_searchable=False,
             metadata={
                 "method": "faiss_pq",
+                "family": "pq",
+                "family_profile": PQ_ORIGIN_512 if direct_origin else PQ_AUXILIARY,
+                "source_profile": self.source_profile,
+                "chained_from": None,
                 "M": self.m,
                 "nbits": self.nbits,
+                "code_bits": code_bits,
+                "code_bytes": code_bytes,
+                "codebook_bytes": codebook_bytes,
+                "codebook_bytes_source": codebook_bytes_source,
                 "source_dim": self.source_dim,
                 "fit_count": self.fit_count,
             },
@@ -309,7 +459,15 @@ def original_profile(vectors: np.ndarray) -> CompressionResult:
         reconstruction_error=np.zeros(len(matrix), dtype=np.float32),
         angular_error=np.zeros(len(matrix), dtype=np.float32),
         pgvector_searchable=True,
-        metadata={"method": "none", "source_dim": int(matrix.shape[1])},
+        metadata={
+            "method": "none",
+            "family": "origin",
+            "source_dim": int(matrix.shape[1]),
+            "output_dtype": "float32",
+            "storage_bytes_per_vector": int(
+                matrix.shape[1] * np.dtype(np.float32).itemsize
+            ),
+        },
         reconstructed_vectors=matrix.copy(),
     )
 
@@ -324,12 +482,70 @@ def fit_pca_profile(
     return compressor.transform_profile(vectors)
 
 
+def fit_pca_family(
+    development_vectors: np.ndarray,
+    *,
+    dimensions: Iterable[int] = PCA_SWEEP_DIMENSIONS,
+    random_state: int | None = None,
+) -> dict[str, PCACompressor]:
+    """Fit independent PCA models on the same original 512D development matrix."""
+
+    matrix = _as_float_matrix(development_vectors)
+    if matrix.shape[1] != ORIGIN_EMBEDDING_DIMENSION:
+        raise ValueError(
+            f"PCA family requires original {ORIGIN_EMBEDDING_DIMENSION}D embeddings, "
+            f"got {matrix.shape[1]}"
+        )
+    requested = tuple(int(value) for value in dimensions)
+    if not requested:
+        raise ValueError("PCA family dimensions must not be empty")
+    if len(set(requested)) != len(requested):
+        raise ValueError("PCA family dimensions must be unique")
+
+    compressors: dict[str, PCACompressor] = {}
+    for dimension in requested:
+        profile = pca_profile_name(dimension)
+        compressors[profile] = PCACompressor(
+            n_components=dimension,
+            random_state=random_state,
+        ).fit(matrix)
+    return compressors
+
+
+def fit_pq_origin_profile(
+    vectors: np.ndarray,
+    *,
+    m: int = 16,
+    nbits: int = 8,
+    source_profile: str = ORIGIN_512,
+) -> CompressionResult:
+    matrix = _as_float_matrix(vectors)
+    if str(source_profile) != ORIGIN_512:
+        raise ValueError(
+            "Step-1 PQ must use origin_512 directly; PCA-to-PQ chaining is not supported"
+        )
+    if matrix.shape[1] != ORIGIN_EMBEDDING_DIMENSION:
+        raise ValueError(
+            f"Step-1 direct-origin PQ requires {ORIGIN_EMBEDDING_DIMENSION} dimensions, "
+            f"got {matrix.shape[1]}"
+        )
+    compressor = PQCompressor(
+        source_dim=matrix.shape[1],
+        m=m,
+        nbits=nbits,
+        source_profile=source_profile,
+    ).fit(matrix)
+    return compressor.transform_profile(matrix)
+
+
 def fit_pq_auxiliary_profile(
     vectors: np.ndarray,
     *,
     m: int = 16,
     nbits: int = 8,
 ) -> CompressionResult:
+    """Dimension-generic compatibility wrapper for historical experiments."""
+
     matrix = _as_float_matrix(vectors)
     compressor = PQCompressor(source_dim=matrix.shape[1], m=m, nbits=nbits).fit(matrix)
     return compressor.transform_profile(matrix)

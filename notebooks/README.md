@@ -1,37 +1,60 @@
-# Dataset-specific experiment notebooks
+# Step 1 dataset runbooks
 
-노트북은 데이터셋별로 완전히 분리합니다. 공통 계산·DB·압축·검색 코드는
-`research/`의 Python 모듈을 호출하며, 한 데이터셋의 노트북을 다른 데이터셋에
-그대로 사용하지 않습니다.
+현재 Step 1에서 연결된 데이터셋은 LFW와 QMUL-SurvFace-v1입니다. 데이터셋별
+노트북은 데이터 준비, 임베딩 추출, 독립 압축군 실행, 평가를 재현하는 얇은
+runbook이며 공통 계산은 `research/`의 Python 모듈을 호출합니다.
+
+모든 노트북의 첫 설정 셀에서 다음 세 값을 먼저 고정합니다.
+
+- `MODE`: 빠른 점검용 `dev` 또는 논문 결과용 `real`
+- `DATA_FRACTION`: identity 단위로 선택할 비율 `(0, 1]`
+- `SEED`: 같은 비율에서 동일 identity를 선택하기 위한 seed
+
+`MODE="real"`, `DATA_FRACTION=1.0`인 실행만 전체 데이터 논문 결과로
+취급합니다. 작은 비율은 같은 seed에서 큰 비율의 부분집합이 되며, 이미지를
+무작위로 자르지 않습니다.
+
+## 압축 실험군
+
+- PCA: 원본 512D에서 각각 384/256/128/64/32D로 독립 투영합니다.
+- PQ: PCA 결과가 아닌 원본 512D에 직접 학습하고 적용합니다.
+- `PCA -> PQ` 결합군은 Step 1에 포함하지 않습니다.
+- 원본 512D 재탐색으로 defer 결과를 대체하는 fallback은 사용하지 않습니다.
 
 ## LFW
 
-`notebooks/lfw/`의 `data_preparation.ipynb`와 00~05를 위에서 아래로
-실행합니다. 새 run의 설정은 `configs/experiments/lfw_face_search.yaml`, 기록
-위치는 `runs/lfw/`입니다. 분리 전에 생성한 진행 중 run은 기존
-`runs/active_run.json`을 fallback으로 읽을 수 있습니다.
+`notebooks/lfw/data_preparation.ipynb`에서 development, calibration, test를
+identity-disjoint하게 만든 뒤 각 역할 안에서 `DATA_FRACTION`을 적용합니다.
+이후 임베딩과 압축 노트북을 실행합니다. Step 1 설정의 기준 파일은
+`configs/experiments/step1_embedding_compression.yaml`입니다.
 
-LFW 평가에는 `registered`, `known_unknown`, `unknown_unknown` 세 probe 유형을
-유지합니다. PCA/PQ는 development에서만 학습하고 calibration cutoff는
-calibration split에서 선택하며 test는 최종 평가에만 사용합니다.
+기존 `03_compressed_materialization_and_index.ipynb`와
+`04_probe_search_and_certification.ipynb`는 thesis3 DB 시스템 결과 재현을 위해
+보존합니다. 특히 04는 과거 origin exact fallback을 포함하므로 Step 1에서는
+실행할 수 없게 guard되어 있습니다.
 
 ## QMUL-SurvFace-v1
 
-`notebooks/survface/`의 `data_preparation.ipynb`와 공식 프로토콜 전용 00~05를
-실행합니다. 설정은 `configs/experiments/survface_face_search.yaml`, 기록 위치는
-`runs/survface/`입니다.
+`notebooks/survface/data_preparation.ipynb`는 공식 gallery/mated/unmated 역할과
+순서를 먼저 검증합니다. `real, 1.0`은 공식 protocol 전체를 그대로 사용하고,
+`dev`에서는 역할을 섞지 않은 identity-aware 부분집합만 만듭니다. 공식 test로
+PCA/PQ codebook이나 threshold를 학습하지 않으며 필요한 학습 통계는
+development 데이터에서 고정해야 합니다.
 
-공식 gallery, mated probe, unmated probe의 순서와 `protocol_index`를 바꾸지
-않습니다. 공식 프로토콜에는 known unknown이 없습니다. Gallery identity마다
-모든 성공 임베딩을 평균한 `official_all` template을 만들고, 추출 실패 수와
-영향받은 identity를 원래 공식 분모와 함께 기록합니다.
+기존 `02_external_compressor_import.ipynb`와 03~05는 LFW 압축기 전이 및 DB
+시스템 재현용입니다. Step 1의 같은-dataset 주 실험은
+`06_step1_compression_characterization.ipynb`에서 SurvFace training
+development/calibration과 공식 test를 분리해 수행합니다.
 
-SurvFace 공식 test로 PCA/PQ 또는 calibration을 학습하면 누수입니다. 02에서
-development 데이터로 학습해 동결한 외부 run을 명시해야 하며, 준비되지 않았을
-때는 이후 단계를 실행하지 않습니다.
+## 공통 결과
+
+데이터셋별 평가가 끝난 뒤
+`notebooks/common/cross_dataset_results.ipynb`에서 결과 manifest와 표를 읽어
+동일한 열 정의로 집계하고 시각화합니다. 이 노트북은 fallback 열이 포함된
+artifact를 Step 1 결과로 받아들이지 않습니다.
 
 ## 재시작 원칙
 
-중단 후 임의의 셀부터 실행하지 말고 커널을 재시작한 뒤 bootstrap/preflight
-셀부터 다시 실행합니다. 입력 hash나 상위 단계 artifact checksum이 달라지면
-새 run을 만들고 영향을 받는 단계부터 다시 수행합니다.
+중단 후 임의 셀부터 실행하지 말고 커널을 재시작한 뒤 처음부터 실행합니다.
+입력 hash, scope 또는 상위 단계 artifact checksum이 달라지면 새 run을 만들고
+영향받는 단계부터 다시 수행합니다.
