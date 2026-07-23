@@ -51,7 +51,7 @@ WRITE_OUTPUTS = False   # 검증 후 artifact를 저장할 때만 True
 다음 파일은 실행 파일이 아니라 실험 범위와 기본값을 정하는 설정 파일이다.
 
 1. `configs/experiments/step2_pytorch_gradcam.yaml`
-2. `architect/20260723.md`
+2. `architect/20260724.md`의 population Grad-CAM 절
 
 설정에서 반드시 확인할 항목:
 
@@ -60,8 +60,12 @@ WRITE_OUTPUTS = False   # 검증 후 artifact를 저장할 때만 True
 - PCA-only 차원: 384/256/128/64/32
 - PQ 입력: PCA 결과가 아닌 원본 512D
 - `exact_fallback: false`
-- Grad-CAM target: `origin_pair_cosine`
+- Pass A embedding 범위: 모든 선택 이미지
+- Grad-CAM target: `origin_leave_one_out_identity_cosine`
+- Pass B Grad-CAM 범위: 동일인 LOO target이 있는 모든 선택 이미지
+- singleton/identity 미공개 표본: 행·임베딩 유지, target 부적격 사유 기록
 - hard PQ 연산은 미분하지 않음
+- 대표 사례 선택: 전체 결합 분석 뒤 시각화 전용
 
 현재 YAML의 checkpoint, loader, 전처리 및 target layer 값은 의도적으로
 `null`이다. 실제 파일을 확인하지 않고 임의의 값으로 채우면 안 된다.
@@ -141,8 +145,14 @@ Step 2 모델 비교에 필요한 다음 산출물을 만드는 전용 단계는
 
 - 공통 정렬 crop manifest:
   `data/interim/common/aligned_112_manifest.parquet`
-- smoke test용 `aligned_faces` NPZ
-- Grad-CAM 사례용 query/gallery pair bundle
+- 공통 정렬 crop 배열:
+  uint8 `[N,112,112,3]` `.npy`
+- smoke test용 aligned crop bundle
+- 랜드마크 영역을 사용할 경우 정렬 좌표계의 검증된 dense landmark/face mask
+
+과거의 Grad-CAM 사례용 query/gallery pair bundle은 더 이상 선행 입력이 아니다.
+전체 원본 embedding을 먼저 추출한 뒤 코드가 동일인 leave-one-out template을
+생성한다.
 
 따라서 데이터 준비 노트북만 실행했다고 Step 2 입력이 모두 만들어지는 것은
 아니다. 이 연결 단계가 추가되기 전에는 실제 전체 Step 2 실행으로 진행하지
@@ -208,117 +218,107 @@ checkpoint 등록 직후 다음 파일을 실행한다.
 
 ArcFace smoke test가 통과한 뒤 AdaFace, MagFace 순으로 반복한다.
 
-## 7. Step 2 정량 압축 실험
+## 7. LFW 원본 embedding·Grad-CAM population 추출
 
-모델 smoke test 다음에는 각 PyTorch checkpoint에 대해 다음 순서가 필요하다.
+모델 smoke test가 끝나면 압축 결과나 사례 목록보다 먼저 다음 노트북을
+실행한다.
 
-1. 고정된 동일 crop에서 원본 512D embedding 추출
-2. development split에서 모델별 PCA/PQ 학습
-3. calibration/test에 고정 적용
-4. geometry, score, rank, threshold 및 open-set 지표 계산
-5. fallback-free paired/retrieval 결과 저장
-
-그러나 이 과정을 실행하는 **전용 Step 2 정량 runner 또는 notebook은 아직
-구현되지 않았다.**
-
-기존 파일
-`notebooks/lfw/06_step1_compression_characterization.ipynb`는 현재 ONNX
-ArcFace Step 1 기준선용이므로 PyTorch 세 모델 Step 2 결과 생성기로 간주하면
-안 된다.
-
-Grad-CAM으로 진행하기 전에 최소한 다음 artifact가 필요하다.
-
-- `paired_metrics.parquet`
-  - `sample_id`
-  - `compression_family`
-  - `compression_profile`
-  - `angular_error_rad`
-  - `origin_fallback_used=False`
-- `retrieval_metrics.parquet`
-  - `query_id`
-  - `top1_score_drift`
-  - `agreement_with_origin`
-  - `threshold_crossing`
-  - `origin_fallback_used=False`
-- 각 행의 `model_uid`와 checkpoint/preprocessing provenance
-
-따라서 현재의 정상적인 중단 지점은 **모델 smoke test 완료 후**이다. 전용
-PyTorch 정량 실행 단계가 구현되고 실제 artifact가 생성된 뒤 8절로 진행한다.
-
-## 8. LFW Grad-CAM 후속 분석
-
-Step 2 정량 artifact가 완성된 뒤에만 다음 순서로 실행한다.
-
-### 8.1 입력과 모델 동결
+### 7.1 입력·범위·모델 동결
 
 1. `notebooks/lfw/gradcam/00_source_and_model_freeze.ipynb`
 
 필요한 입력:
 
-- `MODEL_SPEC_PATH`
-- `PAIRED_METRICS_PATH`
-- `RETRIEVAL_METRICS_PATH`
-- `ALIGNED_CROP_MANIFEST_PATH`
-- 새 `FREEZE_MANIFEST_PATH`
+- 검증된 `MODEL_SPEC_PATH`
+- LFW source manifest
+- 공통 `ALIGNED_CROP_MANIFEST_PATH`
+- uint8 `[N,112,112,3]` `ALIGNED_FACES_NPY_PATH`
+- 새 selected manifest와 freeze manifest 출력 경로
 
-모든 입력 hash와 `model_uid`를 고정하며 fallback 사용 행이 있으면 중단한다.
+`DATA_FRACTION`은 split별 identity 단위로 적용한다. 이 단계에는 paired/retrieval
+압축 결과가 필요하지 않다.
 
-### 8.2 분석 사례 선택
+### 7.2 Pass A와 동일인 LOO template
 
-2. `notebooks/lfw/gradcam/01_case_selection.ipynb`
+2. `notebooks/lfw/gradcam/01_origin_embedding_and_loo_templates.ipynb`
 
-profile별로 다음 사례를 결정적으로 선택한다.
+- 모든 선택 이미지의 raw 512D, raw norm, unit embedding을 추출한다.
+- 같은 `template_scope_id`와 identity의 다른 이미지 embedding 합에서 자기
+  embedding을 빼고 정규화한다.
+- singleton 또는 identity 누락 표본은 embedding과 행을 유지하고
+  `saliency_target_eligible=False` 및 사유를 기록한다.
+- 다른 target을 대신 사용하지 않는다.
 
-- `stable`
-- `high_error`
-- `rank_flip`
-- `threshold_crossing`
+### 7.3 Pass B population Grad-CAM
 
-출력은 새 `CASE_MANIFEST_PATH`에 저장한다.
+3. `notebooks/lfw/gradcam/02_population_gradcam_extraction.ipynb`
 
-### 8.3 pair bundle 준비
+- 모든 LOO-eligible 이미지에 대해 query branch만 미분한다.
+- detached LOO template과 원본 embedding cosine을 scalar target으로 사용한다.
+- Pass A와 Pass B embedding cosine 및 target score를 재검증한다.
+- normalized/raw/ReLU CAM, channel weight, 4사분면·공간 요약값과 occlusion
+  faithfulness를 immutable shard로 저장한다.
+- full activation/gradient는 기본적으로 영구 저장하지 않는다.
 
-다음 노트북 전에 case manifest 순서와 정확히 일치하는 NPZ가 필요하다.
+### 7.4 coverage·공간 특징·faithfulness 검증
 
-```text
-case_id            문자열 배열
-query_images       uint8 [N,112,112,3]
-gallery_templates  float32 [N,512]
-```
+4. `notebooks/lfw/gradcam/03_saliency_feature_validation.ipynb`
 
-이 pair bundle을 생성하는 전용 notebook은 아직 구현되지 않았다. 임의로
-순서를 맞추지 말고 `case_id`로 결합한 뒤 순서를 검증해야 한다.
+- 전체 선택 행 수, LOO 적격률, heatmap 유효률을 함께 보고한다.
+- high-saliency, low-saliency, sample-id seeded random occlusion score drop을
+  비교한다.
+- 검증된 dense landmark 또는 face mask가 없으면 눈·볼·턱·얼굴 외부 수치를
+  임의 생성하지 않고 결측으로 남긴다.
 
-### 8.4 pair-conditioned Grad-CAM
+LFW 현재 manifest 기준 13,233장 중 singleton identity 이미지 4,069장은 동일인
+LOO target을 만들 수 없다. 따라서 원본 embedding coverage는 100%지만 예상
+Grad-CAM target coverage는 9,164장, 약 69.25%이다. 실제 selected fraction마다
+coverage를 다시 계산해 artifact에 기록한다.
 
-3. `notebooks/lfw/gradcam/02_pair_gradcam_generation.ipynb`
+## 8. Step 2 압축·전체 결합·대표 사례
 
-- query branch에만 gradient를 흘린다.
-- gallery template은 detach한다.
-- target은 원본 embedding cosine이다.
-- PCA/PQ 또는 hard code를 직접 미분하지 않는다.
+### 8.1 정량 압축 결과 연결
 
-### 8.5 saliency 기술 통계
+5. `notebooks/lfw/gradcam/04_step2_compression_characterization.ipynb`
 
-4. `notebooks/lfw/gradcam/03_saliency_feature_analysis.ipynb`
+동일한 `origin_embedding_artifact_uid`의 원본 512D를 사용해 모델별로 다음을
+생성해야 한다.
 
-- saliency entropy
-- 중앙 50% 집중도
-- profile 및 사례군별 기술 통계
+1. development split에서 PCA-only와 원본 512D PQ-only 학습
+2. 고정된 compressor를 calibration/test에 적용
+3. geometry, score, rank, threshold 및 open-set 지표 계산
+4. fallback-free `paired_metrics.parquet`와 `retrieval_metrics.parquet` 저장
 
-중앙 영역을 검증된 얼굴 영역 mask라고 표현하면 안 된다.
+그러나 실제 PCA/PQ fitting과 open-set 평가를 수행하는 **전용 PyTorch Step 2
+정량 runner는 아직 구현되지 않았다.** 04 노트북은 임의로 fitting 코드를
+복제하지 않고 runner 산출물의 fallback·profile·lineage를 검사한다. runner
+출력 경로가 없으면 정상적으로 중단한다.
 
-### 8.6 faithfulness 검증
+기존 `notebooks/lfw/06_step1_compression_characterization.ipynb`는 ONNX ArcFace
+Step 1 기준선용이므로 PyTorch 세 모델 Step 2 결과 생성기로 간주하면 안 된다.
 
-5. `notebooks/lfw/gradcam/04_faithfulness_and_report.ipynb`
+### 8.2 전체 표본 결합·관계 분석
 
-- high-saliency occlusion
-- low-saliency control
-- random control
-- 원본 pair cosine score 감소량 비교
+6. `notebooks/lfw/gradcam/05_saliency_compression_join.ipynb`
 
-high-saliency 영역을 가린 결과가 control보다 일관되게 강하지 않으면 Grad-CAM
-그림을 압축 오류의 원인 설명 근거로 사용하지 않는다.
+- 결합 키:
+  `extraction_uid + dataset_id + sample_id + model_uid`
+- 필수 lineage:
+  `origin_embedding_artifact_uid`
+- embedding distortion은 전체 이미지, retrieval 민감도는 protocol query
+  subset일 수 있으며 availability를 별도로 기록한다.
+- 모델과 압축 profile을 pooling하지 않고 identity-cluster bootstrap으로
+  관계를 추정한다.
+- Grad-CAM 특징을 embedding에 이어 붙이거나 PCA/PQ 입력으로 사용하지 않는다.
+
+### 8.3 마지막 대표 사례 시각화
+
+7. `notebooks/lfw/gradcam/06_representative_case_visualization.ipynb`
+
+전체 결합 분석이 끝난 뒤에만 `stable`, `high_error`, `rank_flip`,
+`threshold_crossing` 예시를 결정적으로 선택한다. 이미 저장된 heatmap을 읽어
+그림을 만들며 Grad-CAM을 다시 계산하지 않는다. 사례 그림은 집단 통계의 보조
+설명이고 압축 변화의 인과 증거가 아니다.
 
 ## 9. 기존 Step 1 ONNX 기준선을 다시 실행할 경우
 
@@ -362,14 +362,16 @@ exact fallback을 포함한 파일을 새 압축 특성 결과 생성에 사용�
   -> ArcFace smoke test
   -> AdaFace checkpoint 등록 및 smoke test
   -> MagFace checkpoint 등록 및 smoke test
+  -> 전체 선택 이미지 Pass A 원본 512D 추출
+  -> split/identity별 leave-one-out template 생성
+  -> 모든 eligible 이미지 Pass B Grad-CAM
+  -> 공간 특징 및 전량 faithfulness 검증
   -> PyTorch 세 모델 정량 압축 runner 구현 필요
   -> 모델별 PCA-only/PQ-only 정량 실행
   -> fallback-free 결과 동결
-  -> Grad-CAM case 선택
-  -> case pair bundle 생성 단계 구현 필요
-  -> pair Grad-CAM
-  -> saliency 통계
-  -> occlusion faithfulness
+  -> 원본 공간 특징과 압축 민감도 strict join
+  -> 모델·profile별 identity bootstrap 관계 분석
+  -> 마지막 대표 사례 선택·기존 heatmap 시각화
   -> 검증된 결과만 논문용 results로 선별
 ```
 
@@ -378,28 +380,74 @@ exact fallback을 포함한 파일을 새 압축 특성 결과 생성에 사용�
 `notebooks/model_validation/00_checkpoint_registration.ipynb`부터 시작한다.
 실제 Step 2 전체 실행을 위해 다음 구현 우선순위는 BalancedFace source 선택과
 alignment/decoder materializer, 공통 aligned crop 생성, PyTorch 정량 압축
-runner, Grad-CAM pair bundle 생성 순서이다.
+runner 순서이다. 사례 pair bundle은 더 이상 선행 artifact가 아니다.
 
-## 11. PostgreSQL의 특정 run 행을 정리할 경우
+## 11. 특정 run을 일관되게 리셋할 경우
 
 연구 실행 순서와 별개의 유지보수 절차이다. 다음 노트북을 사용한다.
 
 1. `notebooks/database/selective_cleanup.ipynb`
 
+일반적인 리팩토링·재실행 전 정리에는 DB만 선택 삭제하지 말고
+`RESET_MODE="complete_run_reset"`을 사용한다.
+
+```python
+RESET_MODE = "complete_run_reset"
+RUN_UID = ""
+CONNECT_TO_DATABASE = False
+EXECUTE_RESET = False
+ALLOW_COMPLETED_RUN_RESET = False
+ALLOW_PROMOTED_RESULTS_RESET = False
+ALLOW_UNVERIFIED_LINEAGE_RESET = False
+CONFIRMATION_TOKEN = ""
+```
+
 권장 순서:
 
-1. 상단에서 `CONNECT_TO_DATABASE=True`, `EXECUTE_DELETE=False`로 설정한다.
-2. 커널을 재시작하고 위에서 아래까지 실행해 전체 테이블 수와
-   `run_uid`별 수를 확인한다.
-3. `RUN_UID`, `TABLE_GROUPS_SELECTED`, `TABLE_NAMES_SELECTED`를 고른다.
-4. 다시 실행하여 미리보기의 대상 행 수, DB 이름 및 완료 run 보호 상태를
+1. `RUN_UID`만 정확히 입력하고 나머지 안전 기본값을 유지한 채 커널을
+   재시작하여 위에서 아래까지 실행한다.
+2. DB 연결이 필요한 preview 단계에서만 `CONNECT_TO_DATABASE=True`로 바꾸고
+   다시 처음부터 실행한다.
+3. 미리보기에서 다음 대상을 각각 확인한다.
+   - 원본·압축·PQ image embedding, template, split/search/calibration 및
+     `research_runs` 부모 행
+   - exact-owner `runs/**/<run>`의 임베딩 전처리·추출, PCA/PQ
+     model/codebook, Grad-CAM/LOO, 평가·그림·로그
+   - manifest의 `run_uid`가 일치하는 `results/**/result_manifest.json` bundle
+   - 내용이 같은 run을 가리키는 `active_run.json`
+4. 완료 run이면 정말 폐기할 때만 `ALLOW_COMPLETED_RUN_RESET=True`, 논문용
+   결과가 포함되면 `ALLOW_PROMOTED_RESULTS_RESET=True`, 소유권 manifest가
+   불완전한 고아 lineage이면 별도 확인 후
+   `ALLOW_UNVERIFIED_LINEAGE_RESET=True`로 새 계획을 만든다.
+5. override 또는 대상 파일이 달라질 때마다 이전 확인 문자열을 버리고
+   plan digest를 새로 만든다.
+6. 미리보기의 DB identity, 행 수, 로컬 경로·파일 수·byte, 보존 대상과
+   격리 경로를 확인한다.
+7. 출력된 확인 문자열 전체를 `CONFIRMATION_TOKEN`에 붙이고
+   `EXECUTE_RESET=True`로 바꾼다.
+8. writer와 실행 노트북이 모두 중지됐는지 확인한 뒤 커널을 재시작하고
+   위에서 아래까지 다시 실행한다.
+9. DB 재조회 결과와
+   `runs/database_cleanup/quarantine/<operation>/payload/` 및 감사 JSON을
    확인한다.
-5. 완료 run은 재현에 필요한 기준선인지 먼저 확인한다. 정말 폐기할 때만
-   `ALLOW_COMPLETED_RUN_DELETE=True`로 새 미리보기를 만든다.
-6. 출력된 확인 문자열 전체를 `CONFIRMATION_TOKEN`에 붙이고
-   `EXECUTE_DELETE=True`로 바꾼다.
-7. 커널을 재시작하고 위에서 아래까지 다시 실행한다.
-8. `runs/database_cleanup/` 감사 JSON과 재조회 결과를 확인한다.
 
-`images`, 임의 SQL, 임의 테이블 및 조건 없는 전체 테이블 삭제는 이 노트북의
-범위가 아니다. 삭제된 vector row는 감사 JSON만으로 복구되지 않는다.
+complete reset의 로컬 파일은 영구 삭제되지 않고 격리된다. 그러나 DB row
+snapshot은 만들지 않으므로 삭제된 vector row는 감사 JSON만으로 복구할 수
+없다. 필요하면 reset 전에 PostgreSQL backup 또는 해당 run의 재생성 가능성을
+확인한다.
+
+다음 항목은 override로도 자동 선택하지 않는다.
+
+- 공유 `images`
+- `data/raw`
+- 공유 `data/interim`의 common aligned crop와 dataset manifest
+- checkpoint/model registry
+- 다른 run
+- `runs/database_cleanup`의 감사·격리 기록
+- exact-owner manifest가 없는 임의 Step 2 경로
+
+특정 DB 테이블만 전문가가 정리해야 할 때는
+`RESET_MODE="advanced_database_cleanup"`을 선택한다. 이 호환 모드에서만
+`ADVANCED_TABLE_GROUPS_SELECTED`, `ADVANCED_TABLE_NAMES_SELECTED`,
+`ALLOW_COMPLETED_RUN_RESET`, `EXECUTE_RESET`을 사용하며 임의 SQL, 임의
+테이블, 조건 없는 전체 테이블 삭제와 `images` 삭제는 여전히 지원하지 않는다.

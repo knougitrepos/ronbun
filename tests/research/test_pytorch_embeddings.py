@@ -75,6 +75,21 @@ class _FakeTensor:
     def numpy(self) -> np.ndarray:
         return self.values
 
+    def all(self) -> bool:
+        return bool(self.values.all())
+
+    def any(self) -> bool:
+        return bool(self.values.any())
+
+    def unsqueeze(self, dimension: int) -> _FakeTensor:
+        return _FakeTensor(np.expand_dims(self.values, axis=dimension))
+
+    def __le__(self, other: object) -> _FakeTensor:
+        return _FakeTensor(self.values <= other)
+
+    def __truediv__(self, other: _FakeTensor) -> _FakeTensor:
+        return _FakeTensor(self.values / other.values)
+
 
 class _FakeModule:
     def __init__(self) -> None:
@@ -105,6 +120,12 @@ def _fake_torch_module() -> types.ModuleType:
     module.device = lambda value: value
     module.from_numpy = _FakeTensor
     module.is_tensor = lambda value: isinstance(value, _FakeTensor)
+    module.isfinite = lambda value: _FakeTensor(np.isfinite(value.values))
+    module.linalg = types.SimpleNamespace(
+        vector_norm=lambda value, ord, dim: _FakeTensor(
+            np.linalg.norm(value.values, ord=ord, axis=dim)
+        )
+    )
     module.inference_mode = contextlib.nullcontext
     module.enable_grad = contextlib.nullcontext
     return module

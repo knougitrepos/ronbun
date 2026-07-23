@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Callable, Iterable, Sequence
 
 from sqlalchemy import delete, func, inspect, select, text
 from sqlalchemy.engine import Engine
@@ -79,7 +79,7 @@ DELETE_ORDER = (
     *IMAGE_EMBEDDING_TABLES,
     RESEARCH_RUN_TABLE,
 )
-PLAN_VERSION = 1
+PLAN_VERSION = 2
 COMPLETED_STATUSES = frozenset({"complete", "completed"})
 
 
@@ -170,6 +170,7 @@ class CleanupPlan:
     research_run_status: str | None
     local_run_statuses: tuple[LocalRunStatus, ...]
     allow_completed_run: bool
+    allow_empty_scope: bool
     warnings: tuple[str, ...]
     blockers: tuple[str, ...]
     plan_digest: str
@@ -198,6 +199,7 @@ class CleanupPlan:
                 item.as_dict() for item in self.local_run_statuses
             ],
             "allow_completed_run": self.allow_completed_run,
+            "allow_empty_scope": self.allow_empty_scope,
             "warnings": list(self.warnings),
             "blockers": list(self.blockers),
             "plan_digest": self.plan_digest,
@@ -400,6 +402,7 @@ def build_cleanup_plan(
     table_names: Sequence[str] = (),
     include_research_run_record: bool = False,
     allow_completed_run: bool = False,
+    allow_empty_scope: bool = False,
     project_root: str | Path | None = None,
 ) -> CleanupPlan:
     selected_tables = resolve_cleanup_tables(
@@ -486,8 +489,13 @@ def build_cleanup_plan(
             )
 
     total_rows = sum(item.row_count for item in table_rows)
-    if total_rows == 0:
+    if total_rows == 0 and not allow_empty_scope:
         blockers.append("the selected scope matches zero rows")
+    elif total_rows == 0:
+        warnings.append(
+            "the selected DB scope matches zero rows; the DB phase will be a "
+            "verified no-op"
+        )
 
     digest_payload = {
         "plan_version": PLAN_VERSION,
@@ -502,6 +510,7 @@ def build_cleanup_plan(
             item.as_dict() for item in local_run_statuses
         ],
         "allow_completed_run": bool(allow_completed_run),
+        "allow_empty_scope": bool(allow_empty_scope),
     }
     plan_digest = hashlib.sha256(
         json.dumps(
@@ -532,6 +541,7 @@ def build_cleanup_plan(
         research_run_status=research_run_status,
         local_run_statuses=local_run_statuses,
         allow_completed_run=bool(allow_completed_run),
+        allow_empty_scope=bool(allow_empty_scope),
         warnings=tuple(warnings),
         blockers=tuple(blockers),
         plan_digest=plan_digest,
@@ -545,6 +555,7 @@ def execute_cleanup_plan(
     *,
     confirmation_token: str,
     project_root: str | Path | None = None,
+    before_commit: Callable[[], None] | None = None,
 ) -> CleanupExecutionReport:
     if plan.blockers or not plan.executable:
         raise CleanupConfirmationError(
@@ -573,6 +584,7 @@ def execute_cleanup_plan(
                 table_names=selectable_names,
                 include_research_run_record=include_research_run_record,
                 allow_completed_run=plan.allow_completed_run,
+                allow_empty_scope=plan.allow_empty_scope,
                 project_root=project_root,
             )
             if refreshed.plan_digest != plan.plan_digest:
@@ -621,6 +633,8 @@ def execute_cleanup_plan(
                         row_count=expected,
                     )
                 )
+            if before_commit is not None:
+                before_commit()
 
     return CleanupExecutionReport(
         committed_at_utc=datetime.now(timezone.utc).isoformat(),

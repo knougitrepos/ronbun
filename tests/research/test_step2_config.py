@@ -4,9 +4,7 @@ import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = (
-    PROJECT_ROOT / "configs" / "experiments" / "step2_pytorch_gradcam.yaml"
-)
+CONFIG_PATH = PROJECT_ROOT / "configs" / "experiments" / "step2_pytorch_gradcam.yaml"
 
 
 def _load_config() -> dict:
@@ -52,15 +50,106 @@ def test_step2_config_preserves_independent_pca_and_pq_families() -> None:
     assert config["evaluation"]["exact_fallback"] is False
 
 
-def test_step2_gradcam_is_separate_and_does_not_differentiate_pq() -> None:
+def test_step2_gradcam_extracts_origin_population_before_compression() -> None:
     config = _load_config()
     gradcam = config["gradcam"]
 
     assert config["datasets"]["quantitative"] == ["lfw", "survface"]
-    assert config["datasets"]["gradcam_initial"] == ["lfw"]
-    assert gradcam["enabled"] is False
-    assert gradcam["target"]["name"] == "origin_pair_cosine"
-    assert gradcam["target"]["gallery_branch_detached"] is True
+    assert config["datasets"]["saliency_population_initial"] == ["lfw"]
+    assert gradcam["study_enabled"] is True
+    assert gradcam["execution_ready"] is False
+    assert gradcam["role"] == "origin_population_feature"
+    assert gradcam["stage_order"] == [
+        "pass_a_origin_embedding",
+        "leave_one_out_identity_template",
+        "pass_b_population_gradcam",
+        "origin_embedding_compression",
+        "strict_saliency_compression_join",
+        "representative_case_visualization",
+    ]
+
+    population = gradcam["population"]
+    assert population["pass_a_origin_embedding_coverage"] == "all_selected_samples"
+    assert population["pass_b_saliency_coverage"] == "all_target_eligible_samples"
+    assert population["retain_all_selected_sample_rows"] is True
+    assert population["singleton_identity_policy"] == "record_ineligible"
+    assert population["unlabeled_sample_policy"] == "record_ineligible"
+    assert population["ineligible_rows_must_include_reason"] is True
+
+    two_pass = gradcam["two_pass_extraction"]
+    assert two_pass["pass_a"]["output"] == "origin_embedding_512"
+    assert two_pass["pass_a"]["backward"] is False
+    assert two_pass["template_build"]["leave_query_out"] is True
+    assert two_pass["template_build"]["minimum_same_identity_samples"] == 2
+    assert two_pass["pass_b"]["coverage"] == "all_target_eligible_samples"
+    assert two_pass["pass_b"]["require_pass_a_embedding_match"] is True
+
+    target = gradcam["target"]
+    assert target["name"] == "origin_leave_one_out_identity_cosine"
+    assert target["embedding_space"] == "origin_512"
+    assert target["reference_branch_detached"] is True
     assert gradcam["target"]["query_branch_only"] is True
     assert gradcam["target"]["differentiate_hard_pq"] is False
-    assert gradcam["case_selection"]["require_paired_probe_profile_rows"] is True
+    assert target["leave_query_out"] is True
+    assert target["template_scope_keys"] == [
+        "dataset_id",
+        "split",
+        "identity_id",
+        "model_uid",
+        "selected_manifest_sha256",
+    ]
+
+
+def test_step2_gradcam_persists_bounded_shards_and_defers_cases() -> None:
+    gradcam = _load_config()["gradcam"]
+    persistence = gradcam["persistence"]
+
+    assert gradcam["extraction"]["shard_size"] > 0
+    assert persistence["format"] == "immutable_shards"
+    assert persistence["heatmap_resolution"] == "native_target_layer"
+    assert persistence["persist_normalized_heatmap"] is True
+    assert persistence["persist_scalar_features"] is True
+    assert persistence["persist_full_activations"] is False
+    assert persistence["persist_full_gradients"] is False
+    assert (
+        persistence["full_activation_gradient_policy"]
+        == "transient_or_explicit_debug_subset_only"
+    )
+    assert gradcam["regions"]["require_explicit_landmark_or_face_masks"] is True
+    assert gradcam["regions"]["infer_missing_semantic_masks"] is False
+    assert gradcam["faithfulness"]["coverage"] == "all_target_eligible_samples"
+    assert gradcam["faithfulness"]["random_seed_unit"] == "sample_id"
+
+    representative = gradcam["representative_case_visualization"]
+    assert representative["role"] == "visualization_only"
+    assert representative["run_after_population_join"] is True
+    assert representative["regenerate_gradcam"] is False
+
+
+def test_step2_joint_analysis_requires_strict_keys_and_origin_lineage() -> None:
+    analysis = _load_config()["joint_analysis"]
+
+    assert analysis["join_stage"] == "after_origin_embedding_compression"
+    assert analysis["strict_join"] is True
+    assert analysis["join_keys"] == [
+        "extraction_uid",
+        "dataset_id",
+        "sample_id",
+        "model_uid",
+    ]
+    assert analysis["lineage"]["required_key"] == "origin_embedding_artifact_uid"
+    assert analysis["lineage"]["compression_source_must_match_saliency_origin"] is True
+    assert analysis["lineage"]["reject_missing_or_mismatched_lineage"] is True
+    assert analysis["prohibit_saliency_embedding_concatenation"] is True
+
+    association = analysis["association"]
+    assert association["stratify_by"] == [
+        "dataset_id",
+        "model_uid",
+        "compression_family",
+        "compression_profile",
+    ]
+    assert association["bootstrap_unit"] == "identity_id"
+    assert association["bootstrap_method"] == "identity_cluster"
+    assert association["pool_models"] is False
+    assert association["pool_compression_profiles"] is False

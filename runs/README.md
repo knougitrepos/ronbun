@@ -8,3 +8,27 @@ their `active_run.json` pointer.
 Each new run receives a daily sequence such as `20260714-R003-<config-hash>`.
 The run directory contains an immutable manifest, structured JSONL logs, phase
 attempts, artifacts, figures, and models.
+
+## Run reset and quarantine
+
+Use `notebooks/database/selective_cleanup.ipynb` with
+`RESET_MODE="complete_run_reset"` when an exact `run_uid` must be removed before
+a clean re-run. Run-owned preprocessing, embeddings, PCA/PQ models and
+codebooks, Grad-CAM/LOO artifacts, evaluation outputs, figures, and logs are
+moved rather than permanently deleted:
+
+```text
+runs/database_cleanup/quarantine/<operation>/payload/
+```
+
+The same guarded plan also covers run-scoped PostgreSQL rows, result bundles
+whose `result_manifest.json` names the run, and `active_run.json` pointers that
+still select it. The plan digest and confirmation token cover all of these
+targets together. Cleanup audit files and existing quarantine payloads are
+never reset recursively.
+
+Shared raw data, common aligned crops and dataset manifests, checkpoints/model
+registries, `images` rows, and other runs are not owned by one experimental run
+and are always preserved. A quarantine payload can preserve local files, but
+the audit JSON does not contain a PostgreSQL row snapshot and cannot restore
+deleted embedding vectors.

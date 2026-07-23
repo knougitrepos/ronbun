@@ -204,9 +204,7 @@ def select_gradcam_cases(
         used = set(crossing.index)
 
         rank_flip = _take(
-            profile_rows.loc[
-                ~profile_rows["_crossing"] & ~profile_rows["_agreement"]
-            ],
+            profile_rows.loc[~profile_rows["_crossing"] & ~profile_rows["_agreement"]],
             count=cases_per_group,
             group="rank_flip",
             ascending=(False, False, True),
@@ -261,3 +259,215 @@ def select_gradcam_cases(
             "_tie_key",
         ],
     ).reset_index(drop=True)
+
+
+def select_representative_cases(
+    paired_metrics: pd.DataFrame,
+    retrieval_metrics: pd.DataFrame,
+    **kwargs: object,
+) -> pd.DataFrame:
+    """Select post-analysis examples for visualization only.
+
+    This compatibility wrapper deliberately runs after population saliency and
+    compression artifacts have already been materialized. It must not be used
+    to decide which samples receive Grad-CAM extraction.
+    """
+
+    return select_gradcam_cases(
+        paired_metrics,
+        retrieval_metrics,
+        **kwargs,
+    )
+
+
+def select_population_representative_cases(
+    joined_metrics: pd.DataFrame,
+    *,
+    cases_per_group: int = 20,
+    seed: int = 0,
+    error_column: str = "angular_error_rad",
+    score_drift_column: str = "top1_score_drift",
+) -> pd.DataFrame:
+    """Select visualization rows only after the population-level strict join."""
+
+    if isinstance(cases_per_group, bool) or int(cases_per_group) != cases_per_group:
+        raise ValueError("cases_per_group must be a positive integer")
+    count = int(cases_per_group)
+    if count <= 0:
+        raise ValueError("cases_per_group must be a positive integer")
+    if isinstance(seed, bool) or int(seed) != seed:
+        raise ValueError("seed must be an integer")
+    seed_value = int(seed)
+    required = [
+        "extraction_uid",
+        "dataset_id",
+        "sample_id",
+        "model_uid",
+        "compression_family",
+        "compression_profile",
+        error_column,
+        score_drift_column,
+        "agreement_with_origin",
+        "threshold_crossing",
+        "origin_fallback_used",
+        "saliency_target_eligible",
+        "heatmap_available",
+    ]
+    _required_columns(joined_metrics, required, name="joined_metrics")
+    fallback = _strict_bool(
+        joined_metrics["origin_fallback_used"],
+        name="joined_metrics.origin_fallback_used",
+    )
+    if fallback.any():
+        raise ValueError("representative cases require fallback-free artifacts")
+
+    frame = joined_metrics.copy()
+    if "retrieval_metrics_available" in frame:
+        retrieval_available = _strict_bool(
+            frame["retrieval_metrics_available"],
+            name="retrieval_metrics_available",
+        )
+        frame = frame.loc[retrieval_available].copy()
+        if frame.empty:
+            raise ValueError("no joined rows have retrieval sensitivity metrics")
+    frame["_eligible"] = _strict_bool(
+        frame["saliency_target_eligible"],
+        name="saliency_target_eligible",
+    )
+    frame["_heatmap"] = _strict_bool(
+        frame["heatmap_available"],
+        name="heatmap_available",
+    )
+    frame["_agreement"] = _strict_bool(
+        frame["agreement_with_origin"],
+        name="agreement_with_origin",
+    )
+    frame["_crossing"] = _strict_bool(
+        frame["threshold_crossing"],
+        name="threshold_crossing",
+    )
+    frame = frame.loc[frame["_eligible"] & frame["_heatmap"]].copy()
+    if frame.empty:
+        raise ValueError("no joined rows have an eligible, available heatmap")
+    key_columns = [
+        "extraction_uid",
+        "dataset_id",
+        "sample_id",
+        "model_uid",
+        "compression_family",
+        "compression_profile",
+    ]
+    if frame.duplicated(key_columns).any():
+        raise ValueError(
+            "joined_metrics must be filtered to one retrieval policy per "
+            "sample, model, and compression profile"
+        )
+    frame["_error"] = pd.to_numeric(frame[error_column], errors="coerce")
+    frame["_absolute_drift"] = pd.to_numeric(
+        frame[score_drift_column],
+        errors="coerce",
+    ).abs()
+    tie_columns = [
+        "extraction_uid",
+        "dataset_id",
+        "sample_id",
+        "model_uid",
+        "compression_family",
+        "compression_profile",
+    ]
+    frame["_tie_key"] = frame.apply(
+        lambda row: hashlib.sha256(
+            "\x1f".join(
+                [str(seed_value), *(str(row[column]) for column in tie_columns)]
+            ).encode("utf-8")
+        ).hexdigest(),
+        axis=1,
+    )
+    frame = frame.loc[
+        np.isfinite(frame["_error"]) & np.isfinite(frame["_absolute_drift"])
+    ].copy()
+    if frame.empty:
+        raise ValueError("eligible joined rows have no finite error and drift")
+
+    profile_columns = [
+        "extraction_uid",
+        "dataset_id",
+        "model_uid",
+        "compression_family",
+        "compression_profile",
+    ]
+    selected_parts: list[pd.DataFrame] = []
+    for _, group in frame.groupby(profile_columns, sort=True, dropna=False):
+        crossing = _take(
+            group.loc[group["_crossing"]],
+            count=count,
+            group="threshold_crossing",
+            ascending=(False, False, True),
+        )
+        used = set(crossing.index)
+        rank_flip = _take(
+            group.loc[~group["_crossing"] & ~group["_agreement"]],
+            count=count,
+            group="rank_flip",
+            ascending=(False, False, True),
+        )
+        used.update(rank_flip.index)
+        stable = _take(
+            group.loc[
+                group["_agreement"] & ~group["_crossing"] & ~group.index.isin(used)
+            ],
+            count=count,
+            group="stable",
+            ascending=(True, True, True),
+        )
+        used.update(stable.index)
+        high_error = _take(
+            group.loc[
+                group["_agreement"] & ~group["_crossing"] & ~group.index.isin(used)
+            ],
+            count=count,
+            group="high_error",
+            ascending=(False, False, True),
+        )
+        selected_parts.extend((stable, high_error, rank_flip, crossing))
+
+    selected = pd.concat(selected_parts, ignore_index=True)
+    selected["selection_seed"] = seed_value
+    selected["cases_per_group"] = count
+    selected.insert(
+        0,
+        "case_id",
+        selected.apply(
+            lambda row: (
+                "gradcam-"
+                + hashlib.sha256(
+                    "\x1f".join(
+                        [
+                            str(seed_value),
+                            *(str(row[column]) for column in tie_columns),
+                            str(row["case_group"]),
+                        ]
+                    ).encode("utf-8")
+                ).hexdigest()[:20]
+            ),
+            axis=1,
+        ),
+    )
+    return (
+        selected.sort_values(
+            [*profile_columns, "case_group", "case_priority_rank", "_tie_key"],
+            kind="stable",
+        )
+        .drop(
+            columns=[
+                "_eligible",
+                "_heatmap",
+                "_agreement",
+                "_crossing",
+                "_error",
+                "_absolute_drift",
+                "_tie_key",
+            ]
+        )
+        .reset_index(drop=True)
+    )

@@ -85,7 +85,7 @@ datasets:
   # not a final test set or an FR-model training request.
   conditional_quantitative: [rfw]
   additional_development_sources: [balancedface]
-  gradcam_initial: [lfw]
+  saliency_population_initial: [lfw]
   lfw:
     manifest_path: data/interim/lfw/face_manifest.csv
     protocol_adapter: lfw_identity_disjoint
@@ -142,13 +142,94 @@ model_validation:
     minimum_top1_agreement: null
 
 gradcam:
-  enabled: false
+  # The study design is active, but execution remains fail-closed until every
+  # selected model has a verified checkpoint, preprocessing contract, target
+  # layer, and the common aligned-crop bundle has been frozen.
+  study_enabled: true
+  execution_ready: false
+  role: origin_population_feature
+  stage_order:
+    - pass_a_origin_embedding
+    - leave_one_out_identity_template
+    - pass_b_population_gradcam
+    - origin_embedding_compression
+    - strict_saliency_compression_join
+    - representative_case_visualization
+  population:
+    pass_a_origin_embedding_coverage: all_selected_samples
+    pass_b_saliency_coverage: all_target_eligible_samples
+    retain_all_selected_sample_rows: true
+    singleton_identity_policy: record_ineligible
+    unlabeled_sample_policy: record_ineligible
+    ineligible_rows_must_include_reason: true
+  two_pass_extraction:
+    pass_a:
+      output: origin_embedding_512
+      backward: false
+      coverage: all_selected_samples
+    template_build:
+      source: pass_a_origin_embedding
+      leave_query_out: true
+      minimum_same_identity_samples: 2
+      normalize_template: true
+    pass_b:
+      source_images: pass_a_selected_samples
+      coverage: all_target_eligible_samples
+      require_pass_a_embedding_match: true
+      minimum_pass_repeat_cosine: 0.99999
   target:
-    name: origin_pair_cosine
-    gallery_branch_detached: true
+    name: origin_leave_one_out_identity_cosine
+    embedding_space: origin_512
+    reference_branch_detached: true
     query_branch_only: true
+    leave_query_out: true
+    template_scope_keys:
+      - dataset_id
+      - split
+      - identity_id
+      - model_uid
+      - selected_manifest_sha256
     differentiate_hard_pq: false
-  case_selection:
+    analysis_conditioning: identity_label_required
+  extraction:
+    embedding_batch_size: 64
+    gradcam_batch_size: 4
+    shard_size: 2048
+  persistence:
+    format: immutable_shards
+    heatmap_resolution: native_target_layer
+    persist_normalized_heatmap: true
+    persist_raw_cam: true
+    persist_relu_cam: true
+    persist_channel_weights: true
+    persist_scalar_features: true
+    persist_full_activations: false
+    persist_full_gradients: false
+    full_activation_gradient_policy: transient_or_explicit_debug_subset_only
+  regions:
+    quadrants: true
+    semantic_regions:
+      - left_eye
+      - right_eye
+      - nose
+      - mouth
+      - left_cheek
+      - right_cheek
+      - jaw
+      - outside_face
+    require_explicit_landmark_or_face_masks: true
+    infer_missing_semantic_masks: false
+  faithfulness:
+    coverage: all_target_eligible_samples
+    primary_occlusion_fraction: 0.10
+    baselines: [random, low_saliency]
+    random_repeats: 5
+    seed: 42
+    random_seed_unit: sample_id
+  representative_case_visualization:
+    role: visualization_only
+    run_after_population_join: true
+    regenerate_gradcam: false
     seed: 42
     samples_per_stratum: 8
     strata:
@@ -156,15 +237,30 @@ gradcam:
       - high_error
       - threshold_crossing
       - rank_flip
-    require_paired_probe_profile_rows: true
-  heatmap:
-    relu: true
-    normalize_to_unit_interval: true
-  faithfulness:
-    occlusion_fractions: [0.05, 0.10, 0.20]
-    baselines: [random, low_saliency]
-    random_repeats: 5
-    seed: 42
+
+joint_analysis:
+  join_stage: after_origin_embedding_compression
+  strict_join: true
+  join_keys:
+    - extraction_uid
+    - dataset_id
+    - sample_id
+    - model_uid
+  lineage:
+    required_key: origin_embedding_artifact_uid
+    compression_source_must_match_saliency_origin: true
+    reject_missing_or_mismatched_lineage: true
+  prohibit_saliency_embedding_concatenation: true
+  association:
+    stratify_by:
+      - dataset_id
+      - model_uid
+      - compression_family
+      - compression_profile
+    bootstrap_unit: identity_id
+    bootstrap_method: identity_cluster
+    pool_models: false
+    pool_compression_profiles: false
 
 evaluation:
   full_precision_baseline: true

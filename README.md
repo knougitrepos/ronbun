@@ -1,6 +1,6 @@
 # Face Embedding Compression Characterization Thesis
 
-이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. Step 1의 압축 기준은 [architect/20260720.md](architect/20260720.md), PyTorch 모델 비교와 별도 Grad-CAM 후속 분석의 현재 기준은 [architect/20260723.md](architect/20260723.md)입니다. [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
+이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. Step 1의 압축 기준은 [architect/20260720.md](architect/20260720.md), 모든 원본 이미지의 공간 특징과 압축 민감도를 결합하는 현재 Step 2 기준은 [architect/20260724.md](architect/20260724.md)입니다. [architect/20260723.md](architect/20260723.md)의 압축 결과 기반 일부 사례 Grad-CAM 흐름은 폐기됐습니다. [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
 
 핵심 질문은 다음과 같습니다.
 
@@ -37,8 +37,10 @@
 | 현재 MS1MV2 checkpoint의 RFW headline 평가 | overlap gate로 차단 |
 | PyTorch FR 공통 adapter | Step 2 구현됨 |
 | ArcFace/AdaFace/MagFace 실제 checkpoint 등록 | 미구현 |
-| pair-conditioned Grad-CAM·사례 선택·faithfulness core | Step 2 구현됨 |
+| 전체 원본 embedding·LOO template·population Grad-CAM core | Step 2 구현·synthetic 검증됨 |
+| 공간 특징·faithfulness·immutable shard·압축 결합 core | Step 2 구현·synthetic 검증됨 |
 | 실제 FR checkpoint Grad-CAM 결과 | 미구현 |
+| PyTorch Step 2 PCA/PQ 정량 runner | 미구현 |
 | 세 모델 공정성 게이트 | 검증 필요 |
 
 Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, 전처리와 target layer를 등록하고 smoke test를 통과하기 전에는 해당 모델을 실행 가능하다고 간주하지 않습니다. 서로 다른 공개 checkpoint를 사용할 경우 backbone, 학습 데이터 및 전처리 차이가 섞이므로 결과를 loss 함수의 인과효과가 아닌 checkpoint 수준 비교로 제한합니다. FR 모델을 새로 학습하지 않습니다.
@@ -49,6 +51,8 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 - reconstruction MSE, angular error, cosine-score drift, threshold crossing, rank inversion, DIR/TPIR@FPIR 및 저장 byte를 기록합니다.
 - `agreement_with_origin`과 ground-truth 정확도를 분리합니다.
 - 원본 threshold 고정 결과와 압축별 threshold 재보정 결과를 함께 보고합니다.
+- 모든 선택 이미지의 원본 공간 집중 특징을 먼저 추출하고, 모델·압축
+  profile별 geometry/score/rank 민감도와의 관계를 identity 단위로 분석합니다.
 - PostgreSQL/pgvector와 HNSW는 PCA 검색의 보조 시스템 측정으로 유지할 수 있지만 Step 1의 주 기여는 아닙니다.
 - 기존 certification/fallback 코드는 과거 run 재현용으로 보존하며 새 Step 1 실행 경로에서는 사용하지 않습니다.
 
@@ -64,7 +68,7 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 | `research/database/` | DB 설정 로딩, 연결, 스키마, 저장소 |
 | `research/embeddings/` | InsightFace 로딩과 ArcFace 임베딩 추출 |
 | `research/embeddings/pytorch/` | Step 2 PyTorch FR 공통 adapter와 checkpoint provenance |
-| `research/explainability/gradcam/` | pair target Grad-CAM, 사례 선택과 faithfulness |
+| `research/explainability/gradcam/` | 전체 원본 embedding, LOO target, population Grad-CAM, 공간 특징·faithfulness·artifact |
 | `research/compression/` | 독립 PCA family와 원본 512D PQ 학습·변환 |
 | `research/search/` | 이전 시스템 실험의 open-set 검색·인증·fallback 보존 |
 | `research/protocols/` | identity-disjoint 데이터 분할 |
@@ -76,9 +80,9 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 | `notebooks/rfw/`, `notebooks/balancedface/` | RFW protocol 및 BalancedFace 개발 source 준비 runbook |
 | `notebooks/common/` | 두 데이터셋의 공통 결과 schema 검사·표·그림 |
 | `notebooks/model_validation/` | Step 2 checkpoint 등록·전처리·출력 검증 |
-| `notebooks/lfw/gradcam/` | 정량 분석과 분리된 LFW Grad-CAM 후속 runbook |
-| `notebooks/database/` | `run_uid`와 allowlist 기반 PostgreSQL 선택 정리 runbook |
-| `runs/` | 실행별 manifest, 로그, phase 산출물. Git에서 제외 |
+| `notebooks/lfw/gradcam/` | 원본 공간 특징을 먼저 추출하고 압축 민감도와 결합하는 LFW Step 2 runbook |
+| `notebooks/database/` | exact `run_uid`의 DB·전처리·중간·결과 artifact complete reset과 고급 DB-only 선택 정리 runbook |
+| `runs/` | 실행별 manifest, 로그, phase 산출물 및 reset 감사·격리 payload. Git에서 제외 |
 | `results/paper/` | 검증 후 논문 표·그림으로 선별한 결과 |
 
 복잡하거나 재사용되어야 하는 계산, DB 처리, 압축, 검색, 지표 코드는 `research/`의 `.py`에 둡니다. 노트북은 설정을 고정하고 각 단계를 호출하며 결과를 확인하는 얇은 실행 절차입니다.
@@ -101,12 +105,21 @@ py scripts/setup_postgres_pgvector.py
 
 필요하면 Git에서 제외되는 `configs/database.local.yaml`에 로컬 override를 둘 수 있습니다. 환경 변수 `RONBUN_DB_HOST`, `RONBUN_DB_PORT`, `RONBUN_DB_NAME`, `RONBUN_DB_USER`, `RONBUN_DB_PASSWORD`가 가장 높은 우선순위를 갖습니다. 로그와 manifest에는 비밀번호를 기록하지 않습니다.
 
-리팩토링 전후의 DB 행이 섞였을 때는
-`notebooks/database/selective_cleanup.ipynb`에서 먼저 테이블·`run_uid`별
-행 수를 읽기 전용으로 확인합니다. 이 도구는 정확한 `run_uid`와 허용된
-테이블만 선택하며, 공유 `images`와 조건 없는 전체 테이블 삭제는 지원하지
-않습니다. 기본값에서는 DB 연결과 DELETE가 모두 꺼져 있고 완료 run 삭제도
-차단됩니다.
+리팩토링 전후의 같은 run 데이터가 DB·전처리 artifact·평가 결과에 나뉘어
+남았을 때는 `notebooks/database/selective_cleanup.ipynb`의
+`RESET_MODE="complete_run_reset"`을 권장합니다. 정확한 `run_uid`가 소유한
+DB 행, `runs/` 실행 bundle, `result_manifest.json`으로 소유권이 확인된 결과
+bundle 및 같은 run을 가리키는 `active_run.json`을 하나의 plan digest와 확인
+문자열로 정리합니다. 로컬 파일은 영구 삭제하지 않고
+`runs/database_cleanup/quarantine/<operation>/payload/`로 이동합니다.
+
+기존 테이블별 선택 삭제는
+`RESET_MODE="advanced_database_cleanup"`으로 유지합니다. 두 모드 모두
+기본값에서는 DB 연결과 실행이 꺼져 있으며 완료 run, 논문용으로 승격한
+결과와 lineage가 불완전한 고아 run은 각각의 명시적 override 없이는
+차단됩니다. 공유 `images`, `data/raw`, 공통 aligned crop·dataset manifest,
+checkpoint/model registry, 다른 run 및 cleanup 감사 기록은 삭제 대상이
+아닙니다.
 
 Step 1 공통 설정은 `configs/experiments/step1_embedding_compression.yaml`입니다. ArcFace만 현재 실행 가능하며 AdaFace와 MagFace는 adapter가 추가될 때까지 계획 상태입니다.
 
@@ -121,10 +134,13 @@ GPU wheel은 로컬 NVIDIA driver와 맞아야 하므로 필요할 때 PyTorch �
 ## Step 2 실행 경계
 
 1. `notebooks/model_validation/`에서 checkpoint 출처·hash·전처리·512D 출력·raw norm과 target layer를 검증합니다.
-2. 고정된 공통 정렬 crop에서 모델별 PyTorch embedding을 새 lineage로 생성합니다.
-3. Step 1과 같은 독립 PCA-only/PQ-only 정량 실험을 모델별로 다시 수행합니다.
-4. 정량 결과에서 사례 목록을 먼저 고정한 뒤 `notebooks/lfw/gradcam/`을 실행합니다.
-5. Grad-CAM은 원본 query–gallery cosine target을 설명하며 hard PQ를 미분하지 않습니다.
+2. 고정된 공통 정렬 crop에서 선택된 모든 이미지의 모델별 PyTorch 512D embedding을 새 lineage로 생성합니다.
+3. 같은 split·identity의 다른 이미지로 leave-one-out template을 만들고 모든 eligible 이미지의 원본 Grad-CAM·공간 특징을 추출합니다. singleton과 identity 누락 표본은 임베딩과 행을 유지하되 target 부적격 사유를 기록합니다.
+4. 같은 원본 512D에 Step 1과 동일한 독립 PCA-only/PQ-only 정량 실험을 수행합니다.
+5. `extraction_uid + dataset_id + sample_id + model_uid`와 원본 embedding artifact UID로 두 결과를 결합하고 모델·profile별 identity bootstrap 분석을 수행합니다.
+6. stable/high-error/rank-flip/threshold-crossing 사례는 전체 분석 뒤 마지막 시각화 단계에서만 고릅니다.
+
+Grad-CAM target은 `origin_leave_one_out_identity_cosine`이며 hard PQ를 미분하지 않습니다. 공간 특징은 임베딩에 이어 붙이지 않고 분석 테이블에서만 압축 변화와 연결합니다. 전체 activation·gradient는 저장하지 않습니다.
 
 기존 ONNX Step 1과 PyTorch Step 2는 동일 checkpoint parity가 검증되지 않으면 합치지 않습니다. 완료된 Step 1 run은 읽기 전용 기준선으로 유지합니다.
 

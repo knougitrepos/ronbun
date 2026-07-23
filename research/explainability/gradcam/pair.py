@@ -20,6 +20,18 @@ class PairGradCAMResult:
     target_scores: np.ndarray
     target_space: str
     batch_mode: BatchMode
+    target_name: str
+    raw_embeddings: np.ndarray
+    raw_norms: np.ndarray
+    normalized_embeddings: np.ndarray
+    raw_cams: np.ndarray
+    relu_cams: np.ndarray
+    channel_weights: np.ndarray
+    gradient_l2: np.ndarray
+    cam_mass: np.ndarray
+    valid_heatmap: np.ndarray
+    activations: np.ndarray | None = None
+    gradients: np.ndarray | None = None
 
 
 def pair_cosine_target(
@@ -47,6 +59,8 @@ def pair_cosine_target(
         )
     if query_embeddings.ndim != 2:
         raise ValueError("query_embeddings must have shape [batch, dimension]")
+    if not bool(torch.isfinite(query_embeddings).all()):
+        raise ValueError("query_embeddings must contain only finite values")
 
     gallery = gallery_templates.detach()
     if gallery.ndim == 1:
@@ -61,6 +75,14 @@ def pair_cosine_target(
         raise ValueError(
             "gallery_templates must match the query batch and embedding dimension"
         )
+    if not bool(torch.isfinite(gallery).all()):
+        raise ValueError("gallery_templates must contain only finite values")
+    query_norms = torch.linalg.vector_norm(query_embeddings, ord=2, dim=1)
+    gallery_norms = torch.linalg.vector_norm(gallery, ord=2, dim=1)
+    if bool((query_norms <= 0.0).any()):
+        raise ValueError("query_embeddings must not contain zero-norm rows")
+    if bool((gallery_norms <= 0.0).any()):
+        raise ValueError("gallery_templates must not contain zero-norm rows")
 
     return torch.nn.functional.cosine_similarity(
         query_embeddings,
@@ -126,6 +148,8 @@ class PairCosineGradCAM:
         *,
         batch_mode: BatchMode,
         target_space: str = "origin_embedding",
+        target_name: str = "origin_pair_cosine",
+        capture_intermediates: bool = False,
     ) -> PairGradCAMResult:
         """Generate normalized ReLU Grad-CAM maps for query/template pairs."""
 
@@ -137,6 +161,9 @@ class PairCosineGradCAM:
                 "target_space must be 'origin_embedding'; compressed/PQ targets "
                 "are outside this Grad-CAM analysis boundary"
             )
+        target_name = str(target_name).strip()
+        if not target_name:
+            raise ValueError("target_name must not be empty")
         if not torch.is_tensor(query_images):
             raise TypeError("query_images must be a PyTorch tensor")
         if not torch.is_floating_point(query_images):
@@ -180,6 +207,8 @@ class PairCosineGradCAM:
                         "target-layer activation batch must match the query batch"
                     )
                 scores = pair_cosine_target(embeddings, gallery_templates)
+                raw_norms = torch.linalg.vector_norm(embeddings, ord=2, dim=1)
+                normalized_embeddings = embeddings / raw_norms.unsqueeze(1)
                 gradients = torch.autograd.grad(
                     scores.sum(),
                     activations,
@@ -189,8 +218,9 @@ class PairCosineGradCAM:
                 )[0]
 
                 weights = gradients.mean(dim=(2, 3), keepdim=True)
-                heatmaps = torch.relu((weights * activations).sum(dim=1))
-                flat = heatmaps.flatten(start_dim=1)
+                raw_cams = (weights * activations).sum(dim=1)
+                relu_cams = torch.relu(raw_cams)
+                flat = relu_cams.flatten(start_dim=1)
                 minimum = flat.amin(dim=1, keepdim=True)
                 shifted = flat - minimum
                 maximum = shifted.amax(dim=1, keepdim=True)
@@ -198,21 +228,72 @@ class PairCosineGradCAM:
                     maximum > 1e-12,
                     shifted / maximum.clamp_min(1e-12),
                     torch.zeros_like(shifted),
-                ).reshape_as(heatmaps)
+                ).reshape_as(relu_cams)
+                gradient_l2 = torch.linalg.vector_norm(
+                    gradients.flatten(start_dim=1),
+                    ord=2,
+                    dim=1,
+                )
+                cam_mass = relu_cams.sum(dim=(1, 2))
+                valid_heatmap = maximum[:, 0] > 1e-12
 
             return PairGradCAMResult(
-                heatmaps=normalized.detach().cpu().numpy().astype(
+                heatmaps=normalized.detach()
+                .cpu()
+                .numpy()
+                .astype(
                     np.float32,
                     copy=False,
                 ),
-                target_scores=scores.detach().cpu().numpy().astype(
+                target_scores=scores.detach()
+                .cpu()
+                .numpy()
+                .astype(
                     np.float32,
                     copy=False,
                 ),
                 target_space=target_space,
                 batch_mode=batch_mode,
+                target_name=target_name,
+                raw_embeddings=embeddings.detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32, copy=False),
+                raw_norms=raw_norms.detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32, copy=False),
+                normalized_embeddings=normalized_embeddings.detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32, copy=False),
+                raw_cams=raw_cams.detach().cpu().numpy().astype(np.float32, copy=False),
+                relu_cams=relu_cams.detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32, copy=False),
+                channel_weights=weights[:, :, 0, 0]
+                .detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32, copy=False),
+                gradient_l2=gradient_l2.detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32, copy=False),
+                cam_mass=cam_mass.detach().cpu().numpy().astype(np.float32, copy=False),
+                valid_heatmap=valid_heatmap.detach().cpu().numpy().astype(bool),
+                activations=(
+                    activations.detach().cpu().numpy().astype(np.float32, copy=False)
+                    if capture_intermediates
+                    else None
+                ),
+                gradients=(
+                    gradients.detach().cpu().numpy().astype(np.float32, copy=False)
+                    if capture_intermediates
+                    else None
+                ),
             )
         finally:
             # Hooks never survive success or any validation/autograd failure.
             handle.remove()
-

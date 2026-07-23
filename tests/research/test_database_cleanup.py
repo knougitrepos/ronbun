@@ -289,3 +289,59 @@ def test_research_run_record_selection_always_includes_fk_children(tmp_path):
     assert _count(engine, "research_splits") == 0
     assert _count(engine, "research_runs") == 0
     assert _count(engine, "embedding_512") == 2
+
+
+def test_empty_scope_can_be_an_explicit_verified_noop(tmp_path):
+    engine = _engine()
+    with Session(engine) as session:
+        plan = build_cleanup_plan(
+            session,
+            scope_kind=SCOPE_EXACT_RUN_UID,
+            run_uid="missing-run",
+            table_names=["embedding_512"],
+            allow_empty_scope=True,
+            project_root=tmp_path,
+        )
+
+    assert plan.total_rows == 0
+    assert plan.executable
+    assert any("verified no-op" in item for item in plan.warnings)
+
+    report = execute_cleanup_plan(
+        engine,
+        plan,
+        confirmation_token=plan.confirmation_token or "",
+        project_root=tmp_path,
+    )
+    assert report.total_deleted == 0
+    assert _count(engine, "embedding_512") == 2
+
+
+def test_before_commit_failure_rolls_back_database_rows(tmp_path):
+    engine = _engine()
+    with Session(engine) as session:
+        plan = build_cleanup_plan(
+            session,
+            scope_kind=SCOPE_EXACT_RUN_UID,
+            run_uid="run-a",
+            table_names=["embedding_512"],
+            project_root=tmp_path,
+        )
+
+    callbacks: list[str] = []
+
+    def fail_before_commit() -> None:
+        callbacks.append("called")
+        raise RuntimeError("local quarantine failed")
+
+    with pytest.raises(RuntimeError, match="local quarantine failed"):
+        execute_cleanup_plan(
+            engine,
+            plan,
+            confirmation_token=plan.confirmation_token or "",
+            project_root=tmp_path,
+            before_commit=fail_before_commit,
+        )
+
+    assert callbacks == ["called"]
+    assert _count(engine, "embedding_512") == 2

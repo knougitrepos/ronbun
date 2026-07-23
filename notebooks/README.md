@@ -72,44 +72,72 @@ artifact를 Step 1 결과로 받아들이지 않습니다.
 입력 hash, scope 또는 상위 단계 artifact checksum이 달라지면 새 run을 만들고
 영향받는 단계부터 다시 수행합니다.
 
-## Step 2 PyTorch 모델 및 Grad-CAM 후속 분석
+## Step 2 PyTorch 모델 및 원본 공간 특징 분석
 
 Step 2는 기존 데이터셋별 Step 1 노트북을 수정하지 않고 다음 두 폴더를
 추가합니다.
 
 - `model_validation/`: ArcFace/AdaFace/MagFace의 checkpoint 등록, 전처리
   명세, 512D/raw norm/L2 출력 및 target layer를 검증합니다.
-- `lfw/gradcam/`: 완료된 PyTorch 정량 결과에서 사례를 고정한 뒤 pair
-  cosine Grad-CAM과 occlusion faithfulness를 분석합니다.
+- `lfw/gradcam/`: 모든 선택 이미지의 원본 embedding과 LOO cosine
+  Grad-CAM 특징을 먼저 추출하고, 이후 PCA/PQ 민감도와 결합합니다.
 
 실행 순서는 다음과 같습니다.
 
 1. `model_validation/00_checkpoint_registration.ipynb`
 2. `model_validation/01_preprocessing_and_model_smoke.ipynb`
-3. 별도 Step 2 정량 embedding·PCA/PQ run 완료
-4. `lfw/gradcam/00_source_and_model_freeze.ipynb`
-5. `lfw/gradcam/01_case_selection.ipynb`
-6. `lfw/gradcam/02_pair_gradcam_generation.ipynb`
-7. `lfw/gradcam/03_saliency_feature_analysis.ipynb`
-8. `lfw/gradcam/04_faithfulness_and_report.ipynb`
+3. `lfw/gradcam/00_source_and_model_freeze.ipynb`
+4. `lfw/gradcam/01_origin_embedding_and_loo_templates.ipynb`
+5. `lfw/gradcam/02_population_gradcam_extraction.ipynb`
+6. `lfw/gradcam/03_saliency_feature_validation.ipynb`
+7. `lfw/gradcam/04_step2_compression_characterization.ipynb`
+8. `lfw/gradcam/05_saliency_compression_join.ipynb`
+9. `lfw/gradcam/06_representative_case_visualization.ipynb`
 
-Grad-CAM 폴더는 정량 압축 코드를 복사하지 않습니다. 입력 result hash와 선택
-case manifest를 고정하고 `research/explainability/gradcam/`의 공통 함수를
-호출합니다. 실제 checkpoint가 등록되기 전에는 상단 기본값
+Pass A는 모든 선택 표본의 임베딩을 보존하고 Pass B는 동일인
+leave-one-out target이 있는 모든 표본에 Grad-CAM을 수행합니다. singleton과
+identity 누락 표본은 다른 target으로 바꾸지 않고 부적격 상태로 남깁니다.
+압축 코드는 Grad-CAM 추출에 복사하지 않으며 두 결과는 원본 embedding lineage로
+엄격히 결합합니다. 사례 선택은 06의 시각화 용도에만 존재합니다. 실제
+checkpoint와 공통 aligned bundle이 등록되기 전에는 상단 기본값
 `EXECUTE_STAGE=False`, `WRITE_OUTPUTS=False`를 유지합니다.
 
-## PostgreSQL 선택 정리
+## run 단위 complete reset
 
-리팩토링 전후의 서로 다른 `run_uid` 행이 같은 테이블에 공존할 때는
-`database/selective_cleanup.ipynb`를 사용합니다.
+리팩토링 뒤 동일한 `run_uid`의 DB, 임베딩 전처리·중간 artifact와 평가 결과가
+섞이지 않게 하려면 `database/selective_cleanup.ipynb`를 사용합니다. 권장
+모드는 `RESET_MODE="complete_run_reset"`입니다.
 
-1. `CONNECT_TO_DATABASE=True`, `EXECUTE_DELETE=False`로 전체 테이블 및
-   `run_uid`별 행 수를 먼저 확인합니다.
-2. 정확한 `RUN_UID`와 허용된 테이블 그룹 또는 개별 테이블을 선택합니다.
-3. 미리보기 행 수와 완료 run 보호 상태를 확인합니다.
-4. 실제 폐기가 필요할 때만 출력된 확인 문자열을 복사하고
-   `EXECUTE_DELETE=True`로 처음부터 다시 실행합니다.
+1. `RUN_UID`를 입력하고 `CONNECT_TO_DATABASE=False`,
+   `EXECUTE_RESET=False`, 빈 `CONFIRMATION_TOKEN`으로 Run All 합니다.
+2. `CONNECT_TO_DATABASE=True`로 바꾸고 다시 Run All 하여 하나의 digest에
+   묶인 DB 행, exact-owner run bundle, manifest 소유 result bundle 및 일치하는
+   active pointer를 미리보기합니다.
+3. 완료 run, `results/paper` 등 promoted result, lineage를 완전히 검증할 수
+   없는 고아 run은 각각
+   `ALLOW_COMPLETED_RUN_RESET`,
+   `ALLOW_PROMOTED_RESULTS_RESET`,
+   `ALLOW_UNVERIFIED_LINEAGE_RESET` 없이는 실행할 수 없습니다.
+4. 미리보기 대상과 보존 대상을 확인한 뒤 새 확인 문자열 전체를
+   `CONFIRMATION_TOKEN`에 복사하고 `EXECUTE_RESET=True`로 처음부터 다시
+   실행합니다.
+5. 실행 후 DB의 해당 run 행이 0인지 확인하고
+   `runs/database_cleanup/quarantine/<operation>/payload/`와 감사 JSON을
+   확인합니다.
 
-이 노트북은 조건 없는 전체 테이블 삭제, 임의 SQL 및 공유 `images` 삭제를
-지원하지 않습니다. 완료된 run은 기본적으로 차단되며 보호를 해제해도 자동
-백업되지는 않습니다.
+로컬 대상은 영구 삭제하지 않고 격리합니다. DB 삭제는 한 transaction에서
+수행하며 로컬 이동 callback이 실패하면 DB를 rollback하고 이미 이동한 파일을
+복원합니다. PostgreSQL과 파일시스템은 하나의 원자적 transaction이 아니므로
+실행 중 프로세스를 강제 종료하지 마십시오.
+
+항상 보존되는 범위는 공유 `images`, `data/raw`, common aligned crop와 dataset
+manifest, checkpoint/model registry, 다른 run 및 cleanup 감사 기록입니다.
+PCA 64D/32D와 Step 2 Grad-CAM/LOO artifact처럼 별도 DB 테이블이 없는 결과도
+exact-owner run artifact이면 함께 격리됩니다. 반대로 소유권이 확인되지 않는
+임의 Step 2 경로는 자동 선택하지 않습니다. DB row snapshot은 생성하지 않아
+감사 JSON만으로 embedding row를 복구할 수 없습니다.
+
+특정 PostgreSQL 테이블만 선택해야 하는 전문 유지보수는
+`RESET_MODE="advanced_database_cleanup"`을 사용합니다. 기존 allowlist,
+행 수 재검증, 완료 run 보호와 확인 문자열 계약은 유지되며 조건 없는 전체
+테이블·임의 SQL·공유 `images` 삭제는 지원하지 않습니다.

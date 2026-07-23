@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -10,6 +11,15 @@ from research.embeddings.pytorch._torch import require_torch
 from research.embeddings.pytorch.target_layers import resolve_target_layer
 
 OutputSelector = Callable[[Any], Any]
+
+
+@dataclass(frozen=True)
+class EmbeddingTensorOutput:
+    """Differentiable raw, norm, and unit embedding tensors from one forward."""
+
+    raw_embedding: Any
+    raw_norm: Any
+    normalized_embedding: Any
 
 
 class PyTorchFaceEmbeddingAdapter:
@@ -162,23 +172,64 @@ class PyTorchFaceEmbeddingAdapter:
                 )
         return raw
 
+    def forward_embedding_tensors(
+        self,
+        aligned_faces: np.ndarray,
+        *,
+        require_grad: bool = False,
+    ) -> EmbeddingTensorOutput:
+        """Return raw/norm/unit tensors computed from the same model forward.
+
+        Grad-CAM and ordinary embedding extraction use this shared
+        normalization contract so they cannot silently analyze a different
+        tensor than the one stored as the origin 512D representation.
+        """
+
+        torch = require_torch()
+        raw = self.forward_raw_tensor(
+            aligned_faces,
+            require_grad=require_grad,
+        )
+        if not bool(torch.isfinite(raw).all()):
+            raise ValueError("FR model returned a non-finite embedding")
+        norms = torch.linalg.vector_norm(raw, ord=2, dim=1)
+        if not bool(torch.isfinite(norms).all()) or bool((norms <= 0.0).any()):
+            raise ValueError("FR model returned a zero or non-finite embedding")
+        normalized = raw / norms.unsqueeze(1)
+        return EmbeddingTensorOutput(
+            raw_embedding=raw,
+            raw_norm=norms,
+            normalized_embedding=normalized,
+        )
+
     def embed(self, aligned_faces: np.ndarray) -> EmbeddingOutput:
         """Run eval/inference mode and retain raw norm before L2 normalization."""
 
-        raw_tensor = self.forward_raw_tensor(aligned_faces, require_grad=False)
+        tensors = self.forward_embedding_tensors(
+            aligned_faces,
+            require_grad=False,
+        )
         raw = (
-            raw_tensor.detach()
+            tensors.raw_embedding.detach()
             .to("cpu")
             .float()
             .numpy()
             .astype(np.float32, copy=False)
         )
-        if not np.isfinite(raw).all():
-            raise ValueError("FR model returned a non-finite embedding")
-        norms = np.linalg.norm(raw, axis=1).astype(np.float32)
-        if not np.isfinite(norms).all() or np.any(norms <= 0.0):
-            raise ValueError("FR model returned a zero or non-finite embedding")
-        normalized = (raw / norms[:, np.newaxis]).astype(np.float32)
+        norms = (
+            tensors.raw_norm.detach()
+            .to("cpu")
+            .float()
+            .numpy()
+            .astype(np.float32, copy=False)
+        )
+        normalized = (
+            tensors.normalized_embedding.detach()
+            .to("cpu")
+            .float()
+            .numpy()
+            .astype(np.float32, copy=False)
+        )
         return EmbeddingOutput(
             raw_embedding=raw,
             raw_norm=norms,

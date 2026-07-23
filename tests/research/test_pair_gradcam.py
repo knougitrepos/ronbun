@@ -13,6 +13,7 @@ from research.explainability.gradcam import (
     saliency_concentration,
     saliency_entropy,
     select_gradcam_cases,
+    select_population_representative_cases,
 )
 
 
@@ -178,6 +179,41 @@ def test_select_gradcam_cases_rejects_fallback_and_ambiguous_rows():
     duplicated = pd.concat([retrieval, retrieval], ignore_index=True)
     with pytest.raises(ValueError, match="evaluation policy"):
         select_gradcam_cases(paired, duplicated)
+
+
+def test_population_case_selection_runs_only_on_joined_retrieval_rows():
+    joined = pd.DataFrame(
+        {
+            "extraction_uid": ["extract"] * 5,
+            "dataset_id": ["lfw"] * 5,
+            "sample_id": [f"sample-{index}" for index in range(5)],
+            "model_uid": ["arcface-a"] * 5,
+            "compression_family": ["pca"] * 5,
+            "compression_profile": ["pca_64"] * 5,
+            "angular_error_rad": [0.01, 0.8, 0.5, 0.4, 0.2],
+            "top1_score_drift": [0.0, -0.3, -0.2, 0.1, np.nan],
+            "agreement_with_origin": [True, True, False, True, None],
+            "threshold_crossing": [False, False, False, True, None],
+            "origin_fallback_used": [False] * 5,
+            "saliency_target_eligible": [True] * 5,
+            "heatmap_available": [True] * 5,
+            "retrieval_metrics_available": [True, True, True, True, False],
+        }
+    )
+
+    selected = select_population_representative_cases(
+        joined,
+        cases_per_group=1,
+        seed=13,
+    )
+
+    assert set(selected["case_group"]) == {
+        "stable",
+        "high_error",
+        "rank_flip",
+        "threshold_crossing",
+    }
+    assert "sample-4" not in set(selected["sample_id"])
 
 
 def test_saliency_metrics_and_occlusion_faithfulness():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+import hashlib
 from typing import Literal
 
 import numpy as np
@@ -110,6 +111,7 @@ def occlude_by_saliency(
     strategy: OcclusionStrategy,
     fill_value: float | Sequence[float] = 0.0,
     seed: int = 0,
+    sample_ids: Sequence[object] | np.ndarray | None = None,
 ) -> np.ndarray:
     """Occlude an exact pixel fraction using high/low/random spatial ranks.
 
@@ -133,12 +135,18 @@ def occlude_by_saliency(
     if not 0.0 < fraction <= 1.0:
         raise ValueError("fraction must be in (0, 1]")
     if strategy not in {"high_saliency", "low_saliency", "random"}:
-        raise ValueError(
-            "strategy must be high_saliency, low_saliency, or random"
-        )
+        raise ValueError("strategy must be high_saliency, low_saliency, or random")
     if isinstance(seed, bool) or int(seed) != seed:
         raise ValueError("seed must be an integer")
     seed = int(seed)
+    if sample_ids is None:
+        stable_sample_ids: list[str] | None = None
+    else:
+        stable_sample_ids = [str(value) for value in sample_ids]
+        if len(stable_sample_ids) != len(values):
+            raise ValueError("sample_ids must align with images")
+        if any(not value for value in stable_sample_ids):
+            raise ValueError("sample_ids must not contain empty values")
 
     fill = np.asarray(fill_value, dtype=np.float64)
     if fill.ndim == 0:
@@ -166,7 +174,14 @@ def occlude_by_saliency(
     occlusion_count = max(1, int(np.ceil(pixel_count * fraction)))
     for index in range(len(output)):
         resized = maps[index][row_index[:, None], column_index[None, :]].reshape(-1)
-        rng = np.random.default_rng(np.random.SeedSequence([seed, index]))
+        if stable_sample_ids is None:
+            random_seed = np.random.SeedSequence([seed, index])
+        else:
+            digest = hashlib.sha256(
+                f"{seed}\x1f{stable_sample_ids[index]}".encode("utf-8")
+            ).digest()
+            random_seed = int.from_bytes(digest[:8], "big", signed=False)
+        rng = np.random.default_rng(random_seed)
         if strategy == "random":
             order = rng.permutation(pixel_count)
         else:
