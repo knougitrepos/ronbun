@@ -80,6 +80,11 @@ models:
 
 datasets:
   quantitative: [lfw, survface]
+  # RFW remains conditional because all currently declared candidates are
+  # MS1MV2 checkpoints. BalancedFace is a development/calibration candidate,
+  # not a final test set or an FR-model training request.
+  conditional_quantitative: [rfw]
+  additional_development_sources: [balancedface]
   gradcam_initial: [lfw]
   lfw:
     manifest_path: data/interim/lfw/face_manifest.csv
@@ -89,6 +94,21 @@ datasets:
     manifest_path: data/interim/survface/official_manifest.csv
     protocol_adapter: survface_official
     official_manifest_role: evaluation_only
+  balancedface:
+    status: source_index_only
+    source_config_path: configs/datasets/rfw_balancedface.yaml
+    experiment_config_path: configs/experiments/rfw_balancedface_quantization.yaml
+    role: development_and_calibration_only
+    final_evaluation: false
+    train_face_recognition_models: false
+  rfw:
+    status: blocked_checkpoint_overlap
+    source_config_path: configs/datasets/rfw_balancedface.yaml
+    experiment_config_path: configs/experiments/rfw_balancedface_quantization.yaml
+    role: evaluation_test_only
+    task: official_10fold_pair_verification
+    official_open_set_protocol: false
+    checkpoint_overlap_policy: fail_closed
 
 compression:
   baseline_profile: origin_512

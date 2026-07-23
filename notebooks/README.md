@@ -46,6 +46,19 @@ development 데이터에서 고정해야 합니다.
 `06_step1_compression_characterization.ipynb`에서 SurvFace training
 development/calibration과 공식 test를 분리해 수행합니다.
 
+## RFW와 BUPT-BalancedFace
+
+새 데이터는 다음 순서로 준비합니다.
+
+1. `rfw/data_preparation.ipynb`
+2. `balancedface/data_preparation.ipynb`
+
+RFW 노트북은 4개 그룹의 공식 10-fold 1:1 pair, image list와 landmark를 검증하고 `source_identities.txt`를 기록합니다. RFW는 evaluation test이므로 PCA/PQ fit이나 DIR/FPIR open-set 공식 결과에 사용하지 않습니다.
+
+BalancedFace 노트북은 위 RFW identity artifact를 필수 입력으로 받아 겹치는 provider identity를 전부 제거한 뒤, 그룹별 identity 단위로 development/calibration을 나눕니다. BalancedFace는 FR 모델 재학습 데이터나 최종 test가 아닙니다.
+
+현재 `data/raw/RFW-balancedface/images/Equalizedface.tar.gz`는 절단된 손상 파일이므로 사용하지 않습니다. 정상 확인된 RecordIO의 metadata index까지만 구현되어 있으며 image decoder/materializer는 아직 없습니다. 따라서 `data/interim/balancedface/source_index_manifest.csv`는 실제 image path manifest가 아닙니다.
+
 ## 공통 결과
 
 데이터셋별 평가가 끝난 뒤

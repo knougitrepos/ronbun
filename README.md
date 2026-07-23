@@ -17,7 +17,7 @@
 3. PCA와 PQ는 독립 실험군입니다. PCA 출력에 PQ를 다시 적용하지 않습니다.
 4. PCA는 `384/256/128/64/32D` 차원 축소 실험입니다.
 5. PQ는 원본 512D를 입력으로 하고 `m × nbits` code budget으로 정의합니다.
-6. 현재 확보된 LFW와 QMUL-SurvFace만 필수 데이터셋으로 사용합니다.
+6. LFW와 QMUL-SurvFace는 현재 핵심 정량 데이터셋입니다. 새로 확보한 RFW는 조건부 1:1 평가, BalancedFace는 개발·보정 후보로 분리하며 현재 정량 목록에 자동 승격하지 않습니다.
 7. `MODE`, `DATA_FRACTION`, `SEED`로 실행량을 제어하되 identity와 공식 open-set 역할을 보존합니다.
 8. 데이터셋별 노트북은 실행 절차만 담당하고 공통 결과 표·그림은 `notebooks/common/`에서 생성합니다.
 
@@ -31,6 +31,10 @@
 | `dev/real` 및 identity-aware fraction | Step 1 구현 |
 | LFW manifest와 파생 open-set 진단 | 구현됨 |
 | SurvFace 공식 gallery/mated/unmated manifest | 구현됨 |
+| RFW 공식 4그룹×10-fold 1:1 protocol manifest | 구현·로컬 검증됨 |
+| BalancedFace RFW-overlap 제거·identity development/calibration index | 구현·로컬 검증됨 |
+| BalancedFace RecordIO image materialization | 미구현 |
+| 현재 MS1MV2 checkpoint의 RFW headline 평가 | overlap gate로 차단 |
 | PyTorch FR 공통 adapter | Step 2 구현됨 |
 | ArcFace/AdaFace/MagFace 실제 checkpoint 등록 | 미구현 |
 | pair-conditioned Grad-CAM·사례 선택·faithfulness core | Step 2 구현됨 |
@@ -55,6 +59,8 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 | `configs/database.yaml` | Git에 기록하는 비밀정보 없는 DB 기본 설정 |
 | `configs/database.local.yaml` | 로컬 DB 비밀번호·설정 override. Git에서 제외 |
 | `configs/experiments/` | 실험 조건과 고정된 프로토콜 설정 |
+| `configs/datasets/` | 로컬 데이터 source, checksum, integrity 및 역할 기록 |
+| `docs/datasets/` | 데이터 취득·무결성·누수·이용 경계 문서 |
 | `research/database/` | DB 설정 로딩, 연결, 스키마, 저장소 |
 | `research/embeddings/` | InsightFace 로딩과 ArcFace 임베딩 추출 |
 | `research/embeddings/pytorch/` | Step 2 PyTorch FR 공통 adapter와 checkpoint provenance |
@@ -67,6 +73,7 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 | `research/templates/` | 템플릿 집계 ablation |
 | `research/runtime/` | 날짜·회차별 실행 기록과 안정적인 실행 코드 |
 | `notebooks/lfw/`, `notebooks/survface/` | 데이터셋별 준비·추출 및 Step 1 실행 runbook |
+| `notebooks/rfw/`, `notebooks/balancedface/` | RFW protocol 및 BalancedFace 개발 source 준비 runbook |
 | `notebooks/common/` | 두 데이터셋의 공통 결과 schema 검사·표·그림 |
 | `notebooks/model_validation/` | Step 2 checkpoint 등록·전처리·출력 검증 |
 | `notebooks/lfw/gradcam/` | 정량 분석과 분리된 LFW Grad-CAM 후속 runbook |
@@ -119,8 +126,12 @@ GPU wheel은 로컬 NVIDIA driver와 맞아야 하므로 필요할 때 PyTorch �
 | --- | --- | --- |
 | LFW deep-funneled | `notebooks/lfw/data_preparation.ipynb` | `data/interim/lfw/` |
 | QMUL-SurvFace-v1 | `notebooks/survface/data_preparation.ipynb` | `data/interim/survface/` |
+| RFW | `notebooks/rfw/data_preparation.ipynb` | `data/interim/rfw/` |
+| BUPT-BalancedFace | `notebooks/balancedface/data_preparation.ipynb` | `data/interim/balancedface/` |
 
-두 준비 노트북 모두 기본 `WRITE_OUTPUTS=False`에서 데이터와 프로토콜을 검사하되 파일은 저장하지 않습니다. 검증 통과 후 `True`로 바꾸어 위에서 아래로 다시 실행합니다. SurvFace는 `training_set`을 identity-disjoint development/calibration으로 분리하고, 별도의 official manifest에서는 gallery/mated/unmated 역할과 `protocol_index`를 보존합니다.
+모든 준비 노트북은 기본 `WRITE_OUTPUTS=False`에서 데이터와 프로토콜을 검사하되 파일은 저장하지 않습니다. 검증 통과 후 `True`로 바꾸어 위에서 아래로 다시 실행합니다. SurvFace는 `training_set`을 identity-disjoint development/calibration으로 분리하고, 별도의 official manifest에서는 gallery/mated/unmated 역할과 `protocol_index`를 보존합니다.
+
+RFW와 BalancedFace는 반드시 위 표의 순서로 실행합니다. RFW는 공식 1:1 verification test이므로 PCA/PQ를 fit하거나 DIR/FPIR 공식 결과로 사용하지 않습니다. BalancedFace는 RFW와 겹치는 provider identity를 제거한 뒤 development에서 압축기를 fit하고 calibration에서 threshold를 보정하는 후보이며 최종 test가 아닙니다. 현재 BalancedFace JPG archive는 절단된 손상 파일이고, 정상 RecordIO의 PyTorch용 decoder도 아직 미구현이므로 `source_index_manifest.csv`를 실제 image manifest로 해석하면 안 됩니다. 상세 상태는 [RFW/BalancedFace 데이터 기록](docs/datasets/RFW_BALANCEDFACE.md)을 따릅니다.
 
 ## 노트북 실행 순서
 

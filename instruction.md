@@ -6,10 +6,10 @@ checkpoint별 임베딩 압축 민감도 비교**이며, FR 모델을 새로 학
 
 ## 1. 가장 먼저 확인할 사항
 
-프로젝트 루트는 `D:\ronbun`이며 PowerShell에서 다음을 실행한다.
+프로젝트 루트는 이전 `D:\ronbun`에서 `C:\ronbun`으로 이전되었다. 앞으로 PowerShell에서 다음을 실행한다.
 
 ```powershell
-cd D:\ronbun
+cd C:\ronbun
 git branch --show-current
 py -m pip install -r requirements.txt
 py -m pip install -r requirements-step2.txt
@@ -93,7 +93,47 @@ LFW 검증 후 다음 파일을 실행한다.
 
 SurvFace 공식 test 행으로 PCA/PQ 또는 threshold를 학습하면 안 된다.
 
-### 4.3 현재 Step 2 데이터 준비의 미구현 부분
+### 4.3 RFW
+
+RFW는 다음 파일에서 먼저 공식 1:1 protocol을 검증한다.
+
+1. `notebooks/rfw/data_preparation.ipynb`
+
+주요 출력:
+
+- `data/interim/rfw/image_manifest.csv`
+- `data/interim/rfw/pair_protocol.csv`
+- `data/interim/rfw/landmarks.csv`
+- `data/interim/rfw/source_identities.txt`
+- `data/interim/rfw/_SUCCESS`
+
+RFW는 1:N open-set 데이터가 아니며 RFW test로 PCA/PQ를 fit하지 않는다.
+`MODE="real"`에서는 `DATA_FRACTION=1.0`만 허용한다. 현재 세 모델 후보가
+MS1MV2로 표기되어 있으므로 protocol manifest를 만들 수는 있지만 RFW
+headline 모델 평가는 checkpoint overlap gate에서 차단된다.
+
+### 4.4 BUPT-BalancedFace(Equalizedface)
+
+RFW의 전체 source identity artifact를 만든 뒤 다음 파일을 실행한다.
+
+1. `notebooks/balancedface/data_preparation.ipynb`
+
+주요 출력:
+
+- `data/interim/balancedface/source_index_manifest.csv`
+- `data/interim/balancedface/excluded_rfw_overlap_identities.csv`
+- `data/interim/balancedface/_SUCCESS`
+
+BalancedFace는 FR 모델 재학습이나 최종 test에 사용하지 않는다. RFW와 겹치는
+provider identity를 제거한 뒤 development는 PCA/PQ fit, calibration은
+threshold 보정 후보로만 사용한다.
+
+현재 `data/raw/RFW-balancedface/images/Equalizedface.tar.gz`는 절단된 손상
+파일이므로 사용하지 않는다. 정상 RecordIO의 source index까지만 구현되어
+있고 image decoder는 아직 없다. 따라서 위 source index를 실제 image
+manifest로 사용하면 안 된다.
+
+### 4.5 현재 Step 2 데이터 준비의 미구현 부분
 
 Step 2 모델 비교에 필요한 다음 산출물을 만드는 전용 단계는 아직 구현되지
 않았다.
@@ -310,6 +350,10 @@ exact fallback을 포함한 파일을 새 압축 특성 결과 생성에 사용�
 ```text
 환경 설치
   -> LFW 데이터 manifest 준비
+  -> SurvFace 공식/training manifest 준비
+  -> RFW 공식 1:1 protocol 준비
+  -> BalancedFace RFW-overlap 제거 source index 준비
+  -> BalancedFace RecordIO decoder/materializer 구현 필요
   -> 공통 aligned crop 생성 단계 구현 필요
   -> ArcFace checkpoint 등록
   -> ArcFace smoke test
@@ -326,7 +370,9 @@ exact fallback을 포함한 파일을 새 압축 특성 결과 생성에 사용�
   -> 검증된 결과만 논문용 results로 선별
 ```
 
-현재 바로 시작할 파일은
-`notebooks/model_validation/00_checkpoint_registration.ipynb`이며, 실제
-Step 2 전체 실행을 위해 다음 구현 우선순위는 공통 aligned crop 생성,
-PyTorch 정량 압축 runner, Grad-CAM pair bundle 생성 순서이다.
+새 데이터 준비는 `notebooks/rfw/data_preparation.ipynb`부터 시작하고 그 다음
+`notebooks/balancedface/data_preparation.ipynb`를 실행한다. 모델 쪽 독립 작업은
+`notebooks/model_validation/00_checkpoint_registration.ipynb`부터 시작한다.
+실제 Step 2 전체 실행을 위해 다음 구현 우선순위는 BalancedFace RecordIO
+decoder/materializer, 공통 aligned crop 생성, PyTorch 정량 압축 runner,
+Grad-CAM pair bundle 생성 순서이다.
