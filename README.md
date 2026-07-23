@@ -1,6 +1,6 @@
 # Face Embedding Compression Characterization Thesis
 
-이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. `step1`의 현재 연구 방향은 [architect/20260720.md](architect/20260720.md)가 기준이며, [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
+이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. Step 1의 압축 기준은 [architect/20260720.md](architect/20260720.md), PyTorch 모델 비교와 별도 Grad-CAM 후속 분석의 현재 기준은 [architect/20260723.md](architect/20260723.md)입니다. [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
 
 핵심 질문은 다음과 같습니다.
 
@@ -31,11 +31,13 @@
 | `dev/real` 및 identity-aware fraction | Step 1 구현 |
 | LFW manifest와 파생 open-set 진단 | 구현됨 |
 | SurvFace 공식 gallery/mated/unmated manifest | 구현됨 |
-| AdaFace adapter/checkpoint | 미구현 |
-| MagFace adapter/checkpoint | 미구현 |
+| PyTorch FR 공통 adapter | Step 2 구현됨 |
+| ArcFace/AdaFace/MagFace 실제 checkpoint 등록 | 미구현 |
+| pair-conditioned Grad-CAM·사례 선택·faithfulness core | Step 2 구현됨 |
+| 실제 FR checkpoint Grad-CAM 결과 | 미구현 |
 | 세 모델 공정성 게이트 | 검증 필요 |
 
-AdaFace와 MagFace는 현재 계획 모델이며 코드가 이미 동작한다고 간주하지 않습니다. 서로 다른 공개 checkpoint를 사용할 경우 backbone, 학습 데이터 및 전처리 차이가 섞이므로 결과를 loss 함수의 인과효과가 아닌 checkpoint 수준 비교로 제한합니다.
+Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, 전처리와 target layer를 등록하고 smoke test를 통과하기 전에는 해당 모델을 실행 가능하다고 간주하지 않습니다. 서로 다른 공개 checkpoint를 사용할 경우 backbone, 학습 데이터 및 전처리 차이가 섞이므로 결과를 loss 함수의 인과효과가 아닌 checkpoint 수준 비교로 제한합니다. FR 모델을 새로 학습하지 않습니다.
 
 ## 연구 범위
 
@@ -55,6 +57,8 @@ AdaFace와 MagFace는 현재 계획 모델이며 코드가 이미 동작한다�
 | `configs/experiments/` | 실험 조건과 고정된 프로토콜 설정 |
 | `research/database/` | DB 설정 로딩, 연결, 스키마, 저장소 |
 | `research/embeddings/` | InsightFace 로딩과 ArcFace 임베딩 추출 |
+| `research/embeddings/pytorch/` | Step 2 PyTorch FR 공통 adapter와 checkpoint provenance |
+| `research/explainability/gradcam/` | pair target Grad-CAM, 사례 선택과 faithfulness |
 | `research/compression/` | 독립 PCA family와 원본 512D PQ 학습·변환 |
 | `research/search/` | 이전 시스템 실험의 open-set 검색·인증·fallback 보존 |
 | `research/protocols/` | identity-disjoint 데이터 분할 |
@@ -64,6 +68,8 @@ AdaFace와 MagFace는 현재 계획 모델이며 코드가 이미 동작한다�
 | `research/runtime/` | 날짜·회차별 실행 기록과 안정적인 실행 코드 |
 | `notebooks/lfw/`, `notebooks/survface/` | 데이터셋별 준비·추출 및 Step 1 실행 runbook |
 | `notebooks/common/` | 두 데이터셋의 공통 결과 schema 검사·표·그림 |
+| `notebooks/model_validation/` | Step 2 checkpoint 등록·전처리·출력 검증 |
+| `notebooks/lfw/gradcam/` | 정량 분석과 분리된 LFW Grad-CAM 후속 runbook |
 | `runs/` | 실행별 manifest, 로그, phase 산출물. Git에서 제외 |
 | `results/paper/` | 검증 후 논문 표·그림으로 선별한 결과 |
 
@@ -88,6 +94,24 @@ py scripts/setup_postgres_pgvector.py
 필요하면 Git에서 제외되는 `configs/database.local.yaml`에 로컬 override를 둘 수 있습니다. 환경 변수 `RONBUN_DB_HOST`, `RONBUN_DB_PORT`, `RONBUN_DB_NAME`, `RONBUN_DB_USER`, `RONBUN_DB_PASSWORD`가 가장 높은 우선순위를 갖습니다. 로그와 manifest에는 비밀번호를 기록하지 않습니다.
 
 Step 1 공통 설정은 `configs/experiments/step1_embedding_compression.yaml`입니다. ArcFace만 현재 실행 가능하며 AdaFace와 MagFace는 adapter가 추가될 때까지 계획 상태입니다.
+
+Step 2를 실행하려면 기본 환경을 설치한 뒤 로컬 driver에 맞는 PyTorch wheel을 준비합니다.
+
+```powershell
+py -m pip install -r requirements-step2.txt
+```
+
+GPU wheel은 로컬 NVIDIA driver와 맞아야 하므로 필요할 때 PyTorch 공식 설치 선택기의 명령을 우선합니다. Step 2 설정은 `configs/experiments/step2_pytorch_gradcam.yaml`이며, 기본값은 checkpoint 미등록·`execute_stage: false`·`write_outputs: false`로 실패 폐쇄형입니다.
+
+## Step 2 실행 경계
+
+1. `notebooks/model_validation/`에서 checkpoint 출처·hash·전처리·512D 출력·raw norm과 target layer를 검증합니다.
+2. 고정된 공통 정렬 crop에서 모델별 PyTorch embedding을 새 lineage로 생성합니다.
+3. Step 1과 같은 독립 PCA-only/PQ-only 정량 실험을 모델별로 다시 수행합니다.
+4. 정량 결과에서 사례 목록을 먼저 고정한 뒤 `notebooks/lfw/gradcam/`을 실행합니다.
+5. Grad-CAM은 원본 query–gallery cosine target을 설명하며 hard PQ를 미분하지 않습니다.
+
+기존 ONNX Step 1과 PyTorch Step 2는 동일 checkpoint parity가 검증되지 않으면 합치지 않습니다. 완료된 Step 1 run은 읽기 전용 기준선으로 유지합니다.
 
 ## 데이터 매니페스트 준비
 

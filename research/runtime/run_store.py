@@ -102,6 +102,8 @@ def _package_versions() -> dict[str, str | None]:
         "onnxruntime",
         "onnxruntime-gpu",
         "opencv-python",
+        "torch",
+        "torchvision",
     )
     versions: dict[str, str | None] = {}
     for package in packages:

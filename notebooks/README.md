@@ -58,3 +58,29 @@ artifact를 Step 1 결과로 받아들이지 않습니다.
 중단 후 임의 셀부터 실행하지 말고 커널을 재시작한 뒤 처음부터 실행합니다.
 입력 hash, scope 또는 상위 단계 artifact checksum이 달라지면 새 run을 만들고
 영향받는 단계부터 다시 수행합니다.
+
+## Step 2 PyTorch 모델 및 Grad-CAM 후속 분석
+
+Step 2는 기존 데이터셋별 Step 1 노트북을 수정하지 않고 다음 두 폴더를
+추가합니다.
+
+- `model_validation/`: ArcFace/AdaFace/MagFace의 checkpoint 등록, 전처리
+  명세, 512D/raw norm/L2 출력 및 target layer를 검증합니다.
+- `lfw/gradcam/`: 완료된 PyTorch 정량 결과에서 사례를 고정한 뒤 pair
+  cosine Grad-CAM과 occlusion faithfulness를 분석합니다.
+
+실행 순서는 다음과 같습니다.
+
+1. `model_validation/00_checkpoint_registration.ipynb`
+2. `model_validation/01_preprocessing_and_model_smoke.ipynb`
+3. 별도 Step 2 정량 embedding·PCA/PQ run 완료
+4. `lfw/gradcam/00_source_and_model_freeze.ipynb`
+5. `lfw/gradcam/01_case_selection.ipynb`
+6. `lfw/gradcam/02_pair_gradcam_generation.ipynb`
+7. `lfw/gradcam/03_saliency_feature_analysis.ipynb`
+8. `lfw/gradcam/04_faithfulness_and_report.ipynb`
+
+Grad-CAM 폴더는 정량 압축 코드를 복사하지 않습니다. 입력 result hash와 선택
+case manifest를 고정하고 `research/explainability/gradcam/`의 공통 함수를
+호출합니다. 실제 checkpoint가 등록되기 전에는 상단 기본값
+`EXECUTE_STAGE=False`, `WRITE_OUTPUTS=False`를 유지합니다.

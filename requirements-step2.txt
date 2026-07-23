@@ -1,0 +1,6 @@
+# Install the base research environment first:
+#   py -m pip install -r requirements.txt
+#
+# Select the CUDA/CPU wheel appropriate for the local NVIDIA driver from the
+# official PyTorch installation selector when GPU execution is required.
+torch>=2.0,<3.0
