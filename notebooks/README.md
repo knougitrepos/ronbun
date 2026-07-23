@@ -57,7 +57,7 @@ RFW 노트북은 4개 그룹의 공식 10-fold 1:1 pair, image list와 landmark�
 
 BalancedFace 노트북은 위 RFW identity artifact를 필수 입력으로 받아 겹치는 provider identity를 전부 제거한 뒤, 그룹별 identity 단위로 development/calibration을 나눕니다. BalancedFace는 FR 모델 재학습 데이터나 최종 test가 아닙니다.
 
-현재 `data/raw/RFW-balancedface/images/Equalizedface.tar.gz`는 절단된 손상 파일이므로 사용하지 않습니다. 정상 확인된 RecordIO의 metadata index까지만 구현되어 있으며 image decoder/materializer는 아직 없습니다. 따라서 `data/interim/balancedface/source_index_manifest.csv`는 실제 image path manifest가 아닙니다.
+`data/raw/RFW-balancedface/images/Equalizedface.tar.gz`는 정상 파일로 교체되어 EOF 검사를 통과했습니다. 다만 JPG와 RecordIO 목록은 이미지 14장·identity 1개 차이가 있으며 Asian/Indian JPG에는 가변 해상도 이미지가 포함됩니다. JPG 경로는 공통 정렬·그룹별 coverage 검증 전까지 비활성이고, RecordIO 경로는 metadata index까지만 구현되어 decoder/materializer가 아직 없습니다. 따라서 `data/interim/balancedface/source_index_manifest.csv`는 실제 image path manifest가 아닙니다.
 
 ## 공통 결과
 
@@ -97,3 +97,19 @@ Grad-CAM 폴더는 정량 압축 코드를 복사하지 않습니다. 입력 res
 case manifest를 고정하고 `research/explainability/gradcam/`의 공통 함수를
 호출합니다. 실제 checkpoint가 등록되기 전에는 상단 기본값
 `EXECUTE_STAGE=False`, `WRITE_OUTPUTS=False`를 유지합니다.
+
+## PostgreSQL 선택 정리
+
+리팩토링 전후의 서로 다른 `run_uid` 행이 같은 테이블에 공존할 때는
+`database/selective_cleanup.ipynb`를 사용합니다.
+
+1. `CONNECT_TO_DATABASE=True`, `EXECUTE_DELETE=False`로 전체 테이블 및
+   `run_uid`별 행 수를 먼저 확인합니다.
+2. 정확한 `RUN_UID`와 허용된 테이블 그룹 또는 개별 테이블을 선택합니다.
+3. 미리보기 행 수와 완료 run 보호 상태를 확인합니다.
+4. 실제 폐기가 필요할 때만 출력된 확인 문자열을 복사하고
+   `EXECUTE_DELETE=True`로 처음부터 다시 실행합니다.
+
+이 노트북은 조건 없는 전체 테이블 삭제, 임의 SQL 및 공유 `images` 삭제를
+지원하지 않습니다. 완료된 run은 기본적으로 차단되며 보호를 해제해도 자동
+백업되지는 않습니다.

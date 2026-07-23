@@ -206,7 +206,10 @@ def inspect_balancedface_sources(
             project_root=project,
             verify_sha256=verify_sha256,
             canonical_candidate=True,
-            note="named-race JPG tree; archive integrity must pass before use",
+            note=(
+                "named-race original JPG tree; valid local archive but Asian/Indian "
+                "alignment and group coverage must be audited before model input"
+            ),
         ),
         _source_artifact(
             dataset="bupt-balancedface-equalizedface",
@@ -216,7 +219,10 @@ def inspect_balancedface_sources(
             project_root=project,
             verify_sha256=verify_sha256,
             canonical_candidate=True,
-            note="112x112 aligned RecordIO; alternative representation of the same images",
+            note=(
+                "112x112 aligned RecordIO for the same logical dataset; local row "
+                "inventory differs slightly from the JPG archive"
+            ),
         ),
         _source_artifact(
             dataset="bupt-balancedface-equalizedface",

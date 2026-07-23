@@ -128,10 +128,11 @@ BalancedFace는 FR 모델 재학습이나 최종 test에 사용하지 않는다.
 provider identity를 제거한 뒤 development는 PCA/PQ fit, calibration은
 threshold 보정 후보로만 사용한다.
 
-현재 `data/raw/RFW-balancedface/images/Equalizedface.tar.gz`는 절단된 손상
-파일이므로 사용하지 않는다. 정상 RecordIO의 source index까지만 구현되어
-있고 image decoder는 아직 없다. 따라서 위 source index를 실제 image
-manifest로 사용하면 안 된다.
+`data/raw/RFW-balancedface/images/Equalizedface.tar.gz`는 정상 파일로
+교체되어 EOF 검사를 통과했다. 다만 Asian/Indian JPG에는 가변 해상도 이미지가
+포함되므로 공통 얼굴 정렬과 그룹별 성공률 검증 전에는 embedding 입력으로
+사용하지 않는다. RecordIO 경로는 source index까지만 구현되어 있고 decoder가
+아직 없다. 따라서 위 source index를 실제 image manifest로 사용하면 안 된다.
 
 ### 4.5 현재 Step 2 데이터 준비의 미구현 부분
 
@@ -353,7 +354,9 @@ exact fallback을 포함한 파일을 새 압축 특성 결과 생성에 사용�
   -> SurvFace 공식/training manifest 준비
   -> RFW 공식 1:1 protocol 준비
   -> BalancedFace RFW-overlap 제거 source index 준비
-  -> BalancedFace RecordIO decoder/materializer 구현 필요
+  -> BalancedFace source 선택
+     ├─ JPG: 공통 alignment/materializer 구현 필요
+     └─ RecordIO: decoder/materializer 구현 필요
   -> 공통 aligned crop 생성 단계 구현 필요
   -> ArcFace checkpoint 등록
   -> ArcFace smoke test
@@ -373,6 +376,30 @@ exact fallback을 포함한 파일을 새 압축 특성 결과 생성에 사용�
 새 데이터 준비는 `notebooks/rfw/data_preparation.ipynb`부터 시작하고 그 다음
 `notebooks/balancedface/data_preparation.ipynb`를 실행한다. 모델 쪽 독립 작업은
 `notebooks/model_validation/00_checkpoint_registration.ipynb`부터 시작한다.
-실제 Step 2 전체 실행을 위해 다음 구현 우선순위는 BalancedFace RecordIO
-decoder/materializer, 공통 aligned crop 생성, PyTorch 정량 압축 runner,
-Grad-CAM pair bundle 생성 순서이다.
+실제 Step 2 전체 실행을 위해 다음 구현 우선순위는 BalancedFace source 선택과
+alignment/decoder materializer, 공통 aligned crop 생성, PyTorch 정량 압축
+runner, Grad-CAM pair bundle 생성 순서이다.
+
+## 11. PostgreSQL의 특정 run 행을 정리할 경우
+
+연구 실행 순서와 별개의 유지보수 절차이다. 다음 노트북을 사용한다.
+
+1. `notebooks/database/selective_cleanup.ipynb`
+
+권장 순서:
+
+1. 상단에서 `CONNECT_TO_DATABASE=True`, `EXECUTE_DELETE=False`로 설정한다.
+2. 커널을 재시작하고 위에서 아래까지 실행해 전체 테이블 수와
+   `run_uid`별 수를 확인한다.
+3. `RUN_UID`, `TABLE_GROUPS_SELECTED`, `TABLE_NAMES_SELECTED`를 고른다.
+4. 다시 실행하여 미리보기의 대상 행 수, DB 이름 및 완료 run 보호 상태를
+   확인한다.
+5. 완료 run은 재현에 필요한 기준선인지 먼저 확인한다. 정말 폐기할 때만
+   `ALLOW_COMPLETED_RUN_DELETE=True`로 새 미리보기를 만든다.
+6. 출력된 확인 문자열 전체를 `CONFIRMATION_TOKEN`에 붙이고
+   `EXECUTE_DELETE=True`로 바꾼다.
+7. 커널을 재시작하고 위에서 아래까지 다시 실행한다.
+8. `runs/database_cleanup/` 감사 JSON과 재조회 결과를 확인한다.
+
+`images`, 임의 SQL, 임의 테이블 및 조건 없는 전체 테이블 삭제는 이 노트북의
+범위가 아니다. 삭제된 vector row는 감사 JSON만으로 복구되지 않는다.

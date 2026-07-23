@@ -77,6 +77,7 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 | `notebooks/common/` | 두 데이터셋의 공통 결과 schema 검사·표·그림 |
 | `notebooks/model_validation/` | Step 2 checkpoint 등록·전처리·출력 검증 |
 | `notebooks/lfw/gradcam/` | 정량 분석과 분리된 LFW Grad-CAM 후속 runbook |
+| `notebooks/database/` | `run_uid`와 allowlist 기반 PostgreSQL 선택 정리 runbook |
 | `runs/` | 실행별 manifest, 로그, phase 산출물. Git에서 제외 |
 | `results/paper/` | 검증 후 논문 표·그림으로 선별한 결과 |
 
@@ -99,6 +100,13 @@ py scripts/setup_postgres_pgvector.py
 ```
 
 필요하면 Git에서 제외되는 `configs/database.local.yaml`에 로컬 override를 둘 수 있습니다. 환경 변수 `RONBUN_DB_HOST`, `RONBUN_DB_PORT`, `RONBUN_DB_NAME`, `RONBUN_DB_USER`, `RONBUN_DB_PASSWORD`가 가장 높은 우선순위를 갖습니다. 로그와 manifest에는 비밀번호를 기록하지 않습니다.
+
+리팩토링 전후의 DB 행이 섞였을 때는
+`notebooks/database/selective_cleanup.ipynb`에서 먼저 테이블·`run_uid`별
+행 수를 읽기 전용으로 확인합니다. 이 도구는 정확한 `run_uid`와 허용된
+테이블만 선택하며, 공유 `images`와 조건 없는 전체 테이블 삭제는 지원하지
+않습니다. 기본값에서는 DB 연결과 DELETE가 모두 꺼져 있고 완료 run 삭제도
+차단됩니다.
 
 Step 1 공통 설정은 `configs/experiments/step1_embedding_compression.yaml`입니다. ArcFace만 현재 실행 가능하며 AdaFace와 MagFace는 adapter가 추가될 때까지 계획 상태입니다.
 
@@ -131,7 +139,7 @@ GPU wheel은 로컬 NVIDIA driver와 맞아야 하므로 필요할 때 PyTorch �
 
 모든 준비 노트북은 기본 `WRITE_OUTPUTS=False`에서 데이터와 프로토콜을 검사하되 파일은 저장하지 않습니다. 검증 통과 후 `True`로 바꾸어 위에서 아래로 다시 실행합니다. SurvFace는 `training_set`을 identity-disjoint development/calibration으로 분리하고, 별도의 official manifest에서는 gallery/mated/unmated 역할과 `protocol_index`를 보존합니다.
 
-RFW와 BalancedFace는 반드시 위 표의 순서로 실행합니다. RFW는 공식 1:1 verification test이므로 PCA/PQ를 fit하거나 DIR/FPIR 공식 결과로 사용하지 않습니다. BalancedFace는 RFW와 겹치는 provider identity를 제거한 뒤 development에서 압축기를 fit하고 calibration에서 threshold를 보정하는 후보이며 최종 test가 아닙니다. 현재 BalancedFace JPG archive는 절단된 손상 파일이고, 정상 RecordIO의 PyTorch용 decoder도 아직 미구현이므로 `source_index_manifest.csv`를 실제 image manifest로 해석하면 안 됩니다. 상세 상태는 [RFW/BalancedFace 데이터 기록](docs/datasets/RFW_BALANCEDFACE.md)을 따릅니다.
+RFW와 BalancedFace는 반드시 위 표의 순서로 실행합니다. RFW는 공식 1:1 verification test이므로 PCA/PQ를 fit하거나 DIR/FPIR 공식 결과로 사용하지 않습니다. BalancedFace는 RFW와 겹치는 provider identity를 제거한 뒤 development에서 압축기를 fit하고 calibration에서 threshold를 보정하는 후보이며 최종 test가 아닙니다. BalancedFace JPG archive는 정상 파일로 교체됐지만 Asian/Indian의 가변 해상도·정렬 품질 검증이 필요합니다. RecordIO를 선택할 경우에는 PyTorch용 decoder가 아직 미구현이므로 `source_index_manifest.csv`를 실제 image manifest로 해석하면 안 됩니다. 상세 상태는 [RFW/BalancedFace 데이터 기록](docs/datasets/RFW_BALANCEDFACE.md)을 따릅니다.
 
 ## 노트북 실행 순서
 

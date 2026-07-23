@@ -31,6 +31,11 @@ datasets:
     blocked_reason: recordio_decoder_not_implemented
     role: development_and_calibration_only
     representation: mxnet_recordio_aligned
+    jpg_archive_alternative:
+      path: data/raw/RFW-balancedface/images/Equalizedface.tar.gz
+      integrity: verified_readable_to_eof
+      enabled_for_embedding_extraction: false
+      blocked_reason: alignment_and_group_coverage_audit_not_implemented
     source_list_path: data/raw/RFW-balancedface/rec_for_mxnet/train_balancedface.lst
     source_archive_path: data/raw/RFW-balancedface/rec_for_mxnet/Equalizedface.tar.gz
     development_fraction: 0.80

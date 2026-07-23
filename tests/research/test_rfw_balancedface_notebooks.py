@@ -54,5 +54,6 @@ def test_dataset_runbooks_expose_safe_scope_and_write_guards():
     assert "RFW_SUCCESS_PATH" in balanced_source
     assert "build_balancedface_index_bundle" in balanced_source
     assert "VERIFY_RECORDIO_ARCHIVE = True" in balanced_source
-    assert "JPG archive는 절단" in balanced_source
+    assert "JPG archive는 정상 파일로 교체" in balanced_source
+    assert "alignment_and_group_coverage_audit_required" in balanced_source
     assert "RecordIO decoder" in balanced_source

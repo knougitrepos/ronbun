@@ -35,9 +35,12 @@ def test_source_config_freezes_local_integrity_and_alternative_formats():
     )
     assert (
         balanced["artifacts"]["jpg_archive"]["integrity"]
-        == "corrupt_truncated"
+        == "verified_readable_to_eof"
     )
-    assert balanced["artifacts"]["jpg_archive"]["usable"] is False
+    assert balanced["artifacts"]["jpg_archive"]["usable"] is True
+    assert balanced["observed_jpg_archive"]["image_count"] == 1_251_430
+    assert balanced["observed_jpg_archive"]["identity_count"] == 28_000
+    assert balanced["observed_jpg_archive"]["differs_from_recordio_list"] is True
     assert (
         balanced["artifacts"]["recordio_archive"]["integrity"]
         == "verified_readable_to_eof"
@@ -56,6 +59,10 @@ def test_experiment_config_keeps_rfw_conditional_and_balancedface_non_test():
     assert balanced["role"] == "development_and_calibration_only"
     assert balanced["test_split"] is None
     assert balanced["enabled_for_embedding_extraction"] is False
+    assert (
+        balanced["jpg_archive_alternative"]["blocked_reason"]
+        == "alignment_and_group_coverage_audit_not_implemented"
+    )
     assert rfw["role"] == "evaluation_test_only"
     assert rfw["enabled_for_headline_evaluation"] is False
     assert rfw["compressor_fit"] is False

@@ -55,11 +55,12 @@ datasets:
     artifacts:
       jpg_archive:
         path: data/raw/RFW-balancedface/images/Equalizedface.tar.gz
-        byte_count: 16740773888
-        sha256: 24EC9FB48DBD29EAED120AE0E45431706261F09448628D5CF9C5AF1B5940CF5B
-        integrity: corrupt_truncated
-        usable: false
-        action: redownload_before_any_use
+        byte_count: 33377022995
+        sha256: B9630A4A9E7C67CB12EB286B32DD06E31992725C79F953222AF7DBEDE496AE42
+        integrity: verified_readable_to_eof
+        usable: true
+        contents: original_jpg_variable_resolution
+        action: alignment_and_group_coverage_audit_required
       recordio_archive:
         path: data/raw/RFW-balancedface/rec_for_mxnet/Equalizedface.tar.gz
         byte_count: 6213545547
@@ -85,6 +86,32 @@ datasets:
         Indian: 6999
         Asian: 7000
         African: 7000
+    observed_jpg_archive:
+      image_count: 1251430
+      identity_count: 28000
+      unexpected_regular_file_count: 0
+      identity_counts:
+        Caucasian: 7000
+        Indian: 7000
+        Asian: 7000
+        African: 7000
+      image_counts:
+        Caucasian: 326484
+        Indian: 275095
+        Asian: 325475
+        African: 324376
+      differs_from_recordio_list: true
+      raw_minus_recordio_list_image_counts:
+        Caucasian: 0
+        Indian: 32
+        Asian: -18
+        African: 0
+      raw_minus_recordio_list_identity_counts:
+        Caucasian: 0
+        Indian: 1
+        Asian: 0
+        African: 0
+      alignment_note: Asian and Indian include variable-resolution images; do not assume all files are aligned 400x400 crops
     observed_rfw_overlap:
       source_identity_count: 3
       balancedface_image_count: 177
@@ -93,5 +120,6 @@ datasets:
 
 notes:
   - JPG, BIN, and RecordIO entries are alternative physical representations; never add their image counts.
+  - The BalancedFace JPG archive and RecordIO list differ slightly at row and identity level; do not join them by row index or report them as exact copies.
   - Checksums above are local provenance values because the downloaded package did not include an official checksum file.
   - Provider access email is not treated as permission to redistribute raw or derived biometric data.

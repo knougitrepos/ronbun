@@ -52,11 +52,25 @@ JPG와 BIN은 같은 RFW test의 대체 표현이므로 수량을 더하지 않�
 
 | 물리 파일 | 크기 | SHA-256 | 상태 |
 | --- | ---: | --- | --- |
-| `images/Equalizedface.tar.gz` | 16,740,773,888 B | `24EC9FB48DBD29EAED120AE0E45431706261F09448628D5CF9C5AF1B5940CF5B` | **손상·절단됨, 사용 금지** |
+| `images/Equalizedface.tar.gz` | 33,377,022,995 B | `B9630A4A9E7C67CB12EB286B32DD06E31992725C79F953222AF7DBEDE496AE42` | 교체 완료, EOF·경로 안전성 검증 통과 |
 | `rec_for_mxnet/Equalizedface.tar.gz` | 6,213,545,547 B | `7B47F25492858C87F91F79C745A5C8A92D555212F2FC2AF38DD375E3AD81CF66` | EOF 검증 통과 |
 | `rec_for_mxnet/train_balancedface.lst` | 46,369,652 B | `E43B0A820400F201DF534588E49DEA06D78FF5E38EBDE7A87A3F559D0E5CD1AF` | 1,251,416행 검증 통과 |
 
-손상 JPG archive는 Python에서 `unexpected end of data`, native tar에서 `Truncated input file`로 종료됐다. 부분 추출분도 실험에 사용하지 않는다. 필요하면 제공자 안내에 따라 해당 파일만 다시 다운로드하고 새 SHA-256과 EOF 검사를 수행한다.
+2026-07-23에 기존 16,740,773,888 B 절단 파일을 다시 다운로드한 33,377,022,995 B 파일로 교체했다. 새 파일은 1,279,435개 tar member를 EOF까지 읽었으며 unsafe path, duplicate member 및 unexpected regular file이 모두 0건이다.
+
+JPG archive와 RecordIO `.lst`는 같은 논리적 BalancedFace의 대체 배포 형식이지만 완전히 동일한 행 집합은 아니다.
+
+| 그룹 | JPG 이미지/identity | RecordIO 목록 이미지/identity | JPG−RecordIO |
+| --- | ---: | ---: | ---: |
+| African | 324,376 / 7,000 | 324,376 / 7,000 | 0 / 0 |
+| Asian | 325,475 / 7,000 | 325,493 / 7,000 | -18 / 0 |
+| Caucasian | 326,484 / 7,000 | 326,484 / 7,000 | 0 / 0 |
+| Indian | 275,095 / 7,000 | 275,063 / 6,999 | +32 / +1 |
+| 합계 | 1,251,430 / 28,000 | 1,251,416 / 27,999 | +14 / +1 |
+
+따라서 두 형식을 행 번호로 결합하거나 수량을 더하지 않는다. 실험 run마다 JPG 또는 RecordIO 중 하나만 선택하고 그 source hash를 고정한다.
+
+JPG 표본 검사에서는 African/Caucasian이 400×400 RGB였지만 Asian/Indian에는 작은 가변 해상도 RGB 이미지가 포함됐다. 담당자 안내의 정렬 문제와 일치하므로 JPG 사용 시 얼굴 검출·정렬과 그룹별 성공률 검증이 필수다.
 
 정상 RecordIO archive:
 
@@ -72,7 +86,7 @@ JPG와 BIN은 같은 RFW test의 대체 표현이므로 수량을 더하지 않�
 | 2 | Asian | 7,000 | 325,493 |
 | 3 | African | 7,000 | 324,376 |
 
-label 0~2는 손상되기 전 JPG archive의 named folder와 대조했고, label 3은 남은 유일 그룹인 African으로 판정했다. 이 근거 수준을 artifact summary에도 기록한다.
+label 0~2는 JPG archive의 named folder와 대조했고, label 3은 남은 유일 그룹인 African으로 판정했다. 완전한 새 JPG archive에서도 네 named group과 identity 수를 확인했다.
 
 ## 4. RFW–BalancedFace 누수 감사
 
@@ -111,6 +125,7 @@ prefix 이전의 provider Freebase identity ID로 교집합을 검사한 결과:
 
 - RFW aligned BIN의 제한적 안전 parser/materializer는 미구현
 - BalancedFace RecordIO decoder/materializer는 미구현
+- BalancedFace JPG의 공통 정렬·그룹별 coverage 검증은 미구현
 - 공통 112×112 crop hash와 그룹별 decode/alignment coverage는 미검증
 - 적격 checkpoint가 없어 RFW headline 모델 평가는 차단됨
 
