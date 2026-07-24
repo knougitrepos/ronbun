@@ -140,3 +140,61 @@ def select_model_spec(
             f"set MODEL_UID explicitly. Available: {available}"
         )
     return matches[0]
+
+
+def select_model_spec_by_profile(
+    registry_root: str | Path,
+    *,
+    profile_id: str,
+    profile_config: dict,
+    verify_checkpoint: bool = True,
+) -> tuple[Path, ModelSpec]:
+    """Select a registered ModelSpec matching a profile's expected metadata.
+
+    Unlike ``select_model_spec`` which uses only the family, this function
+    verifies that the found manifest's family, architecture, and training
+    dataset match the profile configuration.  This prevents provenance
+    mismatches when the same family has multiple checkpoints registered.
+    """
+
+    family = str(profile_config["family"])
+    expected_arch = str(profile_config["architecture"])
+    expected_dataset = str(profile_config["training_dataset"])
+
+    root = Path(registry_root).expanduser().resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"model registry directory does not exist: {root}")
+    if family not in {"arcface", "adaface", "magface"}:
+        raise ValueError(f"unsupported FR model family: {family}")
+
+    matches: list[tuple[Path, ModelSpec]] = []
+    for manifest_path in sorted(root.glob(f"{family}-*.json")):
+        spec = read_model_spec(
+            manifest_path, verify_checkpoint=verify_checkpoint
+        )
+        if manifest_path.stem != spec.model_uid:
+            raise ModelSpecSelectionError(
+                "model manifest filename does not match its computed model_uid: "
+                f"{manifest_path}"
+            )
+        if (
+            spec.family == family
+            and spec.architecture == expected_arch
+            and spec.training_dataset == expected_dataset
+        ):
+            matches.append((manifest_path, spec))
+
+    if not matches:
+        raise ModelSpecSelectionError(
+            f"profile '{profile_id}'에 해당하는 등록된 ModelSpec이 없습니다. "
+            f"family={family!r}, architecture={expected_arch!r}, "
+            f"training_dataset={expected_dataset!r}"
+        )
+    if len(matches) > 1:
+        available = ", ".join(spec.model_uid for _, spec in matches)
+        raise ModelSpecSelectionError(
+            f"profile '{profile_id}'에 해당하는 ModelSpec이 여러 개입니다; "
+            f"MODEL_UID를 명시적으로 지정하세요. Available: {available}"
+        )
+    return matches[0]
+

@@ -6,10 +6,15 @@ from research.embeddings.base import (
     PreprocessingSpec,
 )
 from research.embeddings.face_analysis import FaceAnalysisSettings, get_face_analysis_app
+from research.embeddings.checkpoint_downloader import (
+    download_checkpoint,
+    resolve_checkpoint_path,
+)
 from research.embeddings.manifests import (
     ModelSpecSelectionError,
     read_model_spec,
     select_model_spec,
+    select_model_spec_by_profile,
     write_model_spec,
 )
 from research.embeddings.registry import (
@@ -38,12 +43,15 @@ __all__ = [
     "SmokeInputBatch",
     "create_pytorch_adapter",
     "create_pytorch_adapter_from_spec",
+    "download_checkpoint",
     "get_face_analysis_app",
     "load_pytorch_module_factory",
     "read_model_spec",
     "register_pytorch_module_factory",
+    "resolve_checkpoint_path",
     "resolve_smoke_input_batch",
     "select_model_spec",
+    "select_model_spec_by_profile",
     "unregister_pytorch_module_factory",
     "write_model_spec",
 ]

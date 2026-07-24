@@ -30,69 +30,161 @@ aligned_crops:
   require_content_sha256: true
 
 models:
-  # The implementation/preprocessing contract is fixed here. A candidate
-  # becomes executable only after the matching checkpoint is downloaded,
-  # hashed, registered as ModelSpec, and smoke-tested.
-  selected: [arcface, adaface, magface]
+  # Each profile is a checkpoint-level identity: family + architecture +
+  # training dataset + preprocessing + target layer.  A profile becomes
+  # executable only after the matching checkpoint is downloaded, hashed,
+  # registered as ModelSpec, and smoke-tested.
+  #
+  # comparison_unit remains pretrained_checkpoint; causal_loss_claim is false.
+
+  selected_profiles:
+    - arcface_ms1mv3_r100
+    - adaface_ms1mv3_r100
+    - magface_ms1mv2_iresnet100
+
+  bridge_profiles:
+    - adaface_ms1mv2_r100
+
+  blocked_profiles:
+    - arcface_ms1mv2_r100
+
   allow_unverified_metadata: false
-  candidates:
-    arcface:
+
+  profiles:
+    arcface_ms1mv3_r100:
+      family: arcface
+      role: primary
       status: implementation_ready_checkpoint_required
       framework: pytorch
-      backbone: iresnet100
-      training_dataset: ms1mv2
+      architecture: iresnet100
+      architecture_display_name: r100
+      training_dataset: ms1mv3
       embedding_dim: 512
       checkpoint_path: null
+      checkpoint_source_url: null
       implementation_repository: https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
       checkpoint_source_page: https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch#model-zoo
       loader_factory: research.embeddings.pytorch.official_loaders:load_arcface_checkpoint
       target_layer: layer4.2.conv2
+      run_compression: true
+      run_gradcam: true
       preprocessing:
         input_size: [112, 112]
         model_color_order: rgb
         input_range: [-1.0, 1.0]
         mean: [127.5, 127.5, 127.5]
         std: [127.5, 127.5, 127.5]
-    adaface:
+
+    adaface_ms1mv3_r100:
+      family: adaface
+      role: primary
       status: implementation_ready_checkpoint_required
       framework: pytorch
-      backbone: ir_101
-      training_dataset: ms1mv2
+      architecture: ir_101
+      architecture_display_name: r100
+      training_dataset: ms1mv3
       embedding_dim: 512
       checkpoint_path: null
+      checkpoint_source_url: https://drive.google.com/file/d/1hRI8YhlfTx2YMzyDwsqLTOxbyFVOqpSI/view
       implementation_repository: https://github.com/mk-minchul/AdaFace
       checkpoint_source_page: https://github.com/mk-minchul/AdaFace#pretrained-models
       loader_factory: research.embeddings.pytorch.official_loaders:load_adaface_checkpoint
       target_layer: body.48.res_layer.4
+      run_compression: true
+      run_gradcam: true
       preprocessing:
         input_size: [112, 112]
         model_color_order: bgr
         input_range: [-1.0, 1.0]
         mean: [127.5, 127.5, 127.5]
         std: [127.5, 127.5, 127.5]
-    magface:
+
+    magface_ms1mv2_iresnet100:
+      family: magface
+      role: primary
       status: implementation_ready_checkpoint_required
       framework: pytorch
-      backbone: iresnet100
+      architecture: iresnet100
+      architecture_display_name: iresnet100
       training_dataset: ms1mv2
       embedding_dim: 512
       checkpoint_path: null
+      checkpoint_source_url: null
       implementation_repository: https://github.com/IrvingMeng/MagFace
       checkpoint_source_page: https://github.com/IrvingMeng/MagFace#model-zoo
       loader_factory: research.embeddings.pytorch.official_loaders:load_magface_checkpoint
       target_layer: layer4.2.conv2
+      run_compression: true
+      run_gradcam: true
       preprocessing:
+        # MagFace 공식 inference (gen_feat.py): PIL(RGB) → ToTensor([0,1]) →
+        # Normalize(mean=0, std=1).  Adapter는 (x - mean) / std를 계산하므로
+        # mean=0, std=255로 두면 uint8 → [0,1] 변환과 동일하다.
         input_size: [112, 112]
-        model_color_order: bgr
+        model_color_order: rgb
         input_range: [0.0, 1.0]
         mean: [0.0, 0.0, 0.0]
         std: [255.0, 255.0, 255.0]
 
+    adaface_ms1mv2_r100:
+      family: adaface
+      role: bridge
+      status: implementation_ready_checkpoint_required
+      framework: pytorch
+      architecture: ir_101
+      architecture_display_name: r100
+      training_dataset: ms1mv2
+      embedding_dim: 512
+      checkpoint_path: null
+      checkpoint_source_url: https://drive.google.com/file/d/1m757p4-tUU5xlSHLaO04sqnhvqankimN/view
+      implementation_repository: https://github.com/mk-minchul/AdaFace
+      checkpoint_source_page: https://github.com/mk-minchul/AdaFace#pretrained-models
+      loader_factory: research.embeddings.pytorch.official_loaders:load_adaface_checkpoint
+      target_layer: body.48.res_layer.4
+      run_compression: true
+      run_gradcam: false
+      preprocessing:
+        input_size: [112, 112]
+        model_color_order: bgr
+        input_range: [-1.0, 1.0]
+        mean: [127.5, 127.5, 127.5]
+        std: [127.5, 127.5, 127.5]
+
+    arcface_ms1mv2_r100:
+      family: arcface
+      role: blocked
+      status: blocked_no_verified_public_checkpoint
+      blocked_reason: >
+        재현 가능한 공식 공개 checkpoint 경로가 현재 확인되지 않은 profile입니다.
+        InsightFace 공식 OneDrive의 공개 목록에서 MS1MV2 ArcFace R100 .pth를
+        확인·확보할 수 없으므로, 재현 가능한 공개 checkpoint로 간주하지 않습니다.
+      framework: pytorch
+      architecture: iresnet100
+      architecture_display_name: r100
+      training_dataset: ms1mv2
+      embedding_dim: 512
+      checkpoint_path: null
+      checkpoint_source_url: null
+      implementation_repository: https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
+      checkpoint_source_page: null
+      loader_factory: research.embeddings.pytorch.official_loaders:load_arcface_checkpoint
+      target_layer: layer4.2.conv2
+      run_compression: false
+      run_gradcam: false
+      preprocessing:
+        input_size: [112, 112]
+        model_color_order: rgb
+        input_range: [-1.0, 1.0]
+        mean: [127.5, 127.5, 127.5]
+        std: [127.5, 127.5, 127.5]
+
 datasets:
   quantitative: [lfw, survface]
-  # RFW remains conditional because all currently declared candidates are
-  # MS1MV2 checkpoints. BalancedFace is a development/calibration candidate,
-  # not a final test set or an FR-model training request.
+  # RFW remains conditional because all currently declared profiles use
+  # MS1M-derived training data (MS1MV2 or MS1MV3). RFW is derived from
+  # MS-Celeb-1M and shares identity overlap. Without explicit identity-
+  # disjoint evidence, fail-closed is the correct default for all MS1M
+  # family checkpoints.
   conditional_quantitative: [rfw]
   additional_development_sources: [balancedface]
   saliency_population_initial: [lfw]
