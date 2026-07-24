@@ -1,3 +1,8 @@
+models/**/*.pth
+models/**/*.ckpt
+
+
+
 # Local configuration and secrets
 .env
 configs/database.local.yaml
