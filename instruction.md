@@ -164,27 +164,27 @@ ArcFace부터 시작하고, 성공한 뒤 AdaFace와 MagFace에 같은 절차를
 
 1. `notebooks/model_validation/00_checkpoint_registration.ipynb`
 
-노트북에서 다음 값을 직접 채운다.
+노트북에서 다음 값만 직접 확인·지정한다.
 
 - `CHECKPOINT_PATH`
-- `CHECKPOINT_SOURCE_URL`
-- `IMPLEMENTATION_REPOSITORY`
-- `MODULE_FACTORY`
-- `TARGET_LAYER`
-- `SOURCE_COLOR_ORDER`
-- `MODEL_COLOR_ORDER`
-- `CHANNEL_MEAN`
-- `CHANNEL_STD`
 
-`MODULE_FACTORY`는 다음 형식의 로컬 Python callable이어야 한다.
+`CHECKPOINT_SOURCE_URL`은 선택 모델의 공식 model-zoo 페이지를 기본값으로
+사용하며, 실제 파일을 다른 공식 링크에서 받았다면 그 링크로 바꾼다.
+architecture, repository, `MODULE_FACTORY`, target layer, model color order,
+mean/std는 `configs/experiments/step2_pytorch_gradcam.yaml`에서 모델별로 자동
+선택된다. 공통 crop source 형식도 `RGB uint8 NHWC`로 고정되어 자동 입력된다.
+현재 내장 factory는 다음 세 개다.
 
 ```text
-package.module:function
+research.embeddings.pytorch.official_loaders:load_arcface_checkpoint
+research.embeddings.pytorch.official_loaders:load_adaface_checkpoint
+research.embeddings.pytorch.official_loaders:load_magface_checkpoint
 ```
 
-해당 함수는 등록된 `ModelSpec`을 받아 실제 `torch.nn.Module`을 반환해야 한다.
-저장소에는 ArcFace/AdaFace/MagFace 공식 checkpoint 형식을 임의로 추측하는
-loader가 포함되어 있지 않다.
+각 factory는 등록된 `ModelSpec`을 받아 공식 repository와 state-dict key가
+호환되는 inference backbone을 만들고, 누락·추가·shape mismatch가 하나라도
+있으면 checkpoint 로드를 중단한다. AdaFace는 정규화 전 512D를 반환하여
+`raw_norm`이 소실되지 않도록 한다.
 
 저장 시 생성되는 manifest:
 
@@ -203,10 +203,18 @@ checkpoint 등록 직후 다음 파일을 실행한다.
 
 필요한 입력:
 
-- `MODEL_SPEC_PATH`: 앞 단계에서 생성한 JSON
-- `SMOKE_CROPS_NPZ`: `aligned_faces` 키를 가진 uint8
-  `[N, 112, 112, 3]` 배열
+- `MODEL_REGISTRY_ROOT`: 기본 `runs/step2/model_registry`
+- `MODEL_NAME`: `arcface`, `adaface`, `magface`
+- `MODEL_UID`: 같은 family가 하나이면 `None`; 둘 이상이면 정확한 UID
+- `SMOKE_INPUT_PATH`: 기본 `None`. 이 경우 LFW manifest가 가리키는
+  deep-funneled 이미지에서 identity가 겹치지 않는 소량 표본을 자동 선택하고
+  112×112 입력을 메모리에서 생성한다. 이미 검증된 uint8 `[N,112,112,3]`
+  `.npy` 또는 `aligned_faces` 키의 `.npz`가 있으면 선택적으로 지정한다.
 - `DEVICE`: 최초에는 `cpu`, 확인 후 필요하면 `cuda`
+
+자동 LFW 입력은 checkpoint 로드·전처리·출력 shape·target layer만 확인하는
+smoke 전용이다. 해당 resize 결과를 정량 압축 실험이나 population Grad-CAM의
+공통 정렬 crop으로 사용하지 않는다.
 
 검증 항목:
 
@@ -216,7 +224,14 @@ checkpoint 등록 직후 다음 파일을 실행한다.
 - checkpoint와 전처리 hash가 유지되는가
 - 지정한 Grad-CAM target layer가 실제로 존재하는가
 
-ArcFace smoke test가 통과한 뒤 AdaFace, MagFace 순으로 반복한다.
+ArcFace smoke test가 통과한 뒤 AdaFace, MagFace 순으로 반복한다. 해당 family의
+ModelSpec이 정확히 하나이면 자동 선택하고, 없거나 둘 이상이면 실패 폐쇄형으로
+중단한다.
+
+이후 LFW Grad-CAM 00도 같은 registry에서 `MODEL_NAME`과 선택적 `MODEL_UID`로
+ModelSpec을 자동 선택한다. 01은 freeze manifest의 exact `model_uid`, 02는
+Pass-A artifact의 exact `model_uid`를 사용하므로 ModelSpec JSON 경로를 다시
+입력하지 않는다.
 
 ## 7. LFW 원본 embedding·Grad-CAM population 추출
 

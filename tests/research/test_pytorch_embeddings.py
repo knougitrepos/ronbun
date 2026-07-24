@@ -15,7 +15,12 @@ from research.embeddings.base import (
     PreprocessingSpec,
 )
 from research.embeddings.pytorch import PyTorchUnavailableError, resolve_target_layer
-from research.embeddings.manifests import read_model_spec, write_model_spec
+from research.embeddings.manifests import (
+    ModelSpecSelectionError,
+    read_model_spec,
+    select_model_spec,
+    write_model_spec,
+)
 from research.embeddings.registry import (
     ModelFactoryUnavailableError,
     create_pytorch_adapter,
@@ -167,6 +172,74 @@ def test_model_spec_manifest_detects_changed_checkpoint(tmp_path):
 
     with pytest.raises(ValueError, match="no longer matches"):
         read_model_spec(path)
+
+
+def test_model_spec_registry_selects_unique_family_or_exact_uid(tmp_path):
+    registry = tmp_path / "registry"
+    arcface = _spec(tmp_path, "arcface")
+    adaface = _spec(tmp_path, "adaface")
+    arcface_path = write_model_spec(
+        registry / f"{arcface.model_uid}.json", arcface
+    )
+    write_model_spec(registry / f"{adaface.model_uid}.json", adaface)
+
+    selected_path, selected = select_model_spec(registry, family="arcface")
+    exact_path, exact = select_model_spec(
+        registry,
+        family="arcface",
+        model_uid=arcface.model_uid,
+    )
+
+    assert selected_path == arcface_path
+    assert selected == arcface
+    assert exact_path == arcface_path
+    assert exact == arcface
+
+
+def test_model_spec_registry_requires_uid_when_family_is_ambiguous(tmp_path):
+    registry = tmp_path / "registry"
+    first_root = tmp_path / "first"
+    first_root.mkdir()
+    second_root = tmp_path / "second"
+    second_root.mkdir()
+    first = _spec(first_root, "arcface")
+    write_model_spec(registry / f"{first.model_uid}.json", first)
+    second = _spec(second_root, "arcface")
+    Path(second.checkpoint.path).write_bytes(b"different-arcface-checkpoint")
+    second = ModelSpec(
+        family=second.family,
+        architecture=second.architecture,
+        training_dataset=second.training_dataset,
+        implementation_repository=second.implementation_repository,
+        checkpoint=CheckpointProvenance.from_file(
+            second.checkpoint.path,
+            source_url=second.checkpoint.source_url,
+        ),
+        preprocessing=second.preprocessing,
+        target_layer=second.target_layer,
+    )
+    write_model_spec(registry / f"{second.model_uid}.json", second)
+
+    with pytest.raises(ModelSpecSelectionError, match="MODEL_UID explicitly"):
+        select_model_spec(registry, family="arcface")
+
+
+def test_model_spec_registry_rejects_unsafe_or_wrong_family_uid(tmp_path):
+    registry = tmp_path / "registry"
+    registry.mkdir()
+
+    with pytest.raises(ValueError, match="20 lowercase hex"):
+        select_model_spec(
+            registry,
+            family="arcface",
+            model_uid="../summary",
+        )
+    with pytest.raises(ModelSpecSelectionError, match="requested family"):
+        select_model_spec(
+            registry,
+            family="arcface",
+            model_uid="adaface-" + "0" * 20,
+        )
 
 
 def test_factory_boundary_fails_before_guessing_an_official_loader(tmp_path):

@@ -77,8 +77,9 @@ artifact를 Step 1 결과로 받아들이지 않습니다.
 Step 2는 기존 데이터셋별 Step 1 노트북을 수정하지 않고 다음 두 폴더를
 추가합니다.
 
-- `model_validation/`: ArcFace/AdaFace/MagFace의 checkpoint 등록, 전처리
-  명세, 512D/raw norm/L2 출력 및 target layer를 검증합니다.
+- `model_validation/`: ArcFace/AdaFace/MagFace 호환 PyTorch loader와 모델별
+  자동 전처리 계약으로 checkpoint를 등록하고, registry 자동 선택,
+  512D/raw norm/L2 출력 및 target layer를 검증합니다.
 - `lfw/gradcam/`: 모든 선택 이미지의 원본 embedding과 LOO cosine
   Grad-CAM 특징을 먼저 추출하고, 이후 PCA/PQ 민감도와 결합합니다.
 

@@ -121,7 +121,11 @@ bundle 및 같은 run을 가리키는 `active_run.json`을 하나의 plan digest
 checkpoint/model registry, 다른 run 및 cleanup 감사 기록은 삭제 대상이
 아닙니다.
 
-Step 1 공통 설정은 `configs/experiments/step1_embedding_compression.yaml`입니다. ArcFace만 현재 실행 가능하며 AdaFace와 MagFace는 adapter가 추가될 때까지 계획 상태입니다.
+Step 1 공통 설정은 `configs/experiments/step1_embedding_compression.yaml`입니다.
+Step 2에는 ArcFace·AdaFace·MagFace 공식 repository 호환 PyTorch backbone과
+엄격한 checkpoint loader가 구현되어 있습니다. 다만 실제 공개 checkpoint
+파일은 저장소에 포함하지 않으므로 사용자가 내려받아 ModelSpec으로 등록해야
+실행할 수 있습니다.
 
 Step 2를 실행하려면 기본 환경을 설치한 뒤 로컬 driver에 맞는 PyTorch wheel을 준비합니다.
 

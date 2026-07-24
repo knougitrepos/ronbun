@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import nbformat
 
@@ -77,34 +78,63 @@ def test_step2_notebooks_fail_closed_by_default() -> None:
     for source in all_sources:
         assert 'MODEL_NAME = "arcface"' in source
         assert 'MODE = "dev"' in source
-        assert "DATA_FRACTION = 0.10" in source
         assert "SEED = 42" in source
         assert "EXECUTE_STAGE = False" in source
         assert "WRITE_OUTPUTS = False" in source
         assert "if WRITE_OUTPUTS and not EXECUTE_STAGE:" in source
 
+    for source in gradcam_sources.values():
+        assert "DATA_FRACTION = 0.10" in source
+    for source in model_sources.values():
+        match = re.search(r"^DATA_FRACTION = ([0-9.]+)", source, re.MULTILINE)
+        assert match is not None
+        assert 0.0 < float(match.group(1)) <= 1.0
+
     assert "write_model_spec" in model_sources["00_checkpoint_registration.ipynb"]
+    registration = model_sources["00_checkpoint_registration.ipynb"]
+    assert (
+        'SOURCE_COLOR_ORDER = CONFIG["aligned_crops"]["source_color_order"]'
+        in registration
+    )
     assert (
         "create_pytorch_adapter_from_spec"
         in model_sources["01_preprocessing_and_model_smoke.ipynb"]
     )
+    assert (
+        "select_model_spec"
+        in model_sources["01_preprocessing_and_model_smoke.ipynb"]
+    )
+    smoke = model_sources["01_preprocessing_and_model_smoke.ipynb"]
+    assert "resolve_smoke_input_batch" in smoke
+    assert "SMOKE_INPUT_PATH = None" in smoke
+    assert "SMOKE_CROPS_NPZ" not in smoke
+    assert "quantitative_experiment_input" not in smoke
 
 
 def test_gradcam_notebooks_enforce_population_first_stage_boundaries() -> None:
     sources = _sources(NOTEBOOK_ROOT / "lfw" / "gradcam")
 
     freeze = sources["00_source_and_model_freeze.ipynb"]
+    assert "select_model_spec" in freeze
+    assert "MODEL_UID = None" in freeze
+    assert "MODEL_SPEC_PATH" not in freeze
     assert "SELECTED_MANIFEST_OUTPUT_PATH" in freeze
     assert "FREEZE_MANIFEST_OUTPUT_PATH" in freeze
     assert "PAIRED_METRICS_PATH" not in freeze
     assert "RETRIEVAL_METRICS_PATH" not in freeze
 
     origin = sources["01_origin_embedding_and_loo_templates.ipynb"]
+    assert "select_model_spec" in origin
+    assert 'model_uid=str(freeze["model_uid"])' in origin
+    assert "MODEL_SPEC_PATH" not in origin
     assert "prepare_population_saliency_inputs" in origin
     assert "write_prepared_population_artifact" in origin
     assert "require_all_eligible=False" in origin
 
     population = sources["02_population_gradcam_extraction.ipynb"]
+    assert "select_model_spec" in population
+    assert "model_uid=prepared.model_uid" in population
+    assert "MODEL_SPEC_PATH" not in population
     assert "extract_population_gradcam" in population
     assert "read_prepared_population_artifact" in population
     assert "write_population_saliency_artifact" in population

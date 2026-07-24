@@ -77,12 +77,7 @@ def create_pytorch_adapter(
     device: str = "cpu",
     output_selector: OutputSelector | None = None,
 ) -> PyTorchFaceEmbeddingAdapter:
-    """Wrap an injected module or use an explicitly registered factory.
-
-    No default "official" checkpoint loader is bundled because the three
-    upstream repositories use different architectures and state-dict formats.
-    This prevents silently loading a checkpoint into an incompatible network.
-    """
+    """Wrap an injected module or use an explicitly registered factory."""
 
     resolved_module = module
     if resolved_module is None:

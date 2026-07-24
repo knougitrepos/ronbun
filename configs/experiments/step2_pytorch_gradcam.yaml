@@ -23,60 +23,70 @@ study_boundary:
 aligned_crops:
   manifest_path: data/interim/common/aligned_112_manifest.parquet
   image_size: [112, 112]
+  source_color_order: rgb
+  dtype: uint8
+  layout: nhwc
   freeze_before_model_comparison: true
   require_content_sha256: true
 
 models:
-  # A candidate is not executable until checkpoint_path, loader_factory,
-  # preprocessing, and target_layer are registered and validated.
+  # The implementation/preprocessing contract is fixed here. A candidate
+  # becomes executable only after the matching checkpoint is downloaded,
+  # hashed, registered as ModelSpec, and smoke-tested.
   selected: [arcface, adaface, magface]
   allow_unverified_metadata: false
   candidates:
     arcface:
-      status: checkpoint_required
+      status: implementation_ready_checkpoint_required
       framework: pytorch
       backbone: iresnet100
       training_dataset: ms1mv2
       embedding_dim: 512
       checkpoint_path: null
-      loader_factory: null
-      target_layer: null
+      implementation_repository: https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
+      checkpoint_source_page: https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch#model-zoo
+      loader_factory: research.embeddings.pytorch.official_loaders:load_arcface_checkpoint
+      target_layer: layer4.2.conv2
       preprocessing:
         input_size: [112, 112]
-        color_order: null
-        input_range: null
-        mean: null
-        std: null
+        model_color_order: rgb
+        input_range: [-1.0, 1.0]
+        mean: [127.5, 127.5, 127.5]
+        std: [127.5, 127.5, 127.5]
     adaface:
-      status: checkpoint_required
+      status: implementation_ready_checkpoint_required
       framework: pytorch
-      backbone: iresnet100
+      backbone: ir_101
       training_dataset: ms1mv2
       embedding_dim: 512
       checkpoint_path: null
-      loader_factory: null
-      target_layer: null
+      implementation_repository: https://github.com/mk-minchul/AdaFace
+      checkpoint_source_page: https://github.com/mk-minchul/AdaFace#pretrained-models
+      loader_factory: research.embeddings.pytorch.official_loaders:load_adaface_checkpoint
+      target_layer: body.48.res_layer.4
       preprocessing:
         input_size: [112, 112]
-        color_order: null
-        input_range: null
-        mean: null
-        std: null
+        model_color_order: bgr
+        input_range: [-1.0, 1.0]
+        mean: [127.5, 127.5, 127.5]
+        std: [127.5, 127.5, 127.5]
     magface:
-      status: checkpoint_required
+      status: implementation_ready_checkpoint_required
       framework: pytorch
       backbone: iresnet100
       training_dataset: ms1mv2
       embedding_dim: 512
       checkpoint_path: null
-      loader_factory: null
-      target_layer: null
+      implementation_repository: https://github.com/IrvingMeng/MagFace
+      checkpoint_source_page: https://github.com/IrvingMeng/MagFace#model-zoo
+      loader_factory: research.embeddings.pytorch.official_loaders:load_magface_checkpoint
+      target_layer: layer4.2.conv2
       preprocessing:
         input_size: [112, 112]
-        color_order: null
-        input_range: null
-        mean: null
-        std: null
+        model_color_order: bgr
+        input_range: [0.0, 1.0]
+        mean: [0.0, 0.0, 0.0]
+        std: [255.0, 255.0, 255.0]
 
 datasets:
   quantitative: [lfw, survface]

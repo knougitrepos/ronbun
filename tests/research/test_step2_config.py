@@ -20,19 +20,44 @@ def test_step2_config_is_checkpoint_level_and_fails_closed() -> None:
     assert config["study_boundary"]["exact_origin_fallback"] is False
     assert config["execution"]["execute_stage"] is False
     assert config["execution"]["write_outputs"] is False
+    assert config["aligned_crops"]["source_color_order"] == "rgb"
+    assert config["aligned_crops"]["dtype"] == "uint8"
+    assert config["aligned_crops"]["layout"] == "nhwc"
 
     models = config["models"]
     assert models["selected"] == ["arcface", "adaface", "magface"]
     assert models["allow_unverified_metadata"] is False
     for name in models["selected"]:
         candidate = models["candidates"][name]
-        assert candidate["status"] == "checkpoint_required"
+        assert candidate["status"] == "implementation_ready_checkpoint_required"
         assert candidate["framework"] == "pytorch"
         assert candidate["embedding_dim"] == 512
         assert candidate["checkpoint_path"] is None
-        assert candidate["loader_factory"] is None
-        assert candidate["target_layer"] is None
-        assert None in candidate["preprocessing"].values()
+        assert candidate["loader_factory"].startswith(
+            "research.embeddings.pytorch.official_loaders:"
+        )
+        assert candidate["target_layer"]
+        assert candidate["implementation_repository"].startswith("https://github.com/")
+        assert candidate["checkpoint_source_page"].startswith("https://github.com/")
+        assert None not in candidate["preprocessing"].values()
+
+    assert models["candidates"]["arcface"]["preprocessing"] == {
+        "input_size": [112, 112],
+        "model_color_order": "rgb",
+        "input_range": [-1.0, 1.0],
+        "mean": [127.5, 127.5, 127.5],
+        "std": [127.5, 127.5, 127.5],
+    }
+    assert models["candidates"]["adaface"]["preprocessing"][
+        "model_color_order"
+    ] == "bgr"
+    assert models["candidates"]["magface"]["preprocessing"] == {
+        "input_size": [112, 112],
+        "model_color_order": "bgr",
+        "input_range": [0.0, 1.0],
+        "mean": [0.0, 0.0, 0.0],
+        "std": [255.0, 255.0, 255.0],
+    }
 
 
 def test_step2_config_preserves_independent_pca_and_pq_families() -> None:
