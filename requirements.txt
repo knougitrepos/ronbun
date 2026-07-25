@@ -1,5 +1,5 @@
 # Core numerical and experiment stack
-numpy>=1.21.0
+numpy>=1.21.0,<2.0.0
 pandas>=1.5.0
 scikit-learn>=1.1.0
 scipy>=1.8.0
@@ -10,7 +10,7 @@ pyarrow>=10.0.0
 # Face embeddings and vector compression
 opencv-python>=4.7.0
 insightface>=0.7.3
-onnxruntime>=1.15.0
+onnxruntime-gpu>=1.16.0,<1.18.0
 pillow>=9.0.0
 faiss-cpu>=1.7.4
 

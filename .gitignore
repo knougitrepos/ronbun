@@ -1,6 +1,11 @@
 models/**/*.pth
 models/**/*.ckpt
 
+# Big data & binary serialized artifacts
+*.parquet
+*.npy
+*.npz
+*.bin
 
 
 # Local configuration and secrets

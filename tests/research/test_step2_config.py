@@ -25,35 +25,39 @@ def test_step2_config_is_checkpoint_level_and_fails_closed() -> None:
     assert config["aligned_crops"]["layout"] == "nhwc"
 
     models = config["models"]
-    assert models["selected"] == ["arcface", "adaface", "magface"]
+    assert models["selected_profiles"] == [
+        "arcface_ms1mv3_r100",
+        "adaface_ms1mv3_r100",
+        "magface_ms1mv2_iresnet100",
+    ]
     assert models["allow_unverified_metadata"] is False
-    for name in models["selected"]:
-        candidate = models["candidates"][name]
-        assert candidate["status"] == "implementation_ready_checkpoint_required"
-        assert candidate["framework"] == "pytorch"
-        assert candidate["embedding_dim"] == 512
-        assert candidate["checkpoint_path"] is None
-        assert candidate["loader_factory"].startswith(
+    for name in models["selected_profiles"]:
+        profile = models["profiles"][name]
+        assert profile["status"] == "implementation_ready_checkpoint_required"
+        assert profile["framework"] == "pytorch"
+        assert profile["embedding_dim"] == 512
+        assert profile["checkpoint_path"] is None
+        assert profile["loader_factory"].startswith(
             "research.embeddings.pytorch.official_loaders:"
         )
-        assert candidate["target_layer"]
-        assert candidate["implementation_repository"].startswith("https://github.com/")
-        assert candidate["checkpoint_source_page"].startswith("https://github.com/")
-        assert None not in candidate["preprocessing"].values()
+        assert profile["target_layer"]
+        assert profile["implementation_repository"].startswith("https://github.com/")
+        assert profile["checkpoint_source_page"].startswith("https://github.com/")
+        assert None not in profile["preprocessing"].values()
 
-    assert models["candidates"]["arcface"]["preprocessing"] == {
+    assert models["profiles"]["arcface_ms1mv3_r100"]["preprocessing"] == {
         "input_size": [112, 112],
         "model_color_order": "rgb",
         "input_range": [-1.0, 1.0],
         "mean": [127.5, 127.5, 127.5],
         "std": [127.5, 127.5, 127.5],
     }
-    assert models["candidates"]["adaface"]["preprocessing"][
+    assert models["profiles"]["adaface_ms1mv3_r100"]["preprocessing"][
         "model_color_order"
     ] == "bgr"
-    assert models["candidates"]["magface"]["preprocessing"] == {
+    assert models["profiles"]["magface_ms1mv2_iresnet100"]["preprocessing"] == {
         "input_size": [112, 112],
-        "model_color_order": "bgr",
+        "model_color_order": "rgb",
         "input_range": [0.0, 1.0],
         "mean": [0.0, 0.0, 0.0],
         "std": [255.0, 255.0, 255.0],

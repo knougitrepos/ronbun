@@ -23,14 +23,14 @@ runbook이며 공통 계산은 `research/`의 Python 모듈을 호출합니다.
 
 ## LFW
 
-`notebooks/lfw/data_preparation.ipynb`에서 development, calibration, test를
+`notebooks/lfw/00_data_preparation.ipynb`에서 development, calibration, test를
 identity-disjoint하게 만든 뒤 각 역할 안에서 `DATA_FRACTION`을 적용합니다.
 이후 임베딩과 압축 노트북을 실행합니다. Step 1 설정의 기준 파일은
 `configs/experiments/step1_embedding_compression.yaml`입니다.
 
-기존 `03_compressed_materialization_and_index.ipynb`와
-`04_probe_search_and_certification.ipynb`는 thesis3 DB 시스템 결과 재현을 위해
-보존합니다. 특히 04는 과거 origin exact fallback을 포함하므로 Step 1에서는
+기존 `05_compressed_materialization_and_index.ipynb`와
+`06_probe_search_and_certification.ipynb`는 thesis3 DB 시스템 결과 재현을 위해
+보존합니다. 특히 06은 과거 origin exact fallback을 포함하므로 Step 1에서는
 실행할 수 없게 guard되어 있습니다.
 
 ## QMUL-SurvFace-v1
@@ -80,20 +80,22 @@ Step 2는 기존 데이터셋별 Step 1 노트북을 수정하지 않고 다음 
 - `model_validation/`: ArcFace/AdaFace/MagFace 호환 PyTorch loader와 모델별
   자동 전처리 계약으로 checkpoint를 등록하고, registry 자동 선택,
   512D/raw norm/L2 출력 및 target layer를 검증합니다.
-- `lfw/gradcam/`: 모든 선택 이미지의 원본 embedding과 LOO cosine
-  Grad-CAM 특징을 먼저 추출하고, 이후 PCA/PQ 민감도와 결합합니다.
+- `notebooks/lfw/`: LFW 데이터 준비, 크롭 정렬, 원본 공간 Grad-CAM 특징 추출 및 PCA/PQ 압축 민감도 결합 메인 파이프라인.
 
 실행 순서는 다음과 같습니다.
 
 1. `model_validation/00_checkpoint_registration.ipynb`
 2. `model_validation/01_preprocessing_and_model_smoke.ipynb`
-3. `lfw/gradcam/00_source_and_model_freeze.ipynb`
-4. `lfw/gradcam/01_origin_embedding_and_loo_templates.ipynb`
-5. `lfw/gradcam/02_population_gradcam_extraction.ipynb`
-6. `lfw/gradcam/03_saliency_feature_validation.ipynb`
-7. `lfw/gradcam/04_step2_compression_characterization.ipynb`
-8. `lfw/gradcam/05_saliency_compression_join.ipynb`
-9. `lfw/gradcam/06_representative_case_visualization.ipynb`
+3. `lfw/00_data_preparation.ipynb`
+4. `lfw/01_protocol_and_run_freeze.ipynb`
+5. `lfw/02_materialize_aligned_crops.ipynb`
+6. `lfw/03_source_and_model_freeze.ipynb`
+7. `lfw/04_origin_embedding_and_loo_templates.ipynb`
+8. `lfw/05_population_gradcam_extraction.ipynb`
+9. `lfw/06_saliency_feature_validation.ipynb`
+10. `lfw/07_compression_characterization.ipynb`
+11. `lfw/08_saliency_compression_join.ipynb`
+12. `lfw/09_representative_case_visualization.ipynb`
 
 Pass A는 모든 선택 표본의 임베딩을 보존하고 Pass B는 동일인
 leave-one-out target이 있는 모든 표본에 Grad-CAM을 수행합니다. singleton과

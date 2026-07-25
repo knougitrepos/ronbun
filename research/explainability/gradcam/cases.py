@@ -176,7 +176,7 @@ def select_gradcam_cases(
         name="agreement_with_origin",
     )
     merged["_crossing"] = _strict_bool(
-        merged["threshold_crossing"],
+        merged["threshold_crossing"].fillna(False),
         name="threshold_crossing",
     )
     merged["_error"] = pd.to_numeric(merged[error_column], errors="coerce")
@@ -338,17 +338,17 @@ def select_population_representative_cases(
         frame["heatmap_available"],
         name="heatmap_available",
     )
+    frame = frame.loc[frame["_eligible"] & frame["_heatmap"]].copy()
+    if frame.empty:
+        raise ValueError("no joined rows have an eligible, available heatmap")
     frame["_agreement"] = _strict_bool(
         frame["agreement_with_origin"],
         name="agreement_with_origin",
     )
     frame["_crossing"] = _strict_bool(
-        frame["threshold_crossing"],
+        frame["threshold_crossing"].fillna(False),
         name="threshold_crossing",
     )
-    frame = frame.loc[frame["_eligible"] & frame["_heatmap"]].copy()
-    if frame.empty:
-        raise ValueError("no joined rows have an eligible, available heatmap")
     key_columns = [
         "extraction_uid",
         "dataset_id",

@@ -191,6 +191,11 @@ datasets:
   lfw:
     manifest_path: data/interim/lfw/face_manifest.csv
     protocol_adapter: lfw_identity_disjoint
+    aligned_crops:
+      manifest_path: data/interim/common/aligned_112/lfw/aligned_manifest.parquet
+      array_path: data/interim/common/aligned_112/lfw/aligned_faces.npy
+      bundle_manifest_path: data/interim/common/aligned_112/lfw/bundle_manifest.json
+      failure_manifest_path: data/interim/common/aligned_112/lfw/failed_samples.parquet
   survface:
     training_manifest_path: data/interim/survface/training_manifest.csv
     manifest_path: data/interim/survface/official_manifest.csv
