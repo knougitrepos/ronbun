@@ -2,7 +2,10 @@ from research.runtime.run_store import (
     ACTIVE_RUN_POINTER,
     PhaseContext,
     RunStore,
+    dataset_date_run_root,
     resolve_active_run,
+    resolve_active_dataset_run,
+    resolve_or_create_dataset_run_root,
 )
 from research.runtime.progress import ProgressReporter
 from research.runtime.paper_results import export_paper_results
@@ -12,6 +15,9 @@ __all__ = [
     "PhaseContext",
     "ProgressReporter",
     "RunStore",
+    "dataset_date_run_root",
     "export_paper_results",
     "resolve_active_run",
+    "resolve_active_dataset_run",
+    "resolve_or_create_dataset_run_root",
 ]

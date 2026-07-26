@@ -7,7 +7,12 @@ import pytest
 
 from research.runtime.hashing import canonical_sha256
 from research.runtime.redaction import redact
-from research.runtime.run_store import RunStore
+from research.runtime.run_store import (
+    RunStore,
+    dataset_date_run_root,
+    resolve_active_dataset_run,
+    resolve_or_create_dataset_run_root,
+)
 
 
 KST = ZoneInfo("Asia/Seoul")
@@ -192,3 +197,36 @@ def test_create_or_reuse_active_keeps_one_incomplete_result(tmp_path):
         repo_root=tmp_path,
     )
     assert second.run_dir != first.run_dir
+
+
+def test_dataset_date_root_keeps_lfw_runs_readable_and_restartable(tmp_path):
+    now = datetime(2026, 7, 27, 9, 30, tzinfo=KST)
+    base_root = tmp_path / "runs"
+    run_root = dataset_date_run_root(
+        base_root,
+        dataset_id="lfw",
+        now=now,
+    )
+    assert run_root == base_root / "lfw_20260727"
+
+    run = RunStore.create_or_reuse_active(
+        experiment_name="step2-lfw-arcface",
+        config={"model_uid": "arcface-1", "seed": 42},
+        root=run_root,
+        repo_root=tmp_path,
+        partition_by_date=False,
+    )
+    assert run.run_dir.parent == run_root
+    assert RunStore.open(run.run_dir).root == run_root.resolve()
+    assert (
+        resolve_active_dataset_run(base_root, dataset_id="lfw")
+        == run.run_dir.resolve()
+    )
+    assert (
+        resolve_or_create_dataset_run_root(
+            base_root,
+            dataset_id="lfw",
+            now=now,
+        )
+        == run_root.resolve()
+    )

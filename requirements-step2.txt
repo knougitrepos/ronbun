@@ -1,7 +1,18 @@
-# Install the base research environment first:
-#   py -m pip install -r requirements.txt
+# Reproduces the validated Windows Step 2 GPU environment:
+# Python 3.11.9, CUDA 11.8, PyTorch 2.7.1+cu118,
+# ONNX Runtime GPU 1.16.3.
 #
-# Select the CUDA/CPU wheel appropriate for the local NVIDIA driver from the
-# official PyTorch installation selector when GPU execution is required.
-torch>=2.0,<3.0
-gdown>=5.0
+# Install in a clean environment:
+#   py -3.11 -m venv .venv-step2-cu118
+#   .\.venv-step2-cu118\Scripts\python.exe -m pip install --upgrade pip
+#   .\.venv-step2-cu118\Scripts\python.exe -m pip install -r requirements-step2.txt
+#   .\.venv-step2-cu118\Scripts\python.exe scripts/verify_step2_gpu_environment.py
+#
+# The CPU and GPU ONNX Runtime distributions must not coexist.
+--extra-index-url https://download.pytorch.org/whl/cu118
+-c requirements-step2-cu118.lock.txt
+-r requirements.txt
+
+torch
+torchvision
+onnxruntime-gpu

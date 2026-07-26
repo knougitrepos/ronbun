@@ -10,6 +10,7 @@ configs/database.local.yaml
 
 # Python environments and caches
 .venv/
+/.venv-step2-cu118/
 venv/
 env/
 __pycache__/

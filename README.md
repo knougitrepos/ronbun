@@ -130,13 +130,29 @@ Step 2에는 ArcFace·AdaFace·MagFace 공식 repository 호환 PyTorch backbone
 파일은 저장소에 포함하지 않으므로 사용자가 내려받아 ModelSpec으로 등록해야
 실행할 수 있습니다.
 
-Step 2를 실행하려면 기본 환경을 설치한 뒤 로컬 driver에 맞는 PyTorch wheel을 준비합니다.
+Step 2는 검증된 CUDA 11.8 환경을 별도 requirements로 설치합니다. base
+`requirements.txt`에는 CPU/GPU ONNX Runtime을 넣지 않으며, 두 배포판을 같은
+환경에 함께 설치하지 않습니다.
 
 ```powershell
-py -m pip install -r requirements-step2.txt
+py -3.11 -m venv .venv-step2-cu118
+.\.venv-step2-cu118\Scripts\python.exe -m pip install --upgrade pip
+.\.venv-step2-cu118\Scripts\python.exe -m pip install -r requirements-step2.txt
+.\.venv-step2-cu118\Scripts\python.exe scripts/verify_step2_gpu_environment.py
 ```
 
-GPU wheel은 로컬 NVIDIA driver와 맞아야 하므로 필요할 때 PyTorch 공식 설치 선택기의 명령을 우선합니다. Step 2 설정은 `configs/experiments/step2_pytorch_gradcam.yaml`이며 기본값은 전체 실행을 위한 `data_fraction: 1.0`, `execute_stage: true`, `write_outputs: true`, `overwrite: true`입니다. checkpoint·aligned crop·lineage가 누락되거나 검증되지 않았으면 플래그와 무관하게 fail-closed로 중단합니다.
+검증 lock은 Python 3.11.9, PyTorch 2.7.1+cu118, torchvision
+0.22.1+cu118, ONNX Runtime GPU 1.16.3과 실제 검증 당시 direct dependency
+버전을 고정합니다. checkpoint 다운로드 도구가 필요할 때만
+`requirements-checkpoint-download.txt`를 추가 설치합니다.
+
+Step 2의 실행 설정은
+`configs/experiments/step2_pytorch_gradcam.yaml` 하나에서 읽습니다. 기본값은
+`model_profile: arcface_ms1mv3_r100`, `mode: real`, `data_fraction: 1.0`,
+`execute_stage: true`, `write_outputs: true`, `overwrite: true`,
+`device: cuda`입니다. checkpoint·aligned crop·lineage가 누락되거나 검증되지
+않았으면 플래그와 무관하게 fail-closed로 중단합니다. 새 LFW Step 2 run은
+`runs/lfw_YYYYMMDD/<run-id>_<name>/` 아래에 생성됩니다.
 
 ## Step 2 실행 경계
 

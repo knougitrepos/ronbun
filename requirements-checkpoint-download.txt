@@ -1,0 +1,2 @@
+# Optional helper used only when downloading Google Drive checkpoints.
+gdown==5.2.0

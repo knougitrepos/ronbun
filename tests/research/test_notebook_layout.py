@@ -101,13 +101,25 @@ def test_experiment_defaults_use_full_data_and_execute() -> None:
             continue
         source = _source(path)
         if "DATA_FRACTION =" in source:
-            assert "DATA_FRACTION = 1.0" in source
+            assert (
+                "DATA_FRACTION = 1.0" in source
+                or 'DATA_FRACTION = float(EXECUTION["data_fraction"])' in source
+            )
         if "EXECUTE_STAGE =" in source:
-            assert "EXECUTE_STAGE = True" in source
+            assert (
+                "EXECUTE_STAGE = True" in source
+                or 'EXECUTE_STAGE = bool(EXECUTION["execute_stage"])' in source
+            )
         if "WRITE_OUTPUTS =" in source:
-            assert "WRITE_OUTPUTS = True" in source
+            assert (
+                "WRITE_OUTPUTS = True" in source
+                or 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
+            )
         if "OVERWRITE =" in source:
-            assert "OVERWRITE = True" in source
+            assert (
+                "OVERWRITE = True" in source
+                or 'OVERWRITE = bool(EXECUTION["overwrite"])' in source
+            )
 
 
 def test_survface_notebooks_preserve_official_protocol_boundaries() -> None:

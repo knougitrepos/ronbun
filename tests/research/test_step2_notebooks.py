@@ -34,12 +34,14 @@ def test_step2_config_uses_interpretable_aligned_crop_bundle() -> None:
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     execution = config["execution"]
     assert execution == {
-        "mode": "dev",
+        "model_profile": "arcface_ms1mv3_r100",
+        "mode": "real",
         "data_fraction": 1.0,
         "seed": 42,
         "execute_stage": True,
         "write_outputs": True,
         "overwrite": True,
+        "device": "cuda",
     }
     aligned = config["aligned_crops"]
     assert aligned["faces_path"].endswith("aligned_faces.npy")
@@ -73,13 +75,16 @@ def test_model_validation_remains_fail_closed_on_inputs() -> None:
         "01_preprocessing_and_model_smoke.ipynb",
     }
     for source in sources.values():
-        assert 'MODEL_PROFILE = "arcface_ms1mv3_r100"' in source
-        assert "runs/step2/model_registry" in source
+        assert 'EXECUTION = CONFIG["execution"]' in source
+        assert 'MODEL_PROFILE = str(EXECUTION["model_profile"])' in source
+        assert 'MODE = str(EXECUTION["mode"])' in source
+        assert 'DATA_FRACTION = float(EXECUTION["data_fraction"])' in source
+        assert 'EXECUTE_STAGE = bool(EXECUTION["execute_stage"])' in source
+        assert 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
+        assert 'OVERWRITE = bool(EXECUTION["overwrite"])' in source
+        assert 'CONFIG["models"]' in source
+        assert "runs/step2/model_registry" not in source
         assert "runs/step3/model_registry" not in source
-        assert "DATA_FRACTION = 1.0" in source
-        assert "EXECUTE_STAGE = True" in source
-        assert "WRITE_OUTPUTS = True" in source
-        assert "OVERWRITE = True" in source
         assert "if WRITE_OUTPUTS and not EXECUTE_STAGE:" in source
 
     registration = sources["00_checkpoint_registration.ipynb"]
@@ -90,6 +95,7 @@ def test_model_validation_remains_fail_closed_on_inputs() -> None:
     smoke = sources["01_preprocessing_and_model_smoke.ipynb"]
     assert "create_pytorch_adapter_from_spec" in smoke
     assert "select_model_spec" in smoke
+    assert 'MODEL_UID = CONFIG["models"].get("model_uid")' in smoke
     assert "resolve_smoke_input_batch" in smoke
     assert "SMOKE_INPUT_PATH = None" in smoke
     assert "SMOKE_CROPS_NPZ" not in smoke
@@ -116,6 +122,8 @@ def test_gradcam_prerequisites_precede_population_experiment() -> None:
     assert 'CONFIG["aligned_crops"]["index_path"]' in freeze
     assert 'CONFIG["aligned_crops"]["faces_path"]' in freeze
     assert 'CONFIG["aligned_crops"]["failed_samples_path"]' in freeze
+    assert 'MODEL_UID = CONFIG["models"].get("model_uid")' in freeze
+    assert 'CONFIG["gradcam"]["regions"].get("mask_bundle_path")' in freeze
     assert "failed_samples_manifest_no_fallback" in freeze
     assert "explicit_alignment_exclusion_count" in freeze
     assert "PAIRED_METRICS" not in freeze
@@ -131,6 +139,19 @@ def test_gradcam_prerequisites_precede_population_experiment() -> None:
     assert "write_population_saliency_artifact" in population
     assert "minimum_pass_repeat_cosine" in population
     assert "overwrite=OVERWRITE" in population
+    assert 'CONFIG["gradcam"]["regions"].get("mask_bundle_path")' in population
+
+    all_notebooks = [*prerequisite.values(), *experiment.values()]
+    for source in all_notebooks:
+        assert 'EXECUTION = CONFIG["execution"]' in source
+        assert 'MODEL_PROFILE = str(EXECUTION["model_profile"])' in source
+        assert 'MODE = str(EXECUTION["mode"])' in source
+        assert 'DATA_FRACTION = float(EXECUTION["data_fraction"])' in source
+        assert 'EXECUTE_STAGE = bool(EXECUTION["execute_stage"])' in source
+        assert 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
+        assert 'OVERWRITE = bool(EXECUTION["overwrite"])' in source
+        assert 'MODE = "real"' not in source
+        assert 'MODE = "dev"' not in source
 
 
 def test_gradcam_compression_is_now_generated_sequentially_as_csv() -> None:
@@ -148,6 +169,10 @@ def test_gradcam_compression_is_now_generated_sequentially_as_csv() -> None:
     join = sources["03_saliency_compression_join.ipynb"]
     assert "join_population_saliency_with_compression" in join
     assert "saliency_compression_associations" in join
+    assert (
+        'CONFIG["joint_analysis"]["association"]["bootstrap_repeats"]'
+        in join
+    )
     assert "pd.read_csv" in join
     for key in ("extraction_uid", "dataset_id", "sample_id", "model_uid"):
         assert key in join
@@ -155,14 +180,18 @@ def test_gradcam_compression_is_now_generated_sequentially_as_csv() -> None:
     visualization = sources["04_representative_case_visualization.ipynb"]
     assert "select_population_representative_cases" in visualization
     assert "read_population_heatmaps" in visualization
-    assert 'VISUALIZATION_THRESHOLD_POLICY = "frozen_origin"' in visualization
+    assert (
+        'CONFIG["gradcam"]["representative_case_visualization"]'
+        '["threshold_policy"]'
+        in visualization
+    )
     assert 'joined["threshold_policy"]' in visualization
     assert "axis.imshow(image)" in visualization
     assert "image[..., ::-1]" not in visualization
     assert '"regenerated_gradcam": False' in visualization
     assert "extract_population_gradcam" not in visualization
     assert "PairCosineGradCAM" not in visualization
-    assert "resolve_active_run" in visualization
+    assert "resolve_active_dataset_run" in visualization
     assert "RUN.complete()" in visualization
 
 
@@ -177,3 +206,5 @@ def test_current_gradcam_tabular_artifacts_use_csv() -> None:
     assert "pd.read_parquet" not in all_sources
     assert 'CONFIG["models"]["selected_profiles"]' in all_sources
     assert 'CONFIG["models"]["selected"]' not in all_sources
+    assert 'resolve_active_dataset_run' in all_sources
+    assert 'runs/step2' not in all_sources

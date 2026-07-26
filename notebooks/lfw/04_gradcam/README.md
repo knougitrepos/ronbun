@@ -27,11 +27,16 @@ ONNX Step 1 결과를 checkpoint parity 확인 없이 섞지 않는다. 결합 �
 `origin_embedding_artifact_uid`가 일치해야 한다.
 
 표 형식 artifact는 CSV로 기록한다. embedding/heatmap shard는 NPY/NPZ를 유지하되
-CSV index와 JSON manifest, checksum을 동반한다. `runs/step2/active_run.json`이
-가리키는 미완료 RunStore run에는 canonical 결과 한 세트만 존재한다. 같은 설정으로
-노트북 00을 다시 실행하면 그 run을 재사용하며, 다른 모델·설정의 미완료 run을
-조용히 덮어쓰지 않는다. 마지막 시각화가 저장되면 run을 완료 상태로 고정한다.
+CSV index와 JSON manifest, checksum을 동반한다. 새 run은
+`runs/lfw_YYYYMMDD/` 아래에 생성되며, 그 날짜 root의 `active_run.json`이
+가리키는 미완료 RunStore run에는 canonical 결과 한 세트만 존재한다. 같은
+설정으로 노트북 00을 다시 실행하면 그 run을 재사용하며, 다른 모델·설정의
+미완료 run을 조용히 덮어쓰지 않는다. 마지막 시각화가 저장되면 run을 완료
+상태로 고정한다.
 
-기본값은 full population 실행과 결과 기록을 위한 `DATA_FRACTION=1.0`,
-`EXECUTE_STAGE=True`, `WRITE_OUTPUTS=True`, `OVERWRITE=True`이다. 입력 checkpoint,
-모델 UID, aligned bundle 또는 lineage가 불완전하면 실행은 즉시 중단된다.
+실행값은 노트북에 하드코딩하지 않고
+`configs/experiments/step2_pytorch_gradcam.yaml`의 `execution`, `gradcam`,
+`joint_analysis`에서 읽는다. 현재 기본값은 `mode=real`,
+`data_fraction=1.0`, `execute_stage=true`, `write_outputs=true`,
+`overwrite=true`, `device=cuda`이다. 입력 checkpoint, 모델 UID, aligned bundle
+또는 lineage가 불완전하면 실행은 즉시 중단된다.

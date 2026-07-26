@@ -10,7 +10,6 @@ pyarrow>=10.0.0
 # Face embeddings and vector compression
 opencv-python>=4.7.0
 insightface>=0.7.3
-onnxruntime>=1.15.0
 pillow>=9.0.0
 faiss-cpu>=1.7.4
 

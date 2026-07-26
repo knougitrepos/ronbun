@@ -18,15 +18,30 @@ def test_step2_config_is_checkpoint_level_and_fails_closed() -> None:
     assert config["study_boundary"]["causal_loss_claim"] is False
     assert config["study_boundary"]["train_face_recognition_models"] is False
     assert config["study_boundary"]["exact_origin_fallback"] is False
+    assert config["execution"]["model_profile"] == "arcface_ms1mv3_r100"
+    assert config["execution"]["mode"] == "real"
     assert config["execution"]["data_fraction"] == 1.0
     assert config["execution"]["execute_stage"] is True
     assert config["execution"]["write_outputs"] is True
     assert config["execution"]["overwrite"] is True
+    assert config["execution"]["device"] == "cuda"
+    assert config["run"] == {
+        "name": "step2_pytorch_fr_and_gradcam",
+        "root": "runs",
+        "dataset_id": "lfw",
+        "dataset_date_dir_template": "{dataset_id}_{date}",
+        "partition_by_date": False,
+        "promotion_root": "results/step2",
+        "parent_step1_commit": "4084ee1",
+    }
     assert config["aligned_crops"]["source_color_order"] == "rgb"
     assert config["aligned_crops"]["dtype"] == "uint8"
     assert config["aligned_crops"]["layout"] == "nhwc"
 
     models = config["models"]
+    assert models["registry_root"] == "runs/step2/model_registry"
+    assert models["validation_root"] == "runs/step2/model_validation"
+    assert models["model_uid"] is None
     assert models["selected_profiles"] == [
         "arcface_ms1mv3_r100",
         "adaface_ms1mv3_r100",
@@ -100,6 +115,7 @@ def test_step2_gradcam_extracts_origin_population_before_compression() -> None:
         "strict_saliency_compression_join",
         "representative_case_visualization",
     ]
+    assert gradcam["regions"]["mask_bundle_path"] is None
 
     population = gradcam["population"]
     assert population["pass_a_origin_embedding_coverage"] == "all_selected_samples"
@@ -152,11 +168,14 @@ def test_step2_gradcam_persists_bounded_shards_and_defers_cases() -> None:
     assert gradcam["regions"]["infer_missing_semantic_masks"] is False
     assert gradcam["faithfulness"]["coverage"] == "all_target_eligible_samples"
     assert gradcam["faithfulness"]["random_seed_unit"] == "sample_id"
+    assert gradcam["faithfulness"]["enabled"] is True
+    assert gradcam["extraction"]["capture_intermediates"] is False
 
     representative = gradcam["representative_case_visualization"]
     assert representative["role"] == "visualization_only"
     assert representative["run_after_population_join"] is True
     assert representative["regenerate_gradcam"] is False
+    assert representative["threshold_policy"] == "frozen_origin"
 
 
 def test_step2_joint_analysis_requires_strict_keys_and_origin_lineage() -> None:
@@ -184,5 +203,6 @@ def test_step2_joint_analysis_requires_strict_keys_and_origin_lineage() -> None:
     ]
     assert association["bootstrap_unit"] == "identity_id"
     assert association["bootstrap_method"] == "identity_cluster"
+    assert association["bootstrap_repeats"] == 500
     assert association["pool_models"] is False
     assert association["pool_compression_profiles"] is False

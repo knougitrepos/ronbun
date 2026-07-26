@@ -1,18 +1,23 @@
 run:
   name: step2_pytorch_fr_and_gradcam
-  root: runs/step2
+  root: runs
+  dataset_id: lfw
+  dataset_date_dir_template: "{dataset_id}_{date}"
+  partition_by_date: false
   promotion_root: results/step2
   parent_step1_commit: 4084ee1
 
 # Development runs are identity-aware subsets. Only real/1.0 may be used as a
 # full-data paper result.
 execution:
-  mode: dev
+  model_profile: arcface_ms1mv3_r100
+  mode: real
   data_fraction: 1.0
   seed: 42
   execute_stage: true
   write_outputs: true
   overwrite: true
+  device: cuda
 
 study_boundary:
   comparison_unit: pretrained_checkpoint
@@ -54,6 +59,9 @@ workflow:
   figure_dir: figures
 
 models:
+  registry_root: runs/step2/model_registry
+  validation_root: runs/step2/model_validation
+  model_uid: null
   # Each profile is a checkpoint-level identity: family + architecture +
   # training dataset + preprocessing + target layer.  A profile becomes
   # executable only after the matching checkpoint is downloaded, hashed,
@@ -323,6 +331,7 @@ gradcam:
     embedding_batch_size: 64
     gradcam_batch_size: 4
     shard_size: 2048
+    capture_intermediates: false
   persistence:
     format: immutable_shards
     heatmap_resolution: native_target_layer
@@ -335,6 +344,7 @@ gradcam:
     persist_full_gradients: false
     full_activation_gradient_policy: transient_or_explicit_debug_subset_only
   regions:
+    mask_bundle_path: null
     quadrants: true
     semantic_regions:
       - left_eye
@@ -348,6 +358,7 @@ gradcam:
     require_explicit_landmark_or_face_masks: true
     infer_missing_semantic_masks: false
   faithfulness:
+    enabled: true
     coverage: all_target_eligible_samples
     primary_occlusion_fraction: 0.10
     baselines: [random, low_saliency]
@@ -360,6 +371,7 @@ gradcam:
     regenerate_gradcam: false
     seed: 42
     samples_per_stratum: 8
+    threshold_policy: frozen_origin
     strata:
       - stable
       - high_error
@@ -387,6 +399,7 @@ joint_analysis:
       - compression_profile
     bootstrap_unit: identity_id
     bootstrap_method: identity_cluster
+    bootstrap_repeats: 500
     pool_models: false
     pool_compression_profiles: false
 

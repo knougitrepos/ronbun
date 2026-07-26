@@ -238,6 +238,7 @@ class RunStore:
         root: str | Path = "runs",
         now: datetime | None = None,
         repo_root: str | Path = PROJECT_ROOT,
+        partition_by_date: bool = True,
     ) -> "RunStore":
         safe_config = redact(config)
         config_hash = canonical_sha256(safe_config)
@@ -246,7 +247,14 @@ class RunStore:
             local_now = local_now.replace(tzinfo=KST)
         local_now = local_now.astimezone(KST)
         root_path = Path(root)
-        date_dir = root_path / local_now.strftime("%Y") / local_now.strftime("%m") / local_now.strftime("%d")
+        date_dir = (
+            root_path
+            / local_now.strftime("%Y")
+            / local_now.strftime("%m")
+            / local_now.strftime("%d")
+            if partition_by_date
+            else root_path
+        )
         date_dir.mkdir(parents=True, exist_ok=True)
         slug = _slug(experiment_name)
 
@@ -282,6 +290,7 @@ class RunStore:
             "status": "created",
             "created_at_utc": created_at,
             "created_at_kst": local_now.isoformat(),
+            "partition_by_date": bool(partition_by_date),
             "config_hash": config_hash,
             "config": safe_config,
             "git": _git_provenance(Path(repo_root)),
@@ -305,6 +314,7 @@ class RunStore:
         config: dict[str, Any],
         root: str | Path = "runs",
         repo_root: str | Path = PROJECT_ROOT,
+        partition_by_date: bool = True,
     ) -> "RunStore":
         """Reuse the matching incomplete active run or create one new run.
 
@@ -329,6 +339,7 @@ class RunStore:
                 config=config,
                 root=root_path,
                 repo_root=repo_root,
+                partition_by_date=partition_by_date,
             )
 
         active = cls.open(active_dir)
@@ -365,7 +376,13 @@ class RunStore:
             raise ValueError(f"run manifest is missing fields: {missing}")
         if canonical_sha256(manifest["config"]) != manifest["config_hash"]:
             raise ValueError("run manifest config hash mismatch")
-        root = directory.parents[3] if len(directory.parents) >= 4 else directory.parent
+        root = (
+            directory.parent
+            if manifest.get("partition_by_date") is False
+            else directory.parents[3]
+            if len(directory.parents) >= 4
+            else directory.parent
+        )
         return cls(
             root=root,
             run_dir=directory,
@@ -638,3 +655,95 @@ def resolve_active_run(
             f"rerun notebook 00 or set {environment_variable} explicitly: {choices}"
         )
     return candidates[0]
+
+
+def dataset_date_run_root(
+    base_root: str | Path,
+    *,
+    dataset_id: str,
+    directory_template: str = "{dataset_id}_{date}",
+    now: datetime | None = None,
+) -> Path:
+    """Return a readable dataset/date run root such as ``runs/lfw_20260727``."""
+
+    local_now = now or datetime.now(KST)
+    if local_now.tzinfo is None:
+        local_now = local_now.replace(tzinfo=KST)
+    local_now = local_now.astimezone(KST)
+    safe_dataset_id = _slug(dataset_id).lower()
+    relative = Path(
+        directory_template.format(
+            dataset_id=safe_dataset_id,
+            date=local_now.strftime("%Y%m%d"),
+        )
+    )
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError(
+            "dataset run directory template must stay under the configured run root"
+        )
+    return Path(base_root).expanduser().resolve() / relative
+
+
+def resolve_active_dataset_run(
+    base_root: str | Path,
+    *,
+    dataset_id: str,
+    directory_template: str = "{dataset_id}_{date}",
+    environment_variable: str = "RONBUN_RUN_DIR",
+) -> Path:
+    """Resolve exactly one incomplete run across dataset/date directories."""
+
+    explicit = os.environ.get(environment_variable, "").strip()
+    if explicit:
+        return _validate_active_run(explicit)
+
+    safe_dataset_id = _slug(dataset_id).lower()
+    glob_pattern = directory_template.format(
+        dataset_id=safe_dataset_id,
+        date="[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]",
+    )
+    base = Path(base_root).expanduser().resolve()
+    candidates: list[Path] = []
+    for run_root in sorted(path for path in base.glob(glob_pattern) if path.is_dir()):
+        try:
+            candidates.append(resolve_active_run(run_root))
+        except FileNotFoundError:
+            continue
+        except RuntimeError as exc:
+            if "already completed" not in str(exc):
+                raise
+    if not candidates:
+        raise FileNotFoundError(
+            f"no active {safe_dataset_id} run found under {base}; "
+            "execute notebook 00 first"
+        )
+    if len(candidates) > 1:
+        choices = ", ".join(str(path) for path in candidates[:5])
+        raise RuntimeError(
+            f"multiple active {safe_dataset_id} runs found: {choices}"
+        )
+    return candidates[0]
+
+
+def resolve_or_create_dataset_run_root(
+    base_root: str | Path,
+    *,
+    dataset_id: str,
+    directory_template: str = "{dataset_id}_{date}",
+    now: datetime | None = None,
+) -> Path:
+    """Reuse an earlier incomplete dataset run root or select today's root."""
+
+    try:
+        return resolve_active_dataset_run(
+            base_root,
+            dataset_id=dataset_id,
+            directory_template=directory_template,
+        ).parent
+    except FileNotFoundError:
+        return dataset_date_run_root(
+            base_root,
+            dataset_id=dataset_id,
+            directory_template=directory_template,
+            now=now,
+        )

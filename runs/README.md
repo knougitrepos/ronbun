@@ -9,11 +9,17 @@ Each new run receives a daily sequence such as `20260714-R003-<config-hash>`.
 The run directory contains an immutable manifest, structured JSONL logs, phase
 attempts, artifacts, figures, and models.
 
-Step 2 uses the same `RunStore` contract under `runs/step2/`.
-`active_run.json` selects exactly one incomplete ArcFace/AdaFace/MagFace
-workflow. Restarting notebook 00 with the same model and config reuses that
-run; a different incomplete run is not overwritten. The representative-case
-stage marks the run complete, after which it is immutable.
+New LFW Step 2 runs use the same `RunStore` contract under a readable daily
+root such as `runs/lfw_20260727/`. The run directory is placed directly below
+that root, and its `active_run.json` selects exactly one incomplete
+ArcFace/AdaFace/MagFace workflow. Restarting notebook 00 with the same model
+and config reuses an incomplete run even after the calendar date changes; a
+different incomplete run is not overwritten. The representative-case stage
+marks the run complete, after which it is immutable.
+
+`runs/step2/` is retained for the existing model registry and legacy completed
+Step 2 runs. Existing run directories are not moved because their manifests
+freeze absolute input paths and checksums.
 
 ## Run reset and quarantine
 
