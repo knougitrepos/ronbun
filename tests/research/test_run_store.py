@@ -158,3 +158,37 @@ def test_completed_run_is_immutable_and_open_validates_config_hash(tmp_path):
     run.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="config hash mismatch"):
         RunStore.open(run.run_dir)
+
+
+def test_create_or_reuse_active_keeps_one_incomplete_result(tmp_path):
+    root = tmp_path / "runs"
+    first = RunStore.create_or_reuse_active(
+        experiment_name="step2-arcface",
+        config={"model_uid": "arcface-1", "seed": 42},
+        root=root,
+        repo_root=tmp_path,
+    )
+    reopened = RunStore.create_or_reuse_active(
+        experiment_name="step2-arcface",
+        config={"model_uid": "arcface-1", "seed": 42},
+        root=root,
+        repo_root=tmp_path,
+    )
+    assert reopened.run_dir == first.run_dir
+
+    with pytest.raises(RuntimeError, match="different incomplete run"):
+        RunStore.create_or_reuse_active(
+            experiment_name="step2-adaface",
+            config={"model_uid": "adaface-1", "seed": 42},
+            root=root,
+            repo_root=tmp_path,
+        )
+
+    first.complete()
+    second = RunStore.create_or_reuse_active(
+        experiment_name="step2-adaface",
+        config={"model_uid": "adaface-1", "seed": 42},
+        root=root,
+        repo_root=tmp_path,
+    )
+    assert second.run_dir != first.run_dir

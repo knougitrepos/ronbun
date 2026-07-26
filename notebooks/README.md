@@ -1,144 +1,120 @@
-# Step 1 dataset runbooks
+# 재현 가능한 노트북 실행 순서
 
-현재 Step 1에서 연결된 데이터셋은 LFW와 QMUL-SurvFace-v1입니다. 데이터셋별
-노트북은 데이터 준비, 임베딩 추출, 독립 압축군 실행, 평가를 재현하는 얇은
-runbook이며 공통 계산은 `research/`의 Python 모듈을 호출합니다.
+노트북은 계산 구현이 아니라 `research/`의 검증된 Python 함수를 순서대로 호출하는
+runbook이다. 저장된 노트북은 출력과 실행 번호를 포함하지 않으며, 항상 커널을
+재시작한 뒤 위에서 아래로 실행한다.
 
-모든 노트북의 첫 설정 셀에서 다음 세 값을 먼저 고정합니다.
+기본 실험값은 다음과 같다.
 
-- `MODE`: 빠른 점검용 `dev` 또는 논문 결과용 `real`
-- `DATA_FRACTION`: identity 단위로 선택할 비율 `(0, 1]`
-- `SEED`: 같은 비율에서 동일 identity를 선택하기 위한 seed
+- `DATA_FRACTION = 1.0`
+- `EXECUTE_STAGE = True`
+- `WRITE_OUTPUTS = True`
+- `OVERWRITE = True`
 
-`MODE="real"`, `DATA_FRACTION=1.0`인 실행만 전체 데이터 논문 결과로
-취급합니다. 작은 비율은 같은 seed에서 큰 비율의 부분집합이 되며, 이미지를
-무작위로 자르지 않습니다.
+`OVERWRITE=True`는 같은 단계에서 정식 결과를 두세 개 만들기 위한 옵션이 아니다.
+완전한 대체 결과를 먼저 만든 뒤 그 단계의 canonical 결과 하나만 교체한다. 반면
+`RunStore`에서 `COMPLETED`가 기록된 run은 계속 불변이다. open-set threshold나
+보정 방식이 바뀌면 설정이 달라진 새 run을 만들고, 한 run 안에서는 결과를 하나만
+유지한다.
 
-## 압축 실험군
+## 1. Prerequisite
 
-- PCA: 원본 512D에서 각각 384/256/128/64/32D로 독립 투영합니다.
-- PQ: PCA 결과가 아닌 원본 512D에 직접 학습하고 적용합니다.
-- `PCA -> PQ` 결합군은 Step 1에 포함하지 않습니다.
-- 원본 512D 재탐색으로 defer 결과를 대체하는 fallback은 사용하지 않습니다.
+### 데이터
 
-## LFW
+다음 순서로 필요한 데이터셋만 준비한다.
 
-`notebooks/lfw/data_preparation.ipynb`에서 development, calibration, test를
-identity-disjoint하게 만든 뒤 각 역할 안에서 `DATA_FRACTION`을 적용합니다.
-이후 임베딩과 압축 노트북을 실행합니다. Step 1 설정의 기준 파일은
-`configs/experiments/step1_embedding_compression.yaml`입니다.
+1. `prerequisite/datasets/00_lfw_data_preparation.ipynb`
+2. `prerequisite/datasets/01_survface_data_preparation.ipynb`
+3. `prerequisite/datasets/02_rfw_data_preparation.ipynb`
+4. `prerequisite/datasets/03_balancedface_data_preparation.ipynb`
+5. `prerequisite/datasets/04_lfw_aligned_crop_materialization.ipynb`
 
-기존 `03_compressed_materialization_and_index.ipynb`와
-`04_probe_search_and_certification.ipynb`는 thesis3 DB 시스템 결과 재현을 위해
-보존합니다. 특히 04는 과거 origin exact fallback을 포함하므로 Step 1에서는
-실행할 수 없게 guard되어 있습니다.
+RFW는 공식 1:1 verification test이며 PCA/PQ fit 데이터가 아니다. BalancedFace는
+RFW 중복 identity를 제거한 development/calibration 후보이며 최종 test가 아니다.
 
-## QMUL-SurvFace-v1
+### 모델
 
-`notebooks/survface/data_preparation.ipynb`는 공식 gallery/mated/unmated 역할과
-순서를 먼저 검증합니다. `real, 1.0`은 공식 protocol 전체를 그대로 사용하고,
-`dev`에서는 역할을 섞지 않은 identity-aware 부분집합만 만듭니다. 공식 test로
-PCA/PQ codebook이나 threshold를 학습하지 않으며 필요한 학습 통계는
-development 데이터에서 고정해야 합니다.
+1. `prerequisite/models/00_checkpoint_registration.ipynb`
+2. `prerequisite/models/01_preprocessing_and_model_smoke.ipynb`
 
-기존 `02_external_compressor_import.ipynb`와 03~05는 LFW 압축기 전이 및 DB
-시스템 재현용입니다. Step 1의 같은-dataset 주 실험은
-`06_step1_compression_characterization.ipynb`에서 SurvFace training
-development/calibration과 공식 test를 분리해 수행합니다.
+checkpoint 출처, SHA-256, preprocessing, 512D 출력, raw norm과 target layer가
+검증되어야 이후 Step 2가 진행된다. 실행 플래그가 `True`여도 누락되거나 검증되지
+않은 입력은 그대로 실패하므로 입력 검증은 fail-closed이다.
 
-## RFW와 BUPT-BalancedFace
+### 임베딩
 
-새 데이터는 다음 순서로 준비합니다.
+LFW:
 
-1. `rfw/data_preparation.ipynb`
-2. `balancedface/data_preparation.ipynb`
+1. `prerequisite/embeddings/lfw/00_protocol_and_run_freeze.ipynb`
+2. `prerequisite/embeddings/lfw/01_arcface_embedding_extraction.ipynb`
 
-RFW 노트북은 4개 그룹의 공식 10-fold 1:1 pair, image list와 landmark를 검증하고 `source_identities.txt`를 기록합니다. RFW는 evaluation test이므로 PCA/PQ fit이나 DIR/FPIR open-set 공식 결과에 사용하지 않습니다.
+SurvFace:
 
-BalancedFace 노트북은 위 RFW identity artifact를 필수 입력으로 받아 겹치는 provider identity를 전부 제거한 뒤, 그룹별 identity 단위로 development/calibration을 나눕니다. BalancedFace는 FR 모델 재학습 데이터나 최종 test가 아닙니다.
+1. `prerequisite/embeddings/survface/00_official_protocol_and_run_freeze.ipynb`
+2. `prerequisite/embeddings/survface/01_official_arcface_embedding_extraction.ipynb`
 
-`data/raw/RFW-balancedface/images/Equalizedface.tar.gz`는 정상 파일로 교체되어 EOF 검사를 통과했습니다. 다만 JPG와 RecordIO 목록은 이미지 14장·identity 1개 차이가 있으며 Asian/Indian JPG에는 가변 해상도 이미지가 포함됩니다. JPG 경로는 공통 정렬·그룹별 coverage 검증 전까지 비활성이고, RecordIO 경로는 metadata index까지만 구현되어 decoder/materializer가 아직 없습니다. 따라서 `data/interim/balancedface/source_index_manifest.csv`는 실제 image path manifest가 아닙니다.
+임베딩의 canonical 저장소는 PostgreSQL/pgvector이며, run manifest와 CSV index가
+model/config/input hash를 연결한다. NPY/NPZ shard는 배열 자체가 필요할 때만 쓰고
+CSV 또는 JSON manifest를 반드시 동반한다.
 
-## 공통 결과
+## 2. Experiments
 
-데이터셋별 평가가 끝난 뒤
-`notebooks/common/cross_dataset_results.ipynb`에서 결과 manifest와 표를 읽어
-동일한 열 정의로 집계하고 시각화합니다. 이 노트북은 fallback 열이 포함된
-artifact를 Step 1 결과로 받아들이지 않습니다.
+### 압축 특성화
 
-## 재시작 원칙
+LFW:
 
-중단 후 임의 셀부터 실행하지 말고 커널을 재시작한 뒤 처음부터 실행합니다.
-입력 hash, scope 또는 상위 단계 artifact checksum이 달라지면 새 run을 만들고
-영향받는 단계부터 다시 수행합니다.
+1. `experiments/compression/lfw/00_compressor_fit.ipynb`
+2. `experiments/compression/lfw/01_compressed_materialization_and_index.ipynb`
+3. `experiments/compression/lfw/02_step1_compression_characterization.ipynb`
 
-## Step 2 PyTorch 모델 및 원본 공간 특징 분석
+SurvFace:
 
-Step 2는 기존 데이터셋별 Step 1 노트북을 수정하지 않고 다음 두 폴더를
-추가합니다.
+1. `experiments/compression/survface/00_external_compressor_import.ipynb`
+2. `experiments/compression/survface/01_official_compressed_materialization_and_index.ipynb`
+3. `experiments/compression/survface/02_step1_compression_characterization.ipynb`
 
-- `model_validation/`: ArcFace/AdaFace/MagFace 호환 PyTorch loader와 모델별
-  자동 전처리 계약으로 checkpoint를 등록하고, registry 자동 선택,
-  512D/raw norm/L2 출력 및 target layer를 검증합니다.
-- `lfw/gradcam/`: 모든 선택 이미지의 원본 embedding과 LOO cosine
-  Grad-CAM 특징을 먼저 추출하고, 이후 PCA/PQ 민감도와 결합합니다.
+### Open-set 검색과 평가
 
-실행 순서는 다음과 같습니다.
+LFW:
 
-1. `model_validation/00_checkpoint_registration.ipynb`
-2. `model_validation/01_preprocessing_and_model_smoke.ipynb`
-3. `lfw/gradcam/00_source_and_model_freeze.ipynb`
-4. `lfw/gradcam/01_origin_embedding_and_loo_templates.ipynb`
-5. `lfw/gradcam/02_population_gradcam_extraction.ipynb`
-6. `lfw/gradcam/03_saliency_feature_validation.ipynb`
-7. `lfw/gradcam/04_step2_compression_characterization.ipynb`
-8. `lfw/gradcam/05_saliency_compression_join.ipynb`
-9. `lfw/gradcam/06_representative_case_visualization.ipynb`
+1. `experiments/open_set/lfw/00_probe_search_and_certification.ipynb`
+2. `experiments/open_set/lfw/01_evaluation_and_visualization.ipynb`
 
-Pass A는 모든 선택 표본의 임베딩을 보존하고 Pass B는 동일인
-leave-one-out target이 있는 모든 표본에 Grad-CAM을 수행합니다. singleton과
-identity 누락 표본은 다른 target으로 바꾸지 않고 부적격 상태로 남깁니다.
-압축 코드는 Grad-CAM 추출에 복사하지 않으며 두 결과는 원본 embedding lineage로
-엄격히 결합합니다. 사례 선택은 06의 시각화 용도에만 존재합니다. 실제
-checkpoint와 공통 aligned bundle이 등록되기 전에는 상단 기본값
-`EXECUTE_STAGE=False`, `WRITE_OUTPUTS=False`를 유지합니다.
+SurvFace:
 
-## run 단위 complete reset
+1. `experiments/open_set/survface/00_official_probe_search.ipynb`
+2. `experiments/open_set/survface/01_official_evaluation_and_visualization.ipynb`
 
-리팩토링 뒤 동일한 `run_uid`의 DB, 임베딩 전처리·중간 artifact와 평가 결과가
-섞이지 않게 하려면 `database/selective_cleanup.ipynb`를 사용합니다. 권장
-모드는 `RESET_MODE="complete_run_reset"`입니다.
+과거 exact-fallback 재현 경로와 현재 fallback-free 압축 특성화 경로는 섞지 않는다.
+보정 조건을 수정한 반복 실험은 새 config hash/run_id로 기록한다.
 
-1. `RUN_UID`를 입력하고 `CONNECT_TO_DATABASE=False`,
-   `EXECUTE_RESET=False`, 빈 `CONFIRMATION_TOKEN`으로 Run All 합니다.
-2. `CONNECT_TO_DATABASE=True`로 바꾸고 다시 Run All 하여 하나의 digest에
-   묶인 DB 행, exact-owner run bundle, manifest 소유 result bundle 및 일치하는
-   active pointer를 미리보기합니다.
-3. 완료 run, `results/paper` 등 promoted result, lineage를 완전히 검증할 수
-   없는 고아 run은 각각
-   `ALLOW_COMPLETED_RUN_RESET`,
-   `ALLOW_PROMOTED_RESULTS_RESET`,
-   `ALLOW_UNVERIFIED_LINEAGE_RESET` 없이는 실행할 수 없습니다.
-4. 미리보기 대상과 보존 대상을 확인한 뒤 새 확인 문자열 전체를
-   `CONFIRMATION_TOKEN`에 복사하고 `EXECUTE_RESET=True`로 처음부터 다시
-   실행합니다.
-5. 실행 후 DB의 해당 run 행이 0인지 확인하고
-   `runs/database_cleanup/quarantine/<operation>/payload/`와 감사 JSON을
-   확인합니다.
+### Grad-CAM
 
-로컬 대상은 영구 삭제하지 않고 격리합니다. DB 삭제는 한 transaction에서
-수행하며 로컬 이동 callback이 실패하면 DB를 rollback하고 이미 이동한 파일을
-복원합니다. PostgreSQL과 파일시스템은 하나의 원자적 transaction이 아니므로
-실행 중 프로세스를 강제 종료하지 마십시오.
+세부 순서와 경계는 `experiments/gradcam/README.md`를 따른다. 이 하위에서도
+embedding/LOO 생성은 `prerequisite/`, 실제 saliency·compression 결합은
+`experiment/`로 분리한다.
 
-항상 보존되는 범위는 공유 `images`, `data/raw`, common aligned crop와 dataset
-manifest, checkpoint/model registry, 다른 run 및 cleanup 감사 기록입니다.
-PCA 64D/32D와 Step 2 Grad-CAM/LOO artifact처럼 별도 DB 테이블이 없는 결과도
-exact-owner run artifact이면 함께 격리됩니다. 반대로 소유권이 확인되지 않는
-임의 Step 2 경로는 자동 선택하지 않습니다. DB row snapshot은 생성하지 않아
-감사 JSON만으로 embedding row를 복구할 수 없습니다.
+## 3. Reports
 
-특정 PostgreSQL 테이블만 선택해야 하는 전문 유지보수는
-`RESET_MODE="advanced_database_cleanup"`을 사용합니다. 기존 allowlist,
-행 수 재검증, 완료 run 보호와 확인 문자열 계약은 유지되며 조건 없는 전체
-테이블·임의 SQL·공유 `images` 삭제는 지원하지 않습니다.
+1. `reports/00_cross_dataset_results.ipynb`
+
+보고용 결과는 CSV/Markdown 표와 그림으로 내보낸다. notebook cell output은
+정식 실험 기록으로 사용하지 않는다.
+
+## 4. Maintenance
+
+1. `maintenance/00_selective_cleanup.ipynb`
+
+삭제·격리 노트북은 실험 기본값의 예외다. preview, confirmation token 및 명시적
+실행 승인을 유지하며 자동 실행 기본값을 적용하지 않는다.
+
+## 결과 저장 형식
+
+- PostgreSQL/pgvector: 임베딩, 압축 벡터, 검색·보정에 필요한 정규화된 상세 행
+- CSV: 사람이 확인할 sample index, metric, 집계표, 실패 목록
+- JSON/JSONL: run manifest, hash·lineage, 구조화 event log
+- 일반 log: 장시간 실행의 진행·경고·실패 문맥
+- NPY/NPZ: heatmap·embedding shard처럼 표 형식이 부적합한 배열만 저장
+
+새 hash 기반 폴더 규칙을 별도로 도입하지 않는다. 기존 `RunStore`의
+`run_id + config_hash + input hash + phase attempt`를 추적 기준으로 사용한다.

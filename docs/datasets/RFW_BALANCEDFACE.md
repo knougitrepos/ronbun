@@ -116,10 +116,10 @@ prefix 이전의 provider Freebase identity ID로 교집합을 검사한 결과:
 
 실행 순서:
 
-1. `notebooks/rfw/data_preparation.ipynb`
-2. `notebooks/balancedface/data_preparation.ipynb`
+1. `notebooks/prerequisite/datasets/02_rfw_data_preparation.ipynb`
+2. `notebooks/prerequisite/datasets/03_balancedface_data_preparation.ipynb`
 
-두 노트북 모두 기본값은 `EXECUTE_STAGE=False`, `WRITE_OUTPUTS=False`다. RFW 출력의 `_SUCCESS`와 `source_identities.txt`가 있어야 BalancedFace 준비를 시작할 수 있다.
+두 노트북 모두 기본값은 `DATA_FRACTION=1.0`, `EXECUTE_STAGE=True`, `WRITE_OUTPUTS=True`, `OVERWRITE=True`다. RFW 출력의 `_SUCCESS`와 `source_identities.txt`가 있어야 BalancedFace 준비를 시작할 수 있다.
 
 현재 중단점:
 

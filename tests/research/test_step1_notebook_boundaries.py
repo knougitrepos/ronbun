@@ -14,8 +14,8 @@ CONFIG_PATH = (
 )
 
 
-def _code_source(dataset: str, notebook_name: str) -> str:
-    notebook = nbformat.read(NOTEBOOK_ROOT / dataset / notebook_name, as_version=4)
+def _code_source(path: Path) -> str:
+    notebook = nbformat.read(path, as_version=4)
     return "\n".join(
         cell.source for cell in notebook.cells if cell.cell_type == "code"
     )
@@ -39,11 +39,16 @@ def _call_argument_names(source: str, function_name: str) -> list[tuple[str, ...
 
 
 def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
-    for dataset in ("lfw", "survface"):
-        source = _code_source(dataset, "data_preparation.ipynb")
+    for name in (
+        "00_lfw_data_preparation.ipynb",
+        "01_survface_data_preparation.ipynb",
+    ):
+        source = _code_source(
+            NOTEBOOK_ROOT / "prerequisite" / "datasets" / name
+        )
 
         assert 'MODE = "dev"' in source or "MODE = 'dev'" in source
-        assert "DATA_FRACTION = 0.10" in source
+        assert "DATA_FRACTION = 1.0" in source
         assert "SEED = 42" in source
         assert "ExperimentScope(" in source
         assert source.count("select_manifest_fraction(") >= 2
@@ -53,7 +58,13 @@ def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
 
 def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
     for dataset in ("lfw", "survface"):
-        source = _code_source(dataset, "06_step1_compression_characterization.ipynb")
+        source = _code_source(
+            NOTEBOOK_ROOT
+            / "experiments"
+            / "compression"
+            / dataset
+            / "02_step1_compression_characterization.ipynb"
+        )
 
         assert "validate_prepared_scope(" in source
         assert "expected_scope = EXPERIMENT_SCOPE.as_dict()" in source
@@ -67,9 +78,19 @@ def test_step1_notebook_paths_are_guarded_by_the_dataset_config():
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     lfw_config = config["datasets"]["lfw"]
     survface_config = config["datasets"]["survface"]
-    lfw_source = _code_source("lfw", "06_step1_compression_characterization.ipynb")
+    lfw_source = _code_source(
+        NOTEBOOK_ROOT
+        / "experiments"
+        / "compression"
+        / "lfw"
+        / "02_step1_compression_characterization.ipynb"
+    )
     survface_source = _code_source(
-        "survface", "06_step1_compression_characterization.ipynb"
+        NOTEBOOK_ROOT
+        / "experiments"
+        / "compression"
+        / "survface"
+        / "02_step1_compression_characterization.ipynb"
     )
 
     assert lfw_config["manifest_path"] == "data/interim/lfw/face_manifest.csv"
@@ -90,9 +111,18 @@ def test_step1_notebook_paths_are_guarded_by_the_dataset_config():
 
 
 def test_survface_official_test_is_evaluation_only_in_step1_code_path():
-    preparation_source = _code_source("survface", "data_preparation.ipynb")
+    preparation_source = _code_source(
+        NOTEBOOK_ROOT
+        / "prerequisite"
+        / "datasets"
+        / "01_survface_data_preparation.ipynb"
+    )
     study_source = _code_source(
-        "survface", "06_step1_compression_characterization.ipynb"
+        NOTEBOOK_ROOT
+        / "experiments"
+        / "compression"
+        / "survface"
+        / "02_step1_compression_characterization.ipynb"
     )
 
     assert "opaque_per_image_key_no_identity_labels" in preparation_source

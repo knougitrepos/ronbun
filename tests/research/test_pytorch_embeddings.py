@@ -155,8 +155,7 @@ def test_model_spec_manifest_round_trip_revalidates_checkpoint(tmp_path):
     loaded = read_model_spec(path)
 
     assert loaded == spec
-    with pytest.raises(FileExistsError, match="will not be overwritten"):
-        write_model_spec(path, spec)
+    assert write_model_spec(path, spec) == path
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["preprocessing"]["channel_std"] = [64.0, 64.0, 64.0]

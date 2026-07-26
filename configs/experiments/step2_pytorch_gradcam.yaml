@@ -8,10 +8,11 @@ run:
 # full-data paper result.
 execution:
   mode: dev
-  data_fraction: 0.10
+  data_fraction: 1.0
   seed: 42
-  execute_stage: false
-  write_outputs: false
+  execute_stage: true
+  write_outputs: true
+  overwrite: true
 
 study_boundary:
   comparison_unit: pretrained_checkpoint
@@ -21,13 +22,34 @@ study_boundary:
   preserve_step1_artifacts_read_only: true
 
 aligned_crops:
-  manifest_path: data/interim/common/aligned_112_manifest.parquet
+  bundle_dir: data/interim/common/aligned_112
+  faces_path: data/interim/common/aligned_112/aligned_faces.npy
+  index_path: data/interim/common/aligned_112/aligned_index.csv
+  failed_samples_path: data/interim/common/aligned_112/failed_samples.csv
+  bundle_manifest_path: data/interim/common/aligned_112/bundle_manifest.json
   image_size: [112, 112]
   source_color_order: rgb
   dtype: uint8
   layout: nhwc
   freeze_before_model_comparison: true
   require_content_sha256: true
+
+# One canonical working result is used for the sequential Step 2 notebooks.
+# Completed RunStore runs remain immutable. A changed open-set calibration is
+# recorded as a new RunStore run/config, not as a second result in one run.
+workflow:
+  artifact_subdir: artifacts/step2_workflow
+  selected_manifest_path: selected_manifest.csv
+  freeze_manifest_path: freeze_manifest.json
+  prepared_population_dir: prepared_population
+  saliency_population_dir: saliency_population
+  saliency_validation_path: saliency_validation.json
+  paired_metrics_path: paired_embedding_metrics.csv
+  retrieval_metrics_path: retrieval_metrics.csv
+  joined_metrics_path: saliency_compression_join.csv
+  association_path: saliency_compression_associations.csv
+  representative_cases_path: representative_cases.csv
+  figure_dir: figures
 
 models:
   # Each profile is a checkpoint-level identity: family + architecture +
@@ -190,6 +212,8 @@ datasets:
   saliency_population_initial: [lfw]
   lfw:
     manifest_path: data/interim/lfw/face_manifest.csv
+    gallery_identities_path: data/interim/lfw/gallery_identities.txt
+    unknown_unknown_identities_path: data/interim/lfw/unknown_unknown_identities.txt
     protocol_adapter: lfw_identity_disjoint
   survface:
     training_manifest_path: data/interim/survface/training_manifest.csv
@@ -368,6 +392,10 @@ evaluation:
   full_precision_baseline: true
   exact_fallback: false
   compare_frozen_and_recalibrated_thresholds: true
+  target_fpir: 0.01
+  top_k: 20
+  lfw_enrollment_count: 5
+  calibration_gallery_identities: 20
   metrics:
     - angular_error
     - cosine_score_drift

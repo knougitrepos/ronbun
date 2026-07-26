@@ -298,6 +298,53 @@ class RunStore:
         return run
 
     @classmethod
+    def create_or_reuse_active(
+        cls,
+        *,
+        experiment_name: str,
+        config: dict[str, Any],
+        root: str | Path = "runs",
+        repo_root: str | Path = PROJECT_ROOT,
+    ) -> "RunStore":
+        """Reuse the matching incomplete active run or create one new run.
+
+        This supports restart-and-run-all notebooks without creating duplicate
+        result directories. A different incomplete run is never guessed or
+        overwritten; it must be completed or explicitly reset first.
+        """
+
+        expected_hash = canonical_sha256(redact(config))
+        root_path = Path(root)
+        try:
+            active_dir = resolve_active_run(root_path)
+        except FileNotFoundError:
+            active_dir = None
+        except RuntimeError as exc:
+            if "already completed" not in str(exc):
+                raise
+            active_dir = None
+        if active_dir is None:
+            return cls.create(
+                experiment_name=experiment_name,
+                config=config,
+                root=root_path,
+                repo_root=repo_root,
+            )
+
+        active = cls.open(active_dir)
+        if (
+            active.run_name != experiment_name
+            or active.config_hash != expected_hash
+        ):
+            raise RuntimeError(
+                "a different incomplete run is active; complete or reset it "
+                f"before starting {experiment_name}: {active.run_dir}"
+            )
+        active.record_event("run_reopened", reason="restart_and_run_all")
+        _write_active_run_pointer(active)
+        return active
+
+    @classmethod
     def open(cls, run_dir: str | Path) -> "RunStore":
         """Attach to an incomplete run so a failed phase can be retried explicitly."""
         directory = Path(run_dir)

@@ -18,17 +18,25 @@ def test_step2_config_is_checkpoint_level_and_fails_closed() -> None:
     assert config["study_boundary"]["causal_loss_claim"] is False
     assert config["study_boundary"]["train_face_recognition_models"] is False
     assert config["study_boundary"]["exact_origin_fallback"] is False
-    assert config["execution"]["execute_stage"] is False
-    assert config["execution"]["write_outputs"] is False
+    assert config["execution"]["data_fraction"] == 1.0
+    assert config["execution"]["execute_stage"] is True
+    assert config["execution"]["write_outputs"] is True
+    assert config["execution"]["overwrite"] is True
     assert config["aligned_crops"]["source_color_order"] == "rgb"
     assert config["aligned_crops"]["dtype"] == "uint8"
     assert config["aligned_crops"]["layout"] == "nhwc"
 
     models = config["models"]
-    assert models["selected"] == ["arcface", "adaface", "magface"]
+    assert models["selected_profiles"] == [
+        "arcface_ms1mv3_r100",
+        "adaface_ms1mv3_r100",
+        "magface_ms1mv2_iresnet100",
+    ]
+    assert models["bridge_profiles"] == ["adaface_ms1mv2_r100"]
+    assert models["blocked_profiles"] == ["arcface_ms1mv2_r100"]
     assert models["allow_unverified_metadata"] is False
-    for name in models["selected"]:
-        candidate = models["candidates"][name]
+    for name in [*models["selected_profiles"], *models["bridge_profiles"]]:
+        candidate = models["profiles"][name]
         assert candidate["status"] == "implementation_ready_checkpoint_required"
         assert candidate["framework"] == "pytorch"
         assert candidate["embedding_dim"] == 512
@@ -41,19 +49,19 @@ def test_step2_config_is_checkpoint_level_and_fails_closed() -> None:
         assert candidate["checkpoint_source_page"].startswith("https://github.com/")
         assert None not in candidate["preprocessing"].values()
 
-    assert models["candidates"]["arcface"]["preprocessing"] == {
+    assert models["profiles"]["arcface_ms1mv3_r100"]["preprocessing"] == {
         "input_size": [112, 112],
         "model_color_order": "rgb",
         "input_range": [-1.0, 1.0],
         "mean": [127.5, 127.5, 127.5],
         "std": [127.5, 127.5, 127.5],
     }
-    assert models["candidates"]["adaface"]["preprocessing"][
+    assert models["profiles"]["adaface_ms1mv3_r100"]["preprocessing"][
         "model_color_order"
     ] == "bgr"
-    assert models["candidates"]["magface"]["preprocessing"] == {
+    assert models["profiles"]["magface_ms1mv2_iresnet100"]["preprocessing"] == {
         "input_size": [112, 112],
-        "model_color_order": "bgr",
+        "model_color_order": "rgb",
         "input_range": [0.0, 1.0],
         "mean": [0.0, 0.0, 0.0],
         "std": [255.0, 255.0, 255.0],

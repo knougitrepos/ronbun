@@ -29,17 +29,26 @@ def read_model_spec(
 
 
 def write_model_spec(path: str | Path, spec: ModelSpec) -> Path:
-    """Write an immutable model spec; existing registrations are never replaced."""
+    """Write an immutable model spec, treating an identical rerun as success."""
 
     destination = Path(path).expanduser().resolve()
+    serialized = json.dumps(
+        spec.to_manifest(),
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    )
     if destination.exists():
+        if destination.read_text(encoding="utf-8") == serialized:
+            return destination
         raise FileExistsError(
-            f"model spec already exists and will not be overwritten: {destination}"
+            f"different model spec already exists and will not be overwritten: "
+            f"{destination}"
         )
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
     temporary.write_text(
-        json.dumps(spec.to_manifest(), ensure_ascii=False, indent=2, sort_keys=True),
+        serialized,
         encoding="utf-8",
     )
     try:
@@ -197,4 +206,3 @@ def select_model_spec_by_profile(
             f"MODEL_UID를 명시적으로 지정하세요. Available: {available}"
         )
     return matches[0]
-

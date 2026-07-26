@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -20,8 +21,10 @@ from research.explainability.gradcam.templates import (
 from research.runtime.hashing import sha256_file
 
 
-PREPARED_SCHEMA_VERSION = 1
-SALIENCY_SCHEMA_VERSION = 1
+PREPARED_SCHEMA_VERSION = 2
+SALIENCY_SCHEMA_VERSION = 2
+SUPPORTED_PREPARED_SCHEMA_VERSIONS = {1, PREPARED_SCHEMA_VERSION}
+SUPPORTED_SALIENCY_SCHEMA_VERSIONS = {1, SALIENCY_SCHEMA_VERSION}
 
 
 def _positive_integer(value: int, *, name: str) -> int:
@@ -33,8 +36,8 @@ def _positive_integer(value: int, *, name: str) -> int:
     return converted
 
 
-def _new_atomic_directory(destination: Path) -> Path:
-    if destination.exists():
+def _new_atomic_directory(destination: Path, *, overwrite: bool) -> Path:
+    if destination.exists() and not overwrite:
         raise FileExistsError(
             f"artifact directory already exists and will not be overwritten: "
             f"{destination}"
@@ -48,12 +51,29 @@ def _new_atomic_directory(destination: Path) -> Path:
     )
 
 
-def _publish_atomic_directory(temporary: Path, destination: Path) -> Path:
-    if destination.exists():
+def _publish_atomic_directory(
+    temporary: Path,
+    destination: Path,
+    *,
+    overwrite: bool,
+) -> Path:
+    if destination.exists() and not overwrite:
         raise FileExistsError(
             f"artifact directory appeared during write: {destination}"
         )
-    os.replace(temporary, destination)
+    if not destination.exists():
+        os.replace(temporary, destination)
+        return destination
+
+    backup = destination.with_name(f".{destination.name}.backup-{uuid4().hex}")
+    os.replace(destination, backup)
+    try:
+        os.replace(temporary, destination)
+    except BaseException:
+        os.replace(backup, destination)
+        raise
+    else:
+        shutil.rmtree(backup)
     return destination
 
 
@@ -73,20 +93,54 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     )
 
 
+def _read_index_frame(path: Path) -> pd.DataFrame:
+    """Read the current CSV index while preserving old completed Parquet runs."""
+
+    if path.suffix.lower() == ".csv":
+        frame = pd.read_csv(path)
+        # Empty identity strings are meaningful in the LOO eligibility
+        # contract; CSV's default NA parsing must not turn them into NaN.
+        if "identity_id" in frame:
+            frame["identity_id"] = frame["identity_id"].fillna("")
+        return frame
+    if path.suffix.lower() == ".parquet":
+        return pd.read_parquet(path)
+    raise ValueError(f"unsupported tabular artifact format: {path}")
+
+
+def _restore_frame_dtypes(
+    frame: pd.DataFrame,
+    dtypes: dict[str, object] | None,
+) -> pd.DataFrame:
+    if not dtypes:
+        return frame
+    restored = frame.copy()
+    for column, dtype in dtypes.items():
+        if column not in restored:
+            raise ValueError(f"CSV artifact is missing dtype column: {column}")
+        restored[column] = restored[column].astype(str(dtype))
+    return restored
+
+
 def write_prepared_population_artifact(
     prepared: PreparedPopulationInputs,
     destination: str | Path,
     *,
     shard_size: int = 2048,
+    overwrite: bool = False,
 ) -> Path:
-    """Write immutable, allow_pickle=False embedding/LOO shards."""
+    """Write one complete allow_pickle=False embedding/LOO shard bundle."""
 
     output = Path(destination).resolve()
     rows_per_shard = _positive_integer(shard_size, name="shard_size")
-    temporary = _new_atomic_directory(output)
+    temporary = _new_atomic_directory(output, overwrite=overwrite)
     try:
-        sample_path = temporary / "sample_index.parquet"
-        prepared.sample_frame().to_parquet(sample_path, index=False)
+        sample_path = temporary / "sample_index.csv"
+        prepared.sample_frame().to_csv(
+            sample_path,
+            index=False,
+            encoding="utf-8",
+        )
         shard_dir = temporary / "embedding_shards"
         shard_dir.mkdir()
         shard_entries: list[dict[str, object]] = []
@@ -153,7 +207,11 @@ def write_prepared_population_artifact(
             "embedding_shards": shard_entries,
         }
         _write_json(temporary / "manifest.json", manifest)
-        return _publish_atomic_directory(temporary, output)
+        return _publish_atomic_directory(
+            temporary,
+            output,
+            overwrite=overwrite,
+        )
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
@@ -190,13 +248,15 @@ def read_prepared_population_artifact(
         source,
         artifact_type="prepared_population_saliency_inputs",
     )
-    if int(manifest.get("schema_version", -1)) != PREPARED_SCHEMA_VERSION:
+    if int(manifest.get("schema_version", -1)) not in (
+        SUPPORTED_PREPARED_SCHEMA_VERSIONS
+    ):
         raise ValueError("unsupported prepared population schema version")
     sample_index_path = _verify_entry(
         source,
         dict(manifest["sample_index"]),
     )
-    sample_index = pd.read_parquet(sample_index_path)
+    sample_index = _read_index_frame(sample_index_path)
     parts: dict[str, list[np.ndarray]] = {}
     expected_start = 0
     for entry in list(manifest["embedding_shards"]):
@@ -254,6 +314,7 @@ def write_population_saliency_artifact(
     *,
     shard_size: int = 2048,
     heatmap_dtype: str = "float16",
+    overwrite: bool = False,
 ) -> Path:
     """Write full-population features and native-resolution heatmap shards."""
 
@@ -262,10 +323,14 @@ def write_population_saliency_artifact(
     if heatmap_dtype not in {"float16", "float32"}:
         raise ValueError("heatmap_dtype must be 'float16' or 'float32'")
     map_dtype = np.float16 if heatmap_dtype == "float16" else np.float32
-    temporary = _new_atomic_directory(output)
+    temporary = _new_atomic_directory(output, overwrite=overwrite)
     try:
-        feature_path = temporary / "saliency_features.parquet"
-        result.features.to_parquet(feature_path, index=False)
+        feature_path = temporary / "saliency_features.csv"
+        result.features.to_csv(
+            feature_path,
+            index=False,
+            encoding="utf-8",
+        )
         shard_dir = temporary / "heatmap_shards"
         shard_dir.mkdir()
         shard_entries: list[dict[str, object]] = []
@@ -341,11 +406,22 @@ def write_population_saliency_artifact(
             "intermediate_tensors_persisted": (
                 result.activations is not None and result.gradients is not None
             ),
-            "saliency_features": _file_entry(feature_path, root=temporary),
+            "saliency_features": _file_entry(
+                feature_path,
+                root=temporary,
+                dtypes={
+                    column: str(dtype)
+                    for column, dtype in result.features.dtypes.items()
+                },
+            ),
             "heatmap_shards": shard_entries,
         }
         _write_json(temporary / "manifest.json", manifest)
-        return _publish_atomic_directory(temporary, output)
+        return _publish_atomic_directory(
+            temporary,
+            output,
+            overwrite=overwrite,
+        )
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
@@ -357,10 +433,17 @@ def read_population_saliency_features(directory: str | Path) -> pd.DataFrame:
         source,
         artifact_type="population_gradcam_saliency",
     )
-    if int(manifest.get("schema_version", -1)) != SALIENCY_SCHEMA_VERSION:
+    if int(manifest.get("schema_version", -1)) not in (
+        SUPPORTED_SALIENCY_SCHEMA_VERSIONS
+    ):
         raise ValueError("unsupported population saliency schema version")
-    feature_path = _verify_entry(source, dict(manifest["saliency_features"]))
-    frame = pd.read_parquet(feature_path)
+    feature_entry = dict(manifest["saliency_features"])
+    feature_path = _verify_entry(source, feature_entry)
+    frame = _read_index_frame(feature_path)
+    frame = _restore_frame_dtypes(
+        frame,
+        dict(feature_entry.get("dtypes", {})),
+    )
     if len(frame) != int(manifest["sample_feature_row_count"]):
         raise ValueError("saliency feature row count does not match manifest")
     return frame

@@ -9,9 +9,15 @@ Each new run receives a daily sequence such as `20260714-R003-<config-hash>`.
 The run directory contains an immutable manifest, structured JSONL logs, phase
 attempts, artifacts, figures, and models.
 
+Step 2 uses the same `RunStore` contract under `runs/step2/`.
+`active_run.json` selects exactly one incomplete ArcFace/AdaFace/MagFace
+workflow. Restarting notebook 00 with the same model and config reuses that
+run; a different incomplete run is not overwritten. The representative-case
+stage marks the run complete, after which it is immutable.
+
 ## Run reset and quarantine
 
-Use `notebooks/database/selective_cleanup.ipynb` with
+Use `notebooks/maintenance/00_selective_cleanup.ipynb` with
 `RESET_MODE="complete_run_reset"` when an exact `run_uid` must be removed before
 a clean re-run. Run-owned preprocessing, embeddings, PCA/PQ models and
 codebooks, Grad-CAM/LOO artifacts, evaluation outputs, figures, and logs are

@@ -88,7 +88,7 @@ def _manifest_rows(
     if not manifest_path.is_file():
         raise FileNotFoundError(
             "LFW smoke fallback manifest does not exist. Run "
-            "notebooks/lfw/data_preparation.ipynb first or set "
+            "notebooks/prerequisite/datasets/00_lfw_data_preparation.ipynb first or set "
             f"SMOKE_INPUT_PATH explicitly: {manifest_path}"
         )
     with manifest_path.open("r", encoding="utf-8", newline="") as handle:

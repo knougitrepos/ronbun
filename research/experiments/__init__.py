@@ -26,6 +26,10 @@ from research.experiments.lfw_pgvector import (
     run_lfw_pgvector_search,
     summarize_lfw_pgvector_search,
 )
+from research.experiments.step2_compression import (
+    Step2CompressionResult,
+    characterize_step2_compression,
+)
 
 __all__ = [
     "EXPERIMENT_MODES",
@@ -37,7 +41,9 @@ __all__ = [
     "assemble_lfw_certification_inputs",
     "build_lfw_certification_inputs",
     "LFWTemplateScope",
+    "Step2CompressionResult",
     "calibrate_lfw_pgvector_threshold",
+    "characterize_step2_compression",
     "materialize_lfw_templates",
     "protocol_frames",
     "run_lfw_pgvector_search",
