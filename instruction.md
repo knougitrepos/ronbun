@@ -75,7 +75,7 @@ OVERWRITE = True        # 미완료 단계의 canonical 결과 한 세트 교체
 
 가장 먼저 다음 파일을 실행한다.
 
-1. `notebooks/prerequisite/datasets/00_lfw_data_preparation.ipynb`
+1. `notebooks/lfw/00_data_preparation/00_data_preparation.ipynb`
 
 주요 출력:
 
@@ -86,7 +86,7 @@ OVERWRITE = True        # 미완료 단계의 canonical 결과 한 세트 교체
 
 LFW 검증 후 다음 파일을 실행한다.
 
-1. `notebooks/prerequisite/datasets/01_survface_data_preparation.ipynb`
+1. `notebooks/survface/00_data_preparation/00_data_preparation.ipynb`
 
 주요 출력:
 
@@ -100,7 +100,7 @@ SurvFace 공식 test 행으로 PCA/PQ 또는 threshold를 학습하면 안 된�
 
 RFW는 다음 파일에서 먼저 공식 1:1 protocol을 검증한다.
 
-1. `notebooks/prerequisite/datasets/02_rfw_data_preparation.ipynb`
+1. `notebooks/rfw/00_data_preparation/00_data_preparation.ipynb`
 
 주요 출력:
 
@@ -119,7 +119,7 @@ headline 모델 평가는 checkpoint overlap gate에서 차단된다.
 
 RFW의 전체 source identity artifact를 만든 뒤 다음 파일을 실행한다.
 
-1. `notebooks/prerequisite/datasets/03_balancedface_data_preparation.ipynb`
+1. `notebooks/balancedface/00_data_preparation/00_data_preparation.ipynb`
 
 주요 출력:
 
@@ -139,7 +139,7 @@ threshold 보정 후보로만 사용한다.
 
 ### 4.5 Step 2 공통 aligned crop
 
-`notebooks/prerequisite/datasets/04_lfw_aligned_crop_materialization.ipynb`가
+`notebooks/lfw/00_data_preparation/01_aligned_crop_materialization.ipynb`가
 다음 canonical bundle을 만든다.
 
 - `data/interim/common/aligned_112/aligned_faces.npy`
@@ -161,7 +161,7 @@ landmark/face mask가 추가로 필요하다.
 
 ArcFace부터 시작하고, 성공한 뒤 AdaFace와 MagFace에 같은 절차를 반복한다.
 
-1. `notebooks/prerequisite/models/00_checkpoint_registration.ipynb`
+1. `notebooks/common/model_preparation/00_checkpoint_registration.ipynb`
 
 노트북에서 다음 값만 직접 확인·지정한다.
 
@@ -198,7 +198,7 @@ runs/step2/model_registry/<model_uid>.json
 
 checkpoint 등록 직후 다음 파일을 실행한다.
 
-1. `notebooks/prerequisite/models/01_preprocessing_and_model_smoke.ipynb`
+1. `notebooks/common/model_preparation/01_preprocessing_and_model_smoke.ipynb`
 
 필요한 입력:
 
@@ -239,7 +239,7 @@ Pass-A artifact의 exact `model_uid`를 사용하므로 ModelSpec JSON 경로를
 
 ### 7.1 입력·범위·모델 동결
 
-1. `notebooks/experiments/gradcam/prerequisite/00_source_and_model_freeze.ipynb`
+1. `notebooks/lfw/04_gradcam/prerequisite/00_source_and_model_freeze.ipynb`
 
 필요한 입력:
 
@@ -254,7 +254,7 @@ Pass-A artifact의 exact `model_uid`를 사용하므로 ModelSpec JSON 경로를
 
 ### 7.2 Pass A와 동일인 LOO template
 
-2. `notebooks/experiments/gradcam/prerequisite/01_origin_embedding_and_loo_templates.ipynb`
+2. `notebooks/lfw/04_gradcam/prerequisite/01_origin_embedding_and_loo_templates.ipynb`
 
 - 모든 선택 이미지의 raw 512D, raw norm, unit embedding을 추출한다.
 - 같은 `template_scope_id`와 identity의 다른 이미지 embedding 합에서 자기
@@ -265,7 +265,7 @@ Pass-A artifact의 exact `model_uid`를 사용하므로 ModelSpec JSON 경로를
 
 ### 7.3 Pass B population Grad-CAM
 
-3. `notebooks/experiments/gradcam/experiment/00_population_gradcam_extraction.ipynb`
+3. `notebooks/lfw/04_gradcam/experiment/00_population_gradcam_extraction.ipynb`
 
 - 모든 LOO-eligible 이미지에 대해 query branch만 미분한다.
 - detached LOO template과 원본 embedding cosine을 scalar target으로 사용한다.
@@ -276,7 +276,7 @@ Pass-A artifact의 exact `model_uid`를 사용하므로 ModelSpec JSON 경로를
 
 ### 7.4 coverage·공간 특징·faithfulness 검증
 
-4. `notebooks/experiments/gradcam/experiment/01_saliency_feature_validation.ipynb`
+4. `notebooks/lfw/04_gradcam/experiment/01_saliency_feature_validation.ipynb`
 
 - 전체 선택 행 수, LOO 적격률, heatmap 유효률을 함께 보고한다.
 - high-saliency, low-saliency, sample-id seeded random occlusion score drop을
@@ -293,7 +293,7 @@ coverage를 다시 계산해 artifact에 기록한다.
 
 ### 8.1 정량 압축 결과 연결
 
-5. `notebooks/experiments/gradcam/experiment/02_step2_compression_characterization.ipynb`
+5. `notebooks/lfw/04_gradcam/experiment/02_step2_compression_characterization.ipynb`
 
 동일한 `origin_embedding_artifact_uid`의 원본 512D를 사용해 모델별로 다음을
 생성해야 한다.
@@ -308,12 +308,12 @@ PCA-only/PQ-only를 학습하고 calibration에서 threshold를 정한 뒤 test�
 평가한다. 노트북은 이 runner를 호출하고 fallback·profile·lineage를 검증한 뒤
 CSV 결과 한 세트만 기록한다.
 
-기존 `notebooks/experiments/compression/lfw/02_step1_compression_characterization.ipynb`는 ONNX ArcFace
+기존 `notebooks/lfw/02_compression/02_step1_compression_characterization.ipynb`는 ONNX ArcFace
 Step 1 기준선용이므로 PyTorch 세 모델 Step 2 결과 생성기로 간주하면 안 된다.
 
 ### 8.2 전체 표본 결합·관계 분석
 
-6. `notebooks/experiments/gradcam/experiment/03_saliency_compression_join.ipynb`
+6. `notebooks/lfw/04_gradcam/experiment/03_saliency_compression_join.ipynb`
 
 - 결합 키:
   `extraction_uid + dataset_id + sample_id + model_uid`
@@ -327,7 +327,7 @@ Step 1 기준선용이므로 PyTorch 세 모델 Step 2 결과 생성기로 간�
 
 ### 8.3 마지막 대표 사례 시각화
 
-7. `notebooks/experiments/gradcam/experiment/04_representative_case_visualization.ipynb`
+7. `notebooks/lfw/04_gradcam/experiment/04_representative_case_visualization.ipynb`
 
 전체 결합 분석이 끝난 뒤에만 `stable`, `high_error`, `rank_flip`,
 `threshold_crossing` 예시를 결정적으로 선택한다. 이미 저장된 heatmap을 읽어
@@ -340,21 +340,21 @@ Step 2와 별개의 기준선 재현 순서이다.
 
 ### LFW
 
-1. `notebooks/prerequisite/datasets/00_lfw_data_preparation.ipynb`
-2. `notebooks/prerequisite/embeddings/lfw/00_protocol_and_run_freeze.ipynb`
-3. `notebooks/prerequisite/embeddings/lfw/01_arcface_embedding_extraction.ipynb`
-4. `notebooks/experiments/compression/lfw/02_step1_compression_characterization.ipynb`
+1. `notebooks/lfw/00_data_preparation/00_data_preparation.ipynb`
+2. `notebooks/lfw/01_embeddings/00_protocol_and_run_freeze.ipynb`
+3. `notebooks/lfw/01_embeddings/01_arcface_embedding_extraction.ipynb`
+4. `notebooks/lfw/02_compression/02_step1_compression_characterization.ipynb`
 
 ### SurvFace
 
-1. `notebooks/prerequisite/datasets/01_survface_data_preparation.ipynb`
-2. `notebooks/prerequisite/embeddings/survface/00_official_protocol_and_run_freeze.ipynb`
-3. `notebooks/prerequisite/embeddings/survface/01_official_arcface_embedding_extraction.ipynb`
-4. `notebooks/experiments/compression/survface/02_step1_compression_characterization.ipynb`
+1. `notebooks/survface/00_data_preparation/00_data_preparation.ipynb`
+2. `notebooks/survface/01_embeddings/00_official_protocol_and_run_freeze.ipynb`
+3. `notebooks/survface/01_embeddings/01_official_arcface_embedding_extraction.ipynb`
+4. `notebooks/survface/02_compression/02_step1_compression_characterization.ipynb`
 
 두 데이터셋의 정량 결과가 완성되면 마지막에 다음 파일을 실행한다.
 
-1. `notebooks/reports/00_cross_dataset_results.ipynb`
+1. `notebooks/common/reports/00_cross_dataset_results.ipynb`
 
 기존 LFW 02~05와 SurvFace 02~05는 과거 DB/certification/fallback 시스템 재현
 경로이다. 현재 Step 1/Step 2 주 실험 순서에 포함하지 않는다. 특히 origin
@@ -389,9 +389,9 @@ exact fallback을 포함한 파일을 새 압축 특성 결과 생성에 사용�
   -> 검증된 결과만 논문용 results로 선별
 ```
 
-새 데이터 준비는 `notebooks/prerequisite/datasets/02_rfw_data_preparation.ipynb`부터 시작하고 그 다음
-`notebooks/prerequisite/datasets/03_balancedface_data_preparation.ipynb`를 실행한다. 모델 쪽 독립 작업은
-`notebooks/prerequisite/models/00_checkpoint_registration.ipynb`부터 시작한다.
+새 데이터 준비는 `notebooks/rfw/00_data_preparation/00_data_preparation.ipynb`부터 시작하고 그 다음
+`notebooks/balancedface/00_data_preparation/00_data_preparation.ipynb`를 실행한다. 모델 쪽 독립 작업은
+`notebooks/common/model_preparation/00_checkpoint_registration.ipynb`부터 시작한다.
 실제 Step 2 전체 실행을 위해 다음 구현 우선순위는 BalancedFace source 선택과
 alignment/decoder materializer, 공통 aligned crop 생성, PyTorch 정량 압축
 runner 순서이다. 사례 pair bundle은 더 이상 선행 artifact가 아니다.
@@ -400,7 +400,7 @@ runner 순서이다. 사례 pair bundle은 더 이상 선행 artifact가 아니�
 
 연구 실행 순서와 별개의 유지보수 절차이다. 다음 노트북을 사용한다.
 
-1. `notebooks/maintenance/00_selective_cleanup.ipynb`
+1. `notebooks/common/maintenance/00_selective_cleanup.ipynb`
 
 일반적인 리팩토링·재실행 전 정리에는 DB만 선택 삭제하지 말고
 `RESET_MODE="complete_run_reset"`을 사용한다.

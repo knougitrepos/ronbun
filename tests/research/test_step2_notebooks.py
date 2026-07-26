@@ -8,8 +8,8 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
-MODEL_ROOT = NOTEBOOK_ROOT / "prerequisite" / "models"
-GRADCAM_ROOT = NOTEBOOK_ROOT / "experiments" / "gradcam"
+MODEL_ROOT = NOTEBOOK_ROOT / "common" / "model_preparation"
+GRADCAM_ROOT = NOTEBOOK_ROOT / "lfw" / "04_gradcam"
 CONFIG_PATH = (
     PROJECT_ROOT / "configs" / "experiments" / "step2_pytorch_gradcam.yaml"
 )

@@ -352,33 +352,33 @@ PQ 복원 벡터를 일반 `vector(256)`로 저장하고 이를 PQ 저장공간�
 
 ## 11. 구현 진행 순서
 
-실험은 계산 로직을 담은 `research/` 모듈과 그 모듈을 순서대로 호출하는 노트북으로 분리한다. 데이터·모델·원본 임베딩 생성은 `notebooks/prerequisite/`, 압축·open-set·Grad-CAM 실험은 `notebooks/experiments/`, 집계는 `notebooks/reports/`에 두며 공통 위험 로직은 복제하지 않고 `research/`에서 공유한다. DB 연결 정보는 `configs/database.yaml`과 Git에서 제외되는 `configs/database.local.yaml`에 두며 노트북에 직접 작성하지 않는다.
+실험은 계산 로직을 담은 `research/` 모듈과 그 모듈을 순서대로 호출하는 노트북으로 분리한다. 노트북은 `notebooks/lfw/`, `notebooks/survface/`, `notebooks/rfw/`, `notebooks/balancedface/`처럼 데이터셋을 최상위 기준으로 나누고, 각 데이터셋 아래에 `00_data_preparation`, `01_embeddings`, `02_compression`, `03_open_set` 등의 실행 단계를 둔다. 여러 데이터셋이 공유하는 checkpoint 검증·보고·유지보수만 `notebooks/common/`에 두며 공통 위험 로직은 복제하지 않고 `research/`에서 공유한다. DB 연결 정보는 `configs/database.yaml`과 Git에서 제외되는 `configs/database.local.yaml`에 두며 노트북에 직접 작성하지 않는다.
 
 LFW 기본 흐름은 다음과 같다.
 
-1. `notebooks/prerequisite/embeddings/lfw/00_protocol_and_run_freeze.ipynb`
+1. `notebooks/lfw/01_embeddings/00_protocol_and_run_freeze.ipynb`
    - 데이터셋 manifest와 identity-disjoint development/calibration/test 분할을 확정한다.
    - 등록 probe, known unknown, unknown unknown 구성을 고정한다.
    - 전체 설정 hash와 Git 상태를 기록하고 새 실험 run을 생성한다.
-2. `notebooks/prerequisite/embeddings/lfw/01_arcface_embedding_extraction.ipynb`
+2. `notebooks/lfw/01_embeddings/01_arcface_embedding_extraction.ipynb`
    - ArcFace 512D 원본 임베딩과 얼굴 검출·품질 메타데이터를 추출한다.
    - 원본 임베딩을 PostgreSQL의 원본 테이블에 저장한다.
-3. `notebooks/experiments/compression/lfw/00_compressor_fit.ipynb`
+3. `notebooks/lfw/02_compression/00_compressor_fit.ipynb`
    - development split만 사용해 PCA와 보조 PQ codebook을 학습한다.
    - 압축 프로파일, 학습 입력 hash, 모델 checksum을 기록한다.
-4. `notebooks/experiments/compression/lfw/01_compressed_materialization_and_index.ipynb`
+4. `notebooks/lfw/02_compression/01_compressed_materialization_and_index.ipynb`
    - DB의 원본 임베딩을 PCA 등 검색 가능한 표현으로 변환해 별도 테이블에 저장한다.
    - test/calibration identity의 원본 512D template과 PCA-256 retrieval template을 각각 `template_embedding_512`와 `template_embedding_256`에 저장한다.
    - pgvector HNSW 인덱스 존재 여부와 저장 byte를 확인한다. 실제 index build time은 빈 테이블에 미리 생성된 전역 index의 `IF NOT EXISTS` 시간을 사용하지 않고, 별도의 깨끗한 DB snapshot 실험에서 측정한다.
    - PQ code는 pgvector 검색 벡터로 취급하지 않고 Faiss/복원 오차 보조 실험으로 분리한다.
-5. `notebooks/experiments/open_set/lfw/00_probe_search_and_certification.ipynb`
+5. `notebooks/lfw/03_open_set/00_probe_search_and_certification.ipynb`
    - calibration split의 origin-512와 PCA-256 pgvector exact 검색 결과로 점수 공간별 목표 FPIR threshold를 고정한다.
    - test probe마다 origin-512 exact, PCA-256 exact, PCA-256 HNSW Top-K를 분리 실행한다.
    - candidate recall, 압축 rank inversion, HNSW rank inversion, threshold crossing, P50/P95 latency를 기록한다.
    - certificate는 원본 query 512D와 reconstructed template 512D를 사용하여 query angular error를 0으로 둔다.
    - HNSW 후보 집합의 certificate는 전역 보증으로 주장하지 않으며 candidate recall과 함께 보고한다.
    - BCE 기반 logistic calibration은 profile별 threshold 시스템 baseline이 안정화된 뒤 추가한다.
-6. `notebooks/experiments/open_set/lfw/01_evaluation_and_visualization.ipynb`
+6. `notebooks/lfw/03_open_set/01_evaluation_and_visualization.ipynb`
    - DIR@FPIR, FNIR@FPIR, Rank-K, calibration, 저장량, 지연시간을 계산한다.
    - bootstrap 신뢰구간, 결과 표, 실패 사례, 논문용 그림을 생성한다.
 

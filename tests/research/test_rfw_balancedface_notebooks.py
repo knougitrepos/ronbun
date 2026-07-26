@@ -4,24 +4,25 @@ import nbformat
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATASET_ROOT = PROJECT_ROOT / "notebooks" / "prerequisite" / "datasets"
+NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
 
 
-def _load(name: str):
-    path = DATASET_ROOT / name
+def _load(dataset: str):
+    path = (
+        NOTEBOOK_ROOT
+        / dataset
+        / "00_data_preparation"
+        / "00_data_preparation.ipynb"
+    )
     notebook = nbformat.read(path, as_version=4)
     nbformat.validate(notebook)
     return path, notebook
 
 
 def test_rfw_and_balancedface_are_dataset_prerequisites():
-    expected = {
-        "02_rfw_data_preparation.ipynb",
-        "03_balancedface_data_preparation.ipynb",
-    }
-    assert expected.issubset({path.name for path in DATASET_ROOT.glob("*.ipynb")})
-    for name in sorted(expected):
-        path, notebook = _load(name)
+    for dataset in ("balancedface", "rfw"):
+        path, notebook = _load(dataset)
+        assert path.is_file()
         assert notebook.metadata["ronbun"]["workflow_role"] == "prerequisite"
         for index, cell in enumerate(notebook.cells):
             if cell.cell_type != "code":
@@ -30,8 +31,8 @@ def test_rfw_and_balancedface_are_dataset_prerequisites():
 
 
 def test_dataset_prerequisites_use_full_execution_defaults_and_guards():
-    _, rfw = _load("02_rfw_data_preparation.ipynb")
-    _, balanced = _load("03_balancedface_data_preparation.ipynb")
+    _, rfw = _load("rfw")
+    _, balanced = _load("balancedface")
     rfw_source = "\n".join(cell.source for cell in rfw.cells)
     balanced_source = "\n".join(cell.source for cell in balanced.cells)
 

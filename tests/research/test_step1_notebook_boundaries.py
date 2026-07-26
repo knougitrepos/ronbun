@@ -39,12 +39,12 @@ def _call_argument_names(source: str, function_name: str) -> list[tuple[str, ...
 
 
 def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
-    for name in (
-        "00_lfw_data_preparation.ipynb",
-        "01_survface_data_preparation.ipynb",
-    ):
+    for dataset in ("lfw", "survface"):
         source = _code_source(
-            NOTEBOOK_ROOT / "prerequisite" / "datasets" / name
+            NOTEBOOK_ROOT
+            / dataset
+            / "00_data_preparation"
+            / "00_data_preparation.ipynb"
         )
 
         assert 'MODE = "dev"' in source or "MODE = 'dev'" in source
@@ -60,9 +60,8 @@ def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
     for dataset in ("lfw", "survface"):
         source = _code_source(
             NOTEBOOK_ROOT
-            / "experiments"
-            / "compression"
             / dataset
+            / "02_compression"
             / "02_step1_compression_characterization.ipynb"
         )
 
@@ -80,16 +79,14 @@ def test_step1_notebook_paths_are_guarded_by_the_dataset_config():
     survface_config = config["datasets"]["survface"]
     lfw_source = _code_source(
         NOTEBOOK_ROOT
-        / "experiments"
-        / "compression"
         / "lfw"
+        / "02_compression"
         / "02_step1_compression_characterization.ipynb"
     )
     survface_source = _code_source(
         NOTEBOOK_ROOT
-        / "experiments"
-        / "compression"
         / "survface"
+        / "02_compression"
         / "02_step1_compression_characterization.ipynb"
     )
 
@@ -113,15 +110,14 @@ def test_step1_notebook_paths_are_guarded_by_the_dataset_config():
 def test_survface_official_test_is_evaluation_only_in_step1_code_path():
     preparation_source = _code_source(
         NOTEBOOK_ROOT
-        / "prerequisite"
-        / "datasets"
-        / "01_survface_data_preparation.ipynb"
+        / "survface"
+        / "00_data_preparation"
+        / "00_data_preparation.ipynb"
     )
     study_source = _code_source(
         NOTEBOOK_ROOT
-        / "experiments"
-        / "compression"
         / "survface"
+        / "02_compression"
         / "02_step1_compression_characterization.ipynb"
     )
 

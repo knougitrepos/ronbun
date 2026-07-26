@@ -17,7 +17,7 @@ stage marks the run complete, after which it is immutable.
 
 ## Run reset and quarantine
 
-Use `notebooks/maintenance/00_selective_cleanup.ipynb` with
+Use `notebooks/common/maintenance/00_selective_cleanup.ipynb` with
 `RESET_MODE="complete_run_reset"` when an exact `run_uid` must be removed before
 a clean re-run. Run-owned preprocessing, embeddings, PCA/PQ models and
 codebooks, Grad-CAM/LOO artifacts, evaluation outputs, figures, and logs are

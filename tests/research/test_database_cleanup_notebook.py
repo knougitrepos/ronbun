@@ -7,7 +7,11 @@ import nbformat
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK_PATH = (
-    PROJECT_ROOT / "notebooks" / "maintenance" / "00_selective_cleanup.ipynb"
+    PROJECT_ROOT
+    / "notebooks"
+    / "common"
+    / "maintenance"
+    / "00_selective_cleanup.ipynb"
 )
 
 

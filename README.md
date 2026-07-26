@@ -1,6 +1,6 @@
 # Face Embedding Compression Characterization Thesis
 
-이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. Step 1의 압축 기준은 [architect/20260720.md](architect/20260720.md), 모든 원본 이미지의 공간 특징과 압축 민감도를 결합하는 현재 Step 2 기준은 [architect/20260724.md](architect/20260724.md)입니다. [architect/20260723.md](architect/20260723.md)의 압축 결과 기반 일부 사례 Grad-CAM 흐름은 폐기됐습니다. [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
+이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. Step 1의 압축 기준은 [architect/20260720.md](architect/20260720.md), 원본 이미지의 공간 특징과 압축 민감도를 결합하는 Step 2 분석 기준은 [architect/20260724.md](architect/20260724.md), 현재 실행·artifact·노트북 구조 기준은 [architect/20260726.md](architect/20260726.md)입니다. [architect/20260723.md](architect/20260723.md)의 압축 결과 기반 일부 사례 Grad-CAM 흐름은 폐기됐습니다. [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
 
 핵심 질문은 다음과 같습니다.
 
@@ -19,7 +19,7 @@
 5. PQ는 원본 512D를 입력으로 하고 `m × nbits` code budget으로 정의합니다.
 6. LFW와 QMUL-SurvFace는 현재 핵심 정량 데이터셋입니다. 새로 확보한 RFW는 조건부 1:1 평가, BalancedFace는 개발·보정 후보로 분리하며 현재 정량 목록에 자동 승격하지 않습니다.
 7. `MODE`, `DATA_FRACTION`, `SEED`로 실행량을 제어하되 identity와 공식 open-set 역할을 보존합니다.
-8. 데이터셋별 노트북은 실행 절차만 담당하고 공통 결과 표·그림은 `notebooks/reports/`에서 생성합니다.
+8. 데이터셋별 노트북은 실행 절차만 담당하고 공통 결과 표·그림은 `notebooks/common/reports/`에서 생성합니다.
 
 ### 구현 상태
 
@@ -40,7 +40,7 @@
 | 전체 원본 embedding·LOO template·population Grad-CAM core | Step 2 구현·synthetic 검증됨 |
 | 공간 특징·faithfulness·immutable shard·압축 결합 core | Step 2 구현·synthetic 검증됨 |
 | 실제 FR checkpoint Grad-CAM 결과 | 미구현 |
-| PyTorch Step 2 PCA/PQ 정량 runner | 미구현 |
+| PyTorch Step 2 PCA/PQ 정량 runner | Step 2 구현·synthetic 검증됨 |
 | 세 모델 공정성 게이트 | 검증 필요 |
 
 Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, 전처리와 target layer를 등록하고 smoke test를 통과하기 전에는 해당 모델을 실행 가능하다고 간주하지 않습니다. 서로 다른 공개 checkpoint를 사용할 경우 backbone, 학습 데이터 및 전처리 차이가 섞이므로 결과를 loss 함수의 인과효과가 아닌 checkpoint 수준 비교로 제한합니다. FR 모델을 새로 학습하지 않습니다.
@@ -76,12 +76,15 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 | `research/evaluation/` | fallback 없는 paired 압축 특성·검색 비교와 FPIR/DIR 지표 |
 | `research/templates/` | 템플릿 집계 ablation |
 | `research/runtime/` | 날짜·회차별 실행 기록과 안정적인 실행 코드 |
-| `notebooks/prerequisite/`, `notebooks/experiments/` | 데이터셋별 준비·추출 및 Step 1 실행 runbook |
-| `notebooks/prerequisite/datasets/` | RFW protocol 및 BalancedFace 개발 source 준비 runbook |
-| `notebooks/reports/` | 두 데이터셋의 공통 결과 schema 검사·표·그림 |
-| `notebooks/prerequisite/models/` | Step 2 checkpoint 등록·전처리·출력 검증 |
-| `notebooks/experiments/gradcam/` | 원본 공간 특징을 먼저 추출하고 압축 민감도와 결합하는 LFW Step 2 runbook |
-| `notebooks/maintenance/` | exact `run_uid`의 DB·전처리·중간·결과 artifact complete reset과 고급 DB-only 선택 정리 runbook |
+| `notebooks/lfw/` | LFW 데이터 준비부터 embedding·compression·open-set·Grad-CAM까지의 순차 runbook |
+| `notebooks/survface/` | SurvFace 공식 protocol 준비부터 embedding·compression·open-set까지의 순차 runbook |
+| `notebooks/rfw/` | RFW 공식 1:1 verification protocol 준비 runbook |
+| `notebooks/balancedface/` | RFW 중복 identity를 제거하는 BalancedFace 개발 source 준비 runbook |
+| `notebooks/common/` | 공통 checkpoint 검증, 교차 데이터셋 보고, 유지보수 runbook |
+| `notebooks/common/reports/` | 두 데이터셋의 공통 결과 schema 검사·표·그림 |
+| `notebooks/common/model_preparation/` | Step 2 checkpoint 등록·전처리·출력 검증 |
+| `notebooks/lfw/04_gradcam/` | 원본 공간 특징을 먼저 추출하고 압축 민감도와 결합하는 LFW Step 2 runbook |
+| `notebooks/common/maintenance/` | exact `run_uid`의 DB·전처리·중간·결과 artifact complete reset과 고급 DB-only 선택 정리 runbook |
 | `runs/` | 실행별 manifest, 로그, phase 산출물 및 reset 감사·격리 payload. Git에서 제외 |
 | `results/paper/` | 검증 후 논문 표·그림으로 선별한 결과 |
 
@@ -106,7 +109,7 @@ py scripts/setup_postgres_pgvector.py
 필요하면 Git에서 제외되는 `configs/database.local.yaml`에 로컬 override를 둘 수 있습니다. 환경 변수 `RONBUN_DB_HOST`, `RONBUN_DB_PORT`, `RONBUN_DB_NAME`, `RONBUN_DB_USER`, `RONBUN_DB_PASSWORD`가 가장 높은 우선순위를 갖습니다. 로그와 manifest에는 비밀번호를 기록하지 않습니다.
 
 리팩토링 전후의 같은 run 데이터가 DB·전처리 artifact·평가 결과에 나뉘어
-남았을 때는 `notebooks/maintenance/00_selective_cleanup.ipynb`의
+남았을 때는 `notebooks/common/maintenance/00_selective_cleanup.ipynb`의
 `RESET_MODE="complete_run_reset"`을 권장합니다. 정확한 `run_uid`가 소유한
 DB 행, `runs/` 실행 bundle, `result_manifest.json`으로 소유권이 확인된 결과
 bundle 및 같은 run을 가리키는 `active_run.json`을 하나의 plan digest와 확인
@@ -137,7 +140,7 @@ GPU wheel은 로컬 NVIDIA driver와 맞아야 하므로 필요할 때 PyTorch �
 
 ## Step 2 실행 경계
 
-1. `notebooks/prerequisite/models/`에서 checkpoint 출처·hash·전처리·512D 출력·raw norm과 target layer를 검증합니다.
+1. `notebooks/common/model_preparation/`에서 checkpoint 출처·hash·전처리·512D 출력·raw norm과 target layer를 검증합니다.
 2. 고정된 공통 정렬 crop에서 선택된 모든 이미지의 모델별 PyTorch 512D embedding을 새 lineage로 생성합니다.
 3. 같은 split·identity의 다른 이미지로 leave-one-out template을 만들고 모든 eligible 이미지의 원본 Grad-CAM·공간 특징을 추출합니다. singleton과 identity 누락 표본은 임베딩과 행을 유지하되 target 부적격 사유를 기록합니다.
 4. 같은 원본 512D에 Step 1과 동일한 독립 PCA-only/PQ-only 정량 실험을 수행합니다.
@@ -152,10 +155,10 @@ Grad-CAM target은 `origin_leave_one_out_identity_cosine`이며 hard PQ를 미�
 
 | 데이터셋 | 준비 노트북 | 기본 출력 폴더 |
 | --- | --- | --- |
-| LFW deep-funneled | `notebooks/prerequisite/datasets/00_lfw_data_preparation.ipynb` | `data/interim/lfw/` |
-| QMUL-SurvFace-v1 | `notebooks/prerequisite/datasets/01_survface_data_preparation.ipynb` | `data/interim/survface/` |
-| RFW | `notebooks/prerequisite/datasets/02_rfw_data_preparation.ipynb` | `data/interim/rfw/` |
-| BUPT-BalancedFace | `notebooks/prerequisite/datasets/03_balancedface_data_preparation.ipynb` | `data/interim/balancedface/` |
+| LFW deep-funneled | `notebooks/lfw/00_data_preparation/00_data_preparation.ipynb` | `data/interim/lfw/` |
+| QMUL-SurvFace-v1 | `notebooks/survface/00_data_preparation/00_data_preparation.ipynb` | `data/interim/survface/` |
+| RFW | `notebooks/rfw/00_data_preparation/00_data_preparation.ipynb` | `data/interim/rfw/` |
+| BUPT-BalancedFace | `notebooks/balancedface/00_data_preparation/00_data_preparation.ipynb` | `data/interim/balancedface/` |
 
 모든 준비 노트북은 기본 `DATA_FRACTION=1.0`, `EXECUTE_STAGE=True`, `WRITE_OUTPUTS=True`, `OVERWRITE=True`로 위에서 아래까지 실행합니다. 동일 단계의 canonical 결과는 하나만 유지하며, 완료된 RunStore run은 덮어쓰지 않습니다. SurvFace는 `training_set`을 identity-disjoint development/calibration으로 분리하고, 별도의 official manifest에서는 gallery/mated/unmated 역할과 `protocol_index`를 보존합니다.
 
@@ -185,7 +188,7 @@ SurvFace의 PCA/PQ는 `training_manifest.csv`의 development split에서만 학�
 | 02~05 | 기존 파일 | 이전 외부-compressor/DB 공식 실험 재현용 |
 | 06 | `06_step1_compression_characterization.ipynb` | training fit과 official-test fallback-free 비교 |
 
-두 06 산출물을 만든 뒤 `notebooks/reports/00_cross_dataset_results.ipynb`에서 동일 schema로 집계합니다. 공통 노트북은 fallback 열이나 fallback 사용 행을 Step 1 결과로 허용하지 않습니다.
+두 06 산출물을 만든 뒤 `notebooks/common/reports/00_cross_dataset_results.ipynb`에서 동일 schema로 집계합니다. 공통 노트북은 fallback 열이나 fallback 사용 행을 Step 1 결과로 허용하지 않습니다.
 
 각 노트북은 위에서 아래로 실행합니다. 중단 후 재개할 때는 임의의 중간 셀부터 시작하지 말고 커널을 재시작한 뒤 bootstrap과 입력 검증 셀을 먼저 실행합니다. 이전 단계의 설정 hash나 산출물 checksum이 달라졌으면 새 run을 만들고 영향을 받는 단계부터 다시 실행합니다.
 
