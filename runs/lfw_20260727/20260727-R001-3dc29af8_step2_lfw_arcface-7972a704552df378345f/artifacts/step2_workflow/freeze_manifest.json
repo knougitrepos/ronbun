@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "run_id": "20260727-R001-3dc29af8",
+  "run_dir": "C:\\ronbun\\runs\\lfw_20260727\\20260727-R001-3dc29af8_step2_lfw_arcface-7972a704552df378345f",
+  "dataset_id": "lfw",
+  "model_uid": "arcface-7972a704552df378345f",
+  "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+  "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+  "target_layer": "layer4.2.conv2",
+  "extraction_uid": "population-1aca3cacbf45831877c715ed",
+  "scope": {
+    "mode": "real",
+    "data_fraction": 1.0,
+    "seed": 42,
+    "is_full_dataset": true,
+    "is_paper_run": true
+  },
+  "selected_sample_count": 13195,
+  "source_selected_sample_count": 13233,
+  "explicit_alignment_exclusion_count": 38,
+  "alignment_exclusion_policy": "failed_samples_manifest_no_fallback",
+  "selected_identity_count": 5736,
+  "selected_manifest_content_sha256": "4884bf53cc632dc3586e9739b631f73ec392cab2b85fe541beca8082ace5f8af",
+  "inputs": {
+    "source_manifest": {
+      "path": "C:\\ronbun\\data\\interim\\lfw\\face_manifest.csv",
+      "sha256": "839d228a63995cd456fa2045c29702c8271cbbaaeb99a033bce767245657ea2c"
+    },
+    "aligned_crop_manifest": {
+      "path": "C:\\ronbun\\data\\interim\\common\\aligned_112\\aligned_index.csv",
+      "sha256": "eb2a34d31124b36437b77500b4147227d04c3db670977ef7afa415acc14019b4"
+    },
+    "aligned_faces_npy": {
+      "path": "C:\\ronbun\\data\\interim\\common\\aligned_112\\aligned_faces.npy",
+      "sha256": "bf1cd9516a5dc0aaac4f9154be94906fcc751cd5e5638df6ab1071b8072cdabf"
+    },
+    "aligned_failed_samples": {
+      "path": "C:\\ronbun\\data\\interim\\common\\aligned_112\\failed_samples.csv",
+      "sha256": "1d13e655a2c3c304992e5a626f9675bdf9fc4679939065e51b0540ba9cec4d9f"
+    },
+    "model_spec": {
+      "path": "C:\\ronbun\\runs\\step2\\model_registry\\arcface-7972a704552df378345f.json",
+      "sha256": "a8a5ddf33d37ddd4cde8f4b7e9868ae82657189b97006cb0c75d4c6526540253"
+    }
+  },
+  "region_mask_bundle": null,
+  "fallback_free": true,
+  "selected_manifest_file": {
+    "path": "C:\\ronbun\\runs\\lfw_20260727\\20260727-R001-3dc29af8_step2_lfw_arcface-7972a704552df378345f\\artifacts\\step2_workflow\\selected_manifest.csv",
+    "sha256": "4884bf53cc632dc3586e9739b631f73ec392cab2b85fe541beca8082ace5f8af"
+  }
+}

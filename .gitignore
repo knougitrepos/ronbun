@@ -35,6 +35,8 @@ downloaded_datasets/
 codebook/
 runs/**
 !runs/README.md
+!runs/lfw_*/
+!runs/lfw_*/**
 results/step1/
 results/step2/
 # Compact publication results are intentionally tracked.

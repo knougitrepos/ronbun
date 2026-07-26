@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "run_id": "20260727-R001-3dc29af8",
+  "relocated_on": "2026-07-27",
+  "original_run_directory": "C:\\ronbun\\runs\\step2\\2026\\07\\27\\20260727-R001-3dc29af8_step2_lfw_arcface-7972a704552df378345f",
+  "current_run_directory": "C:\\ronbun\\runs\\lfw_20260727\\20260727-R001-3dc29af8_step2_lfw_arcface-7972a704552df378345f",
+  "original_freeze_manifest_sha256": "8afb238edc18da92dc20a15033060ef48bb27265bf19695cdab2ea290d1215c1",
+  "original_run_manifest_sha256": "dd0cd95b2ce6285606cb0031efb62532ef1ae03f10d1f12b719619f18ef11c2c",
+  "legacy_deleted": "runs/step2/lfw",
+  "legacy_deleted_approx_mib": 145.675,
+  "reason": "Dataset-readable run layout and removal of the obsolete parquet-era duplicate."
+}
