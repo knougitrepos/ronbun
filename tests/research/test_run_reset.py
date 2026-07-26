@@ -67,6 +67,8 @@ def _engine(*, populate: bool = True):
                 "embedding_384",
                 "embedding_256",
                 "embedding_128",
+                "embedding_64",
+                "embedding_32",
                 "embedding_pq",
             ),
             start=1,
@@ -92,6 +94,8 @@ def _engine(*, populate: bool = True):
                 "template_embedding_384",
                 "template_embedding_256",
                 "template_embedding_128",
+                "template_embedding_64",
+                "template_embedding_32",
             ),
             start=1,
         ):
@@ -250,7 +254,7 @@ def test_complete_run_reset_closes_db_and_owned_local_state(tmp_path):
         )
 
     assert plan.executable
-    assert plan.total_database_rows == 16
+    assert plan.total_database_rows == 20
     assert set(plan.database_plan.selected_tables) == set(RUN_SCOPED_TABLES)
     assert {item.kind for item in plan.local_targets} == {
         "run_workspace",
@@ -258,7 +262,7 @@ def test_complete_run_reset_closes_db_and_owned_local_state(tmp_path):
         "active_run_pointer",
     }
     assert plan.confirmation_token.startswith(
-        f"RESET {RUN_A} DB_ROWS=16 FILES="
+        f"RESET {RUN_A} DB_ROWS=20 FILES="
     )
 
     report = execute_run_reset_plan(

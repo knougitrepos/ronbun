@@ -57,14 +57,26 @@ def test_frozen_error_normalization_requires_development_provenance(stats):
         materialization._validate_error_normalization(stats)
 
 
-def test_db_materialization_rejects_step1_only_pca_dimensions_before_db_access(tmp_path):
-    with pytest.raises(ValueError, match="no current PostgreSQL table"):
+def test_db_materialization_accepts_all_step1_pca_dimensions(monkeypatch, tmp_path):
+    monkeypatch.setattr(materialization, "ensure_database_schema", lambda _engine: None)
+
+    def stop_after_dimension_validation(*_args, **_kwargs):
+        raise RuntimeError("dimension validation passed")
+
+    monkeypatch.setattr(materialization, "_source_batches", stop_after_dimension_validation)
+    pcas = {
+        f"pca_{dimension}": PCACompressor(dimension)
+        for dimension in (384, 256, 128, 64, 32)
+    }
+    with pytest.raises(RuntimeError, match="dimension validation passed"):
         materialization.materialize_pca_sweep_embeddings(
             object(),
             run_uid="step1",
-            pcas={"pca_64": PCACompressor(64)},
-            pca_artifact_paths={"pca_64": "pca64.joblib"},
-            pca_artifact_sha256={"pca_64": "a" * 64},
+            pcas=pcas,
+            pca_artifact_paths={
+                profile: f"{profile}.joblib" for profile in pcas
+            },
+            pca_artifact_sha256={profile: "a" * 64 for profile in pcas},
             development_image_paths={"image.jpg"},
             measurements_path=tmp_path / "measurements.csv",
         )

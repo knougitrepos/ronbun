@@ -39,6 +39,7 @@ def _call_argument_names(source: str, function_name: str) -> list[tuple[str, ...
 
 
 def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
+    expected_modes = {"lfw": "real", "survface": "dev"}
     for dataset in ("lfw", "survface"):
         source = _code_source(
             NOTEBOOK_ROOT
@@ -47,7 +48,11 @@ def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
             / "00_data_preparation.ipynb"
         )
 
-        assert 'MODE = "dev"' in source or "MODE = 'dev'" in source
+        expected_mode = expected_modes[dataset]
+        assert (
+            f'MODE = "{expected_mode}"' in source
+            or f"MODE = '{expected_mode}'" in source
+        )
         assert "DATA_FRACTION = 1.0" in source
         assert "SEED = 42" in source
         assert "ExperimentScope(" in source
@@ -71,6 +76,21 @@ def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
         assert "validate_identity_disjoint_splits(" in source
         assert 'get("fit_split") != "development"' in source
         assert 'get("enabled") != [MODEL_NAME]' in source
+
+
+def test_lfw_step1_records_embedding_exclusions_without_origin_fallback():
+    source = _code_source(
+        NOTEBOOK_ROOT
+        / "lfw"
+        / "02_compression"
+        / "02_step1_compression_characterization.ipynb"
+    )
+
+    assert 'embedding_exclusions["reason"] = "missing_origin_512"' in source
+    assert '"explicit_missing_origin_512_no_fallback"' in source
+    assert '"embedding_exclusions.csv"' in source
+    assert "analysis_manifest" in source
+    assert "validate_identity_disjoint_splits(analysis_manifest)" in source
 
 
 def test_step1_notebook_paths_are_guarded_by_the_dataset_config():

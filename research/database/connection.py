@@ -70,7 +70,7 @@ def ensure_vector_indexes(bind: Engine | Connection) -> None:
         (run_uid, protocol_name, vector_type, aggregation_method, enrollment_policy, enrollment_target, model_uid)
         """,
     ]
-    for dimension in (128, 256, 384, 448):
+    for dimension in (32, 64, 128, 256, 384, 448):
         statements.extend(
             [
                 f"""

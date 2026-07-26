@@ -26,6 +26,8 @@ IMAGE_EMBEDDING_TABLES = (
     "embedding_384",
     "embedding_256",
     "embedding_128",
+    "embedding_64",
+    "embedding_32",
     "embedding_pq",
 )
 TEMPLATE_EMBEDDING_TABLES = (
@@ -34,6 +36,8 @@ TEMPLATE_EMBEDDING_TABLES = (
     "template_embedding_384",
     "template_embedding_256",
     "template_embedding_128",
+    "template_embedding_64",
+    "template_embedding_32",
 )
 RESEARCH_RUN_CHILD_TABLES = (
     "research_calibration_results",

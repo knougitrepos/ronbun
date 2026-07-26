@@ -20,13 +20,14 @@ compression:
   fit_split: development
   profiles:
     - origin_512
-    - pca_448
     - pca_384
     - pca_256
     - pca_128
+    - pca_64
+    - pca_32
     - pq_auxiliary
   pca:
-    dimensions: [448, 384, 256, 128]
+    dimensions: [384, 256, 128, 64, 32]
     n_components: 256
   pq:
     m: 16

@@ -34,9 +34,8 @@ PROTOCOL_ROLES = (
 def _stored_pca_dimension(compression_profile: str) -> int:
     """Resolve PCA profiles that have a persisted embedding table.
 
-    PCA-448 is retained for historical run replay. Step-1 PCA-64/32 is
-    intentionally evaluated in memory because the current DB schema has no
-    corresponding tables.
+    PCA-448 is retained for historical run replay. Active Step-1 PCA profiles,
+    including PCA-64/32, have corresponding PostgreSQL tables.
     """
 
     try:

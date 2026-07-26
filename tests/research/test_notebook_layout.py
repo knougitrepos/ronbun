@@ -148,13 +148,26 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         ):
             assert phrase in source
 
-    lfw_legacy = _source(
+    lfw_open_set = _source(
         NOTEBOOK_ROOT
         / "lfw"
         / "03_open_set"
         / "00_probe_search_and_certification.ipynb"
     )
-    assert "EXECUTE_LEGACY_FALLBACK" in lfw_legacy
+    assert "EXECUTE_LEGACY_FALLBACK" not in lfw_open_set
+    assert "origin_fallback_used" in lfw_open_set
+    assert "verified_read_only" in lfw_open_set
+    assert "dir_rank1_recomputed" in lfw_open_set
+    assert "fpir_recomputed" in lfw_open_set
+
+    lfw_visualization = _source(
+        NOTEBOOK_ROOT
+        / "lfw"
+        / "03_open_set"
+        / "01_evaluation_and_visualization.ipynb"
+    )
+    assert "visualized_read_only" in lfw_visualization
+    assert "origin_fallback_used" in lfw_visualization
 
     report = _source(
         NOTEBOOK_ROOT / "common" / "reports" / "00_cross_dataset_results.ipynb"

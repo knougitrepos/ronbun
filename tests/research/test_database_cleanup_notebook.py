@@ -48,6 +48,8 @@ def test_database_cleanup_notebook_has_safe_complete_reset_defaults():
 
     assert 'RESET_MODE = "complete_run_reset"' in source
     assert "CONNECT_TO_DATABASE = False" in source
+    assert "APPLY_ADDITIVE_SCHEMA = False" in source
+    assert "ensure_database_schema(engine)" in source
     assert 'RUN_UID = ""' in source
     assert "ALLOW_COMPLETED_RUN_RESET = False" in source
     assert "ALLOW_PROMOTED_RESULTS_RESET = False" in source

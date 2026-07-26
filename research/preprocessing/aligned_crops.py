@@ -25,9 +25,14 @@ from PIL import Image
 from research.runtime.hashing import sha256_file
 
 
-MATERIALIZER_VERSION = "2.0.0"
+MATERIALIZER_VERSION = "2.1.0"
 ALIGNMENT_TEMPLATE_ID = "insightface_arcface_112_v1"
 DETECTOR_NAME = "buffalo_l"
+DEFAULT_PROVIDERS = (
+    "CUDAExecutionProvider",
+    "CPUExecutionProvider",
+)
+DETECTOR_ALLOWED_MODULES = ("detection",)
 ALIGNED_INDEX_COLUMNS = (
     "dataset_id",
     "sample_id",
@@ -160,9 +165,30 @@ def _default_detector(
     providers: tuple[str, ...],
     detection_size: tuple[int, int],
 ) -> Any:
+    import onnxruntime as ort
     from insightface.app import FaceAnalysis
 
-    detector = FaceAnalysis(name=detector_name, providers=list(providers))
+    available_providers = tuple(ort.get_available_providers())
+    primary_provider = providers[0]
+    if primary_provider not in available_providers:
+        raise RuntimeError(
+            f"required primary ONNX Runtime provider is unavailable: "
+            f"{primary_provider}; available={available_providers}"
+        )
+
+    detector = FaceAnalysis(
+        name=detector_name,
+        allowed_modules=list(DETECTOR_ALLOWED_MODULES),
+        providers=list(providers),
+    )
+    detection_model = detector.models["detection"]
+    active_providers = tuple(detection_model.session.get_providers())
+    if not active_providers or active_providers[0] != primary_provider:
+        raise RuntimeError(
+            "ONNX Runtime did not activate the required primary provider: "
+            f"required={primary_provider}, active={active_providers}"
+        )
+    detector._ronbun_session_providers = active_providers
     detector.prepare(ctx_id=0, det_size=detection_size)
     return detector
 
@@ -181,7 +207,7 @@ def materialize_aligned_crops(
     dataset_id: str,
     detector_name: str = DETECTOR_NAME,
     detection_size: tuple[int, int] = (640, 640),
-    providers: tuple[str, ...] = ("CPUExecutionProvider",),
+    providers: tuple[str, ...] = DEFAULT_PROVIDERS,
     overwrite: bool = True,
     detector: Any | None = None,
     aligner: Callable[[np.ndarray, np.ndarray], np.ndarray] | None = None,
@@ -214,6 +240,13 @@ def materialize_aligned_crops(
         raise ValueError(f"image_id must be unique; duplicates={duplicates[:5]}")
     if len(detection_size) != 2 or min(int(value) for value in detection_size) <= 0:
         raise ValueError("detection_size must contain two positive integers")
+    requested_providers = tuple(str(provider).strip() for provider in providers)
+    if (
+        not requested_providers
+        or any(not provider for provider in requested_providers)
+        or len(set(requested_providers)) != len(requested_providers)
+    ):
+        raise ValueError("providers must contain unique non-empty provider names")
 
     root = Path(project_root).resolve()
     destination = Path(output_dir).resolve()
@@ -225,9 +258,19 @@ def materialize_aligned_crops(
 
     active_detector = detector or _default_detector(
         detector_name,
-        providers,
+        requested_providers,
         detection_size,
     )
+    if detector is None:
+        active_providers = tuple(active_detector._ronbun_session_providers)
+    else:
+        active_providers = tuple(
+            getattr(
+                active_detector,
+                "_ronbun_session_providers",
+                ("injected_detector",),
+            )
+        )
     active_aligner = aligner or _default_aligner
     staging = Path(
         tempfile.mkdtemp(
@@ -387,7 +430,9 @@ def materialize_aligned_crops(
             "detector": {
                 "name": detector_name,
                 "detection_size": [int(value) for value in detection_size],
-                "providers": list(providers),
+                "allowed_modules": list(DETECTOR_ALLOWED_MODULES),
+                "requested_providers": list(requested_providers),
+                "providers": list(active_providers),
             },
             "array_contract": {
                 "shape": list(face_array.shape),

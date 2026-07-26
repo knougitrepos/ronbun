@@ -69,9 +69,8 @@ def materialize_pca_sweep_embeddings(
                 f"PCA {compressor.n_components}D has no current PostgreSQL table; "
                 "use the Step-1 in-memory evaluation path"
             )
-        # This DB materializer also serves immutable thesis3 runs, including
-        # the historical PCA-448 table. Step-1 PCA-64/32 remains rejected by
-        # the table guard above and is evaluated in memory instead.
+        # This DB materializer serves the active Step-1 sweep and immutable
+        # historical thesis3 runs, including the legacy PCA-448 table.
         profile = pca_profile_name(compressor.n_components, allow_legacy=True)
         if str(requested_profile) != profile:
             raise ValueError(

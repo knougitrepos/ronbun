@@ -62,9 +62,9 @@ PCA_SWEEP_DIMENSIONS = tuple(
     PCA_PROFILE_DIMENSIONS[profile] for profile in PCA_SWEEP_PROFILES
 )
 
-# PostgreSQL tables are intentionally not expanded in Step-1. PCA-64/32 are
-# evaluated in NumPy/Faiss only until an explicit DB schema migration exists.
-CURRENT_DB_PCA_DIMENSIONS = frozenset({128, 256, 384, 448})
+# All active Step-1 PCA profiles are materializable and searchable in pgvector.
+# PCA-448 remains available only for historical run replay.
+CURRENT_DB_PCA_DIMENSIONS = frozenset({32, 64, 128, 256, 384, 448})
 
 LEGACY_PCA_PROFILE_DIMENSIONS = {PCA_448: 448}
 

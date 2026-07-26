@@ -4,6 +4,18 @@
 - 주요 압축 방법은 PCA와 Product Quantization이며, 1:N Open-set Face Identification/Verification에서 압축에 따른 점수·순위 변화와 threshold 보정을 연구한다.
 - 실험은 Intel Core i5-10600K, GeForce GTX 1080 Ti, RAM 64GB에서 수행 가능한 범위를 우선한다.
 
+# 실행 환경 및 하드웨어 가속 원칙
+
+- 2026-07-27 현재 검증된 로컬 GPU 환경은 GeForce GTX 1080 Ti, PyTorch `2.7.1+cu118`, PyTorch CUDA runtime `11.8`이다. 프로젝트 의존성과 wheel은 우선 CUDA 11.8 및 GTX 1080 Ti(Pascal, compute capability 6.1) 호환성을 유지한다.
+- CUDA 12 계열이나 검증되지 않은 PyTorch·ONNX Runtime 조합으로 임의 업그레이드하지 않는다. 변경이 필요하면 GTX 1080 Ti 지원, CUDA runtime, cuDNN 및 기존 checkpoint smoke test를 먼저 검증한다.
+- PyTorch inference, embedding 추출, Grad-CAM처럼 CUDA를 지원하는 연산은 기본적으로 `cuda` 장치를 우선한다. 실행 전에 `torch.cuda.is_available()`과 실제 device name을 확인하고 run log 또는 manifest에 기록한다.
+- ONNX Runtime과 InsightFace 작업은 `CUDAExecutionProvider`를 우선하고 `CPUExecutionProvider`를 명시적 fallback으로 둔다. `ctx_id=0`만으로 GPU 사용을 판단하지 말고 생성된 session의 실제 provider를 확인한다.
+- 대규모 정식 실행에서 CUDA 사용을 기대했는데 CUDA provider가 적용되지 않으면 조용히 CPU 전체 실행으로 전환하지 않는다. 즉시 중단하거나 명확한 경고와 사용자 승인 후 CPU 실행한다.
+- 얼굴 정렬처럼 일부 모듈만 필요한 작업은 InsightFace의 `allowed_modules`를 사용해 detection 등 필요한 모델만 로드한다. 불필요한 recognition, gender/age, landmark 모델을 함께 실행하지 않는다.
+- GPU 가속을 적용해도 이미지 decode, SHA-256, CSV/JSON 기록, pandas 처리 등 CPU 작업은 남는다. GPU 사용률이 일정하지 않다는 이유만으로 가속 실패로 판단하지 말고 실제 provider와 단계별 시간을 확인한다.
+- GTX 1080 Ti의 11GB VRAM 범위에서 batch size를 설정하고, 첫 실제 run에서 OOM 여부와 처리량을 측정한다. batch size 또는 provider 변경은 config와 실행 기록에 남긴다.
+- Faiss, PostgreSQL/pgvector 등 현재 설치본이 CPU 전용인 구성요소를 GPU로 가장하지 않는다. GPU 구현이 실제 설치·검증된 경우에만 가속됐다고 기록한다.
+
 # 논문 조사 원칙
 
 - 최상위 학회와 Q1 저널을 우선하고 필요한 경우 Q2까지 확대한다.

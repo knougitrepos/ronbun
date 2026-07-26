@@ -27,6 +27,8 @@ aligned_crops:
   index_path: data/interim/common/aligned_112/aligned_index.csv
   failed_samples_path: data/interim/common/aligned_112/failed_samples.csv
   bundle_manifest_path: data/interim/common/aligned_112/bundle_manifest.json
+  providers: [CUDAExecutionProvider, CPUExecutionProvider]
+  required_primary_provider: CUDAExecutionProvider
   image_size: [112, 112]
   source_color_order: rgb
   dtype: uint8

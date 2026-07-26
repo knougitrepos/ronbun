@@ -10,6 +10,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
 MODEL_ROOT = NOTEBOOK_ROOT / "common" / "model_preparation"
 GRADCAM_ROOT = NOTEBOOK_ROOT / "lfw" / "04_gradcam"
+ALIGNED_CROP_NOTEBOOK = (
+    NOTEBOOK_ROOT
+    / "lfw"
+    / "00_data_preparation"
+    / "01_aligned_crop_materialization.ipynb"
+)
 CONFIG_PATH = (
     PROJECT_ROOT / "configs" / "experiments" / "step2_pytorch_gradcam.yaml"
 )
@@ -40,6 +46,24 @@ def test_step2_config_uses_interpretable_aligned_crop_bundle() -> None:
     assert aligned["index_path"].endswith("aligned_index.csv")
     assert aligned["failed_samples_path"].endswith("failed_samples.csv")
     assert aligned["bundle_manifest_path"].endswith("bundle_manifest.json")
+    assert aligned["providers"] == [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    ]
+    assert aligned["required_primary_provider"] == "CUDAExecutionProvider"
+
+
+def test_aligned_crop_notebook_discovers_the_actual_repository_root() -> None:
+    source = "\n".join(
+        cell.source
+        for cell in nbformat.read(ALIGNED_CROP_NOTEBOOK, as_version=4).cells
+    )
+    assert '(candidate / "research").is_dir()' in source
+    assert '(candidate / "configs").is_dir()' in source
+    assert "pyproject.toml" not in source
+    assert 'CONFIG["aligned_crops"]["providers"]' in source
+    assert 'CONFIG["aligned_crops"]["required_primary_provider"]' in source
+    assert "providers=ALIGNMENT_PROVIDERS" in source
 
 
 def test_model_validation_remains_fail_closed_on_inputs() -> None:
@@ -50,6 +74,8 @@ def test_model_validation_remains_fail_closed_on_inputs() -> None:
     }
     for source in sources.values():
         assert 'MODEL_PROFILE = "arcface_ms1mv3_r100"' in source
+        assert "runs/step2/model_registry" in source
+        assert "runs/step3/model_registry" not in source
         assert "DATA_FRACTION = 1.0" in source
         assert "EXECUTE_STAGE = True" in source
         assert "WRITE_OUTPUTS = True" in source
@@ -89,6 +115,9 @@ def test_gradcam_prerequisites_precede_population_experiment() -> None:
     assert "RunStore.create_or_reuse_active" in freeze
     assert 'CONFIG["aligned_crops"]["index_path"]' in freeze
     assert 'CONFIG["aligned_crops"]["faces_path"]' in freeze
+    assert 'CONFIG["aligned_crops"]["failed_samples_path"]' in freeze
+    assert "failed_samples_manifest_no_fallback" in freeze
+    assert "explicit_alignment_exclusion_count" in freeze
     assert "PAIRED_METRICS" not in freeze
 
     origin = prerequisite["01_origin_embedding_and_loo_templates.ipynb"]
@@ -126,6 +155,10 @@ def test_gradcam_compression_is_now_generated_sequentially_as_csv() -> None:
     visualization = sources["04_representative_case_visualization.ipynb"]
     assert "select_population_representative_cases" in visualization
     assert "read_population_heatmaps" in visualization
+    assert 'VISUALIZATION_THRESHOLD_POLICY = "frozen_origin"' in visualization
+    assert 'joined["threshold_policy"]' in visualization
+    assert "axis.imshow(image)" in visualization
+    assert "image[..., ::-1]" not in visualization
     assert '"regenerated_gradcam": False' in visualization
     assert "extract_population_gradcam" not in visualization
     assert "PairCosineGradCAM" not in visualization
@@ -142,3 +175,5 @@ def test_current_gradcam_tabular_artifacts_use_csv() -> None:
     )
     assert "to_parquet" not in all_sources
     assert "pd.read_parquet" not in all_sources
+    assert 'CONFIG["models"]["selected_profiles"]' in all_sources
+    assert 'CONFIG["models"]["selected"]' not in all_sources

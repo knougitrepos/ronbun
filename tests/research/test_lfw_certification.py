@@ -4,7 +4,6 @@ import json
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from research.compression import PCA_256
 from research.experiments.lfw_certification import (
@@ -14,11 +13,10 @@ from research.experiments.lfw_certification import (
 )
 
 
-def test_stored_pca_dimension_preserves_legacy_and_rejects_step1_only_tables():
+def test_stored_pca_dimension_supports_step1_sweep_and_preserves_legacy():
     assert _stored_pca_dimension("pca_448") == 448
-    assert _stored_pca_dimension("pca_384") == 384
-    with pytest.raises(ValueError, match="no current PostgreSQL embedding table"):
-        _stored_pca_dimension("pca_64")
+    for dimension in (384, 256, 128, 64, 32):
+        assert _stored_pca_dimension(f"pca_{dimension}") == dimension
 
 
 def _protocol(tmp_path):

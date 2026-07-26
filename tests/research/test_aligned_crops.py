@@ -9,6 +9,7 @@ import pandas as pd
 from PIL import Image
 import pytest
 
+import research.preprocessing.aligned_crops as aligned_crops_module
 from research.preprocessing.aligned_crops import materialize_aligned_crops
 from research.runtime.hashing import sha256_file
 
@@ -32,6 +33,19 @@ class _Detector:
             _Face(0.8, np.array([10, 10, 90, 100]), landmarks),
             _Face(0.9, np.array([15, 15, 95, 105]), landmarks),
         ]
+
+
+class _Session:
+    def __init__(self, providers: tuple[str, ...]) -> None:
+        self._providers = providers
+
+    def get_providers(self) -> list[str]:
+        return list(self._providers)
+
+
+class _DetectionModel:
+    def __init__(self, providers: tuple[str, ...]) -> None:
+        self.session = _Session(providers)
 
 
 def _write_image(path: Path, red: int) -> None:
@@ -78,6 +92,12 @@ def test_materializer_writes_interpretable_index_and_single_bundle(
     assert (output / "aligned_index.csv").is_file()
     assert (output / "failed_samples.csv").is_file()
     manifest = json.loads((output / "bundle_manifest.json").read_text("utf-8"))
+    assert manifest["detector"]["allowed_modules"] == ["detection"]
+    assert manifest["detector"]["requested_providers"] == [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    ]
+    assert manifest["detector"]["providers"] == ["injected_detector"]
     for entry in manifest["outputs"].values():
         artifact = output / entry["path"]
         assert artifact.is_file()
@@ -134,4 +154,86 @@ def test_materializer_validates_before_loading_insightface(tmp_path: Path) -> No
             project_root=tmp_path,
             output_dir=tmp_path / "out",
             dataset_id="lfw",
+        )
+
+
+def test_default_detector_uses_cuda_and_loads_detection_only(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _FaceAnalysis:
+        def __init__(
+            self,
+            *,
+            name: str,
+            allowed_modules: list[str],
+            providers: list[str],
+        ) -> None:
+            captured["name"] = name
+            captured["allowed_modules"] = allowed_modules
+            captured["providers"] = providers
+            self.models = {
+                "detection": _DetectionModel(tuple(providers)),
+            }
+
+        def prepare(self, *, ctx_id: int, det_size: tuple[int, int]) -> None:
+            captured["ctx_id"] = ctx_id
+            captured["det_size"] = det_size
+
+    monkeypatch.setattr(
+        "onnxruntime.get_available_providers",
+        lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    monkeypatch.setattr("insightface.app.FaceAnalysis", _FaceAnalysis)
+
+    detector = aligned_crops_module._default_detector(
+        "buffalo_l",
+        ("CUDAExecutionProvider", "CPUExecutionProvider"),
+        (640, 640),
+    )
+
+    assert captured == {
+        "name": "buffalo_l",
+        "allowed_modules": ["detection"],
+        "providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        "ctx_id": 0,
+        "det_size": (640, 640),
+    }
+    assert detector._ronbun_session_providers == (
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    )
+
+
+def test_default_detector_rejects_silent_cpu_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "onnxruntime.get_available_providers",
+        lambda: ["CPUExecutionProvider"],
+    )
+
+    with pytest.raises(RuntimeError, match="CUDAExecutionProvider"):
+        aligned_crops_module._default_detector(
+            "buffalo_l",
+            ("CUDAExecutionProvider", "CPUExecutionProvider"),
+            (640, 640),
+        )
+
+
+def test_default_detector_rejects_inactive_cuda_session(monkeypatch) -> None:
+    class _FaceAnalysis:
+        def __init__(self, **kwargs) -> None:
+            self.models = {
+                "detection": _DetectionModel(("CPUExecutionProvider",)),
+            }
+
+    monkeypatch.setattr(
+        "onnxruntime.get_available_providers",
+        lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    monkeypatch.setattr("insightface.app.FaceAnalysis", _FaceAnalysis)
+
+    with pytest.raises(RuntimeError, match="did not activate"):
+        aligned_crops_module._default_detector(
+            "buffalo_l",
+            ("CUDAExecutionProvider", "CPUExecutionProvider"),
+            (640, 640),
         )

@@ -112,6 +112,38 @@ class Embedding128(Base):
     log = Column(Text)
 
 
+class Embedding64(Base):
+    __tablename__ = "embedding_64"
+    __table_args__ = (
+        UniqueConstraint("run_uid", "image_id", "vector_type", name="uq_embedding_64_run_image_type"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
+    run_uid = Column(String(96))
+    vector_type = Column(String(32), nullable=False)
+    parameters = Column(JSON)
+    embedding = Column(Vector(64), nullable=False)
+    created_at = Column(TIMESTAMP)
+    log = Column(Text)
+
+
+class Embedding32(Base):
+    __tablename__ = "embedding_32"
+    __table_args__ = (
+        UniqueConstraint("run_uid", "image_id", "vector_type", name="uq_embedding_32_run_image_type"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
+    run_uid = Column(String(96))
+    vector_type = Column(String(32), nullable=False)
+    parameters = Column(JSON)
+    embedding = Column(Vector(32), nullable=False)
+    created_at = Column(TIMESTAMP)
+    log = Column(Text)
+
+
 class EmbeddingPQ(Base):
     __tablename__ = "embedding_pq"
     __table_args__ = (
@@ -290,7 +322,69 @@ class TemplateEmbedding128(Base):
     created_at = Column(TIMESTAMP)
 
 
+class TemplateEmbedding64(Base):
+    __tablename__ = "template_embedding_64"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_uid", "protocol_name", "vector_type", "aggregation_method",
+            "enrollment_policy", "enrollment_target", "identity_id", "model_uid",
+            name="uq_template_embedding_64_scope",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    run_uid = Column(String(96), nullable=False)
+    protocol_name = Column(String(64), nullable=False)
+    vector_type = Column(String(32), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_policy = Column(String(32), nullable=False)
+    enrollment_target = Column(Integer, nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    identity_id = Column(Text, nullable=False)
+    model_uid = Column(String(128), nullable=False)
+    source_image_ids = Column(JSON, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    angular_error = Column(Float)
+    reconstruction_error_norm = Column(Float)
+    parameters = Column(JSON)
+    embedding = Column(Vector(64), nullable=False)
+    created_at = Column(TIMESTAMP)
+
+
+class TemplateEmbedding32(Base):
+    __tablename__ = "template_embedding_32"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_uid", "protocol_name", "vector_type", "aggregation_method",
+            "enrollment_policy", "enrollment_target", "identity_id", "model_uid",
+            name="uq_template_embedding_32_scope",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    run_uid = Column(String(96), nullable=False)
+    protocol_name = Column(String(64), nullable=False)
+    vector_type = Column(String(32), nullable=False)
+    aggregation_method = Column(String(64), nullable=False)
+    enrollment_policy = Column(String(32), nullable=False)
+    enrollment_target = Column(Integer, nullable=False)
+    enrollment_count = Column(Integer, nullable=False)
+    identity_id = Column(Text, nullable=False)
+    model_uid = Column(String(128), nullable=False)
+    source_image_ids = Column(JSON, nullable=False)
+    quality = Column(Float)
+    variance = Column(Float)
+    angular_error = Column(Float)
+    reconstruction_error_norm = Column(Float)
+    parameters = Column(JSON)
+    embedding = Column(Vector(32), nullable=False)
+    created_at = Column(TIMESTAMP)
+
+
 PCA_EMBEDDING_MODELS = {
+    32: Embedding32,
+    64: Embedding64,
     128: Embedding128,
     256: Embedding256,
     384: Embedding384,
@@ -298,6 +392,8 @@ PCA_EMBEDDING_MODELS = {
 }
 
 PCA_TEMPLATE_MODELS = {
+    32: TemplateEmbedding32,
+    64: TemplateEmbedding64,
     128: TemplateEmbedding128,
     256: TemplateEmbedding256,
     384: TemplateEmbedding384,

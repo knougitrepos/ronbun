@@ -41,7 +41,7 @@ def test_step1_pca_sweep_profiles_are_independent_origin_families():
         assert spec.source_profile == ORIGIN_512
         assert spec.source_dimension == 512
         assert spec.output_dimension == dimension
-        assert spec.pgvector_searchable is (dimension in {128, 256, 384})
+        assert spec.pgvector_searchable is True
         assert pca_profile_name(dimension) == profile
         assert pca_profile_dimension(profile) == dimension
 
@@ -79,8 +79,7 @@ def test_original_and_pca_profiles_record_searchability_and_reconstruction_error
     assert original.profile_name == "origin_512"
     assert original.pgvector_searchable is True
     assert pca.profile_name == "pca_2"
-    # Generic PCA remains a dense pgvector-compatible result. Step-1 PCA-64/32
-    # table availability is rejected by the DB/materialization boundary.
+    # Generic PCA remains a dense pgvector-compatible result.
     assert pca.pgvector_searchable is True
     assert pca.vectors.shape == (4, 2)
     assert pca.reconstruction_error.shape == (4,)

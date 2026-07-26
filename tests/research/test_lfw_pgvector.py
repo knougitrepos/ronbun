@@ -2,7 +2,6 @@ from contextlib import contextmanager
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from research.experiments.lfw_certification import LFWCertificationInputs
 from research.experiments.lfw_pgvector import (
@@ -14,12 +13,10 @@ from research.experiments.lfw_pgvector import (
 )
 
 
-def test_lfw_pgvector_rejects_step1_pca_dimensions_without_db_tables():
-    assert _db_pca_dimension("pca_384") == 384
+def test_lfw_pgvector_supports_all_step1_pca_dimensions_and_legacy_448():
+    for dimension in (384, 256, 128, 64, 32):
+        assert _db_pca_dimension(f"pca_{dimension}") == dimension
     assert _db_pca_dimension("pca_448") == 448
-    for profile in ("pca_64", "pca_32"):
-        with pytest.raises(ValueError, match="current PostgreSQL schema"):
-            _db_pca_dimension(profile)
 
 
 def _templates():
