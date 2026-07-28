@@ -34,8 +34,8 @@ def test_step1_config_has_explicit_scope_and_disables_old_fallback_path():
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     scope = ExperimentScope.from_config(config)
 
-    assert scope.mode == "dev"
-    assert scope.data_fraction == 0.10
+    assert scope.mode == "real"
+    assert scope.data_fraction == 1.0
     assert config["evaluation"]["full_precision_baseline"] is True
     assert config["evaluation"]["exact_fallback"] is False
     assert config["evaluation"]["certification"] is False

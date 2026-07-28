@@ -25,6 +25,14 @@ from PIL import Image
 from research.runtime.hashing import sha256_file
 
 
+ProgressCallback = Callable[[str, dict[str, object]], None]
+
+
+def _emit(progress: ProgressCallback | None, message: str, **details: object) -> None:
+    if progress is not None:
+        progress(message, details)
+
+
 MATERIALIZER_VERSION = "2.1.0"
 ALIGNMENT_TEMPLATE_ID = "insightface_arcface_112_v1"
 DETECTOR_NAME = "buffalo_l"
@@ -211,6 +219,7 @@ def materialize_aligned_crops(
     overwrite: bool = True,
     detector: Any | None = None,
     aligner: Callable[[np.ndarray, np.ndarray], np.ndarray] | None = None,
+    progress: ProgressCallback | None = None,
 ) -> AlignmentResult:
     """Create the common RGB uint8 NHWC 112x112 crop bundle.
 
@@ -283,7 +292,16 @@ def materialize_aligned_crops(
     aligned_rows: list[dict[str, Any]] = []
     failed_rows: list[dict[str, Any]] = []
     try:
-        for row in manifest.itertuples(index=False):
+        total = int(len(manifest))
+        for processed, row in enumerate(manifest.itertuples(index=False), start=1):
+            _emit(
+                progress,
+                "aligned crop materialization",
+                processed=processed - 1,
+                total=total,
+                aligned=len(aligned_rows),
+                failed=len(failed_rows),
+            )
             image_path = Path(str(row.image_path))
             if not image_path.is_absolute():
                 image_path = root / image_path
@@ -408,6 +426,15 @@ def materialize_aligned_crops(
                     "materializer_version": MATERIALIZER_VERSION,
                 }
             )
+        # Emit the terminal count so a milestone reporter always reaches 100%.
+        _emit(
+            progress,
+            "aligned crop materialization",
+            processed=total,
+            total=total,
+            aligned=len(aligned_rows),
+            failed=len(failed_rows),
+        )
 
         if not aligned_faces:
             raise RuntimeError("no source image could be aligned")

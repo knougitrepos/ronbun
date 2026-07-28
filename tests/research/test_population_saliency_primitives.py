@@ -104,6 +104,7 @@ def test_spatial_features_capture_hotspot_and_keep_zero_map_undefined():
     assert hotspot["semantic_region_mask_count"] == 1
     assert np.isnan(hotspot["right_eye_attention"])
     assert np.isnan(hotspot["outside_face_attention"])
+    assert np.isnan(hotspot["face_attention"])
     assert not bool(hotspot["face_mask_available"])
 
     zero_map = features.iloc[1]
@@ -166,6 +167,7 @@ def test_missing_semantic_masks_are_not_guessed_from_sparse_landmarks():
             assert np.isnan(features.loc[0, column])
     assert features.loc[0, "semantic_region_mask_count"] == 2
     assert np.isnan(features.loc[0, "outside_face_attention"])
+    assert np.isnan(features.loc[0, "face_attention"])
 
 
 def test_random_occlusion_is_deterministic_per_sample_id_across_batch_order():

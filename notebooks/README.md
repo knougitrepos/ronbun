@@ -20,6 +20,9 @@ notebooks/
     01_embeddings/
     02_compression/
     03_open_set/
+    04_gradcam/
+      prerequisite/
+      experiment/
   rfw/
     00_data_preparation/
   balancedface/
@@ -49,6 +52,12 @@ development/calibration 후보이며 최종 test가 아니다. 구현되지 않�
 달라지면 새 config hash와 run ID로 실행한다. `common/maintenance/`는 파괴적
 작업을 포함하므로 이 기본값의 예외이며 preview와 confirmation을 계속 요구한다.
 
+Step 4의 aligned-crop·landmark·Grad-CAM 노트북은 장시간 GPU 실행이므로 별도
+예외다. `configs/experiments/step2_pytorch_gradcam.yaml`의
+`execute_stage=true`, `write_outputs=true`, `overwrite=false`를 읽는다.
+현재 값은 LFW·SurvFace 전체 재실험용 실행 commit 프로필이며,
+`allow_dirty=false`이므로 commit 후 clean worktree에서만 새 run을 시작한다.
+
 ## LFW
 
 일반 실행은 다음 폴더 순서를 따른다.
@@ -63,10 +72,11 @@ PyTorch Step 2와 Grad-CAM은 다음 순서를 따른다.
 
 1. `lfw/00_data_preparation/00_data_preparation.ipynb`
 2. `lfw/00_data_preparation/01_aligned_crop_materialization.ipynb`
-3. `common/model_preparation/00_checkpoint_registration.ipynb`
-4. `common/model_preparation/01_preprocessing_and_model_smoke.ipynb`
-5. `lfw/04_gradcam/prerequisite/`
-6. `lfw/04_gradcam/experiment/`
+3. `lfw/00_data_preparation/02_landmark_region_materialization.ipynb`
+4. `common/model_preparation/00_checkpoint_registration.ipynb`
+5. `common/model_preparation/01_preprocessing_and_model_smoke.ipynb`
+6. `lfw/04_gradcam/prerequisite/`
+7. `lfw/04_gradcam/experiment/`
 
 Grad-CAM의 세부 순서는 [LFW Grad-CAM 안내](lfw/04_gradcam/README.md)를 따른다.
 
@@ -78,10 +88,34 @@ Grad-CAM의 세부 순서는 [LFW Grad-CAM 안내](lfw/04_gradcam/README.md)를 
 2. `survface/01_embeddings/`
 3. `survface/02_compression/`
 4. `survface/03_open_set/`
-5. `common/reports/00_cross_dataset_results.ipynb`
+5. `survface/04_gradcam/prerequisite/`
+6. `survface/04_gradcam/experiment/`
+7. `common/reports/00_cross_dataset_results.ipynb`
 
 공식 gallery/mated/unmated 역할과 순서를 유지하며, official test에서 압축기나
-threshold를 학습하지 않는다.
+threshold를 학습하지 않는다. `00_data_preparation/01`에서 전체 aligned crop,
+`00_data_preparation/02`에서 전체 106-point landmark bundle을 먼저 생성한다.
+`02_compression/00`은 SurvFace training development에서 PCA/PQ를 학습하고,
+`02_compression/01`은 frozen model로 전체 run을 materialize한다. PQ code는
+pgvector vector가 아니다. `03_open_set/00`은 origin/PCA-256의 exact/HNSW
+네 조합을 하나의 공식-order 결과로 만든다. Grad-CAM은 registered/unmated
+target 적격 표본 전체를 사용한다.
+
+SurvFace 장시간 반복 단계는 batch마다 checkpoint를 유지하되 notebook log는
+약 10% 경계에서만 출력한다. 전체 LFW·SurvFace 데이터 실험은 사용자가 각
+노트북을 직접 실행하며 Codex나 일괄 CLI가 자동으로 시작하지 않는다.
+
+## Step 4 데이터셋별 재실행
+
+공용 `notebooks/step4` 폴더나 단일 일괄 CLI는 사용하지 않는다. LFW와
+SurvFace의 각 노트북은 `research/experiments/step4_workflow.py`에 있는 하나의
+단계 함수만 호출한다. 이전 단계 artifact가 없거나 lineage가 다르면 다음
+단계는 fail-closed로 중단한다.
+
+정식 실행은 clean commit과 CUDA/ONNX CUDA provider 확인 후 데이터셋별
+`00_data_preparation`부터 순서대로 수행한다. LFW와 SurvFace는 별도의
+immutable run이며 geometry association과 protocol/threshold별 retrieval
+association도 서로 다른 artifact로 저장한다.
 
 ## RFW와 BalancedFace
 

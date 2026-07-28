@@ -1,6 +1,6 @@
 # Face Embedding Compression Characterization Thesis
 
-이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. Step 1의 압축 기준은 [architect/20260720.md](architect/20260720.md), 원본 이미지의 공간 특징과 압축 민감도를 결합하는 Step 2 분석 기준은 [architect/20260724.md](architect/20260724.md), 현재 실행·artifact·노트북 구조 기준은 [architect/20260726.md](architect/20260726.md)입니다. [architect/20260723.md](architect/20260723.md)의 압축 결과 기반 일부 사례 Grad-CAM 흐름은 폐기됐습니다. [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
+이 저장소는 사전학습된 얼굴 인식(FR) checkpoint의 **post-hoc 임베딩 압축 특성**을 재현 가능하게 비교하기 위한 석사논문 실험 코드입니다. Step 1의 압축 기준은 [architect/20260720.md](architect/20260720.md), 원본 이미지의 공간 특징과 압축 민감도를 결합하는 Step 2 분석 기준은 [architect/20260724.md](architect/20260724.md), LFW·SurvFace 공통 실행과 landmark saliency의 현재 기준은 [architect/20260728.md](architect/20260728.md)입니다. [architect/20260723.md](architect/20260723.md)의 압축 결과 기반 일부 사례 Grad-CAM 흐름은 폐기됐습니다. [THESIS_RESEARCH_PLAN.md](THESIS_RESEARCH_PLAN.md)는 이전 시스템 연구 방향을 보존한 문서입니다.
 
 핵심 질문은 다음과 같습니다.
 
@@ -39,8 +39,11 @@
 | ArcFace/AdaFace/MagFace 실제 checkpoint 등록 | 미구현 |
 | 전체 원본 embedding·LOO template·population Grad-CAM core | Step 2 구현·synthetic 검증됨 |
 | 공간 특징·faithfulness·immutable shard·압축 결합 core | Step 2 구현·synthetic 검증됨 |
-| 실제 FR checkpoint Grad-CAM 결과 | 미구현 |
+| 실제 ArcFace checkpoint LFW Grad-CAM 결과 | Step 2 완료 run 보존 |
 | PyTorch Step 2 PCA/PQ 정량 runner | Step 2 구현·synthetic 검증됨 |
+| LFW·SurvFace 데이터셋별 Step 4 단계 runner | 구현·구성요소 검증됨, 전체 재실행 필요 |
+| 106-point 얼굴·다중 부위 landmark saliency | 구현·실제 LFW 1건 GPU smoke 검증됨 |
+| SurvFace official-all pgvector 검색 API | 구현·synthetic 검증됨, 실제 DB 실행 필요 |
 | 세 모델 공정성 게이트 | 검증 필요 |
 
 Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, 전처리와 target layer를 등록하고 smoke test를 통과하기 전에는 해당 모델을 실행 가능하다고 간주하지 않습니다. 서로 다른 공개 checkpoint를 사용할 경우 backbone, 학습 데이터 및 전처리 차이가 섞이므로 결과를 loss 함수의 인과효과가 아닌 checkpoint 수준 비교로 제한합니다. FR 모델을 새로 학습하지 않습니다.
@@ -77,13 +80,14 @@ Step 2의 adapter 코드가 존재하더라도 실제 checkpoint 경로, hash, �
 | `research/templates/` | 템플릿 집계 ablation |
 | `research/runtime/` | 날짜·회차별 실행 기록과 안정적인 실행 코드 |
 | `notebooks/lfw/` | LFW 데이터 준비부터 embedding·compression·open-set·Grad-CAM까지의 순차 runbook |
-| `notebooks/survface/` | SurvFace 공식 protocol 준비부터 embedding·compression·open-set까지의 순차 runbook |
+| `notebooks/survface/` | SurvFace 공식 protocol 준비부터 embedding·compression·open-set·Grad-CAM까지의 순차 runbook |
 | `notebooks/rfw/` | RFW 공식 1:1 verification protocol 준비 runbook |
 | `notebooks/balancedface/` | RFW 중복 identity를 제거하는 BalancedFace 개발 source 준비 runbook |
 | `notebooks/common/` | 공통 checkpoint 검증, 교차 데이터셋 보고, 유지보수 runbook |
 | `notebooks/common/reports/` | 두 데이터셋의 공통 결과 schema 검사·표·그림 |
 | `notebooks/common/model_preparation/` | Step 2 checkpoint 등록·전처리·출력 검증 |
 | `notebooks/lfw/04_gradcam/` | 원본 공간 특징을 먼저 추출하고 압축 민감도와 결합하는 LFW Step 2 runbook |
+| `notebooks/survface/04_gradcam/` | 공식 registered/unmated probe saliency와 압축 민감도를 결합하는 SurvFace Step 4 runbook |
 | `notebooks/common/maintenance/` | exact `run_uid`의 DB·전처리·중간·결과 artifact complete reset과 고급 DB-only 선택 정리 runbook |
 | `runs/` | 실행별 manifest, 로그, phase 산출물 및 reset 감사·격리 payload. Git에서 제외 |
 | `results/paper/` | 검증 후 논문 표·그림으로 선별한 결과 |
@@ -149,10 +153,44 @@ py -3.11 -m venv .venv-step2-cu118
 Step 2의 실행 설정은
 `configs/experiments/step2_pytorch_gradcam.yaml` 하나에서 읽습니다. 기본값은
 `model_profile: arcface_ms1mv3_r100`, `mode: real`, `data_fraction: 1.0`,
-`execute_stage: true`, `write_outputs: true`, `overwrite: true`,
-`device: cuda`입니다. checkpoint·aligned crop·lineage가 누락되거나 검증되지
-않았으면 플래그와 무관하게 fail-closed로 중단합니다. 새 LFW Step 2 run은
+`execute_stage: true`, `write_outputs: true`, `overwrite: false`,
+`allow_dirty: false`,
+`device: cuda`인 전체 재실험용 프로필입니다. 이 설정은 clean commit에서만
+정식 실행하며 checkpoint·aligned crop·lineage가 누락되거나 검증되지 않았으면
+플래그와 무관하게 fail-closed로 중단합니다. 새 LFW Step 2 run은
 `runs/lfw_YYYYMMDD/<run-id>_<name>/` 아래에 생성됩니다.
+
+## Step 4 로컬 실행
+
+Step 4는 GitHub CI나 단일 일괄 CLI를 사용하지 않습니다. GitHub는 코드
+형상관리 용도이며, 실제 실험은 LFW와 SurvFace의 데이터셋별 노트북을 숫자
+순서대로 실행합니다. 각 노트북은 한 단계만 담당하고 계산 구현은
+`research/experiments/step4_workflow.py`의 단계별 함수에 있습니다.
+
+```text
+notebooks/<dataset>/
+  00_data_preparation/
+    00 ... source manifest
+    01 ... aligned crop
+    02 ... 106-point landmark regions
+  04_gradcam/
+    prerequisite/
+      00 ... source/model/run freeze
+      01 ... origin embedding and saliency target
+    experiment/
+      00 ... population Grad-CAM
+      01 ... saliency validation
+      02 ... PCA/PQ and open-set evaluation
+      03 ... saliency–compression association
+      04 ... representative cases and run completion
+```
+
+LFW와 SurvFace 모두 `data_fraction: 1.0`이며 saliency 표본 상한은 `null`이다.
+따라서 각 데이터셋에서 target이 정의되는 적격 표본 전체에 Grad-CAM을
+계산한다. SurvFace compression/open-set 평가는 training development와
+calibration 경계를 유지하면서 공식 gallery/mated/unmated 전체 protocol을
+사용한다. coverage와 결정적 추출 hash는 validation 및 최종 summary에
+기록한다.
 
 ## Step 2 실행 경계
 
@@ -176,7 +214,17 @@ Grad-CAM target은 `origin_leave_one_out_identity_cosine`이며 hard PQ를 미�
 | RFW | `notebooks/rfw/00_data_preparation/00_data_preparation.ipynb` | `data/interim/rfw/` |
 | BUPT-BalancedFace | `notebooks/balancedface/00_data_preparation/00_data_preparation.ipynb` | `data/interim/balancedface/` |
 
-모든 준비 노트북은 기본 `DATA_FRACTION=1.0`, `EXECUTE_STAGE=True`, `WRITE_OUTPUTS=True`, `OVERWRITE=True`로 위에서 아래까지 실행합니다. 동일 단계의 canonical 결과는 하나만 유지하며, 완료된 RunStore run은 덮어쓰지 않습니다. SurvFace는 `training_set`을 identity-disjoint development/calibration으로 분리하고, 별도의 official manifest에서는 gallery/mated/unmated 역할과 `protocol_index`를 보존합니다.
+기존 데이터 source 준비 노트북은 기본 `DATA_FRACTION=1.0`,
+`EXECUTE_STAGE=True`, `WRITE_OUTPUTS=True`, `OVERWRITE=True`로 위에서 아래까지
+실행합니다. 새 Step 4 aligned-crop·landmark·Grad-CAM 노트북은 추적되는 설정의
+전체 실행 gate(`execute_stage=true`, `write_outputs=true`,
+`overwrite=false`)를 읽습니다. 기존 LFW interim artifact는 실행 전에
+`bk/20260728_before_step4_full_rerun/`에 checksum과 함께 보존했습니다.
+동일 단계의 canonical
+결과는 하나만 유지하며 완료된 RunStore run은 덮어쓰지 않습니다. SurvFace는
+`training_set`을 identity-disjoint development/calibration으로 분리하고,
+별도의 official manifest에서는 gallery/mated/unmated 역할과 `protocol_index`를
+보존합니다.
 
 RFW와 BalancedFace는 반드시 위 표의 순서로 실행합니다. RFW는 공식 1:1 verification test이므로 PCA/PQ를 fit하거나 DIR/FPIR 공식 결과로 사용하지 않습니다. BalancedFace는 RFW와 겹치는 provider identity를 제거한 뒤 development에서 압축기를 fit하고 calibration에서 threshold를 보정하는 후보이며 최종 test가 아닙니다. BalancedFace JPG archive는 정상 파일로 교체됐지만 Asian/Indian의 가변 해상도·정렬 품질 검증이 필요합니다. RecordIO를 선택할 경우에는 PyTorch용 decoder가 아직 미구현이므로 `source_index_manifest.csv`를 실제 image manifest로 해석하면 안 됩니다. 상세 상태는 [RFW/BalancedFace 데이터 기록](docs/datasets/RFW_BALANCEDFACE.md)을 따릅니다.
 
@@ -184,29 +232,36 @@ RFW와 BalancedFace는 반드시 위 표의 순서로 실행합니다. RFW는 �
 
 각 노트북 상단에서 `MODE`, `DATA_FRACTION`, `SEED`를 먼저 고정합니다. 전체 논문 결과는 `MODE="real"`, `DATA_FRACTION=1.0`만 해당하며, 작은 fraction은 identity 단위의 결정론적 개발 실행입니다.
 
-기존 00~05는 `thesis3` DB/certification 결과를 재현하기 위해 파일명을 유지합니다. Step 1의 주 실행은 데이터 준비·원본 임베딩 추출 후 각 데이터셋의 06을 사용합니다.
-
 | 순서 | LFW 노트북 | 산출물 |
 | --- | --- | --- |
-| 준비 | `data_preparation.ipynb` | identity-disjoint manifest와 ID 목록 |
+| 준비 | `00_data_preparation/` | identity-disjoint manifest, aligned crop, landmark |
 | 00 | `00_protocol_and_run_freeze.ipynb` | 데이터 분할, 설정 hash, 새 run 고정 |
 | 01 | `01_arcface_embedding_extraction.ipynb` | 원본 ArcFace 임베딩과 추출 메타데이터 |
-| 02~05 | 기존 파일 | 이전 DB/certification run 재현용; Step 1에서는 fallback 경로 실행 금지 |
-| 06 | `06_step1_compression_characterization.ipynb` | PCA-only/PQ-only 학습, 원본 대비 paired 특성·검색 결과 |
+| 02 | `00_compressor_fit.ipynb` | development PCA/PQ model |
+| 03 | `01_compressed_materialization_and_index.ipynb` | 압축 DB row와 pgvector index |
+| Step 1 | `02_step1_compression_characterization.ipynb` | fallback-free paired/retrieval 결과 |
+| open-set | `03_open_set/` | 검색, 보정, 평가와 시각화 |
 
 SurvFace의 PCA/PQ는 `training_manifest.csv`의 development split에서만 학습하고 calibration에서 설정을 고정한 뒤 official test에 적용합니다. official gallery/mated/unmated 행으로 compressor를 fit하지 않습니다.
 
 | 순서 | SurvFace 노트북 | 핵심 차이 |
 | --- | --- | --- |
-| 준비 | `data_preparation.ipynb` | 공식 MAT 순서와 gallery/mated/unmated 역할 보존 |
+| 준비 | `00_data_preparation/` | training split, 공식 MAT 순서, aligned crop, landmark |
 | 00 | `00_official_protocol_and_run_freeze.ipynb` | 공식 protocol과 checksum 고정, known unknown 0건 |
-| 01 | `01_official_arcface_embedding_extraction.ipynb` | 242,453개 공식 행을 순서대로 추출하고 실패 분모 기록 |
-| 02~05 | 기존 파일 | 이전 외부-compressor/DB 공식 실험 재현용 |
-| 06 | `06_step1_compression_characterization.ipynb` | training fit과 official-test fallback-free 비교 |
+| 01 | `01_official_arcface_embedding_extraction.ipynb` | training과 공식 test 전체를 역할 순서대로 추출하고 실패 분모 기록 |
+| 02 | `00_compressor_fit.ipynb` | SurvFace training development에서 PCA/PQ를 한 번만 fit |
+| 03 | `01_official_compressed_materialization_and_index.ipynb` | frozen PCA pgvector row와 auxiliary PQ code 생성 |
+| Step 1 | `02_step1_compression_characterization.ipynb` | frozen compressor로 official-test fallback-free 비교 |
+| open-set | `03_open_set/00_official_probe_search.ipynb` | origin/PCA-256 × exact/HNSW 네 조합 전체 protocol 검색 |
+| 평가 | `03_open_set/01_official_evaluation_and_visualization.ipynb` | 네 조합 TPIR@FPIR 및 curve |
 
-두 06 산출물을 만든 뒤 `notebooks/common/reports/00_cross_dataset_results.ipynb`에서 동일 schema로 집계합니다. 공통 노트북은 fallback 열이나 fallback 사용 행을 Step 1 결과로 허용하지 않습니다.
+두 데이터셋의 Step 1 산출물을 만든 뒤 `notebooks/common/reports/00_cross_dataset_results.ipynb`에서 동일 schema로 집계합니다. 공통 노트북은 fallback 열이나 fallback 사용 행을 Step 1 결과로 허용하지 않습니다.
 
 각 노트북은 위에서 아래로 실행합니다. 중단 후 재개할 때는 임의의 중간 셀부터 시작하지 말고 커널을 재시작한 뒤 bootstrap과 입력 검증 셀을 먼저 실행합니다. 이전 단계의 설정 hash나 산출물 checksum이 달라졌으면 새 run을 만들고 영향을 받는 단계부터 다시 실행합니다.
+
+SurvFace의 장시간 단계는 batch checkpoint를 유지하지만 notebook log는 시작·완료와
+약 10% 경계만 출력합니다. 실제 전체 LFW·SurvFace 실행은 자동 CLI나 Codex가
+시작하지 않으며 사용자가 위 순서로 각 노트북을 직접 실행합니다.
 
 ## 실행 기록
 

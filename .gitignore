@@ -31,6 +31,7 @@ dist/
 # Data, models, and generated experiment outputs
 data/raw/
 data/interim/
+bk/
 downloaded_datasets/
 codebook/
 runs/**

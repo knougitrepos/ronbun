@@ -85,16 +85,18 @@ def materialize_pca_sweep_embeddings(
     if not development:
         raise ValueError("development_image_paths must not be empty")
     development_vectors: list[np.ndarray] = []
-    source_count = 0
+    source_count = _source_vector_count(engine, run_uid=run_uid)
+    scanned = 0
     for batch in _source_batches(engine, run_uid=run_uid, batch_size=batch_size):
-        source_count += len(batch)
+        scanned += len(batch)
         development_vectors.extend(
             row.vector for row in batch if _canonical_path(row.image_path) in development
         )
         _emit(
             progress,
             "PCA sweep development normalization scan",
-            scanned=source_count,
+            scanned=scanned,
+            total=source_count,
             development_vectors=len(development_vectors),
         )
     if not development_vectors:
@@ -347,6 +349,19 @@ def _source_batches(
         last_id = batch[-1].embedding_id
 
 
+def _source_vector_count(engine: Engine, *, run_uid: str) -> int:
+    with engine.connect() as connection:
+        return int(
+            connection.execute(
+                text(
+                    "SELECT count(1) FROM embedding_512 "
+                    "WHERE run_uid=:run_uid AND vector_type=:vector_type"
+                ),
+                {"run_uid": run_uid, "vector_type": ORIGIN_512},
+            ).scalar_one()
+        )
+
+
 def _emit(progress: ProgressCallback | None, message: str, **details: object) -> None:
     if progress is not None:
         progress(message, details)
@@ -486,9 +501,10 @@ def _materialize_compressed_embeddings(
         if not development:
             raise ValueError("development_image_paths must not be empty")
         development_vectors: list[np.ndarray] = []
-        source_count = 0
+        source_count = _source_vector_count(engine, run_uid=run_uid)
+        scanned = 0
         for batch in _source_batches(engine, run_uid=run_uid, batch_size=batch_size):
-            source_count += len(batch)
+            scanned += len(batch)
             development_vectors.extend(
                 row.vector
                 for row in batch
@@ -497,7 +513,8 @@ def _materialize_compressed_embeddings(
             _emit(
                 progress,
                 "development normalization scan",
-                scanned=source_count,
+                scanned=scanned,
+                total=source_count,
                 development_vectors=len(development_vectors),
             )
         if not development_vectors:

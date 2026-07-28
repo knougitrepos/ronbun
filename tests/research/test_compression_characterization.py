@@ -4,6 +4,7 @@ import pytest
 from research.evaluation import (
     PAIRED_EMBEDDING_COLUMNS,
     RETRIEVAL_COMPARISON_COLUMNS,
+    apply_retrieval_thresholds,
     compare_cosine_retrieval,
     paired_embedding_metrics,
 )
@@ -157,6 +158,43 @@ def test_compare_cosine_retrieval_supports_distinct_operating_thresholds():
             origin_threshold=0.8,
             compressed_threshold=0.8,
         )
+
+
+def test_threshold_policy_can_be_reapplied_without_repeating_search():
+    gallery = np.array([[1.0, 0.0]], dtype=np.float32)
+    origin_query = np.array([[0.8, 0.6]], dtype=np.float32)
+    compressed_query = np.array([[0.9, np.sqrt(0.19)]], dtype=np.float32)
+    progress_events = []
+    base = compare_cosine_retrieval(
+        origin_query,
+        gallery,
+        compressed_query,
+        gallery,
+        query_ids=["q-a"],
+        gallery_ids=["g-a"],
+        query_identity_ids=["a"],
+        gallery_identity_ids=["a"],
+        compression_family="pca",
+        compression_profile="pca_2",
+        progress=lambda message, details: progress_events.append(
+            (message, details)
+        ),
+        progress_message="SurvFace compression retrieval",
+        progress_offset=10,
+        progress_total=12,
+    )
+
+    updated = apply_retrieval_thresholds(
+        base,
+        origin_threshold=0.75,
+        compressed_threshold=0.95,
+    )
+
+    assert [event[1]["processed"] for event in progress_events] == [11, 12]
+    row = updated.iloc[0]
+    assert bool(row["origin_accepted"])
+    assert not bool(row["compressed_accepted"])
+    assert row["threshold_crossing_direction"] == "accept_to_reject"
 
 
 def test_compression_characterization_validates_alignment_and_memory_boundary():

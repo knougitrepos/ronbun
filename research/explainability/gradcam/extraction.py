@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import hashlib
 import json
@@ -13,10 +14,17 @@ from research.explainability.gradcam.metrics import occlude_by_saliency
 from research.explainability.gradcam.optional import require_torch
 from research.explainability.gradcam.pair import PairCosineGradCAM
 from research.explainability.gradcam.templates import (
-    LOO_TARGET_NAME,
     LeaveOneOutTemplateBundle,
     build_leave_one_out_identity_templates,
 )
+
+
+ProgressCallback = Callable[[str, dict[str, object]], None]
+
+
+def _emit(progress: ProgressCallback | None, message: str, **details: object) -> None:
+    if progress is not None:
+        progress(message, details)
 
 
 def _positive_integer(value: int, *, name: str) -> int:
@@ -256,6 +264,7 @@ def prepare_population_saliency_inputs(
     dataset_id: str,
     embedding_batch_size: int = 64,
     require_all_eligible: bool = False,
+    progress: ProgressCallback | None = None,
 ) -> PreparedPopulationInputs:
     """Pass A: extract every origin embedding, then build LOO templates."""
 
@@ -280,6 +289,12 @@ def prepare_population_saliency_inputs(
         model_uids.add(str(output.model_uid))
         checkpoint_hashes.add(str(output.checkpoint_sha256))
         preprocess_hashes.add(str(output.preprocess_hash))
+        _emit(
+            progress,
+            "origin embedding extraction",
+            processed=min(start + batch_size, len(faces)),
+            total=len(faces),
+        )
     if len(model_uids) != 1:
         raise ValueError("embedding batches produced different model_uid values")
     if len(checkpoint_hashes) != 1 or len(preprocess_hashes) != 1:
@@ -321,13 +336,23 @@ def prepare_population_saliency_inputs(
 
 
 def _slice_region_masks(
-    region_masks: Mapping[str, np.ndarray] | None,
+    region_masks: Mapping[str, np.ndarray] | Any | None,
     *,
     row_indices: np.ndarray,
     total_rows: int,
+    image_size: tuple[int, int],
 ) -> dict[str, np.ndarray] | None:
     if region_masks is None:
         return None
+    build_masks = getattr(region_masks, "build_region_masks", None)
+    if callable(build_masks):
+        sample_count = getattr(region_masks, "sample_count", total_rows)
+        if int(sample_count) != total_rows:
+            raise ValueError(
+                "region mask provider row count must match aligned/prepared samples"
+            )
+        generated = build_masks(row_indices, image_size=image_size)
+        return {str(name): np.asarray(mask) for name, mask in generated.items()}
     sliced: dict[str, np.ndarray] = {}
     for name, mask in region_masks.items():
         values = np.asarray(mask)
@@ -451,7 +476,7 @@ def extract_population_gradcam(
     prepared: PreparedPopulationInputs,
     *,
     gradcam_batch_size: int = 4,
-    region_masks: Mapping[str, np.ndarray] | None = None,
+    region_masks: Mapping[str, np.ndarray] | Any | None = None,
     region_mask_uid: str | None = None,
     capture_intermediates: bool = False,
     minimum_pass_repeat_cosine: float = 0.99999,
@@ -459,6 +484,8 @@ def extract_population_gradcam(
     faithfulness_random_repeats: int = 5,
     faithfulness_seed: int = 42,
     faithfulness_batch_size: int = 32,
+    saliency_sample_mask: Sequence[bool] | np.ndarray | None = None,
+    progress: ProgressCallback | None = None,
 ) -> PopulationSaliencyResult:
     """Pass B: Grad-CAM every LOO-eligible image before compression.
 
@@ -497,7 +524,22 @@ def extract_population_gradcam(
         adapter.spec.target_layer,
         name="target_layer",
     )
-    eligible_indices = np.flatnonzero(prepared.loo_templates.eligible)
+    if saliency_sample_mask is None:
+        selected_for_saliency = np.ones(len(faces), dtype=bool)
+    else:
+        selected_for_saliency = np.asarray(saliency_sample_mask)
+        if (
+            selected_for_saliency.ndim != 1
+            or len(selected_for_saliency) != len(faces)
+            or selected_for_saliency.dtype.kind != "b"
+        ):
+            raise ValueError(
+                "saliency_sample_mask must be a boolean vector aligned with samples"
+            )
+        selected_for_saliency = selected_for_saliency.astype(bool, copy=False)
+    eligible_indices = np.flatnonzero(
+        prepared.loo_templates.eligible & selected_for_saliency
+    )
     if len(eligible_indices) == 0:
         raise ValueError("no samples have an eligible leave-one-out target")
 
@@ -533,7 +575,7 @@ def extract_population_gradcam(
             template_tensor,
             batch_mode="single" if len(row_indices) == 1 else "independent",
             target_space="origin_embedding",
-            target_name=LOO_TARGET_NAME,
+            target_name=prepared.loo_templates.target_name,
             capture_intermediates=capture_intermediates,
         )
         for key, value in (
@@ -554,6 +596,12 @@ def extract_population_gradcam(
             activation_parts.append(generated.activations)
         if generated.gradients is not None:
             gradient_parts.append(generated.gradients)
+        _emit(
+            progress,
+            "population Grad-CAM extraction",
+            processed=min(start + batch_size, len(eligible_indices)),
+            total=len(eligible_indices),
+        )
 
     combined = {
         name: np.concatenate(parts, axis=0) for name, parts in result_parts.items()
@@ -583,6 +631,7 @@ def extract_population_gradcam(
         region_masks,
         row_indices=eligible_indices,
         total_rows=len(faces),
+        image_size=tuple(int(value) for value in combined["heatmaps"].shape[-2:]),
     )
     spatial = summarize_saliency_features(
         combined["heatmaps"],
@@ -623,10 +672,15 @@ def extract_population_gradcam(
         "origin_embedding_artifact_uid": prepared.origin_embedding_artifact_uid,
         "model_uid": prepared.model_uid,
         "target_layer": target_layer_name,
-        "target_name": LOO_TARGET_NAME,
+        "target_name": prepared.loo_templates.target_name,
         "region_mask_uid": str(region_mask_uid or "none"),
         "faithfulness_fraction": faithfulness_fraction,
         "faithfulness_random_repeats": int(faithfulness_random_repeats),
+        "saliency_selected_sample_sha256": hashlib.sha256(
+            "\x1f".join(
+                prepared.sample_ids[selected_for_saliency].astype(str)
+            ).encode("utf-8")
+        ).hexdigest(),
     }
     spec_digest = hashlib.sha256(
         json.dumps(
@@ -641,6 +695,7 @@ def extract_population_gradcam(
     features["saliency_spec_uid"] = saliency_spec_uid
     features["target_layer"] = target_layer_name
     features["region_mask_uid"] = str(region_mask_uid or "none")
+    features["saliency_sample_selected"] = selected_for_saliency
     features["heatmap_available"] = False
     features["heatmap_index"] = -1
     feature_columns = [column for column in spatial if column != "sample_id"]

@@ -11,7 +11,7 @@ def _load_config() -> dict:
     return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
-def test_step2_config_is_checkpoint_level_and_fails_closed() -> None:
+def test_step2_config_is_full_execution_profile_with_fail_closed_guards() -> None:
     config = _load_config()
 
     assert config["study_boundary"]["comparison_unit"] == "pretrained_checkpoint"
@@ -23,7 +23,8 @@ def test_step2_config_is_checkpoint_level_and_fails_closed() -> None:
     assert config["execution"]["data_fraction"] == 1.0
     assert config["execution"]["execute_stage"] is True
     assert config["execution"]["write_outputs"] is True
-    assert config["execution"]["overwrite"] is True
+    assert config["execution"]["overwrite"] is False
+    assert config["execution"]["allow_dirty"] is False
     assert config["execution"]["device"] == "cuda"
     assert config["run"] == {
         "name": "step2_pytorch_fr_and_gradcam",
@@ -103,9 +104,9 @@ def test_step2_gradcam_extracts_origin_population_before_compression() -> None:
     gradcam = config["gradcam"]
 
     assert config["datasets"]["quantitative"] == ["lfw", "survface"]
-    assert config["datasets"]["saliency_population_initial"] == ["lfw"]
+    assert config["datasets"]["saliency_population_initial"] == ["lfw", "survface"]
     assert gradcam["study_enabled"] is True
-    assert gradcam["execution_ready"] is False
+    assert "execution_ready" not in gradcam
     assert gradcam["role"] == "origin_population_feature"
     assert gradcam["stage_order"] == [
         "pass_a_origin_embedding",
@@ -195,11 +196,21 @@ def test_step2_joint_analysis_requires_strict_keys_and_origin_lineage() -> None:
     assert analysis["prohibit_saliency_embedding_concatenation"] is True
 
     association = analysis["association"]
-    assert association["stratify_by"] == [
+    assert association["geometry_stratify_by"] == [
         "dataset_id",
         "model_uid",
         "compression_family",
         "compression_profile",
+    ]
+    assert association["retrieval_stratify_by"] == [
+        "dataset_id",
+        "model_uid",
+        "compression_family",
+        "compression_profile",
+        "threshold_source_split",
+        "evaluation_split",
+        "threshold_policy",
+        "is_mated",
     ]
     assert association["bootstrap_unit"] == "identity_id"
     assert association["bootstrap_method"] == "identity_cluster"

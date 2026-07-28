@@ -203,12 +203,17 @@ def summarize_saliency_features(
             width=width,
             name=FACE_MASK_NAME,
         )
+        frame["face_attention"] = saliency_concentration(
+            values,
+            face_masks,
+        )
         frame["outside_face_attention"] = saliency_concentration(
             values,
             ~face_masks,
         )
         frame["face_mask_available"] = np.any(face_masks, axis=(1, 2))
     else:
+        frame["face_attention"] = np.nan
         frame["outside_face_attention"] = np.nan
         frame["face_mask_available"] = False
     frame["semantic_region_mask_count"] = available_count

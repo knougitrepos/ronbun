@@ -14,9 +14,13 @@ execution:
   mode: real
   data_fraction: 1.0
   seed: 42
+  # Full LFW/SurvFace rerun profile. Commit this exact local-notebook
+  # configuration before execution so allow_dirty=false pins the code state.
+  # Existing canonical Step 4 bundles are never replaced implicitly.
   execute_stage: true
   write_outputs: true
-  overwrite: true
+  overwrite: false
+  allow_dirty: false
   device: cuda
 
 study_boundary:
@@ -53,8 +57,10 @@ workflow:
   saliency_validation_path: saliency_validation.json
   paired_metrics_path: paired_embedding_metrics.csv
   retrieval_metrics_path: retrieval_metrics.csv
-  joined_metrics_path: saliency_compression_join.csv
-  association_path: saliency_compression_associations.csv
+  geometry_joined_metrics_path: saliency_geometry_join.csv
+  retrieval_joined_metrics_path: saliency_retrieval_join.csv
+  geometry_association_path: saliency_geometry_associations.csv
+  retrieval_association_path: saliency_retrieval_associations.csv
   representative_cases_path: representative_cases.csv
   figure_dir: figures
 
@@ -219,15 +225,19 @@ datasets:
   # family checkpoints.
   conditional_quantitative: [rfw]
   additional_development_sources: [balancedface]
-  saliency_population_initial: [lfw]
+  saliency_population_initial: [lfw, survface]
   lfw:
     manifest_path: data/interim/lfw/face_manifest.csv
+    aligned_bundle_dir: data/interim/common/aligned_112
+    landmark_region_bundle_dir: data/interim/step4/lfw/landmark_regions_106
     gallery_identities_path: data/interim/lfw/gallery_identities.txt
     unknown_unknown_identities_path: data/interim/lfw/unknown_unknown_identities.txt
     protocol_adapter: lfw_identity_disjoint
   survface:
     training_manifest_path: data/interim/survface/training_manifest.csv
     manifest_path: data/interim/survface/official_manifest.csv
+    aligned_bundle_dir: data/interim/step4/survface/aligned_112
+    landmark_region_bundle_dir: data/interim/step4/survface/landmark_regions_106
     protocol_adapter: survface_official
     official_manifest_role: evaluation_only
   balancedface:
@@ -258,11 +268,11 @@ compression:
       source_profile: origin_512
       source_dimension: 512
       settings:
-        - {m: 8, nbits: 8}
-        - {m: 16, nbits: 8}
-        - {m: 32, nbits: 8}
-        - {m: 64, nbits: 8}
-        - {m: 128, nbits: 8}
+        - { m: 8, nbits: 8 }
+        - { m: 16, nbits: 8 }
+        - { m: 32, nbits: 8 }
+        - { m: 64, nbits: 8 }
+        - { m: 128, nbits: 8 }
 
 model_validation:
   require_checkpoint_sha256: true
@@ -278,11 +288,10 @@ model_validation:
     minimum_top1_agreement: null
 
 gradcam:
-  # The study design is active, but execution remains fail-closed until every
-  # selected model has a verified checkpoint, preprocessing contract, target
-  # layer, and the common aligned-crop bundle has been frozen.
+  # Runtime readiness is derived from verified checkpoint, preprocessing,
+  # target-layer, aligned-crop, mask-bundle, and provider checks. A separate
+  # manually maintained execution_ready flag is intentionally not used.
   study_enabled: true
-  execution_ready: false
   role: origin_population_feature
   stage_order:
     - pass_a_origin_embedding
@@ -298,6 +307,11 @@ gradcam:
     singleton_identity_policy: record_ineligible
     unlabeled_sample_policy: record_ineligible
     ineligible_rows_must_include_reason: true
+    saliency_sample_cap:
+      lfw: null
+      survface: null
+    sampling_unit: sample_id
+    survface_sampling_strata: [registered_probe, unknown_unknown_probe]
   two_pass_extraction:
     pass_a:
       output: origin_embedding_512
@@ -345,6 +359,8 @@ gradcam:
     full_activation_gradient_policy: transient_or_explicit_debug_subset_only
   regions:
     mask_bundle_path: null
+    landmark_model_path: null
+    landmark_topology: insightface-2d106-semantic-v1
     quadrants: true
     semantic_regions:
       - left_eye
@@ -359,6 +375,7 @@ gradcam:
     infer_missing_semantic_masks: false
   faithfulness:
     enabled: true
+    enabled_datasets: [lfw]
     coverage: all_target_eligible_samples
     primary_occlusion_fraction: 0.10
     baselines: [random, low_saliency]
@@ -392,11 +409,20 @@ joint_analysis:
     reject_missing_or_mismatched_lineage: true
   prohibit_saliency_embedding_concatenation: true
   association:
-    stratify_by:
+    geometry_stratify_by:
       - dataset_id
       - model_uid
       - compression_family
       - compression_profile
+    retrieval_stratify_by:
+      - dataset_id
+      - model_uid
+      - compression_family
+      - compression_profile
+      - threshold_source_split
+      - evaluation_split
+      - threshold_policy
+      - is_mated
     bootstrap_unit: identity_id
     bootstrap_method: identity_cluster
     bootstrap_repeats: 500
@@ -408,6 +434,8 @@ evaluation:
   exact_fallback: false
   compare_frozen_and_recalibrated_thresholds: true
   target_fpir: 0.01
+  survface_target_fpir: 0.10
+  survface_calibration_gallery_identities: 200
   top_k: 20
   lfw_enrollment_count: 5
   calibration_gallery_identities: 20

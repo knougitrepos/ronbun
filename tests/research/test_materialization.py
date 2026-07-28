@@ -59,6 +59,11 @@ def test_frozen_error_normalization_requires_development_provenance(stats):
 
 def test_db_materialization_accepts_all_step1_pca_dimensions(monkeypatch, tmp_path):
     monkeypatch.setattr(materialization, "ensure_database_schema", lambda _engine: None)
+    monkeypatch.setattr(
+        materialization,
+        "_source_vector_count",
+        lambda _engine, *, run_uid: 1,
+    )
 
     def stop_after_dimension_validation(*_args, **_kwargs):
         raise RuntimeError("dimension validation passed")

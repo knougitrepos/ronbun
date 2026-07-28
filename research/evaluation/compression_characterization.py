@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+
+ProgressCallback = Callable[[str, dict[str, object]], None]
 
 
 PAIRED_EMBEDDING_COLUMNS = (
@@ -234,6 +237,11 @@ def _batched_cosine_top_k(
     top_k: int,
     query_batch_size: int,
     gallery_batch_size: int,
+    progress: ProgressCallback | None = None,
+    progress_message: str = "cosine retrieval",
+    progress_offset: int = 0,
+    progress_total: int | None = None,
+    progress_details: dict[str, object] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return cosine top-k without materializing the full query-gallery matrix."""
 
@@ -268,6 +276,15 @@ def _batched_cosine_top_k(
 
         result_indices[query_start:query_stop] = best_indices
         result_scores[query_start:query_stop] = best_scores
+        if progress is not None:
+            progress(
+                progress_message,
+                {
+                    "processed": int(progress_offset + query_stop),
+                    "total": int(progress_total or query_count),
+                    **(progress_details or {}),
+                },
+            )
 
     return result_indices, result_scores
 
@@ -305,6 +322,11 @@ def compare_cosine_retrieval(
     query_batch_size: int = 128,
     gallery_batch_size: int = 4096,
     max_pairwise_elements: int = 1_000_000,
+    progress: ProgressCallback | None = None,
+    progress_message: str = "cosine retrieval",
+    progress_offset: int = 0,
+    progress_total: int | None = None,
+    progress_details: dict[str, object] | None = None,
 ) -> pd.DataFrame:
     """Compare origin and compressed cosine retrieval without fallback.
 
@@ -357,6 +379,19 @@ def compare_cosine_retrieval(
             "batched retrieval working set exceeds max_pairwise_elements "
             f"for this input ({largest_merge_block} > {pair_limit}); reduce "
             "query_batch_size, gallery_batch_size, or top_k"
+        )
+    progress_offset_value = int(progress_offset)
+    if progress_offset_value < 0:
+        raise ValueError("progress_offset must be non-negative")
+    required_progress_total = progress_offset_value + 2 * len(origin_query)
+    progress_total_value = (
+        required_progress_total
+        if progress_total is None
+        else int(progress_total)
+    )
+    if progress_total_value < required_progress_total:
+        raise ValueError(
+            "progress_total must cover both origin and compressed retrieval"
         )
 
     if threshold is not None:
@@ -431,6 +466,14 @@ def compare_cosine_retrieval(
         top_k=top_k_value,
         query_batch_size=query_batch,
         gallery_batch_size=gallery_batch,
+        progress=progress,
+        progress_message=progress_message,
+        progress_offset=progress_offset_value,
+        progress_total=progress_total_value,
+        progress_details={
+            **(progress_details or {}),
+            "representation": "origin",
+        },
     )
     compressed_indices, compressed_scores = _batched_cosine_top_k(
         compressed_query_unit,
@@ -438,6 +481,14 @@ def compare_cosine_retrieval(
         top_k=top_k_value,
         query_batch_size=query_batch,
         gallery_batch_size=gallery_batch,
+        progress=progress,
+        progress_message=progress_message,
+        progress_offset=progress_offset_value + len(origin_query),
+        progress_total=progress_total_value,
+        progress_details={
+            **(progress_details or {}),
+            "representation": "compressed",
+        },
     )
 
     row_indices = np.arange(len(origin_query))
@@ -571,3 +622,71 @@ def compare_cosine_retrieval(
         )
 
     return pd.DataFrame.from_records(records, columns=RETRIEVAL_COMPARISON_COLUMNS)
+
+
+def apply_retrieval_thresholds(
+    comparison: pd.DataFrame,
+    *,
+    origin_threshold: float,
+    compressed_threshold: float,
+) -> pd.DataFrame:
+    """Apply a new threshold policy without repeating cosine retrieval."""
+
+    required = {
+        "is_mated",
+        "origin_top1_score",
+        "compressed_top1_score",
+        "origin_rank1_correct",
+        "compressed_rank1_correct",
+    }
+    missing = sorted(required.difference(comparison.columns))
+    if missing:
+        raise ValueError(f"retrieval comparison is missing columns: {missing}")
+    origin_value = _cosine_threshold(
+        origin_threshold,
+        name="origin_threshold",
+    )
+    compressed_value = _cosine_threshold(
+        compressed_threshold,
+        name="compressed_threshold",
+    )
+    result = comparison.copy()
+    origin_accepted = (
+        result["origin_top1_score"].to_numpy(dtype=float) >= origin_value
+    )
+    compressed_accepted = (
+        result["compressed_top1_score"].to_numpy(dtype=float)
+        >= compressed_value
+    )
+    mated = result["is_mated"].to_numpy(dtype=bool)
+    origin_correct = result["origin_rank1_correct"].to_numpy(dtype=bool)
+    compressed_correct = result["compressed_rank1_correct"].to_numpy(dtype=bool)
+    crossing = origin_accepted != compressed_accepted
+
+    result["decision_threshold"] = (
+        origin_value if origin_value == compressed_value else None
+    )
+    result["origin_decision_threshold"] = origin_value
+    result["compressed_decision_threshold"] = compressed_value
+    result["origin_accepted"] = origin_accepted
+    result["compressed_accepted"] = compressed_accepted
+    result["threshold_crossing"] = crossing
+    result["threshold_crossing_direction"] = np.select(
+        [
+            origin_accepted & ~compressed_accepted,
+            ~origin_accepted & compressed_accepted,
+        ],
+        ["accept_to_reject", "reject_to_accept"],
+        default="none",
+    )
+    result["origin_decision_correct"] = np.where(
+        mated,
+        origin_accepted & origin_correct,
+        ~origin_accepted,
+    )
+    result["compressed_decision_correct"] = np.where(
+        mated,
+        compressed_accepted & compressed_correct,
+        ~compressed_accepted,
+    )
+    return result.loc[:, RETRIEVAL_COMPARISON_COLUMNS]

@@ -63,15 +63,64 @@ def _git_output(repo_root: Path, *args: str, binary: bool = False):
     return result.stdout
 
 
-def _git_provenance(repo_root: Path) -> dict[str, object]:
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _allowed_run_artifact_roots(
+    repo_root: Path,
+    run_root: Path,
+) -> tuple[Path, ...]:
+    canonical_runs = (repo_root / "runs").resolve()
+    if _is_within(run_root, canonical_runs):
+        return (canonical_runs,)
+    return (run_root.resolve(),)
+
+
+def _git_provenance(
+    repo_root: Path,
+    *,
+    allowed_untracked_roots: tuple[Path, ...] = (),
+) -> dict[str, object]:
     commit = str(_git_output(repo_root, "rev-parse", "HEAD")).strip() or None
     branch = str(_git_output(repo_root, "branch", "--show-current")).strip() or None
-    status = str(_git_output(repo_root, "status", "--porcelain=v1"))
+    allowed = tuple(
+        root.resolve()
+        for root in allowed_untracked_roots
+        if _is_within(root, repo_root)
+    )
+    raw_status = str(
+        _git_output(
+            repo_root,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        )
+    )
+    status_lines = []
+    for line in raw_status.splitlines():
+        if line.startswith("?? "):
+            untracked = (repo_root / line[3:].rstrip("/")).resolve()
+            if any(_is_within(untracked, root) for root in allowed):
+                continue
+        status_lines.append(line)
     diff = _git_output(repo_root, "diff", "--binary", "HEAD", binary=True)
     untracked_output = str(
         _git_output(repo_root, "ls-files", "--others", "--exclude-standard")
     )
-    untracked_paths = [line for line in untracked_output.splitlines() if line]
+    untracked_paths = [
+        line
+        for line in untracked_output.splitlines()
+        if line
+        and not any(
+            _is_within((repo_root / line).resolve(), root)
+            for root in allowed
+        )
+    ]
     untracked_digest = hashlib.sha256()
     for relative_path in sorted(untracked_paths):
         path = repo_root / relative_path
@@ -83,10 +132,13 @@ def _git_provenance(repo_root: Path) -> dict[str, object]:
     return {
         "commit": commit,
         "branch": branch,
-        "dirty": bool(status.strip()),
+        "dirty": bool(status_lines),
         "working_tree_diff_sha256": hashlib.sha256(diff).hexdigest(),
         "untracked_paths": untracked_paths,
         "untracked_content_sha256": untracked_digest.hexdigest(),
+        "allowed_untracked_roots": [
+            root.relative_to(repo_root.resolve()).as_posix() for root in allowed
+        ],
     }
 
 
@@ -239,14 +291,33 @@ class RunStore:
         now: datetime | None = None,
         repo_root: str | Path = PROJECT_ROOT,
         partition_by_date: bool = True,
+        allow_dirty: bool | None = None,
     ) -> "RunStore":
         safe_config = redact(config)
         config_hash = canonical_sha256(safe_config)
+        repository = Path(repo_root).resolve()
+        root_path = Path(root).resolve()
+        git_provenance = _git_provenance(
+            repository,
+            allowed_untracked_roots=_allowed_run_artifact_roots(
+                repository,
+                root_path,
+            ),
+        )
+        if (
+            git_provenance.get("commit") is not None
+            and git_provenance.get("dirty")
+            and allow_dirty is False
+        ):
+            raise RuntimeError(
+                "paper experiment runs require a clean Git working tree; "
+                "commit or stash local changes, or explicitly set allow_dirty=True "
+                "for a non-paper development run"
+            )
         local_now = now or datetime.now(KST)
         if local_now.tzinfo is None:
             local_now = local_now.replace(tzinfo=KST)
         local_now = local_now.astimezone(KST)
-        root_path = Path(root)
         date_dir = (
             root_path
             / local_now.strftime("%Y")
@@ -293,7 +364,10 @@ class RunStore:
             "partition_by_date": bool(partition_by_date),
             "config_hash": config_hash,
             "config": safe_config,
-            "git": _git_provenance(Path(repo_root)),
+            "git": {
+                **git_provenance,
+                "dirty_run_explicitly_allowed": allow_dirty is True,
+            },
             "environment": {
                 "python": sys.version,
                 "platform": platform.platform(),
@@ -315,6 +389,7 @@ class RunStore:
         root: str | Path = "runs",
         repo_root: str | Path = PROJECT_ROOT,
         partition_by_date: bool = True,
+        allow_dirty: bool | None = None,
     ) -> "RunStore":
         """Reuse the matching incomplete active run or create one new run.
 
@@ -324,7 +399,7 @@ class RunStore:
         """
 
         expected_hash = canonical_sha256(redact(config))
-        root_path = Path(root)
+        root_path = Path(root).resolve()
         try:
             active_dir = resolve_active_run(root_path)
         except FileNotFoundError:
@@ -340,8 +415,26 @@ class RunStore:
                 root=root_path,
                 repo_root=repo_root,
                 partition_by_date=partition_by_date,
+                allow_dirty=allow_dirty,
             )
 
+        current_git = _git_provenance(
+            Path(repo_root).resolve(),
+            allowed_untracked_roots=_allowed_run_artifact_roots(
+                Path(repo_root).resolve(),
+                root_path,
+            ),
+        )
+        if (
+            current_git.get("commit") is not None
+            and current_git.get("dirty")
+            and allow_dirty is False
+        ):
+            raise RuntimeError(
+                "paper experiment runs require a clean Git working tree; "
+                "commit or stash local changes, or explicitly set allow_dirty=True "
+                "for a non-paper development run"
+            )
         active = cls.open(active_dir)
         if (
             active.run_name != experiment_name

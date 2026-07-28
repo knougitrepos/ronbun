@@ -39,7 +39,7 @@ def _call_argument_names(source: str, function_name: str) -> list[tuple[str, ...
 
 
 def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
-    expected_modes = {"lfw": "real", "survface": "dev"}
+    expected_modes = {"lfw": "real", "survface": "real"}
     for dataset in ("lfw", "survface"):
         source = _code_source(
             NOTEBOOK_ROOT
@@ -59,6 +59,19 @@ def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
         assert source.count("select_manifest_fraction(") >= 2
         assert "select_open_set_protocol_fraction(" in source
         assert "validate_identity_disjoint_splits(" in source
+
+
+def test_survface_execution_profile_uses_the_full_official_probe_set():
+    source = _code_source(
+        NOTEBOOK_ROOT
+        / "survface"
+        / "03_open_set"
+        / "00_official_probe_search.ipynb"
+    )
+
+    assert "MODE = 'real'" in source
+    assert "PROBE_LIMIT = None" in source
+    assert 'FULL_RUN_ACKNOWLEDGEMENT = "SURVFACE_FULL_SEARCH"' in source
 
 
 def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
@@ -142,12 +155,12 @@ def test_survface_official_test_is_evaluation_only_in_step1_code_path():
     )
 
     assert "opaque_per_image_key_no_identity_labels" in preparation_source
-    assert _call_argument_names(study_source, "fit") == [
-        ("development_matrix",)
-    ]
-    assert _call_argument_names(study_source, "fit_pca_family") == [
-        ("development_matrix",)
-    ]
+    assert _call_argument_names(study_source, "fit") == []
+    assert _call_argument_names(study_source, "fit_pca_family") == []
+    assert _call_argument_names(
+        study_source,
+        "load_survface_compressor_bundle",
+    ) == [("run",)]
     assert _call_argument_names(study_source, "build_calibration_protocol") == [
         ("training_manifest",)
     ]

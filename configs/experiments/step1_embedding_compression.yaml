@@ -5,8 +5,8 @@ run:
 # mode labels the run intent; data_fraction controls the deterministic identity
 # subset. Only mode=real with data_fraction=1.0 is a full paper run.
 execution:
-  mode: dev
-  data_fraction: 0.10
+  mode: real
+  data_fraction: 1.0
   seed: 42
 
 models:

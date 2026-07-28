@@ -21,10 +21,10 @@ from research.explainability.gradcam.templates import (
 from research.runtime.hashing import sha256_file
 
 
-PREPARED_SCHEMA_VERSION = 2
-SALIENCY_SCHEMA_VERSION = 2
-SUPPORTED_PREPARED_SCHEMA_VERSIONS = {1, PREPARED_SCHEMA_VERSION}
-SUPPORTED_SALIENCY_SCHEMA_VERSIONS = {1, SALIENCY_SCHEMA_VERSION}
+PREPARED_SCHEMA_VERSION = 3
+SALIENCY_SCHEMA_VERSION = 3
+SUPPORTED_PREPARED_SCHEMA_VERSIONS = {1, 2, PREPARED_SCHEMA_VERSION}
+SUPPORTED_SALIENCY_SCHEMA_VERSIONS = {1, 2, SALIENCY_SCHEMA_VERSION}
 
 
 def _positive_integer(value: int, *, name: str) -> int:
@@ -180,6 +180,13 @@ def write_prepared_population_artifact(
                 identity_template_cosine=prepared.loo_templates.target_scores[
                     start:stop
                 ].astype(np.float32, copy=False),
+                saliency_reference_identity_id=(
+                    prepared.loo_templates.reference_identity_ids[start:stop].astype(
+                        str
+                    )
+                    if prepared.loo_templates.reference_identity_ids is not None
+                    else np.full(stop - start, "not_applicable")
+                ),
             )
             shard_entries.append(
                 _file_entry(
@@ -199,7 +206,7 @@ def write_prepared_population_artifact(
             "checkpoint_sha256": prepared.checkpoint_sha256,
             "preprocess_hash": prepared.preprocess_hash,
             "origin_embedding_artifact_uid": (prepared.origin_embedding_artifact_uid),
-            "target_name": LOO_TARGET_NAME,
+            "target_name": prepared.loo_templates.target_name,
             "row_count": row_count,
             "embedding_dimension": int(prepared.raw_embeddings.shape[1]),
             "eligible_count": prepared.loo_templates.eligible_count,
@@ -290,6 +297,12 @@ def read_prepared_population_artifact(
         exclusion_reasons=combined["saliency_target_status"].astype(str),
         target_scores=combined["identity_template_cosine"].astype(np.float32),
         model_uid=str(manifest["model_uid"]),
+        target_name=str(manifest.get("target_name", LOO_TARGET_NAME)),
+        reference_identity_ids=(
+            combined["saliency_reference_identity_id"].astype(str)
+            if "saliency_reference_identity_id" in combined
+            else None
+        ),
     )
     return PreparedPopulationInputs(
         extraction_uid=str(manifest["extraction_uid"]),
@@ -390,6 +403,9 @@ def write_population_saliency_artifact(
                     row_count=stop - start,
                 )
             )
+        target_names = result.features["saliency_target_name"].astype(str).unique()
+        if len(target_names) != 1:
+            raise ValueError("population saliency artifact must have one target name")
         manifest = {
             "artifact_type": "population_gradcam_saliency",
             "schema_version": SALIENCY_SCHEMA_VERSION,
@@ -399,7 +415,7 @@ def write_population_saliency_artifact(
             "origin_embedding_artifact_uid": result.origin_embedding_artifact_uid,
             "saliency_spec_uid": result.saliency_spec_uid,
             "target_layer": result.target_layer,
-            "target_name": LOO_TARGET_NAME,
+            "target_name": str(target_names[0]),
             "sample_feature_row_count": int(len(result.features)),
             "heatmap_row_count": row_count,
             "heatmap_dtype": heatmap_dtype,

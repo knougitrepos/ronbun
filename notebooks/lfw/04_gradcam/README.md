@@ -8,10 +8,10 @@ embedding lineage의 PCA-only/PQ-only 민감도와 결합한다.
 1. `prerequisite/00_source_and_model_freeze.ipynb`
 2. `prerequisite/01_origin_embedding_and_loo_templates.ipynb`
 
-첫 단계는 공통 aligned-crop index, checkpoint, preprocessing과 선택 population을
-고정한다. 두 번째 단계는 모든 선택 표본의 원본 512D embedding과 leave-one-out
-identity template을 만든다. singleton 등 target 부적격 표본은 삭제하지 않고
-사유를 기록한다.
+첫 단계는 앞서 생성한 aligned-crop·106-point landmark bundle, checkpoint,
+preprocessing과 선택 population을 고정한다. 두 번째 단계는 모든 선택 표본의
+원본 512D embedding과 leave-one-out identity template을 만든다. singleton 등
+target 부적격 표본은 삭제하지 않고 사유를 기록한다.
 
 ## Experiment
 
@@ -34,9 +34,11 @@ CSV index와 JSON manifest, checksum을 동반한다. 새 run은
 미완료 run을 조용히 덮어쓰지 않는다. 마지막 시각화가 저장되면 run을 완료
 상태로 고정한다.
 
-실행값은 노트북에 하드코딩하지 않고
+각 노트북은 해당 단계의 공통 Python 함수 하나만 호출한다. 실행값은 노트북에
+하드코딩하지 않고
 `configs/experiments/step2_pytorch_gradcam.yaml`의 `execution`, `gradcam`,
 `joint_analysis`에서 읽는다. 현재 기본값은 `mode=real`,
 `data_fraction=1.0`, `execute_stage=true`, `write_outputs=true`,
-`overwrite=true`, `device=cuda`이다. 입력 checkpoint, 모델 UID, aligned bundle
+`overwrite=false`, `allow_dirty=false`, `device=cuda`인 전체 재실험용
+프로필이다. 입력 checkpoint, 모델 UID, aligned bundle
 또는 lineage가 불완전하면 실행은 즉시 중단된다.

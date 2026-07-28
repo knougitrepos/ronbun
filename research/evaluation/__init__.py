@@ -1,6 +1,7 @@
 from research.evaluation.compression_characterization import (
     PAIRED_EMBEDDING_COLUMNS,
     RETRIEVAL_COMPARISON_COLUMNS,
+    apply_retrieval_thresholds,
     compare_cosine_retrieval,
     paired_embedding_metrics,
 )
@@ -13,6 +14,8 @@ from research.evaluation.metrics import (
     rank_at_k,
 )
 from research.evaluation.saliency_compression import (
+    DEFAULT_GEOMETRY_METRICS,
+    DEFAULT_RETRIEVAL_METRICS,
     DEFAULT_SALIENCY_FEATURES,
     DEFAULT_SENSITIVITY_METRICS,
     JOIN_KEYS,
@@ -20,10 +23,15 @@ from research.evaluation.saliency_compression import (
     PROFILE_KEYS,
     annotate_compression_lineage,
     join_population_saliency_with_compression,
+    join_population_saliency_with_retrieval,
     saliency_compression_associations,
+    saliency_geometry_associations,
+    saliency_retrieval_associations,
 )
 
 __all__ = [
+    "DEFAULT_GEOMETRY_METRICS",
+    "DEFAULT_RETRIEVAL_METRICS",
     "DEFAULT_SALIENCY_FEATURES",
     "DEFAULT_SENSITIVITY_METRICS",
     "JOIN_KEYS",
@@ -32,14 +40,18 @@ __all__ = [
     "PROFILE_KEYS",
     "RETRIEVAL_COMPARISON_COLUMNS",
     "annotate_compression_lineage",
+    "apply_retrieval_thresholds",
     "auroc",
     "brier_score",
     "certified_open_set_metrics",
     "compare_cosine_retrieval",
     "expected_calibration_error",
     "join_population_saliency_with_compression",
+    "join_population_saliency_with_retrieval",
     "open_set_identification_metrics",
     "paired_embedding_metrics",
     "rank_at_k",
     "saliency_compression_associations",
+    "saliency_geometry_associations",
+    "saliency_retrieval_associations",
 ]

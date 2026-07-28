@@ -148,6 +148,51 @@ def population_pipeline(tmp_path: Path):
     return faces, prepared, result
 
 
+def test_population_gradcam_can_cap_only_the_backward_saliency_pass(tmp_path: Path):
+    faces = _aligned_faces()
+    adapter = _adapter(tmp_path)
+    sample_ids = np.asarray(
+        ["alpha-1", "alpha-2", "beta-1", "beta-2", "single-1", "missing-1"]
+    )
+    identity_ids = np.asarray(
+        ["alpha", "alpha", "beta", "beta", "single", None],
+        dtype=object,
+    )
+    prepared = prepare_population_saliency_inputs(
+        adapter,
+        faces,
+        sample_ids=sample_ids,
+        identity_ids=identity_ids,
+        scope_ids=np.asarray(["dev"] * len(sample_ids)),
+        extraction_uid="synthetic-extraction-capped",
+        dataset_id="synthetic-faces",
+        embedding_batch_size=2,
+    )
+    sample_mask = np.asarray([True, True, False, False, False, False])
+    result = extract_population_gradcam(
+        adapter,
+        faces,
+        prepared,
+        gradcam_batch_size=2,
+        minimum_pass_repeat_cosine=0.99999,
+        faithfulness_fraction=None,
+        saliency_sample_mask=sample_mask,
+    )
+
+    assert result.heatmap_sample_ids.tolist() == ["alpha-1", "alpha-2"]
+    assert result.features["saliency_sample_selected"].tolist() == (
+        sample_mask.tolist()
+    )
+    assert result.features["heatmap_available"].tolist() == [
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+    ]
+
+
 def test_population_pipeline_extracts_all_embeddings_and_all_eligible_gradcam(
     population_pipeline,
 ):

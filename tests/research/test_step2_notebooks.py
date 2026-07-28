@@ -9,7 +9,6 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
 MODEL_ROOT = NOTEBOOK_ROOT / "common" / "model_preparation"
-GRADCAM_ROOT = NOTEBOOK_ROOT / "lfw" / "04_gradcam"
 ALIGNED_CROP_NOTEBOOK = (
     NOTEBOOK_ROOT
     / "lfw"
@@ -40,7 +39,8 @@ def test_step2_config_uses_interpretable_aligned_crop_bundle() -> None:
         "seed": 42,
         "execute_stage": True,
         "write_outputs": True,
-        "overwrite": True,
+        "overwrite": False,
+        "allow_dirty": False,
         "device": "cuda",
     }
     aligned = config["aligned_crops"]
@@ -53,6 +53,13 @@ def test_step2_config_uses_interpretable_aligned_crop_bundle() -> None:
         "CPUExecutionProvider",
     ]
     assert aligned["required_primary_provider"] == "CUDAExecutionProvider"
+    assert config["gradcam"]["population"]["saliency_sample_cap"] == {
+        "lfw": None,
+        "survface": None,
+    }
+    assert config["datasets"]["lfw"]["aligned_bundle_dir"] == (
+        "data/interim/common/aligned_112"
+    )
 
 
 def test_aligned_crop_notebook_discovers_the_actual_repository_root() -> None:
@@ -101,110 +108,76 @@ def test_model_validation_remains_fail_closed_on_inputs() -> None:
     assert "SMOKE_CROPS_NPZ" not in smoke
 
 
-def test_gradcam_prerequisites_precede_population_experiment() -> None:
-    prerequisite = _sources(GRADCAM_ROOT / "prerequisite")
-    experiment = _sources(GRADCAM_ROOT / "experiment")
-    assert tuple(prerequisite) == (
-        "00_source_and_model_freeze.ipynb",
-        "01_origin_embedding_and_loo_templates.ipynb",
+def test_gradcam_notebooks_are_thin_and_sequential_for_both_datasets() -> None:
+    expected = {
+        "00_source_and_model_freeze.ipynb": "freeze_step4_source_and_model",
+        "00_population_gradcam_extraction.ipynb": (
+            "extract_step4_population_gradcam"
+        ),
+        "01_saliency_feature_validation.ipynb": "validate_step4_saliency",
+        "02_step2_compression_characterization.ipynb": (
+            "characterize_step4_compression"
+        ),
+        "03_saliency_compression_join.ipynb": (
+            "analyze_step4_saliency_compression"
+        ),
+        "04_representative_case_visualization.ipynb": (
+            "finalize_step4_representative_cases"
+        ),
+    }
+    origin_names = {
+        "lfw": "01_origin_embedding_and_loo_templates.ipynb",
+        "survface": "01_origin_embedding_and_top1_gallery_templates.ipynb",
+    }
+    for dataset_id in ("lfw", "survface"):
+        root = NOTEBOOK_ROOT / dataset_id / "04_gradcam"
+        prerequisite = _sources(root / "prerequisite")
+        experiment = _sources(root / "experiment")
+        assert tuple(experiment) == (
+            "00_population_gradcam_extraction.ipynb",
+            "01_saliency_feature_validation.ipynb",
+            "02_step2_compression_characterization.ipynb",
+            "03_saliency_compression_join.ipynb",
+            "04_representative_case_visualization.ipynb",
+        )
+        assert tuple(prerequisite) == (
+            "00_source_and_model_freeze.ipynb",
+            origin_names[dataset_id],
+        )
+        for name, source in {**prerequisite, **experiment}.items():
+            function_name = (
+                "extract_step4_origin_embeddings"
+                if name == origin_names[dataset_id]
+                else expected[name]
+            )
+            assert function_name in source
+            assert f'DATASET_ID = "{dataset_id}"' in source
+            assert 'EXECUTION = CONFIG["execution"]' in source
+            assert 'MODEL_PROFILE = str(EXECUTION["model_profile"])' in source
+            assert 'MODE = str(EXECUTION["mode"])' in source
+            assert 'DATA_FRACTION = float(EXECUTION["data_fraction"])' in source
+            assert 'EXECUTE_STAGE = bool(EXECUTION["execute_stage"])' in source
+            assert 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
+            assert 'OVERWRITE = bool(EXECUTION["overwrite"])' in source
+            assert "execution_acknowledged=True" in source
+            assert "read_parquet" not in source
+            assert "to_parquet" not in source
+            assert "run_step4_experiment" not in source
+
+
+def test_step4_data_prerequisites_are_separate_notebooks() -> None:
+    lfw_landmarks = _sources(
+        NOTEBOOK_ROOT / "lfw" / "00_data_preparation"
+    )["02_landmark_region_materialization.ipynb"]
+    survface = _sources(
+        NOTEBOOK_ROOT / "survface" / "00_data_preparation"
     )
-    assert tuple(experiment) == (
-        "00_population_gradcam_extraction.ipynb",
-        "01_saliency_feature_validation.ipynb",
-        "02_step2_compression_characterization.ipynb",
-        "03_saliency_compression_join.ipynb",
-        "04_representative_case_visualization.ipynb",
-    )
-
-    freeze = prerequisite["00_source_and_model_freeze.ipynb"]
-    assert "select_model_spec" in freeze
-    assert "RunStore.create_or_reuse_active" in freeze
-    assert 'CONFIG["aligned_crops"]["index_path"]' in freeze
-    assert 'CONFIG["aligned_crops"]["faces_path"]' in freeze
-    assert 'CONFIG["aligned_crops"]["failed_samples_path"]' in freeze
-    assert 'MODEL_UID = CONFIG["models"].get("model_uid")' in freeze
-    assert 'CONFIG["gradcam"]["regions"].get("mask_bundle_path")' in freeze
-    assert "failed_samples_manifest_no_fallback" in freeze
-    assert "explicit_alignment_exclusion_count" in freeze
-    assert "PAIRED_METRICS" not in freeze
-
-    origin = prerequisite["01_origin_embedding_and_loo_templates.ipynb"]
-    assert "prepare_population_saliency_inputs" in origin
-    assert "write_prepared_population_artifact" in origin
-    assert "require_all_eligible=False" in origin
-    assert "overwrite=OVERWRITE" in origin
-
-    population = experiment["00_population_gradcam_extraction.ipynb"]
-    assert "extract_population_gradcam" in population
-    assert "write_population_saliency_artifact" in population
-    assert "minimum_pass_repeat_cosine" in population
-    assert "overwrite=OVERWRITE" in population
-    assert 'CONFIG["gradcam"]["regions"].get("mask_bundle_path")' in population
-
-    all_notebooks = [*prerequisite.values(), *experiment.values()]
-    for source in all_notebooks:
-        assert 'EXECUTION = CONFIG["execution"]' in source
-        assert 'MODEL_PROFILE = str(EXECUTION["model_profile"])' in source
-        assert 'MODE = str(EXECUTION["mode"])' in source
-        assert 'DATA_FRACTION = float(EXECUTION["data_fraction"])' in source
-        assert 'EXECUTE_STAGE = bool(EXECUTION["execute_stage"])' in source
-        assert 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
-        assert 'OVERWRITE = bool(EXECUTION["overwrite"])' in source
-        assert 'MODE = "real"' not in source
-        assert 'MODE = "dev"' not in source
-
-
-def test_gradcam_compression_is_now_generated_sequentially_as_csv() -> None:
-    sources = _sources(GRADCAM_ROOT / "experiment")
-    compression = sources["02_step2_compression_characterization.ipynb"]
-    assert "characterize_step2_compression" in compression
-    assert "annotate_compression_lineage" in compression
-    assert "origin_embedding_artifact_uid" in compression
-    assert "origin_fallback_used" in compression
-    assert '"pca_pq"' in compression
-    assert "to_csv" in compression
-    assert "read_parquet" not in compression
-    assert "to_parquet" not in compression
-
-    join = sources["03_saliency_compression_join.ipynb"]
-    assert "join_population_saliency_with_compression" in join
-    assert "saliency_compression_associations" in join
+    assert "materialize_step4_landmark_regions" in lfw_landmarks
     assert (
-        'CONFIG["joint_analysis"]["association"]["bootstrap_repeats"]'
-        in join
+        "materialize_step4_aligned_crops"
+        in survface["01_aligned_crop_materialization.ipynb"]
     )
-    assert "pd.read_csv" in join
-    for key in ("extraction_uid", "dataset_id", "sample_id", "model_uid"):
-        assert key in join
-
-    visualization = sources["04_representative_case_visualization.ipynb"]
-    assert "select_population_representative_cases" in visualization
-    assert "read_population_heatmaps" in visualization
     assert (
-        'CONFIG["gradcam"]["representative_case_visualization"]'
-        '["threshold_policy"]'
-        in visualization
+        "materialize_step4_landmark_regions"
+        in survface["02_landmark_region_materialization.ipynb"]
     )
-    assert 'joined["threshold_policy"]' in visualization
-    assert "axis.imshow(image)" in visualization
-    assert "image[..., ::-1]" not in visualization
-    assert '"regenerated_gradcam": False' in visualization
-    assert "extract_population_gradcam" not in visualization
-    assert "PairCosineGradCAM" not in visualization
-    assert "resolve_active_dataset_run" in visualization
-    assert "RUN.complete()" in visualization
-
-
-def test_current_gradcam_tabular_artifacts_use_csv() -> None:
-    all_sources = "\n".join(
-        [
-            *_sources(GRADCAM_ROOT / "prerequisite").values(),
-            *_sources(GRADCAM_ROOT / "experiment").values(),
-        ]
-    )
-    assert "to_parquet" not in all_sources
-    assert "pd.read_parquet" not in all_sources
-    assert 'CONFIG["models"]["selected_profiles"]' in all_sources
-    assert 'CONFIG["models"]["selected"]' not in all_sources
-    assert 'resolve_active_dataset_run' in all_sources
-    assert 'runs/step2' not in all_sources

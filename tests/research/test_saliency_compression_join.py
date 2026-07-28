@@ -7,6 +7,7 @@ import pytest
 from research.evaluation.saliency_compression import (
     annotate_compression_lineage,
     join_population_saliency_with_compression,
+    join_population_saliency_with_retrieval,
     saliency_compression_associations,
 )
 
@@ -64,69 +65,89 @@ def _retrieval_frame(
     lineage_uid: str = "origin-a",
 ) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
-    for query_id, drift in (("sample-1", 0.01), ("sample-2", 0.02)):
+    for query_id, drift, is_mated in (
+        ("sample-1", 0.01, True),
+        ("sample-2", 0.02, False),
+    ):
         for profile in ("pca_128", "pca_64"):
-            rows.append(
-                {
-                    "extraction_uid": "extract-1",
-                    "dataset_id": "lfw",
-                    "query_id": query_id,
-                    "model_uid": model_uid,
-                    "compression_family": "pca",
-                    "compression_profile": profile,
-                    "origin_embedding_artifact_uid": lineage_uid,
-                    "origin_fallback_used": False,
-                    "top1_score_drift": drift,
-                    "agreement_with_origin": True,
-                    "threshold_crossing": False,
-                }
-            )
+            for policy, multiplier in (("fixed_origin", 1.0), ("recalibrated", 0.5)):
+                rows.append(
+                    {
+                        "extraction_uid": "extract-1",
+                        "dataset_id": "lfw",
+                        "query_id": query_id,
+                        "model_uid": model_uid,
+                        "compression_family": "pca",
+                        "compression_profile": profile,
+                        "origin_embedding_artifact_uid": lineage_uid,
+                        "origin_fallback_used": False,
+                        "threshold_policy": policy,
+                        "threshold_source_split": "calibration",
+                        "evaluation_split": "test",
+                        "is_mated": is_mated,
+                        "top1_score_drift": drift * multiplier,
+                        "agreement_with_origin": True,
+                        "threshold_crossing": False,
+                    }
+                )
     return pd.DataFrame.from_records(rows)
 
 
-def test_strict_join_repeats_origin_saliency_per_profile_and_adds_retrieval():
-    joined = join_population_saliency_with_compression(
+def test_geometry_and_retrieval_joins_keep_independent_row_grains():
+    geometry = join_population_saliency_with_compression(
         _saliency_frame(),
         _distortion_frame(),
-        retrieval_sensitivity=_retrieval_frame(),
     ).sort_values(["sample_id", "compression_profile"], ignore_index=True)
+    retrieval = join_population_saliency_with_retrieval(
+        _saliency_frame(),
+        _retrieval_frame(),
+    )
 
-    assert len(joined) == 4
-    assert not joined["origin_fallback_used"].any()
-    assert set(joined["compression_profile"]) == {"pca_128", "pca_64"}
-    assert joined.groupby("sample_id").size().eq(2).all()
+    assert len(geometry) == 4
+    assert len(retrieval) == 8
+    assert not geometry["origin_fallback_used"].any()
+    assert set(geometry["compression_profile"]) == {"pca_128", "pca_64"}
+    assert geometry.groupby("sample_id").size().eq(2).all()
+    assert retrieval.groupby(["sample_id", "compression_profile"]).size().eq(2).all()
     assert (
-        joined.loc[joined["sample_id"].eq("sample-1"), "saliency_entropy"].eq(0.2).all()
+        geometry.loc[
+            geometry["sample_id"].eq("sample-1"), "saliency_entropy"
+        ].eq(0.2).all()
     )
     assert (
-        joined.loc[joined["sample_id"].eq("sample-2"), "saliency_entropy"].eq(0.8).all()
+        retrieval.loc[
+            retrieval["sample_id"].eq("sample-2"), "saliency_entropy"
+        ].eq(0.8).all()
     )
     assert (
-        joined.loc[joined["sample_id"].eq("sample-1"), "top1_score_drift"]
-        .eq(0.01)
-        .all()
+        retrieval.loc[
+            retrieval["threshold_policy"].eq("fixed_origin"),
+            "top1_score_drift",
+        ].isin({0.01, 0.02}).all()
     )
-    assert joined["origin_embedding_artifact_uid"].eq("origin-a").all()
-    assert joined["retrieval_metrics_available"].all()
+    assert geometry["origin_embedding_artifact_uid"].eq("origin-a").all()
+    assert retrieval["retrieval_metrics_available"].all()
 
 
 def test_retrieval_may_cover_only_a_protocol_query_subset():
     retrieval = _retrieval_frame().loc[lambda frame: frame["query_id"].eq("sample-1")]
 
-    joined = join_population_saliency_with_compression(
+    joined = join_population_saliency_with_retrieval(
         _saliency_frame(),
-        _distortion_frame(),
-        retrieval_sensitivity=retrieval,
+        retrieval,
     )
 
-    available = joined.set_index(["sample_id", "compression_profile"])[
-        "retrieval_metrics_available"
-    ]
-    assert available.loc["sample-1"].all()
-    assert not available.loc["sample-2"].any()
-    assert (
-        joined.loc[joined["sample_id"].eq("sample-2"), "top1_score_drift"].isna().all()
-    )
+    assert set(joined["sample_id"]) == {"sample-1"}
+    assert len(joined) == 4
+
+
+def test_combined_join_rejects_multi_policy_geometry_duplication():
+    with pytest.raises(ValueError, match="would duplicate geometry metrics"):
+        join_population_saliency_with_compression(
+            _saliency_frame(),
+            _distortion_frame(),
+            retrieval_sensitivity=_retrieval_frame(),
+        )
 
 
 def test_lineage_annotation_refuses_to_overwrite_conflicting_provenance():
@@ -269,3 +290,5 @@ def test_profile_specific_identity_bootstrap_is_reproducible():
     assert (first["bootstrap_valid_repeats"] == 80).all()
     assert np.allclose(first["bootstrap_ci_low"], [1.0, -1.0])
     assert np.allclose(first["bootstrap_ci_high"], [1.0, -1.0])
+
+# wrapper tests follow

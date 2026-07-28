@@ -12,6 +12,7 @@ EXPECTED_NOTEBOOKS = {
     "lfw/00_data_preparation": {
         "00_data_preparation.ipynb",
         "01_aligned_crop_materialization.ipynb",
+        "02_landmark_region_materialization.ipynb",
     },
     "lfw/01_embeddings": {
         "00_protocol_and_run_freeze.ipynb",
@@ -37,19 +38,34 @@ EXPECTED_NOTEBOOKS = {
         "03_saliency_compression_join.ipynb",
         "04_representative_case_visualization.ipynb",
     },
-    "survface/00_data_preparation": {"00_data_preparation.ipynb"},
+    "survface/00_data_preparation": {
+        "00_data_preparation.ipynb",
+        "01_aligned_crop_materialization.ipynb",
+        "02_landmark_region_materialization.ipynb",
+    },
     "survface/01_embeddings": {
         "00_official_protocol_and_run_freeze.ipynb",
         "01_official_arcface_embedding_extraction.ipynb",
     },
     "survface/02_compression": {
-        "00_external_compressor_import.ipynb",
+        "00_compressor_fit.ipynb",
         "01_official_compressed_materialization_and_index.ipynb",
         "02_step1_compression_characterization.ipynb",
     },
     "survface/03_open_set": {
         "00_official_probe_search.ipynb",
         "01_official_evaluation_and_visualization.ipynb",
+    },
+    "survface/04_gradcam/prerequisite": {
+        "00_source_and_model_freeze.ipynb",
+        "01_origin_embedding_and_top1_gallery_templates.ipynb",
+    },
+    "survface/04_gradcam/experiment": {
+        "00_population_gradcam_extraction.ipynb",
+        "01_saliency_feature_validation.ipynb",
+        "02_step2_compression_characterization.ipynb",
+        "03_saliency_compression_join.ipynb",
+        "04_representative_case_visualization.ipynb",
     },
     "rfw/00_data_preparation": {"00_data_preparation.ipynb"},
     "balancedface/00_data_preparation": {"00_data_preparation.ipynb"},
@@ -69,6 +85,7 @@ def _source(path: Path) -> str:
 
 def test_notebooks_are_grouped_by_dataset_then_execution_stage() -> None:
     assert not list(NOTEBOOK_ROOT.glob("*.ipynb"))
+    assert not (NOTEBOOK_ROOT / "step4").exists()
     actual_directories = {
         path.parent.relative_to(NOTEBOOK_ROOT).as_posix()
         for path in NOTEBOOK_ROOT.rglob("*.ipynb")
@@ -77,6 +94,51 @@ def test_notebooks_are_grouped_by_dataset_then_execution_stage() -> None:
     for relative, expected_names in EXPECTED_NOTEBOOKS.items():
         directory = NOTEBOOK_ROOT / relative
         assert {path.name for path in directory.glob("*.ipynb")} == expected_names
+
+
+def test_step4_notebooks_are_dataset_specific_single_stage_runbooks() -> None:
+    expected = {
+        "00_source_and_model_freeze.ipynb": "freeze_step4_source_and_model",
+        "00_population_gradcam_extraction.ipynb": (
+            "extract_step4_population_gradcam"
+        ),
+        "01_saliency_feature_validation.ipynb": "validate_step4_saliency",
+        "02_step2_compression_characterization.ipynb": (
+            "characterize_step4_compression"
+        ),
+        "03_saliency_compression_join.ipynb": (
+            "analyze_step4_saliency_compression"
+        ),
+        "04_representative_case_visualization.ipynb": (
+            "finalize_step4_representative_cases"
+        ),
+    }
+    origin_names = {
+        "lfw": "01_origin_embedding_and_loo_templates.ipynb",
+        "survface": "01_origin_embedding_and_top1_gallery_templates.ipynb",
+    }
+    stage_functions = {
+        *expected.values(),
+        "extract_step4_origin_embeddings",
+    }
+    for dataset_id in ("lfw", "survface"):
+        root = NOTEBOOK_ROOT / dataset_id / "04_gradcam"
+        notebooks = [
+            *(root / "prerequisite").glob("*.ipynb"),
+            *(root / "experiment").glob("*.ipynb"),
+        ]
+        for path in notebooks:
+            source = _source(path)
+            expected_function = (
+                "extract_step4_origin_embeddings"
+                if path.name == origin_names[dataset_id]
+                else expected[path.name]
+            )
+            assert f'DATASET_ID = "{dataset_id}"' in source
+            assert expected_function in source
+            assert "execution_acknowledged=True" in source
+            assert sum(name in source for name in stage_functions) == 1
+            assert "run_step4_experiment" not in source
 
 
 def test_all_notebooks_are_valid_restartable_and_output_free() -> None:
@@ -149,15 +211,28 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
             / "02_step1_compression_characterization.ipynb"
         )
         source = _source(path)
-        for phrase in (
+        phrases = [
             "paired_embedding_metrics",
             "compare_cosine_retrieval",
             "origin_fallback_used",
-            "origin_threshold=origin_threshold",
-            "compressed_threshold=operating_compressed_threshold",
             "storage_bytes_per_embedding",
             "codebook_bytes",
-        ):
+        ]
+        if dataset == "survface":
+            phrases.extend(
+                [
+                    "apply_retrieval_thresholds",
+                    "load_survface_compressor_bundle",
+                ]
+            )
+        else:
+            phrases.extend(
+                [
+                    "origin_threshold=origin_threshold",
+                    "compressed_threshold=operating_compressed_threshold",
+                ]
+            )
+        for phrase in phrases:
             assert phrase in source
 
     lfw_open_set = _source(

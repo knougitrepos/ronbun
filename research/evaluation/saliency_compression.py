@@ -30,6 +30,7 @@ DEFAULT_SALIENCY_FEATURES = (
     "left_cheek_attention",
     "right_cheek_attention",
     "jaw_attention",
+    "face_attention",
     "outside_face_attention",
     "saliency_entropy",
     "maximum_region_concentration",
@@ -38,12 +39,28 @@ DEFAULT_SALIENCY_FEATURES = (
     "saliency_center_y",
     "saliency_spread",
 )
-DEFAULT_SENSITIVITY_METRICS = (
+DEFAULT_GEOMETRY_METRICS = (
     "angular_error_rad",
     "reconstruction_mse",
+    "cosine_to_origin",
+)
+DEFAULT_RETRIEVAL_METRICS = (
     "top1_score_drift",
     "agreement_with_origin",
     "threshold_crossing",
+)
+# Backward-compatible union for callers that intentionally analyze a table
+# containing one retrieval row per geometry row. New code should use the
+# geometry/retrieval-specific wrappers below.
+DEFAULT_SENSITIVITY_METRICS = (
+    *DEFAULT_GEOMETRY_METRICS,
+    *DEFAULT_RETRIEVAL_METRICS,
+)
+BASE_ASSOCIATION_GROUP_COLUMNS = (
+    "dataset_id",
+    "model_uid",
+    "compression_family",
+    "compression_profile",
 )
 
 
@@ -109,6 +126,17 @@ def _strict_false(series: pd.Series, *, name: str) -> None:
         converted = normalized == "true"
     if converted.any():
         raise ValueError("saliency/compression join requires fallback-free artifacts")
+
+
+def _strict_boolean(series: pd.Series, *, name: str) -> pd.Series:
+    if series.isna().any():
+        raise ValueError(f"{name} must not contain missing values")
+    if pd.api.types.is_bool_dtype(series.dtype):
+        return series.astype(bool)
+    normalized = series.astype(str).str.strip().str.lower()
+    if not normalized.isin({"true", "false"}).all():
+        raise ValueError(f"{name} must contain strict boolean values")
+    return normalized == "true"
 
 
 def _validate_unique(
@@ -205,6 +233,13 @@ def join_population_saliency_with_compression(
             retrieval["origin_fallback_used"],
             name="retrieval_sensitivity.origin_fallback_used",
         )
+        base_retrieval_keys = (*JOIN_KEYS, *PROFILE_KEYS)
+        if retrieval.duplicated(list(base_retrieval_keys)).any():
+            raise ValueError(
+                "retrieval_sensitivity contains multiple policy/protocol rows per "
+                "sample-profile and would duplicate geometry metrics; use "
+                "join_population_saliency_with_retrieval for retrieval analysis"
+            )
         for column in LINEAGE_COLUMNS:
             left_values = set(distortion[column].astype(str))
             right_values = set(retrieval[column].astype(str))
@@ -238,7 +273,7 @@ def join_population_saliency_with_compression(
             retrieval_payload,
             on=list((*JOIN_KEYS, *PROFILE_KEYS)),
             how="left",
-            validate=("one_to_one" if not retrieval_extra_keys else "one_to_many"),
+            validate="one_to_one",
             indicator="_retrieval_merge",
             suffixes=("", "_retrieval"),
         )
@@ -268,6 +303,101 @@ def join_population_saliency_with_compression(
                 f"{column} differs between compression and saliency artifacts"
             )
         joined = joined.drop(columns=saliency_column)
+    return joined
+
+
+def join_population_saliency_with_retrieval(
+    saliency_features: pd.DataFrame,
+    retrieval_sensitivity: pd.DataFrame,
+) -> pd.DataFrame:
+    """Join saliency to retrieval rows without copying geometry measurements.
+
+    Retrieval rows intentionally remain long by threshold policy, protocol,
+    and mated status. This separation prevents a multi-policy retrieval table
+    from weighting the embedding-distortion population more than once.
+    """
+
+    _require_columns(
+        saliency_features,
+        [
+            *JOIN_KEYS,
+            *LINEAGE_COLUMNS,
+            "saliency_spec_uid",
+            "saliency_target_eligible",
+            "heatmap_available",
+        ],
+        name="saliency_features",
+    )
+    _validate_unique(saliency_features, JOIN_KEYS, name="saliency_features")
+
+    retrieval = retrieval_sensitivity.copy()
+    if "query_id" in retrieval and "sample_id" not in retrieval:
+        retrieval = retrieval.rename(columns={"query_id": "sample_id"})
+    _require_columns(
+        retrieval,
+        [
+            *JOIN_KEYS,
+            *PROFILE_KEYS,
+            *LINEAGE_COLUMNS,
+            "origin_fallback_used",
+            "threshold_policy",
+            "is_mated",
+        ],
+        name="retrieval_sensitivity",
+    )
+    if (
+        retrieval["threshold_policy"].isna().any()
+        or retrieval["threshold_policy"].astype(str).str.strip().eq("").any()
+    ):
+        raise ValueError(
+            "retrieval_sensitivity.threshold_policy must contain non-empty values"
+        )
+    retrieval["is_mated"] = _strict_boolean(
+        retrieval["is_mated"],
+        name="retrieval_sensitivity.is_mated",
+    )
+    retrieval_extra_keys = [
+        column
+        for column in (
+            "protocol_uid",
+            "threshold_source_split",
+            "evaluation_split",
+            "threshold_policy",
+        )
+        if column in retrieval
+    ]
+    retrieval_keys = (*JOIN_KEYS, *PROFILE_KEYS, *retrieval_extra_keys)
+    _validate_unique(
+        retrieval,
+        retrieval_keys,
+        name="retrieval_sensitivity",
+    )
+    _strict_false(
+        retrieval["origin_fallback_used"],
+        name="retrieval_sensitivity.origin_fallback_used",
+    )
+
+    joined = retrieval.merge(
+        saliency_features,
+        on=list(JOIN_KEYS),
+        how="left",
+        validate="many_to_one",
+        indicator="_saliency_merge",
+        suffixes=("", "_saliency"),
+    )
+    if (joined["_saliency_merge"] != "both").any():
+        missing = int((joined["_saliency_merge"] != "both").sum())
+        raise ValueError(f"{missing} retrieval rows have no saliency sample row")
+    joined = joined.drop(columns="_saliency_merge")
+    for column in LINEAGE_COLUMNS:
+        saliency_column = f"{column}_saliency"
+        mismatch = joined[column].astype(str) != joined[saliency_column].astype(str)
+        if mismatch.any():
+            raise ValueError(
+                f"{column} differs between retrieval and saliency artifacts"
+            )
+        joined = joined.drop(columns=saliency_column)
+    joined["retrieval_metrics_available"] = True
     return joined
 
 
@@ -434,3 +564,85 @@ def saliency_compression_associations(
                 )
                 records.append(record)
     return pd.DataFrame.from_records(records)
+
+
+def saliency_geometry_associations(
+    joined_geometry: pd.DataFrame,
+    *,
+    saliency_features: Sequence[str] = DEFAULT_SALIENCY_FEATURES,
+    sensitivity_metrics: Sequence[str] = DEFAULT_GEOMETRY_METRICS,
+    identity_column: str = "identity_id",
+    bootstrap_repeats: int = 500,
+    confidence_level: float = 0.95,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Estimate saliency associations for one geometry row per sample/profile."""
+
+    _validate_unique(
+        joined_geometry,
+        (*JOIN_KEYS, *PROFILE_KEYS),
+        name="joined_geometry",
+    )
+    result = saliency_compression_associations(
+        joined_geometry,
+        saliency_features=saliency_features,
+        sensitivity_metrics=sensitivity_metrics,
+        group_columns=BASE_ASSOCIATION_GROUP_COLUMNS,
+        identity_column=identity_column,
+        bootstrap_repeats=bootstrap_repeats,
+        confidence_level=confidence_level,
+        seed=seed,
+    )
+    result.insert(0, "analysis_scope", "geometry")
+    return result
+
+
+def saliency_retrieval_associations(
+    joined_retrieval: pd.DataFrame,
+    *,
+    saliency_features: Sequence[str] = DEFAULT_SALIENCY_FEATURES,
+    sensitivity_metrics: Sequence[str] = DEFAULT_RETRIEVAL_METRICS,
+    identity_column: str = "identity_id",
+    bootstrap_repeats: int = 500,
+    confidence_level: float = 0.95,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Estimate retrieval associations separately by policy and mated status."""
+
+    _require_columns(
+        joined_retrieval,
+        ("threshold_policy", "is_mated"),
+        name="joined_retrieval",
+    )
+    normalized = joined_retrieval.copy()
+    normalized["is_mated"] = _strict_boolean(
+        normalized["is_mated"],
+        name="joined_retrieval.is_mated",
+    )
+    optional_groups = tuple(
+        column
+        for column in (
+            "protocol_uid",
+            "threshold_source_split",
+            "evaluation_split",
+        )
+        if column in normalized
+    )
+    group_columns = (
+        *BASE_ASSOCIATION_GROUP_COLUMNS,
+        *optional_groups,
+        "threshold_policy",
+        "is_mated",
+    )
+    result = saliency_compression_associations(
+        normalized,
+        saliency_features=saliency_features,
+        sensitivity_metrics=sensitivity_metrics,
+        group_columns=group_columns,
+        identity_column=identity_column,
+        bootstrap_repeats=bootstrap_repeats,
+        confidence_level=confidence_level,
+        seed=seed,
+    )
+    result.insert(0, "analysis_scope", "retrieval")
+    return result

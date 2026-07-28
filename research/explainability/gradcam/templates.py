@@ -8,7 +8,10 @@ import pandas as pd
 
 
 LOO_TARGET_NAME = "origin_leave_one_out_identity_cosine"
+ORIGIN_TOP1_GALLERY_TARGET_NAME = "origin_top1_gallery_cosine"
 ELIGIBLE_REASON = "eligible"
+TOP1_GALLERY_ELIGIBLE_REASON = "eligible_origin_top1_gallery"
+NOT_OFFICIAL_PROBE_REASON = "not_official_probe"
 MISSING_IDENTITY_REASON = "missing_identity"
 SINGLETON_IDENTITY_REASON = "singleton_identity"
 ZERO_RESIDUAL_REASON = "zero_norm_leave_one_out_template"
@@ -80,6 +83,7 @@ class LeaveOneOutTemplateBundle:
     target_scores: np.ndarray
     model_uid: str
     target_name: str = LOO_TARGET_NAME
+    reference_identity_ids: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         row_count = len(self.sample_ids)
@@ -94,6 +98,11 @@ class LeaveOneOutTemplateBundle:
         for name, values in arrays.items():
             if len(values) != row_count:
                 raise ValueError(f"{name} must align with sample_ids")
+        if (
+            self.reference_identity_ids is not None
+            and len(self.reference_identity_ids) != row_count
+        ):
+            raise ValueError("reference_identity_ids must align with sample_ids")
         if self.templates.ndim != 2 or len(self.templates) != row_count:
             raise ValueError("templates must have shape [sample_count, dimension]")
         if not str(self.model_uid).strip():
@@ -111,8 +120,7 @@ class LeaveOneOutTemplateBundle:
 
     def metadata_frame(self) -> pd.DataFrame:
         scores = self.target_scores.astype(np.float64, copy=False)
-        return pd.DataFrame(
-            {
+        data: dict[str, object] = {
                 "sample_id": self.sample_ids.astype(str),
                 "identity_id": self.identity_ids.astype(str),
                 "template_scope_id": self.scope_ids.astype(str),
@@ -125,8 +133,18 @@ class LeaveOneOutTemplateBundle:
                 "saliency_target_eligible": self.eligible.astype(bool, copy=False),
                 "saliency_target_status": self.exclusion_reasons.astype(str),
                 "identity_template_cosine": scores,
+                "saliency_target_score": scores,
             }
-        )
+        if self.reference_identity_ids is not None:
+            references = self.reference_identity_ids.astype(str)
+            data["saliency_reference_identity_id"] = np.where(
+                references == "",
+                "not_applicable",
+                references,
+            )
+        else:
+            data["saliency_reference_identity_id"] = "not_applicable"
+        return pd.DataFrame(data)
 
     def coverage_summary(self) -> pd.DataFrame:
         frame = self.metadata_frame()
@@ -271,4 +289,149 @@ def build_leave_one_out_identity_templates(
         exclusion_reasons=reasons,
         target_scores=scores,
         model_uid=normalized_model_uid,
+    )
+
+
+def build_origin_top1_gallery_templates(
+    sample_ids: Sequence[Any] | np.ndarray,
+    identity_ids: Sequence[Any] | np.ndarray,
+    normalized_embeddings: np.ndarray,
+    manifest: pd.DataFrame,
+    *,
+    model_uid: str,
+    scope_ids: Sequence[Any] | np.ndarray | None = None,
+    query_batch_size: int = 256,
+    gallery_batch_size: int = 4096,
+) -> LeaveOneOutTemplateBundle:
+    """Freeze each official probe's origin-space top-1 gallery template.
+
+    This target is defined for SurvFace unknown-unknown probes whose opaque
+    per-image identities cannot form leave-one-out identity templates. Gallery
+    templates are means over all official enrollment images and are detached
+    before Grad-CAM; no compressed representation participates in target
+    selection.
+    """
+
+    embeddings = _unit_embedding_matrix(
+        normalized_embeddings,
+        unit_tolerance=1e-4,
+    )
+    row_count, dimension = embeddings.shape
+    samples = _string_identifiers(
+        sample_ids,
+        name="sample_ids",
+        length=row_count,
+        allow_missing=False,
+        require_unique=True,
+    )
+    identities = _string_identifiers(
+        identity_ids,
+        name="identity_ids",
+        length=row_count,
+        allow_missing=True,
+        require_unique=False,
+    )
+    if scope_ids is None:
+        scopes = np.full(row_count, "default", dtype="<U7")
+    else:
+        scopes = _string_identifiers(
+            scope_ids,
+            name="scope_ids",
+            length=row_count,
+            allow_missing=False,
+            require_unique=False,
+        )
+    required = {"sample_id", "identity_id", "protocol_role"}
+    missing = sorted(required.difference(manifest.columns))
+    if missing:
+        raise ValueError(f"manifest is missing official protocol columns: {missing}")
+    rows = manifest.copy()
+    rows["sample_id"] = rows["sample_id"].astype(str)
+    if rows["sample_id"].duplicated().any():
+        raise ValueError("manifest sample_id must be unique")
+    if not np.array_equal(rows["sample_id"].to_numpy(), samples.astype(str)):
+        raise ValueError("manifest row order must match sample_ids")
+
+    gallery_mask = rows["protocol_role"].astype(str).eq("gallery").to_numpy()
+    probe_mask = rows["protocol_role"].astype(str).isin(
+        {"registered_probe", "unknown_unknown_probe"}
+    ).to_numpy()
+    if not gallery_mask.any() or not probe_mask.any():
+        raise ValueError("official gallery and probe rows are both required")
+
+    gallery_frame = pd.DataFrame(
+        {
+            "identity_id": identities[gallery_mask].astype(str),
+            "embedding": list(embeddings[gallery_mask]),
+        }
+    )
+    gallery_identities: list[str] = []
+    gallery_templates: list[np.ndarray] = []
+    gallery_counts: list[int] = []
+    for identity, group in gallery_frame.groupby("identity_id", sort=True):
+        mean = np.mean(np.stack(group["embedding"]), axis=0, dtype=np.float64)
+        norm = float(np.linalg.norm(mean))
+        if not np.isfinite(norm) or norm <= 0.0:
+            raise ValueError(f"gallery template has zero norm: {identity}")
+        gallery_identities.append(str(identity))
+        gallery_templates.append((mean / norm).astype(np.float32))
+        gallery_counts.append(int(len(group)))
+    gallery_matrix = np.stack(gallery_templates).astype(np.float32)
+
+    templates = np.full((row_count, dimension), np.nan, dtype=np.float32)
+    member_counts = np.zeros(row_count, dtype=np.int32)
+    eligible = np.zeros(row_count, dtype=bool)
+    reasons = np.full(
+        row_count,
+        NOT_OFFICIAL_PROBE_REASON,
+        dtype=f"<U{max(len(NOT_OFFICIAL_PROBE_REASON), len(TOP1_GALLERY_ELIGIBLE_REASON))}",
+    )
+    scores = np.full(row_count, np.nan, dtype=np.float32)
+    references = np.full(
+        row_count,
+        "",
+        dtype=f"<U{max(len(value) for value in gallery_identities)}",
+    )
+    probe_indices = np.flatnonzero(probe_mask)
+    for query_start in range(0, len(probe_indices), int(query_batch_size)):
+        current_indices = probe_indices[
+            query_start : query_start + int(query_batch_size)
+        ]
+        query = embeddings[current_indices]
+        best_scores = np.full(len(query), -np.inf, dtype=np.float32)
+        best_indices = np.zeros(len(query), dtype=np.int64)
+        for gallery_start in range(
+            0,
+            len(gallery_matrix),
+            int(gallery_batch_size),
+        ):
+            gallery_stop = min(
+                gallery_start + int(gallery_batch_size),
+                len(gallery_matrix),
+            )
+            block = query @ gallery_matrix[gallery_start:gallery_stop].T
+            local = np.argmax(block, axis=1)
+            local_scores = block[np.arange(len(query)), local]
+            improve = local_scores > best_scores
+            best_scores[improve] = local_scores[improve]
+            best_indices[improve] = gallery_start + local[improve]
+        templates[current_indices] = gallery_matrix[best_indices]
+        member_counts[current_indices] = np.asarray(gallery_counts)[best_indices]
+        eligible[current_indices] = True
+        reasons[current_indices] = TOP1_GALLERY_ELIGIBLE_REASON
+        scores[current_indices] = best_scores
+        references[current_indices] = np.asarray(gallery_identities)[best_indices]
+
+    return LeaveOneOutTemplateBundle(
+        sample_ids=samples,
+        identity_ids=identities,
+        scope_ids=scopes,
+        templates=templates,
+        template_member_counts=member_counts,
+        eligible=eligible,
+        exclusion_reasons=reasons,
+        target_scores=scores,
+        model_uid=str(model_uid),
+        target_name=ORIGIN_TOP1_GALLERY_TARGET_NAME,
+        reference_identity_ids=references,
     )

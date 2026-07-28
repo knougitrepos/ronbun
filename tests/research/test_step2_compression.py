@@ -166,3 +166,107 @@ def test_step2_runner_rejects_manifest_order_mismatch() -> None:
         assert "row order" in str(exc)
     else:
         raise AssertionError("manifest order mismatch was not rejected")
+
+
+def test_survface_runner_preserves_official_protocol_and_training_boundary(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(module, "PQCompressor", _FakePQ)
+    monkeypatch.setattr(
+        module,
+        "fit_pca_family",
+        lambda development_vectors, dimensions, random_state: {
+            "pca_2": _FakePCA()
+        },
+    )
+    rows = [
+        ("d1", "dev-1", "development", 0.0, None, None),
+        ("d2", "dev-2", "development", 0.5, None, None),
+        ("d3", "dev-3", "development", 1.0, None, None),
+        ("d4", "dev-4", "development", 1.5, None, None),
+        ("ca1", "cal-a", "calibration", 0.2, None, None),
+        ("ca2", "cal-a", "calibration", 0.2, None, None),
+        ("cb1", "cal-b", "calibration", 2.2, None, None),
+        ("cb2", "cal-b", "calibration", 2.2, None, None),
+        ("g1", "official-a", "test", 0.4, "gallery", 0),
+        ("g2", "official-a", "test", 0.4, "gallery", 1),
+        ("p1", "official-a", "test", 0.4, "registered_probe", 0),
+        (
+            "u1",
+            "official-unknown",
+            "test",
+            2.6,
+            "unknown_unknown_probe",
+            0,
+        ),
+    ]
+    vectors = np.zeros((len(rows), 512), dtype=np.float32)
+    for index, row in enumerate(rows):
+        vectors[index, 0] = np.cos(row[3])
+        vectors[index, 1] = np.sin(row[3])
+    sample_ids = np.asarray([row[0] for row in rows])
+    identity_ids = np.asarray([row[1] for row in rows])
+    splits = np.asarray([row[2] for row in rows])
+    loo = build_leave_one_out_identity_templates(
+        sample_ids,
+        identity_ids,
+        vectors,
+        model_uid="arcface-test",
+        scope_ids=splits,
+    )
+    prepared = PreparedPopulationInputs(
+        extraction_uid="extract-survface-test",
+        dataset_id="survface",
+        sample_ids=sample_ids,
+        identity_ids=identity_ids,
+        scope_ids=splits,
+        raw_embeddings=vectors * 2.0,
+        raw_norms=np.linalg.norm(vectors * 2.0, axis=1),
+        normalized_embeddings=vectors,
+        loo_templates=loo,
+        model_uid="arcface-test",
+        checkpoint_sha256="a" * 64,
+        preprocess_hash="b" * 64,
+        origin_embedding_artifact_uid="origin-survface-test",
+    )
+    selected = pd.DataFrame(
+        {
+            "sample_id": sample_ids,
+            "identity_id": identity_ids,
+            "split": splits,
+            "image_path": [f"{value}.jpg" for value in sample_ids],
+            "protocol_role": [row[4] for row in rows],
+            "probe_type": [
+                (
+                    "registered"
+                    if row[4] == "registered_probe"
+                    else "unknown_unknown"
+                    if row[4] == "unknown_unknown_probe"
+                    else "not_applicable"
+                    if row[4] == "gallery"
+                    else None
+                )
+                for row in rows
+            ],
+            "protocol_index": [row[5] for row in rows],
+        }
+    )
+
+    result = module.characterize_step2_survface_compression(
+        prepared,
+        selected,
+        pca_dimensions=[2],
+        pq_settings=[(8, 1)],
+        target_fpir=1.0,
+        calibration_gallery_identities=1,
+        top_k=1,
+    )
+
+    assert set(result.retrieval_metrics["protocol_uid"]) == {
+        "qmul-survface-v1-official-open-set-identification"
+    }
+    assert set(result.retrieval_metrics["query_id"]) == {"p1", "u1"}
+    assert set(result.retrieval_metrics["threshold_policy"]) == {
+        "frozen_origin",
+        "recalibrated_compressed",
+    }

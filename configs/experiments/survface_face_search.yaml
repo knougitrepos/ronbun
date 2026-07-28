@@ -21,31 +21,47 @@ protocol:
   fpir_targets: [0.1, 0.2, 0.3]
 
 compression:
-  # The official test set must never fit PCA/PQ. Notebook 02 requires this
-  # environment variable to point to a frozen development-trained run.
-  fit_policy: external_frozen_run
-  source_run_env: RONBUN_SURVFACE_COMPRESSION_SOURCE_RUN
+  # Fit once from this dataset's identity-disjoint training development split.
+  # Official gallery/probe rows are transform/evaluation-only.
+  fit_policy: same_dataset_training_development
+  training_manifest_path: data/interim/survface/training_manifest.csv
+  fit_split: development
+  batch_size: 512
   profiles:
     - origin_512
+    - pca_384
     - pca_256
+    - pca_128
+    - pca_64
+    - pca_32
     - pq_auxiliary
   pca:
-    n_components: 256
+    source_profile: origin_512
+    dimensions: [384, 256, 128, 64, 32]
   pq:
-    m: 16
-    nbits: 8
+    source_profile: origin_512
+    settings:
+      - {m: 8, nbits: 8}
+      - {m: 16, nbits: 8}
+      - {m: 32, nbits: 8}
+      - {m: 64, nbits: 8}
+      - {m: 128, nbits: 8}
+    materialized_setting: {m: 16, nbits: 8}
+    pgvector_searchable: false
 
 search:
-  compression_profile: pca_256
+  compression_profiles: [origin_512, pca_256]
+  modes: [exact, hnsw]
   top_k: 20
   exact_baseline: true
   approximate_backend: pgvector_hnsw
 
 calibration:
-  # Threshold/calibrator fitting also comes from a development/calibration run;
-  # the SurvFace official test rows are evaluation-only.
-  fit_policy: external_frozen_run
-  source_run_env: RONBUN_SURVFACE_CALIBRATION_SOURCE_RUN
+  # Thresholds use the identity-disjoint training calibration split. The
+  # official test protocol remains evaluation-only.
+  fit_policy: same_dataset_training_calibration
+  source_manifest_path: data/interim/survface/training_manifest.csv
+  source_split: calibration
   target_fpir: 0.1
   evaluation_split: test
   models:
@@ -62,3 +78,7 @@ certification:
 output:
   save_csv: true
   save_parquet: true
+
+progress:
+  milestone_percent: 10
+  heartbeat_seconds: null
