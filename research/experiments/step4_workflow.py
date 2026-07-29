@@ -126,6 +126,8 @@ def inspect_step4_readiness(
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     required_provider = str(
         config["aligned_crops"]["required_primary_provider"]

@@ -51,12 +51,22 @@ def _atomic_write_json(path: Path, payload: Any) -> None:
 
 
 def _git_output(repo_root: Path, *args: str, binary: bool = False):
+    text_options: dict[str, object] = {}
+    if not binary:
+        # Git emits UTF-8 path bytes even when the Windows process locale is
+        # CP949. Letting subprocess use the locale can therefore crash the
+        # reader thread before the clean-tree check reports its real result.
+        text_options = {
+            "text": True,
+            "encoding": "utf-8",
+            "errors": "replace",
+        }
     result = subprocess.run(
         ["git", *args],
         cwd=repo_root,
         capture_output=True,
         check=False,
-        text=not binary,
+        **text_options,
     )
     if result.returncode != 0:
         return b"" if binary else ""
@@ -177,6 +187,8 @@ def _gpu_info() -> dict[str, str] | None:
             capture_output=True,
             check=False,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     except OSError:
         return None
