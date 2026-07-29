@@ -38,8 +38,8 @@ runs/**
 !runs/README.md
 !runs/lfw_*/
 !runs/lfw_*/**
-!runs/survface_*/
-!runs/survface_*/**
+!runs/archives/
+!runs/archives/**
 results/step1/
 results/step2/
 # Compact publication results are intentionally tracked.

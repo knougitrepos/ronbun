@@ -30,13 +30,18 @@ immutable archive root and committed:
 
 ```text
 runs/lfw_YYYYMMDD/<run_id>/
-runs/survface_YYYYMMDD/<run_id>/
+runs/archives/survface_YYYYMMDD/<run_id>/
 ```
 
 Large CSV/NPZ and serialized compressor files in these archive roots are
 tracked with Git LFS. Each archive must include an analysis guide and retain
 the run/phase manifests needed to verify configuration, attempt selection,
 artifact size, and SHA-256 lineage.
+
+The `runs/<dataset>_<YYYYMMDD>/` names are reserved for mutable Step 4 run
+roots selected by `dataset_date_dir_template`. A curated SurvFace archive must
+therefore remain below `runs/archives/` and must never occupy
+`runs/survface_<YYYYMMDD>/`.
 
 ## Run reset and quarantine
 
