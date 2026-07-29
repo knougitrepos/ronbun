@@ -29,6 +29,8 @@ class Step4DatasetSpec:
     manifest_paths: tuple[Path, ...]
     aligned_bundle_dir: Path
     landmark_region_bundle_dir: Path
+    preprocessing_mode: str
+    require_full_coverage: bool
 
 
 def resolve_step4_dataset_spec(
@@ -69,6 +71,12 @@ def resolve_step4_dataset_spec(
         manifest_paths=manifest_paths,
         aligned_bundle_dir=(root / str(aligned_value)).resolve(),
         landmark_region_bundle_dir=(root / str(landmark_value)).resolve(),
+        preprocessing_mode=str(
+            dataset.get("preprocessing_mode", "detect_and_align")
+        ),
+        require_full_coverage=bool(
+            dataset.get("require_full_coverage", False)
+        ),
     )
 
 

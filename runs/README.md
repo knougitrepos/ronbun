@@ -21,6 +21,23 @@ marks the run complete, after which it is immutable.
 Step 2 runs. Existing run directories are not moved because their manifests
 freeze absolute input paths and checksums.
 
+## Curated completed-run archives
+
+Raw working runs remain ignored because they contain duplicated phase/artifact
+copies, interrupted-attempt temporary files, and large regenerable ledgers.
+After completion, publication-relevant results may be copied into a dated,
+immutable archive root and committed:
+
+```text
+runs/lfw_YYYYMMDD/<run_id>/
+runs/survface_YYYYMMDD/<run_id>/
+```
+
+Large CSV/NPZ and serialized compressor files in these archive roots are
+tracked with Git LFS. Each archive must include an analysis guide and retain
+the run/phase manifests needed to verify configuration, attempt selection,
+artifact size, and SHA-256 lineage.
+
 ## Run reset and quarantine
 
 Use `notebooks/common/maintenance/00_selective_cleanup.ipynb` with

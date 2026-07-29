@@ -51,7 +51,10 @@ from research.explainability.gradcam import (
     write_population_saliency_artifact,
     write_prepared_population_artifact,
 )
-from research.preprocessing.aligned_crops import materialize_aligned_crops
+from research.preprocessing.aligned_crops import (
+    materialize_aligned_crops,
+    validate_aligned_crop_bundle,
+)
 from research.protocols import build_survface_official_protocol
 from research.runtime import (
     RunStore,
@@ -91,6 +94,21 @@ def inspect_step4_readiness(
         dataset_id=dataset_id,
     )
     source = load_step4_source_manifest(spec)
+    aligned_complete = (spec.aligned_bundle_dir / "_SUCCESS").is_file()
+    aligned_valid = False
+    aligned_error: str | None = None
+    if aligned_complete:
+        try:
+            validate_aligned_crop_bundle(
+                spec.aligned_bundle_dir,
+                dataset_id=spec.dataset_id,
+                expected_source_count=len(source),
+                preprocessing_mode=spec.preprocessing_mode,
+                require_full_coverage=spec.require_full_coverage,
+            )
+            aligned_valid = True
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            aligned_error = str(exc)
     profile_id = str(config["execution"]["model_profile"])
     profile = config["models"]["profiles"][profile_id]
     model_path, model_spec = select_model_spec_by_profile(
@@ -125,9 +143,9 @@ def inspect_step4_readiness(
         in available_providers,
         "model_spec_verified": model_path.is_file(),
         "source_manifest_rows": int(len(source)),
-        "aligned_bundle_complete": (
-            spec.aligned_bundle_dir / "_SUCCESS"
-        ).is_file(),
+        "aligned_bundle_complete": aligned_complete,
+        "aligned_bundle_valid": aligned_valid,
+        "aligned_bundle_error": aligned_error,
         "landmark_region_bundle_complete": (
             spec.landmark_region_bundle_dir / "_SUCCESS"
         ).is_file(),
@@ -141,7 +159,7 @@ def inspect_step4_readiness(
     )
     ready_to_run = bool(
         ready_to_materialize
-        and checks["aligned_bundle_complete"]
+        and checks["aligned_bundle_valid"]
         and checks["landmark_region_bundle_complete"]
     )
     return {
@@ -407,8 +425,16 @@ def materialize_step4_aligned_crops(
         dataset_id=dataset_id,
     )
     success = spec.aligned_bundle_dir / "_SUCCESS"
-    if not success.is_file():
-        source = load_step4_source_manifest(spec)
+    source = load_step4_source_manifest(spec)
+    if success.is_file():
+        validate_aligned_crop_bundle(
+            spec.aligned_bundle_dir,
+            dataset_id=spec.dataset_id,
+            expected_source_count=len(source),
+            preprocessing_mode=spec.preprocessing_mode,
+            require_full_coverage=spec.require_full_coverage,
+        )
+    else:
         materialize_aligned_crops(
             source,
             project_root=root,
@@ -416,7 +442,16 @@ def materialize_step4_aligned_crops(
             dataset_id=spec.dataset_id,
             providers=tuple(config["aligned_crops"]["providers"]),
             overwrite=bool(config["execution"]["overwrite"]),
+            preprocessing_mode=spec.preprocessing_mode,
+            require_full_coverage=spec.require_full_coverage,
             progress=progress,
+        )
+        validate_aligned_crop_bundle(
+            spec.aligned_bundle_dir,
+            dataset_id=spec.dataset_id,
+            expected_source_count=len(source),
+            preprocessing_mode=spec.preprocessing_mode,
+            require_full_coverage=spec.require_full_coverage,
         )
     return {
         "dataset_id": spec.dataset_id,
@@ -448,6 +483,14 @@ def materialize_step4_landmark_regions(
             "aligned-crop stage must complete before landmark materialization: "
             f"{spec.aligned_bundle_dir}"
         )
+    source = load_step4_source_manifest(spec)
+    validate_aligned_crop_bundle(
+        spec.aligned_bundle_dir,
+        dataset_id=spec.dataset_id,
+        expected_source_count=len(source),
+        preprocessing_mode=spec.preprocessing_mode,
+        require_full_coverage=spec.require_full_coverage,
+    )
     success = spec.landmark_region_bundle_dir / "_SUCCESS"
     if not success.is_file():
         materialize_landmark_region_bundle(
@@ -499,6 +542,13 @@ def freeze_step4_source_and_model(
                 f"00_data_preparation notebook first: {path}"
             )
     source = load_step4_source_manifest(dataset_spec)
+    validate_aligned_crop_bundle(
+        dataset_spec.aligned_bundle_dir,
+        dataset_id=dataset_spec.dataset_id,
+        expected_source_count=len(source),
+        preprocessing_mode=dataset_spec.preprocessing_mode,
+        require_full_coverage=dataset_spec.require_full_coverage,
+    )
     aligned_index = pd.read_csv(
         dataset_spec.aligned_bundle_dir / "aligned_index.csv"
     )

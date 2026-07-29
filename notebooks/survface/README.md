@@ -19,6 +19,33 @@
 보존한다. 압축기와 threshold는 development/calibration에서만 정하고 official
 test는 평가에만 사용한다.
 
+QMUL-SurvFace 원본은 이미 잘라낸 저해상도 얼굴 이미지다. 따라서
+`00_data_preparation/01`은 얼굴 검출기를 다시 적용하지 않고 모든 source
+face crop을 동일한 bilinear 112×112 입력으로 materialize한다. 한 장이라도
+누락되면 `_SUCCESS`를 만들지 않는다. 106-point 단계는 이 이미지에서 예측한
+눈·코·입 anchor를 사용한다.
+
+2026-07-28에 detector 방식으로 만든 기존
+`data/interim/step4/survface/aligned_112`는 source 463,341장 중 755장만
+포함하므로 현재 계약에서 재사용할 수 없다. 사용자가 이 폴더를 먼저
+`bk/20260728_survface_detector_partial/aligned_112`로 보존한 다음
+`00_data_preparation/01`과 `02`를 다시 실행한다. `01` 완료 조건은
+`source=aligned=463341`, `failed=0`이다.
+
+이미 `01` 결과가 위 완료 조건과
+`preprocessing.mode=official_face_crop_resize`, `detector.enabled=false`를
+만족하면 다시 생성하지 않고 `02`부터 재개한다. 극저해상도 표본에서 일부
+눈·코·입·볼·턱 마스크만 비는 경우에는 그 부위를 측정 불가(`NaN`)로 기록하고
+나머지 부위와 표본 처리를 계속한다. 단, 얼굴 전체/얼굴 외부 마스크가 비거나
+landmark 좌표가 비정상인 경우에는 계속 실패 처리한다.
+
+`01_embeddings/01`도 원본 저해상도 파일에 detector를 다시 적용하지 않는다.
+완료된 `aligned_faces.npy`를 검증·등록된
+`arcface-7972a704552df378345f` PyTorch checkpoint에 batch 64로 직접 입력한다.
+DB 임베딩과 후속 Grad-CAM은 같은 model UID, checkpoint hash와 preprocess
+hash를 사용해야 한다. 이 입력·모델 계보가 바뀌면 기존 run에 이어 쓰지 않고
+`01_embeddings/00`에서 새 run을 만든다.
+
 현재 실행 commit은 모든 단계에서 `MODE=real`, `DATA_FRACTION=1.0`을
 사용한다. compressor는 같은 SurvFace training development에서 한 번 학습하며,
 과거 LFW compressor 전이 노트북은 활성 실행 순서에서 제거했다. 공식 검색은

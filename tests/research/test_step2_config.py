@@ -38,6 +38,13 @@ def test_step2_config_is_full_execution_profile_with_fail_closed_guards() -> Non
     assert config["aligned_crops"]["source_color_order"] == "rgb"
     assert config["aligned_crops"]["dtype"] == "uint8"
     assert config["aligned_crops"]["layout"] == "nhwc"
+    assert config["datasets"]["lfw"]["preprocessing_mode"] == "detect_and_align"
+    assert config["datasets"]["lfw"]["require_full_coverage"] is False
+    assert (
+        config["datasets"]["survface"]["preprocessing_mode"]
+        == "official_face_crop_resize"
+    )
+    assert config["datasets"]["survface"]["require_full_coverage"] is True
 
     models = config["models"]
     assert models["registry_root"] == "runs/step2/model_registry"

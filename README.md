@@ -224,7 +224,10 @@ Grad-CAM target은 `origin_leave_one_out_identity_cosine`이며 hard PQ를 미�
 결과는 하나만 유지하며 완료된 RunStore run은 덮어쓰지 않습니다. SurvFace는
 `training_set`을 identity-disjoint development/calibration으로 분리하고,
 별도의 official manifest에서는 gallery/mated/unmated 역할과 `protocol_index`를
-보존합니다.
+보존합니다. SurvFace 공식 파일은 이미 저해상도 face crop이므로 전체 source에
+동일한 bilinear 112×112 resize를 적용합니다. 재검출 성공분만 선택하거나
+detector 정렬과 resize fallback을 혼합하지 않으며, 누락이 있으면 준비 단계를
+완료 처리하지 않습니다.
 
 RFW와 BalancedFace는 반드시 위 표의 순서로 실행합니다. RFW는 공식 1:1 verification test이므로 PCA/PQ를 fit하거나 DIR/FPIR 공식 결과로 사용하지 않습니다. BalancedFace는 RFW와 겹치는 provider identity를 제거한 뒤 development에서 압축기를 fit하고 calibration에서 threshold를 보정하는 후보이며 최종 test가 아닙니다. BalancedFace JPG archive는 정상 파일로 교체됐지만 Asian/Indian의 가변 해상도·정렬 품질 검증이 필요합니다. RecordIO를 선택할 경우에는 PyTorch용 decoder가 아직 미구현이므로 `source_index_manifest.csv`를 실제 image manifest로 해석하면 안 됩니다. 상세 상태는 [RFW/BalancedFace 데이터 기록](docs/datasets/RFW_BALANCEDFACE.md)을 따릅니다.
 

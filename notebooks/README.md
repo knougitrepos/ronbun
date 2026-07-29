@@ -95,6 +95,10 @@ Grad-CAM의 세부 순서는 [LFW Grad-CAM 안내](lfw/04_gradcam/README.md)를 
 공식 gallery/mated/unmated 역할과 순서를 유지하며, official test에서 압축기나
 threshold를 학습하지 않는다. `00_data_preparation/01`에서 전체 aligned crop,
 `00_data_preparation/02`에서 전체 106-point landmark bundle을 먼저 생성한다.
+SurvFace 파일은 공식 배포본 자체가 저해상도 face crop이므로 `01`은 재검출
+정렬이 아니라 전 표본 공통 bilinear 112×112 resize를 기록한다. detector
+성공 표본과 resize 표본을 혼합하지 않으며 누락이 있으면 fail-closed로
+중단한다.
 `02_compression/00`은 SurvFace training development에서 PCA/PQ를 학습하고,
 `02_compression/01`은 frozen model로 전체 run을 materialize한다. PQ code는
 pgvector vector가 아니다. `03_open_set/00`은 origin/PCA-256의 exact/HNSW

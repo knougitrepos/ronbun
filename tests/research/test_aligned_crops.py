@@ -10,7 +10,11 @@ from PIL import Image
 import pytest
 
 import research.preprocessing.aligned_crops as aligned_crops_module
-from research.preprocessing.aligned_crops import materialize_aligned_crops
+from research.preprocessing.aligned_crops import (
+    OFFICIAL_FACE_CROP_RESIZE,
+    materialize_aligned_crops,
+    validate_aligned_crop_bundle,
+)
 from research.runtime.hashing import sha256_file
 
 
@@ -129,6 +133,62 @@ def test_materializer_overwrite_replaces_canonical_bundle(tmp_path: Path) -> Non
     assert second.aligned_index.loc[0, "aligned_content_sha256"] != first_hash
     assert len(list(tmp_path.glob(".aligned.backup-*"))) == 0
     assert len(list(tmp_path.glob(".aligned.staging-*"))) == 0
+
+
+def test_official_face_crop_resize_streams_every_source_without_detection(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "aligned"
+    manifest = _manifest(tmp_path).iloc[:2].copy()
+
+    result = materialize_aligned_crops(
+        manifest,
+        project_root=tmp_path,
+        output_dir=output,
+        dataset_id="survface",
+        preprocessing_mode=OFFICIAL_FACE_CROP_RESIZE,
+        require_full_coverage=True,
+    )
+
+    assert result.aligned_faces.shape == (2, 112, 112, 3)
+    assert result.aligned_index["sample_id"].tolist() == ["ok", "none"]
+    assert result.aligned_index["preprocessing_mode"].tolist() == [
+        OFFICIAL_FACE_CROP_RESIZE,
+        OFFICIAL_FACE_CROP_RESIZE,
+    ]
+    assert result.failed_index.empty
+    manifest_json = validate_aligned_crop_bundle(
+        output,
+        dataset_id="survface",
+        expected_source_count=2,
+        preprocessing_mode=OFFICIAL_FACE_CROP_RESIZE,
+        require_full_coverage=True,
+    )
+    assert manifest_json["detector"]["enabled"] is False
+    assert manifest_json["counts"] == {
+        "source": 2,
+        "aligned": 2,
+        "failed": 0,
+    }
+
+
+def test_official_face_crop_resize_fails_closed_on_missing_source(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "aligned"
+
+    with pytest.raises(RuntimeError, match="requires complete source coverage"):
+        materialize_aligned_crops(
+            _manifest(tmp_path),
+            project_root=tmp_path,
+            output_dir=output,
+            dataset_id="survface",
+            preprocessing_mode=OFFICIAL_FACE_CROP_RESIZE,
+            require_full_coverage=True,
+        )
+
+    assert not output.exists()
+    assert not list(tmp_path.glob(".aligned.staging-*"))
 
 
 def test_materializer_validates_before_loading_insightface(tmp_path: Path) -> None:

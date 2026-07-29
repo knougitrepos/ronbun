@@ -1,8 +1,10 @@
 """Materialize one canonical ArcFace-style aligned-crop bundle.
 
 The binary NPY array is accompanied by CSV indexes and a JSON manifest so the
-artifact can be inspected without a Parquet reader. Detection failures remain
-explicit; the quantitative path never substitutes a center crop.
+artifact can be inspected without a Parquet reader. Ordinary images use
+detect-and-align preprocessing. Datasets whose official protocol already
+contains face crops use one explicit resize policy for every source image;
+detector failure is never used to silently mix preprocessing modes.
 """
 
 from __future__ import annotations
@@ -33,9 +35,16 @@ def _emit(progress: ProgressCallback | None, message: str, **details: object) ->
         progress(message, details)
 
 
-MATERIALIZER_VERSION = "2.1.0"
+MATERIALIZER_VERSION = "2.2.0"
 ALIGNMENT_TEMPLATE_ID = "insightface_arcface_112_v1"
+OFFICIAL_FACE_CROP_TEMPLATE_ID = "qmul_survface_official_face_crop_resize_112_v1"
 DETECTOR_NAME = "buffalo_l"
+DETECT_AND_ALIGN = "detect_and_align"
+OFFICIAL_FACE_CROP_RESIZE = "official_face_crop_resize"
+SUPPORTED_PREPROCESSING_MODES = (
+    DETECT_AND_ALIGN,
+    OFFICIAL_FACE_CROP_RESIZE,
+)
 DEFAULT_PROVIDERS = (
     "CUDAExecutionProvider",
     "CPUExecutionProvider",
@@ -48,8 +57,11 @@ ALIGNED_INDEX_COLUMNS = (
     "split",
     "source_image_path",
     "source_content_sha256",
+    "source_width",
+    "source_height",
     "aligned_face_index",
     "aligned_content_sha256",
+    "preprocessing_mode",
     "face_count",
     "selected_face_index",
     "detection_score",
@@ -101,6 +113,76 @@ class AlignmentResult:
         """Compatibility alias for callers using the old proposed name."""
 
         return self.bundle_manifest
+
+
+def validate_aligned_crop_bundle(
+    bundle_dir: str | Path,
+    *,
+    dataset_id: str,
+    expected_source_count: int,
+    preprocessing_mode: str,
+    require_full_coverage: bool,
+) -> dict[str, Any]:
+    """Validate the lightweight contract without rehashing a multi-GB array."""
+
+    root = Path(bundle_dir).resolve()
+    if not (root / "_SUCCESS").is_file():
+        raise RuntimeError(f"aligned-crop bundle is incomplete: {root}")
+    manifest_path = root / "bundle_manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(manifest_path)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    counts = manifest.get("counts", {})
+    preprocessing = manifest.get("preprocessing", {})
+    actual_mode = str(preprocessing.get("mode", DETECT_AND_ALIGN))
+    source_count = int(counts.get("source", -1))
+    aligned_count = int(counts.get("aligned", -1))
+    failed_count = int(counts.get("failed", -1))
+    problems: list[str] = []
+    if str(manifest.get("dataset_id")) != str(dataset_id):
+        problems.append(
+            f"dataset_id={manifest.get('dataset_id')!r}, expected={dataset_id!r}"
+        )
+    if actual_mode != str(preprocessing_mode):
+        problems.append(
+            f"preprocessing_mode={actual_mode!r}, expected={preprocessing_mode!r}"
+        )
+    if source_count != int(expected_source_count):
+        problems.append(
+            f"source_count={source_count}, expected={int(expected_source_count)}"
+        )
+    if aligned_count < 0 or failed_count < 0 or (
+        aligned_count + failed_count != source_count
+    ):
+        problems.append(
+            "aligned/failed counts do not partition the source manifest"
+        )
+    if require_full_coverage and (
+        failed_count != 0 or aligned_count != source_count
+    ):
+        problems.append(
+            f"full coverage required but aligned={aligned_count}, "
+            f"failed={failed_count}"
+        )
+    array_shape = (
+        manifest.get("array_contract", {}).get("shape", [])
+    )
+    if not array_shape or int(array_shape[0]) != aligned_count:
+        problems.append(
+            f"array row count={array_shape[0] if array_shape else None}, "
+            f"aligned={aligned_count}"
+        )
+    outputs = manifest.get("outputs", {})
+    for name in ("aligned_faces", "aligned_index", "failed_samples"):
+        entry = outputs.get(name)
+        if not isinstance(entry, dict) or not (root / str(entry.get("path"))).is_file():
+            problems.append(f"missing output={name}")
+    if problems:
+        raise RuntimeError(
+            "aligned-crop bundle does not satisfy the current contract: "
+            + "; ".join(problems)
+        )
+    return manifest
 
 
 def _face_value(face: Any, name: str) -> Any:
@@ -207,6 +289,21 @@ def _default_aligner(image_rgb: np.ndarray, landmarks: np.ndarray) -> np.ndarray
     return np.asarray(norm_crop(image_rgb, landmarks, image_size=112))
 
 
+def _resize_official_face_crop(image_rgb: np.ndarray) -> np.ndarray:
+    image = Image.fromarray(np.asarray(image_rgb, dtype=np.uint8), mode="RGB")
+    resized = image.resize((112, 112), resample=Image.Resampling.BILINEAR)
+    return np.asarray(resized, dtype=np.uint8)
+
+
+def _close_memmap(array: np.memmap | None) -> None:
+    if array is None:
+        return
+    array.flush()
+    mmap = getattr(array, "_mmap", None)
+    if mmap is not None and not mmap.closed:
+        mmap.close()
+
+
 def materialize_aligned_crops(
     manifest: pd.DataFrame,
     *,
@@ -219,6 +316,8 @@ def materialize_aligned_crops(
     overwrite: bool = True,
     detector: Any | None = None,
     aligner: Callable[[np.ndarray, np.ndarray], np.ndarray] | None = None,
+    preprocessing_mode: str = DETECT_AND_ALIGN,
+    require_full_coverage: bool = False,
     progress: ProgressCallback | None = None,
 ) -> AlignmentResult:
     """Create the common RGB uint8 NHWC 112x112 crop bundle.
@@ -249,6 +348,22 @@ def materialize_aligned_crops(
         raise ValueError(f"image_id must be unique; duplicates={duplicates[:5]}")
     if len(detection_size) != 2 or min(int(value) for value in detection_size) <= 0:
         raise ValueError("detection_size must contain two positive integers")
+    selected_mode = str(preprocessing_mode).strip()
+    if selected_mode not in SUPPORTED_PREPROCESSING_MODES:
+        raise ValueError(
+            "preprocessing_mode must be one of "
+            f"{SUPPORTED_PREPROCESSING_MODES}, got {selected_mode!r}"
+        )
+    if selected_mode == OFFICIAL_FACE_CROP_RESIZE and (
+        detector is not None or aligner is not None
+    ):
+        raise ValueError(
+            "official_face_crop_resize does not accept detector or aligner overrides"
+        )
+    if selected_mode == OFFICIAL_FACE_CROP_RESIZE and not require_full_coverage:
+        raise ValueError(
+            "official_face_crop_resize requires require_full_coverage=True"
+        )
     requested_providers = tuple(str(provider).strip() for provider in providers)
     if (
         not requested_providers
@@ -265,22 +380,27 @@ def materialize_aligned_crops(
             f"canonical aligned-crop result already exists: {destination}"
         )
 
-    active_detector = detector or _default_detector(
-        detector_name,
-        requested_providers,
-        detection_size,
-    )
-    if detector is None:
-        active_providers = tuple(active_detector._ronbun_session_providers)
-    else:
-        active_providers = tuple(
-            getattr(
-                active_detector,
-                "_ronbun_session_providers",
-                ("injected_detector",),
-            )
+    if selected_mode == DETECT_AND_ALIGN:
+        active_detector = detector or _default_detector(
+            detector_name,
+            requested_providers,
+            detection_size,
         )
-    active_aligner = aligner or _default_aligner
+        if detector is None:
+            active_providers = tuple(active_detector._ronbun_session_providers)
+        else:
+            active_providers = tuple(
+                getattr(
+                    active_detector,
+                    "_ronbun_session_providers",
+                    ("injected_detector",),
+                )
+            )
+        active_aligner = aligner or _default_aligner
+    else:
+        active_detector = None
+        active_providers = ()
+        active_aligner = None
     staging = Path(
         tempfile.mkdtemp(
             prefix=f".{destination.name}.staging-",
@@ -288,11 +408,20 @@ def materialize_aligned_crops(
         )
     )
 
+    total = int(len(manifest))
+    faces_path = staging / "aligned_faces.npy"
+    streamed_faces: np.memmap | None = None
     aligned_faces: list[np.ndarray] = []
     aligned_rows: list[dict[str, Any]] = []
     failed_rows: list[dict[str, Any]] = []
     try:
-        total = int(len(manifest))
+        if selected_mode == OFFICIAL_FACE_CROP_RESIZE:
+            streamed_faces = np.lib.format.open_memmap(
+                faces_path,
+                mode="w+",
+                dtype=np.uint8,
+                shape=(total, 112, 112, 3),
+            )
         for processed, row in enumerate(manifest.itertuples(index=False), start=1):
             _emit(
                 progress,
@@ -339,61 +468,104 @@ def materialize_aligned_crops(
                 )
                 continue
 
-            try:
-                faces = list(active_detector.get(image_rgb[..., ::-1].copy()))
-            except Exception as exc:
-                failed_rows.append(
-                    {
-                        **base,
-                        "alignment_failure_reason": (
-                            f"detection_error:{type(exc).__name__}"
-                        ),
-                        "face_count": 0,
-                    }
-                )
-                continue
-            if not faces:
-                failed_rows.append(
-                    {
-                        **base,
-                        "alignment_failure_reason": "no_face_detected",
-                        "face_count": 0,
-                    }
-                )
-                continue
+            source_height, source_width = image_rgb.shape[:2]
+            if selected_mode == DETECT_AND_ALIGN:
+                assert active_detector is not None
+                assert active_aligner is not None
+                try:
+                    faces = list(active_detector.get(image_rgb[..., ::-1].copy()))
+                except Exception as exc:
+                    failed_rows.append(
+                        {
+                            **base,
+                            "alignment_failure_reason": (
+                                f"detection_error:{type(exc).__name__}"
+                            ),
+                            "face_count": 0,
+                        }
+                    )
+                    continue
+                if not faces:
+                    failed_rows.append(
+                        {
+                            **base,
+                            "alignment_failure_reason": "no_face_detected",
+                            "face_count": 0,
+                        }
+                    )
+                    continue
 
-            selected_index, selected = _select_best_face(faces)
-            landmarks = np.asarray(_face_value(selected, "kps"), dtype=np.float32)
-            bbox = np.asarray(_face_value(selected, "bbox"), dtype=np.float32)
-            score = float(_face_value(selected, "det_score"))
-            if (
-                landmarks.shape != (5, 2)
-                or bbox.shape != (4,)
-                or not np.isfinite(landmarks).all()
-                or not np.isfinite(bbox).all()
-                or not np.isfinite(score)
-            ):
-                failed_rows.append(
-                    {
-                        **base,
-                        "alignment_failure_reason": "invalid_detection_geometry",
-                        "face_count": len(faces),
-                    }
+                selected_index, selected = _select_best_face(faces)
+                landmarks = np.asarray(
+                    _face_value(selected, "kps"),
+                    dtype=np.float32,
                 )
-                continue
-            try:
-                crop = np.asarray(active_aligner(image_rgb, landmarks), dtype=np.uint8)
-            except Exception as exc:
-                failed_rows.append(
-                    {
-                        **base,
-                        "alignment_failure_reason": (
-                            f"alignment_error:{type(exc).__name__}"
-                        ),
-                        "face_count": len(faces),
-                    }
+                bbox = np.asarray(
+                    _face_value(selected, "bbox"),
+                    dtype=np.float32,
                 )
-                continue
+                score = float(_face_value(selected, "det_score"))
+                if (
+                    landmarks.shape != (5, 2)
+                    or bbox.shape != (4,)
+                    or not np.isfinite(landmarks).all()
+                    or not np.isfinite(bbox).all()
+                    or not np.isfinite(score)
+                ):
+                    failed_rows.append(
+                        {
+                            **base,
+                            "alignment_failure_reason": (
+                                "invalid_detection_geometry"
+                            ),
+                            "face_count": len(faces),
+                        }
+                    )
+                    continue
+                try:
+                    crop = np.asarray(
+                        active_aligner(image_rgb, landmarks),
+                        dtype=np.uint8,
+                    )
+                except Exception as exc:
+                    failed_rows.append(
+                        {
+                            **base,
+                            "alignment_failure_reason": (
+                                f"alignment_error:{type(exc).__name__}"
+                            ),
+                            "face_count": len(faces),
+                        }
+                    )
+                    continue
+                face_count = len(faces)
+                landmark_json = json.dumps(landmarks.flatten().tolist())
+                row_detector_name = detector_name
+                template_id = ALIGNMENT_TEMPLATE_ID
+            else:
+                try:
+                    crop = _resize_official_face_crop(image_rgb)
+                except Exception as exc:
+                    failed_rows.append(
+                        {
+                            **base,
+                            "alignment_failure_reason": (
+                                f"resize_error:{type(exc).__name__}"
+                            ),
+                            "face_count": 1,
+                        }
+                    )
+                    continue
+                selected_index = 0
+                score = float("nan")
+                bbox = np.asarray(
+                    [0.0, 0.0, float(source_width), float(source_height)],
+                    dtype=np.float32,
+                )
+                face_count = 1
+                landmark_json = ""
+                row_detector_name = "not_applicable_official_face_crop"
+                template_id = OFFICIAL_FACE_CROP_TEMPLATE_ID
             if crop.shape != (112, 112, 3):
                 failed_rows.append(
                     {
@@ -401,28 +573,34 @@ def materialize_aligned_crops(
                         "alignment_failure_reason": (
                             f"unexpected_aligned_shape:{tuple(crop.shape)}"
                         ),
-                        "face_count": len(faces),
+                        "face_count": face_count,
                     }
                 )
                 continue
 
-            aligned_face_index = len(aligned_faces)
-            aligned_faces.append(crop)
+            aligned_face_index = len(aligned_rows)
+            if streamed_faces is None:
+                aligned_faces.append(crop)
+            else:
+                streamed_faces[aligned_face_index] = crop
             aligned_rows.append(
                 {
                     **base,
+                    "source_width": int(source_width),
+                    "source_height": int(source_height),
                     "aligned_face_index": aligned_face_index,
                     "aligned_content_sha256": _crop_sha256(crop),
-                    "face_count": len(faces),
+                    "preprocessing_mode": selected_mode,
+                    "face_count": face_count,
                     "selected_face_index": selected_index,
                     "detection_score": score,
                     "bbox_x1": float(bbox[0]),
                     "bbox_y1": float(bbox[1]),
                     "bbox_x2": float(bbox[2]),
                     "bbox_y2": float(bbox[3]),
-                    "landmark_5points_json": json.dumps(landmarks.flatten().tolist()),
-                    "detector_name": detector_name,
-                    "alignment_template_id": ALIGNMENT_TEMPLATE_ID,
+                    "landmark_5points_json": landmark_json,
+                    "detector_name": row_detector_name,
+                    "alignment_template_id": template_id,
                     "materializer_version": MATERIALIZER_VERSION,
                 }
             )
@@ -436,16 +614,33 @@ def materialize_aligned_crops(
             failed=len(failed_rows),
         )
 
-        if not aligned_faces:
+        if require_full_coverage and failed_rows:
+            reasons = pd.Series(
+                [row["alignment_failure_reason"] for row in failed_rows],
+                dtype=str,
+            ).value_counts()
+            examples = [row["sample_id"] for row in failed_rows[:5]]
+            raise RuntimeError(
+                f"{dataset_id} preprocessing requires complete source coverage: "
+                f"source={total}, prepared={len(aligned_rows)}, "
+                f"failed={len(failed_rows)}, reasons={reasons.to_dict()}, "
+                f"examples={examples}"
+            )
+        if not aligned_rows:
             raise RuntimeError("no source image could be aligned")
 
-        face_array = np.stack(aligned_faces).astype(np.uint8, copy=False)
+        _close_memmap(streamed_faces)
+        streamed_faces = None
+        if selected_mode == OFFICIAL_FACE_CROP_RESIZE:
+            face_shape = (len(aligned_rows), 112, 112, 3)
+        else:
+            face_array = np.stack(aligned_faces).astype(np.uint8, copy=False)
+            np.save(faces_path, face_array, allow_pickle=False)
+            face_shape = tuple(face_array.shape)
         aligned_index = pd.DataFrame(aligned_rows, columns=ALIGNED_INDEX_COLUMNS)
         failed_index = pd.DataFrame(failed_rows, columns=FAILED_INDEX_COLUMNS)
-        faces_path = staging / "aligned_faces.npy"
         aligned_path = staging / "aligned_index.csv"
         failed_path = staging / "failed_samples.csv"
-        np.save(faces_path, face_array, allow_pickle=False)
         aligned_index.to_csv(aligned_path, index=False, encoding="utf-8")
         failed_index.to_csv(failed_path, index=False, encoding="utf-8")
         bundle_manifest: dict[str, Any] = {
@@ -453,8 +648,22 @@ def materialize_aligned_crops(
             "artifact_type": "aligned_face_crops",
             "dataset_id": str(dataset_id),
             "materializer_version": MATERIALIZER_VERSION,
-            "alignment_template_id": ALIGNMENT_TEMPLATE_ID,
+            "alignment_template_id": (
+                ALIGNMENT_TEMPLATE_ID
+                if selected_mode == DETECT_AND_ALIGN
+                else OFFICIAL_FACE_CROP_TEMPLATE_ID
+            ),
+            "preprocessing": {
+                "mode": selected_mode,
+                "require_full_coverage": bool(require_full_coverage),
+                "resize_interpolation": (
+                    None
+                    if selected_mode == DETECT_AND_ALIGN
+                    else "Pillow.Resampling.BILINEAR"
+                ),
+            },
             "detector": {
+                "enabled": selected_mode == DETECT_AND_ALIGN,
                 "name": detector_name,
                 "detection_size": [int(value) for value in detection_size],
                 "allowed_modules": list(DETECTOR_ALLOWED_MODULES),
@@ -462,7 +671,7 @@ def materialize_aligned_crops(
                 "providers": list(active_providers),
             },
             "array_contract": {
-                "shape": list(face_array.shape),
+                "shape": list(face_shape),
                 "dtype": "uint8",
                 "layout": "nhwc",
                 "color_order": "rgb",
@@ -477,7 +686,7 @@ def materialize_aligned_crops(
                 "aligned_faces": _relative_output_entry(
                     faces_path,
                     staging,
-                    shape=list(face_array.shape),
+                    shape=list(face_shape),
                     dtype="uint8",
                 ),
                 "aligned_index": _relative_output_entry(
@@ -498,13 +707,22 @@ def materialize_aligned_crops(
         )
         (staging / "_SUCCESS").write_text("complete\n", encoding="utf-8")
         _publish_single_result(staging, destination, overwrite=overwrite)
+        if selected_mode == OFFICIAL_FACE_CROP_RESIZE:
+            published_faces = np.load(
+                destination / "aligned_faces.npy",
+                mmap_mode="r",
+                allow_pickle=False,
+            )
+        else:
+            published_faces = face_array
         return AlignmentResult(
-            aligned_faces=face_array,
+            aligned_faces=published_faces,
             aligned_index=aligned_index,
             failed_index=failed_index,
             bundle_manifest=bundle_manifest,
             output_dir=destination,
         )
     except BaseException:
+        _close_memmap(streamed_faces)
         shutil.rmtree(staging, ignore_errors=True)
         raise

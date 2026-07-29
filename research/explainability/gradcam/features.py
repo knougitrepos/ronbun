@@ -192,8 +192,11 @@ def summarize_saliency_features(
             width=width,
             name=name,
         )
-        frame[column] = saliency_concentration(values, batch)
-        available_count += np.any(batch, axis=(1, 2)).astype(np.int64)
+        available = np.any(batch, axis=(1, 2))
+        attention = saliency_concentration(values, batch)
+        attention[~available] = np.nan
+        frame[column] = attention
+        available_count += available.astype(np.int64)
 
     if FACE_MASK_NAME in masks:
         face_masks = _region_mask_batch(

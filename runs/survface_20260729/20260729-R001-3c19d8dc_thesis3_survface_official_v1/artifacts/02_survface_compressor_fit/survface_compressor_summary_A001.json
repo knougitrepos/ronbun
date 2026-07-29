@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "fit_source": "survface_training_development",
+  "fit_split": "development",
+  "official_test_fit": false,
+  "calibration_fit": false,
+  "fit_count": 176205,
+  "source_dimension": 512,
+  "seed": 42,
+  "training_manifest": "C:\\ronbun\\data\\interim\\SurvFace\\training_manifest.csv",
+  "training_manifest_sha256": "db5bb106a5e33ea3ebf7c9dfb06a1330c92aa2638dba8fc298318169e4bd5456",
+  "pca_profiles": {
+    "pca_384": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pca_384_A001.joblib",
+      "sha256": "49711986587620a028860d787122e7ad5296987a80f637861ca214552998a215",
+      "n_components": 384,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": true
+    },
+    "pca_256": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pca_256_A001.joblib",
+      "sha256": "e1e353f5755c98af1c85abb6850f9a9d2a6aa451b48ce045e47ede15028201e9",
+      "n_components": 256,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": true
+    },
+    "pca_128": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pca_128_A001.joblib",
+      "sha256": "a7346bb0a131672e00dca6af834b38275d3aa25b8b172ee1d955cd4e5cb33f14",
+      "n_components": 128,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": true
+    },
+    "pca_64": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pca_64_A001.joblib",
+      "sha256": "7d259f6341190252fb3fdb9b96e611cd9b3f6c92c0ff6a73101a12aae7d15baa",
+      "n_components": 64,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": true
+    },
+    "pca_32": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pca_32_A001.joblib",
+      "sha256": "94c9661fd7c7425194bbab45b66b9dffc8383b230a2fb904340561aff2d50620",
+      "n_components": 32,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": true
+    }
+  },
+  "pq_profiles": {
+    "pq_512_m8_b8": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pq_512_m8_b8_A001.faiss",
+      "sha256": "bbdd18f587d7eab055cbe7f787a6d08e1630aa639f9bf05f11f1dff8e55c190a",
+      "m": 8,
+      "nbits": 8,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": false
+    },
+    "pq_512_m16_b8": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pq_512_m16_b8_A001.faiss",
+      "sha256": "2f9a4703571cd74e6df01f4bc21380bf9ff800a8d8e63f894ba559097540fff9",
+      "m": 16,
+      "nbits": 8,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": false
+    },
+    "pq_512_m32_b8": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pq_512_m32_b8_A001.faiss",
+      "sha256": "ff03268b23200a5f2ed1916d69b7e3f7895e31d3ee7d1a86bbe88186ffbad0e0",
+      "m": 32,
+      "nbits": 8,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": false
+    },
+    "pq_512_m64_b8": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pq_512_m64_b8_A001.faiss",
+      "sha256": "39857373413d51630db17e7632dab8abbcaf512ecf7c630686e11e2297ec8044",
+      "m": 64,
+      "nbits": 8,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": false
+    },
+    "pq_512_m128_b8": {
+      "artifact": "artifacts\\02_survface_compressor_fit\\pq_512_m128_b8_A001.faiss",
+      "sha256": "1793b2e922100555db95b09d8aa9dab1d25c360e655efad4abc04019f604edbc",
+      "m": 128,
+      "nbits": 8,
+      "fit_count": 176205,
+      "source_profile": "origin_512",
+      "pgvector_searchable": false
+    }
+  },
+  "pca_to_pq": false,
+  "scan_counts": {
+    "source_vectors_scanned": 463341,
+    "development_vectors": 176205
+  }
+}

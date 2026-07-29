@@ -230,6 +230,8 @@ datasets:
     manifest_path: data/interim/lfw/face_manifest.csv
     aligned_bundle_dir: data/interim/common/aligned_112
     landmark_region_bundle_dir: data/interim/step4/lfw/landmark_regions_106
+    preprocessing_mode: detect_and_align
+    require_full_coverage: false
     gallery_identities_path: data/interim/lfw/gallery_identities.txt
     unknown_unknown_identities_path: data/interim/lfw/unknown_unknown_identities.txt
     protocol_adapter: lfw_identity_disjoint
@@ -238,6 +240,11 @@ datasets:
     manifest_path: data/interim/survface/official_manifest.csv
     aligned_bundle_dir: data/interim/step4/survface/aligned_112
     landmark_region_bundle_dir: data/interim/step4/survface/landmark_regions_106
+    # QMUL-SurvFace protocol files already contain cropped face thumbnails.
+    # Running a face detector on these low-resolution crops rejects nearly all
+    # valid protocol rows, so every source uses one recorded resize policy.
+    preprocessing_mode: official_face_crop_resize
+    require_full_coverage: true
     protocol_adapter: survface_official
     official_manifest_role: evaluation_only
   balancedface:

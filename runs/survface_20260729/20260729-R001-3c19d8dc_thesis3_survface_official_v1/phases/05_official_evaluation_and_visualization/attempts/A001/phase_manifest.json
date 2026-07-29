@@ -1,0 +1,26 @@
+{
+  "attempt": 1,
+  "details": {
+    "artifacts": [
+      {
+        "bytes": 1684,
+        "path": "artifacts\\05_official_evaluation_and_visualization\\official_metrics_A001.csv",
+        "sha256": "bf378c89e0c7f1ef537763177047ed83148da710b796bbe59cd4980a44180638"
+      },
+      {
+        "bytes": 294126,
+        "path": "artifacts\\05_official_evaluation_and_visualization\\tpir20_fpir_curves_A001.csv",
+        "sha256": "7ade88ab1b73543535b3432f911a0a1881736244b398682df3f188952331bae4"
+      }
+    ],
+    "counts": {
+      "figures": 1,
+      "metric_groups": 4,
+      "rows": 728636
+    }
+  },
+  "finished_at_utc": "2026-07-29T11:50:28.267244+00:00",
+  "phase": "05_official_evaluation_and_visualization",
+  "started_at_utc": "2026-07-29T11:50:24.101568+00:00",
+  "status": "completed"
+}

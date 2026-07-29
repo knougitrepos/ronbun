@@ -26,7 +26,10 @@ def _emit(progress: ProgressCallback | None, message: str, **details: object) ->
 
 LANDMARK_MODEL_FILENAME = "2d106det.onnx"
 LANDMARK_TOPOLOGY_ID = "insightface-2d106-semantic-v1"
-LANDMARK_MATERIALIZER_VERSION = "1.0.0"
+LANDMARK_MATERIALIZER_VERSION = "1.3.0"
+FACE_COVERAGE_REVIEW_THRESHOLD = 0.20
+FACE_COVERAGE_HARD_MAX = 0.95
+INSIGHTFACE_106_TO_5_INDICES = (38, 88, 86, 52, 61)
 DEFAULT_PROVIDERS = ("CUDAExecutionProvider", "CPUExecutionProvider")
 ARC_FACE_112_LANDMARKS = np.asarray(
     [
@@ -48,6 +51,9 @@ REGION_NAMES = (
     "jaw",
     "face",
     "outside_face",
+)
+SEMANTIC_REGION_NAMES = tuple(
+    name for name in REGION_NAMES if name not in {"face", "outside_face"}
 )
 
 # InsightFace 2d106 output order, recorded as an explicit artifact contract.
@@ -121,6 +127,10 @@ def _validate_landmarks(
         or np.any(dense[..., 1] > height - 1 + margin_y)
     ):
         raise ValueError("dense landmarks fall implausibly far outside the crop")
+    dense_width = np.ptp(dense[..., 0], axis=1)
+    dense_height = np.ptp(dense[..., 1], axis=1)
+    if np.any(dense_width < 2.0) or np.any(dense_height < 2.0):
+        raise ValueError("dense landmarks have degenerate spatial extent")
     return five, dense
 
 
@@ -195,6 +205,8 @@ def build_insightface_106_region_masks(
                 if resized[name][row].any():
                     continue
                 source_pixels = np.argwhere(source_masks[name][row])
+                if len(source_pixels) == 0:
+                    continue
                 centroid = source_pixels.mean(axis=0)
                 target = np.asarray(
                     [
@@ -206,6 +218,8 @@ def build_insightface_106_region_masks(
                     candidates = np.argwhere(~resized["face"][row])
                 else:
                     candidates = face_pixels
+                if len(candidates) == 0:
+                    continue
                 nearest = candidates[
                     np.argmin(np.sum((candidates - target[None, :]) ** 2, axis=1))
                 ]
@@ -314,13 +328,13 @@ def build_insightface_106_region_masks(
         result["face"][row] = face
         result["outside_face"][row] = ~face
 
-        for name in REGION_NAMES:
+        for name in ("face", "outside_face"):
             if not result[name][row].any():
                 raise ValueError(f"landmark row {row} produced an empty {name} mask")
         face_fraction = float(face.mean())
-        if not 0.20 <= face_fraction <= 0.95:
+        if face_fraction > FACE_COVERAGE_HARD_MAX:
             raise ValueError(
-                f"landmark row {row} produced implausible face coverage "
+                f"landmark row {row} produced implausibly large face coverage "
                 f"{face_fraction:.4f}"
             )
     return result
@@ -457,6 +471,15 @@ def _aligned_face_bbox(landmarks_5: np.ndarray) -> np.ndarray:
     )
 
 
+def _close_memmap(array: np.memmap | None) -> None:
+    if array is None:
+        return
+    array.flush()
+    mmap = getattr(array, "_mmap", None)
+    if mmap is not None and not mmap.closed:
+        mmap.close()
+
+
 def materialize_landmark_region_bundle(
     aligned_bundle_dir: str | Path,
     *,
@@ -482,6 +505,25 @@ def materialize_landmark_region_bundle(
     aligned_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if str(aligned_manifest.get("dataset_id")) != str(dataset_id):
         raise ValueError("aligned-crop bundle dataset_id does not match requested dataset")
+    preprocessing_mode = str(
+        aligned_manifest.get("preprocessing", {}).get(
+            "mode",
+            "detect_and_align",
+        )
+    )
+    if preprocessing_mode not in {
+        "detect_and_align",
+        "official_face_crop_resize",
+    }:
+        raise ValueError(
+            "aligned-crop bundle preprocessing mode is unsupported: "
+            f"{preprocessing_mode}"
+        )
+    landmark_anchor_policy = (
+        "arcface_alignment_template"
+        if preprocessing_mode == "detect_and_align"
+        else "insightface_106_derived_five"
+    )
     faces = np.load(faces_path, mmap_mode="r", allow_pickle=False)
     aligned_index = pd.read_csv(index_path)
     if (
@@ -544,6 +586,8 @@ def materialize_landmark_region_bundle(
             dir=destination.parent,
         )
     )
+    five_output: np.memmap | None = None
+    dense_output: np.memmap | None = None
     try:
         five_path = staging / "aligned_landmarks_5.npy"
         dense_path = staging / "aligned_landmarks_106.npy"
@@ -563,13 +607,17 @@ def materialize_landmark_region_bundle(
             f"{name}_pixel_count": np.zeros(len(faces), dtype=np.int32)
             for name in REGION_NAMES
         }
+        face_coverage_fraction = np.zeros(len(faces), dtype=np.float32)
+        semantic_region_mask_count = np.zeros(len(faces), dtype=np.int8)
+        missing_semantic_regions = np.full(len(faces), "", dtype=object)
+        quality_status = np.full(len(faces), "ok", dtype=object)
         from insightface.app.common import Face
 
         for row in range(len(faces)):
-            aligned_five = ARC_FACE_112_LANDMARKS.copy()
+            model_input_five = ARC_FACE_112_LANDMARKS.copy()
             face = Face(
-                bbox=_aligned_face_bbox(aligned_five),
-                kps=aligned_five.copy(),
+                bbox=_aligned_face_bbox(model_input_five),
+                kps=model_input_five.copy(),
             )
             predicted = np.asarray(
                 active_model.get(faces[row][..., ::-1].copy(), face),
@@ -579,24 +627,52 @@ def materialize_landmark_region_bundle(
                 raise RuntimeError(
                     f"invalid 2d106 landmark output for sample {sample_ids[row]}"
                 )
+            aligned_five = (
+                model_input_five
+                if preprocessing_mode == "detect_and_align"
+                else predicted[list(INSIGHTFACE_106_TO_5_INDICES)].copy()
+            )
             five_output[row] = aligned_five
             dense_output[row] = predicted
-            masks = build_insightface_106_region_masks(
-                aligned_five,
-                predicted,
-            )
+            try:
+                masks = build_insightface_106_region_masks(
+                    aligned_five,
+                    predicted,
+                )
+            except (RuntimeError, ValueError) as exc:
+                raise RuntimeError(
+                    "landmark mask generation failed for "
+                    f"aligned row {row}, sample_id={sample_ids[row]}: {exc}"
+                ) from exc
             for name, values in masks.items():
                 coverage[f"{name}_pixel_count"][row] = int(values[0].sum())
+            fraction = float(masks["face"][0].mean())
+            face_coverage_fraction[row] = fraction
+            missing = [
+                name
+                for name in SEMANTIC_REGION_NAMES
+                if not masks[name][0].any()
+            ]
+            semantic_region_mask_count[row] = (
+                len(SEMANTIC_REGION_NAMES) - len(missing)
+            )
+            missing_semantic_regions[row] = "|".join(missing)
+            quality_flags: list[str] = []
+            if fraction < FACE_COVERAGE_REVIEW_THRESHOLD:
+                quality_flags.append("low_face_coverage")
+            if missing:
+                quality_flags.append("missing_semantic_regions")
+            quality_status[row] = "|".join(quality_flags) or "ok"
             _emit(
                 progress,
                 "106-point landmark materialization",
                 processed=row + 1,
                 total=len(faces),
             )
-        five_output.flush()
-        dense_output.flush()
-        del five_output
-        del dense_output
+        _close_memmap(five_output)
+        _close_memmap(dense_output)
+        five_output = None
+        dense_output = None
 
         model_sha256 = (
             sha256_file(resolved_model)
@@ -608,6 +684,8 @@ def materialize_landmark_region_bundle(
             "dataset_id": str(dataset_id),
             "topology_id": LANDMARK_TOPOLOGY_ID,
             "materializer_version": LANDMARK_MATERIALIZER_VERSION,
+            "source_preprocessing_mode": preprocessing_mode,
+            "landmark_anchor_policy": landmark_anchor_policy,
             "model_sha256": model_sha256,
             "aligned_faces_sha256": sha256_file(faces_path),
             "aligned_index_sha256": sha256_file(index_path),
@@ -624,6 +702,10 @@ def materialize_landmark_region_bundle(
         mask_index["region_mask_uid"] = region_mask_uid
         for column, values in coverage.items():
             mask_index[column] = values
+        mask_index["face_coverage_fraction"] = face_coverage_fraction
+        mask_index["semantic_region_mask_count"] = semantic_region_mask_count
+        mask_index["missing_semantic_regions"] = missing_semantic_regions
+        mask_index["landmark_quality_status"] = quality_status
         mask_index_path = staging / "mask_index.csv"
         mask_index.to_csv(mask_index_path, index=False, encoding="utf-8")
 
@@ -635,6 +717,10 @@ def materialize_landmark_region_bundle(
                 "source_layout": "aligned_crop_xy",
                 "left_right": "image_coordinates",
                 "source_image_size": [112, 112],
+                "landmark_5_anchor_policy": landmark_anchor_policy,
+                "insightface_106_to_5_indices": list(
+                    INSIGHTFACE_106_TO_5_INDICES
+                ),
             },
             "landmark_groups": {
                 name: list(indices) for name, indices in LANDMARK_GROUPS.items()
@@ -643,6 +729,35 @@ def materialize_landmark_region_bundle(
             "provider": {
                 "requested": list(requested_providers),
                 "active": list(active_providers),
+            },
+            "quality_control": {
+                "face_coverage_review_threshold": FACE_COVERAGE_REVIEW_THRESHOLD,
+                "face_coverage_hard_max": FACE_COVERAGE_HARD_MAX,
+                "low_face_coverage_count": int(
+                    np.count_nonzero(
+                        face_coverage_fraction
+                        < FACE_COVERAGE_REVIEW_THRESHOLD
+                    )
+                ),
+                "samples_with_missing_semantic_regions": int(
+                    np.count_nonzero(
+                        semantic_region_mask_count
+                        < len(SEMANTIC_REGION_NAMES)
+                    )
+                ),
+                "missing_semantic_region_counts": {
+                    name: int(
+                        np.count_nonzero(
+                            coverage[f"{name}_pixel_count"] == 0
+                        )
+                    )
+                    for name in SEMANTIC_REGION_NAMES
+                },
+                "policy": (
+                    "low coverage and unavailable semantic regions are recorded "
+                    "for review; invalid coordinates, empty face/outside masks, "
+                    "and implausibly large coverage fail closed"
+                ),
             },
             "row_count": int(len(faces)),
             "outputs": {
@@ -673,6 +788,8 @@ def materialize_landmark_region_bundle(
         (staging / "_SUCCESS").write_text("complete\n", encoding="utf-8")
         _publish_directory(staging, destination, overwrite=overwrite)
     except BaseException:
+        _close_memmap(five_output)
+        _close_memmap(dense_output)
         shutil.rmtree(staging, ignore_errors=True)
         raise
     return read_landmark_region_bundle(destination)

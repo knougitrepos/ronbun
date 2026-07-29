@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "fit_source": "survface_training_development",
+  "official_test_fit": false,
+  "compressor_attempt": "A001",
+  "primary": {
+    "counts": {
+      "source_vectors": 463341,
+      "pca_inserted": 463341,
+      "pca_skipped": 0,
+      "pq_inserted": 463341,
+      "pq_skipped": 0
+    },
+    "row_counts": {
+      "embedding_512": 463341,
+      "embedding_256": 463341,
+      "embedding_pq": 463341
+    },
+    "error_normalization": {
+      "pca_256": {
+        "mean": 1.0287189979862887e-05,
+        "std": 5.312950179359177e-06,
+        "fit_count": 176205
+      },
+      "pq_auxiliary": {
+        "mean": 0.0008822348318062723,
+        "std": 0.00021901063155382872,
+        "fit_count": 176205
+      }
+    },
+    "measurements_path": "C:\\ronbun\\runs\\survface\\2026\\07\\29\\20260729-R001-3c19d8dc_thesis3_survface_official_v1\\phases\\03_survface_compressed_materialization_and_index\\attempts\\A001\\survface_primary_compression_measurements_A001.csv",
+    "index_ensure_elapsed_seconds": 0.009897199997794814,
+    "index_measurement_note": "Time spent ensuring indexes exist; this is not a clean HNSW build-time measurement when indexes were created before row insertion.",
+    "storage_bytes": {
+      "embedding_512": 2971402240,
+      "embedding_256": 1622736896,
+      "embedding_pq": 361668608
+    },
+    "pca_model_uid": "pca_256_A001.joblib:e1e353f5755c98af1c85abb6850f9a9d2a6aa451b48ce045e47ede15028201e9",
+    "pq_model_uid": "pq_512_m16_b8_A001.faiss:2f9a4703571cd74e6df01f4bc21380bf9ff800a8d8e63f894ba559097540fff9"
+  },
+  "pca_sweep": {
+    "profiles": [
+      "pca_384",
+      "pca_128",
+      "pca_64",
+      "pca_32"
+    ],
+    "counts": {
+      "source_vectors": 463341,
+      "pca_384_inserted": 463341,
+      "pca_384_skipped": 0,
+      "pca_128_inserted": 463341,
+      "pca_128_skipped": 0,
+      "pca_64_inserted": 463341,
+      "pca_64_skipped": 0,
+      "pca_32_inserted": 463341,
+      "pca_32_skipped": 0
+    },
+    "row_counts": {
+      "pca_384": 463341,
+      "pca_128": 463341,
+      "pca_64": 463341,
+      "pca_32": 463341
+    },
+    "error_normalization": {
+      "pca_384": {
+        "mean": 1.3424096323433332e-07,
+        "std": 4.117922713930966e-08,
+        "fit_count": 176205
+      },
+      "pca_128": {
+        "mean": 0.0001937869528774172,
+        "std": 9.103392221732065e-05,
+        "fit_count": 176205
+      },
+      "pca_64": {
+        "mean": 0.0004147132858633995,
+        "std": 0.00017812939768191427,
+        "fit_count": 176205
+      },
+      "pca_32": {
+        "mean": 0.0006449994398280978,
+        "std": 0.00024952038074843585,
+        "fit_count": 176205
+      }
+    },
+    "measurements_path": "C:\\ronbun\\runs\\survface\\2026\\07\\29\\20260729-R001-3c19d8dc_thesis3_survface_official_v1\\phases\\03_survface_compressed_materialization_and_index\\attempts\\A001\\survface_pca_sweep_measurements_A001.csv",
+    "index_ensure_elapsed_seconds": 0.007419799992931075,
+    "storage_bytes": {
+      "pca_384": 2132008960,
+      "pca_128": 1058324480,
+      "pca_64": 775979008,
+      "pca_32": 660791296
+    },
+    "vector_payload_bytes_per_row": {
+      "pca_384": 1536,
+      "pca_128": 512,
+      "pca_64": 256,
+      "pca_32": 128
+    },
+    "pca_model_uids": {
+      "pca_384": "pca_384_A001.joblib:49711986587620a028860d787122e7ad5296987a80f637861ca214552998a215",
+      "pca_128": "pca_128_A001.joblib:a7346bb0a131672e00dca6af834b38275d3aa25b8b172ee1d955cd4e5cb33f14",
+      "pca_64": "pca_64_A001.joblib:7d259f6341190252fb3fdb9b96e611cd9b3f6c92c0ff6a73101a12aae7d15baa",
+      "pca_32": "pca_32_A001.joblib:94c9661fd7c7425194bbab45b66b9dffc8383b230a2fb904340561aff2d50620"
+    }
+  },
+  "pgvector_searchable_profiles": [
+    "origin_512",
+    "pca_384",
+    "pca_256",
+    "pca_128",
+    "pca_64",
+    "pca_32"
+  ],
+  "pq_auxiliary": {
+    "profile": "pq_512_m16_b8",
+    "stored_as": "pq_auxiliary",
+    "pgvector_searchable": false
+  }
+}

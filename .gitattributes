@@ -1,2 +1,5 @@
 runs/lfw_*/**/*.csv filter=lfs diff=lfs merge=lfs -text
 runs/lfw_*/**/*.npz filter=lfs diff=lfs merge=lfs -text
+runs/survface_*/**/*.csv filter=lfs diff=lfs merge=lfs -text
+runs/survface_*/**/*.joblib filter=lfs diff=lfs merge=lfs -text
+runs/survface_*/**/*.faiss filter=lfs diff=lfs merge=lfs -text
