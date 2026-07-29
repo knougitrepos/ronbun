@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 import subprocess
 from zoneinfo import ZoneInfo
 
@@ -86,3 +87,97 @@ def test_run_root_untracked_artifacts_do_not_block_a_clean_code_resume(tmp_path)
     manifest = run._read_manifest()
     assert manifest["git"]["dirty"] is False
     assert manifest["git"]["allowed_untracked_roots"] == ["runs"]
+
+
+def _write_notebook(path, *, source: str, executed: bool) -> None:
+    payload = {
+        "cells": [
+            {
+                "cell_type": "code",
+                "execution_count": 1 if executed else None,
+                "id": "source-cell",
+                "metadata": {"trusted": executed},
+                "outputs": (
+                    [{"name": "stdout", "output_type": "stream", "text": ["ok\n"]}]
+                    if executed
+                    else []
+                ),
+                "source": [source],
+            }
+        ],
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3",
+            },
+            "language_info": (
+                {
+                    "name": "python",
+                    "version": "3.11.9",
+                    "file_extension": ".py",
+                }
+                if executed
+                else {"name": "python", "version": "3.11"}
+            ),
+            "ronbun": {"restart_policy": "restart_kernel_and_run_all"},
+        },
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=1),
+        encoding="utf-8",
+    )
+
+
+def test_paper_run_ignores_notebook_execution_record_only_changes(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.invalid")
+    _git(repo, "config", "user.name", "RunStore Test")
+    notebook = repo / "experiment.ipynb"
+    _write_notebook(notebook, source="result = 42\n", executed=False)
+    _git(repo, "add", "experiment.ipynb")
+    _git(repo, "commit", "-m", "initial")
+    _write_notebook(notebook, source="result = 42\n", executed=True)
+
+    run = RunStore.create(
+        experiment_name="notebook-runtime-record",
+        config={"seed": 42},
+        root=repo / "runs" / "notebook-runtime-record",
+        repo_root=repo,
+        now=datetime(2026, 7, 29, 22, 30, tzinfo=KST),
+        allow_dirty=False,
+    )
+
+    manifest = run._read_manifest()
+    assert manifest["git"]["dirty"] is False
+    assert manifest["git"]["tracked_source_changes"] == []
+    assert manifest["git"]["ignored_notebook_runtime_paths"] == [
+        "experiment.ipynb"
+    ]
+
+
+def test_paper_run_still_rejects_notebook_source_changes(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.invalid")
+    _git(repo, "config", "user.name", "RunStore Test")
+    notebook = repo / "experiment.ipynb"
+    _write_notebook(notebook, source="result = 42\n", executed=False)
+    _git(repo, "add", "experiment.ipynb")
+    _git(repo, "commit", "-m", "initial")
+    _write_notebook(notebook, source="result = 43\n", executed=True)
+
+    with pytest.raises(RuntimeError, match="tracked_source_changes"):
+        RunStore.create(
+            experiment_name="notebook-source-change",
+            config={"seed": 42},
+            root=repo / "runs" / "notebook-source-change",
+            repo_root=repo,
+            now=datetime(2026, 7, 29, 22, 30, tzinfo=KST),
+            allow_dirty=False,
+        )

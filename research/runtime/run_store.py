@@ -91,6 +91,76 @@ def _allowed_run_artifact_roots(
     return (run_root.resolve(),)
 
 
+def _notebook_source_contract(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return notebook state that can affect a reproducible execution.
+
+    Jupyter rewrites execution counts, outputs, trust/UI flags, and detailed
+    language metadata while a tracked notebook is running. Those fields are
+    runtime records, not source changes. Cell order, IDs, sources, tags, the
+    project metadata, and the selected kernel remain part of the contract.
+    """
+
+    metadata = dict(payload.get("metadata") or {})
+    metadata.pop("language_info", None)
+    metadata.pop("widgets", None)
+    cells = []
+    transient_cell_metadata = {
+        "collapsed",
+        "execution",
+        "jupyter",
+        "scrolled",
+        "trusted",
+    }
+    for cell in payload.get("cells") or []:
+        cell_metadata = {
+            key: value
+            for key, value in dict(cell.get("metadata") or {}).items()
+            if key not in transient_cell_metadata
+        }
+        source = cell.get("source", "")
+        if isinstance(source, list):
+            source = "".join(str(part) for part in source)
+        cells.append(
+            {
+                "cell_type": cell.get("cell_type"),
+                "id": cell.get("id"),
+                "metadata": cell_metadata,
+                "source": str(source),
+            }
+        )
+    return {
+        "nbformat": payload.get("nbformat"),
+        "nbformat_minor": payload.get("nbformat_minor"),
+        "metadata": metadata,
+        "cells": cells,
+    }
+
+
+def _is_notebook_runtime_only_change(
+    repo_root: Path,
+    relative_path: str,
+) -> bool:
+    if not relative_path.lower().endswith(".ipynb"):
+        return False
+    working_path = repo_root / relative_path
+    if not working_path.is_file():
+        return False
+    head_bytes = _git_output(
+        repo_root,
+        "show",
+        f"HEAD:{Path(relative_path).as_posix()}",
+        binary=True,
+    )
+    if not head_bytes:
+        return False
+    try:
+        head = json.loads(head_bytes.decode("utf-8"))
+        working = json.loads(working_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, OSError):
+        return False
+    return _notebook_source_contract(head) == _notebook_source_contract(working)
+
+
 def _git_provenance(
     repo_root: Path,
     *,
@@ -103,22 +173,34 @@ def _git_provenance(
         for root in allowed_untracked_roots
         if _is_within(root, repo_root)
     )
-    raw_status = str(
-        _git_output(
-            repo_root,
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-        )
+    changed_output = _git_output(
+        repo_root,
+        "diff",
+        "--name-only",
+        "-z",
+        "HEAD",
+        "--",
+        binary=True,
     )
-    status_lines = []
-    for line in raw_status.splitlines():
-        if line.startswith("?? "):
-            untracked = (repo_root / line[3:].rstrip("/")).resolve()
-            if any(_is_within(untracked, root) for root in allowed):
-                continue
-        status_lines.append(line)
-    diff = _git_output(repo_root, "diff", "--binary", "HEAD", binary=True)
+    changed_paths = sorted(
+        {
+            path
+            for path in changed_output.decode("utf-8", errors="replace").split("\0")
+            if path
+        }
+    )
+    ignored_notebook_runtime_paths = [
+        path
+        for path in changed_paths
+        if _is_notebook_runtime_only_change(repo_root, path)
+    ]
+    tracked_source_changes = [
+        path
+        for path in changed_paths
+        if path not in ignored_notebook_runtime_paths
+    ]
+    raw_diff = _git_output(repo_root, "diff", "--binary", "HEAD", binary=True)
+    diff = raw_diff if tracked_source_changes else b""
     untracked_output = str(
         _git_output(repo_root, "ls-files", "--others", "--exclude-standard")
     )
@@ -142,14 +224,26 @@ def _git_provenance(
     return {
         "commit": commit,
         "branch": branch,
-        "dirty": bool(status_lines),
+        "dirty": bool(tracked_source_changes or untracked_paths),
         "working_tree_diff_sha256": hashlib.sha256(diff).hexdigest(),
+        "tracked_source_changes": tracked_source_changes,
+        "ignored_notebook_runtime_paths": ignored_notebook_runtime_paths,
         "untracked_paths": untracked_paths,
         "untracked_content_sha256": untracked_digest.hexdigest(),
         "allowed_untracked_roots": [
             root.relative_to(repo_root.resolve()).as_posix() for root in allowed
         ],
     }
+
+
+def _dirty_git_error(git_provenance: dict[str, object]) -> RuntimeError:
+    tracked = list(git_provenance.get("tracked_source_changes") or [])
+    untracked = list(git_provenance.get("untracked_paths") or [])
+    return RuntimeError(
+        "paper experiment runs require a clean Git working tree source contract; "
+        f"tracked_source_changes={tracked[:10]}, untracked_paths={untracked[:10]}. "
+        "Notebook execution_count/output-only changes are ignored."
+    )
 
 
 def _package_versions() -> dict[str, str | None]:
@@ -321,11 +415,7 @@ class RunStore:
             and git_provenance.get("dirty")
             and allow_dirty is False
         ):
-            raise RuntimeError(
-                "paper experiment runs require a clean Git working tree; "
-                "commit or stash local changes, or explicitly set allow_dirty=True "
-                "for a non-paper development run"
-            )
+            raise _dirty_git_error(git_provenance)
         local_now = now or datetime.now(KST)
         if local_now.tzinfo is None:
             local_now = local_now.replace(tzinfo=KST)
@@ -442,11 +532,7 @@ class RunStore:
             and current_git.get("dirty")
             and allow_dirty is False
         ):
-            raise RuntimeError(
-                "paper experiment runs require a clean Git working tree; "
-                "commit or stash local changes, or explicitly set allow_dirty=True "
-                "for a non-paper development run"
-            )
+            raise _dirty_git_error(current_git)
         active = cls.open(active_dir)
         if (
             active.run_name != experiment_name
