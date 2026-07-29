@@ -1,4 +1,0 @@
-probe_type,count,accept_rate,mean_top1_score
-known_unknown,857,0.0,0.16331087370145553
-registered,676,0.028106508875739646,0.6720545919689201
-unknown_unknown,831,0.0,0.15980746163106851
