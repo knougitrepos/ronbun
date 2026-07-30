@@ -2,6 +2,8 @@ runs/lfw_*/**/*.csv filter=lfs diff=lfs merge=lfs -text
 runs/lfw_*/**/*.npz filter=lfs diff=lfs merge=lfs -text
 # Small analysis entry points must remain readable through GitHub integrations.
 runs/lfw_*/**/saliency_compression_associations.csv !filter !diff !merge text eol=lf
+runs/lfw_*/**/saliency_geometry_associations.csv !filter !diff !merge text eol=lf
+runs/lfw_*/**/saliency_retrieval_associations.csv !filter !diff !merge text eol=lf
 runs/lfw_*/**/representative_cases.csv !filter !diff !merge text eol=lf
 runs/archives/survface_*/**/*.csv filter=lfs diff=lfs merge=lfs -text
 runs/archives/survface_*/**/*.joblib filter=lfs diff=lfs merge=lfs -text
