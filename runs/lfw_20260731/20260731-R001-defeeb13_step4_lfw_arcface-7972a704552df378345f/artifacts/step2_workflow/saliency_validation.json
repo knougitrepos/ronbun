@@ -1,0 +1,13 @@
+{
+  "run_id": "20260731-R001-defeeb13",
+  "dataset_id": "lfw",
+  "population_rows": 4186,
+  "eligible_rows": 2962,
+  "gradcam_selected_rows": 2962,
+  "valid_heatmap_rows": 2959,
+  "saliency_sample_cap": null,
+  "saliency_selection_sha256": "de69ff67a2944e0a6b0a68991085712bd2d46dd9635e963f9dee5867d3dc787f",
+  "coverage_by_protocol_role": {},
+  "semantic_masked_rows": 2962,
+  "faithfulness_rows": 2962
+}

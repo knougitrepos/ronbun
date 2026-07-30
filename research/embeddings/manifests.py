@@ -162,19 +162,58 @@ def select_model_spec_by_profile(
 
     Unlike ``select_model_spec`` which uses only the family, this function
     verifies that the found manifest's family, architecture, and training
-    dataset match the profile configuration.  This prevents provenance
-    mismatches when the same family has multiple checkpoints registered.
+    dataset match the profile configuration.  Optional ``model_uid`` and
+    ``checkpoint_path`` profile fields pin one exact registered checkpoint.
+    This prevents provenance mismatches when the same family has multiple
+    checkpoints registered.
     """
 
     family = str(profile_config["family"])
     expected_arch = str(profile_config["architecture"])
     expected_dataset = str(profile_config["training_dataset"])
+    pinned_model_uid = profile_config.get("model_uid")
+    expected_checkpoint_path = profile_config.get("checkpoint_path")
+    resolved_expected_checkpoint = (
+        None
+        if expected_checkpoint_path is None
+        else Path(str(expected_checkpoint_path)).expanduser().resolve()
+    )
 
     root = Path(registry_root).expanduser().resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"model registry directory does not exist: {root}")
     if family not in {"arcface", "adaface", "magface"}:
         raise ValueError(f"unsupported FR model family: {family}")
+
+    if pinned_model_uid is not None:
+        manifest_path, spec = select_model_spec(
+            root,
+            family=family,
+            model_uid=str(pinned_model_uid),
+            verify_checkpoint=verify_checkpoint,
+        )
+        if (
+            spec.architecture != expected_arch
+            or spec.training_dataset != expected_dataset
+        ):
+            raise ModelSpecSelectionError(
+                f"profile '{profile_id}' pins model_uid {spec.model_uid!r}, "
+                "but its metadata does not match the profile: "
+                f"expected architecture={expected_arch!r}, "
+                f"training_dataset={expected_dataset!r}; "
+                f"actual architecture={spec.architecture!r}, "
+                f"training_dataset={spec.training_dataset!r}"
+            )
+        if (
+            resolved_expected_checkpoint is not None
+            and Path(spec.checkpoint.path).resolve() != resolved_expected_checkpoint
+        ):
+            raise ModelSpecSelectionError(
+                f"profile '{profile_id}' pins checkpoint "
+                f"{resolved_expected_checkpoint}, but model_uid "
+                f"{spec.model_uid!r} uses {spec.checkpoint.path}"
+            )
+        return manifest_path, spec
 
     matches: list[tuple[Path, ModelSpec]] = []
     for manifest_path in sorted(root.glob(f"{family}-*.json")):
@@ -190,6 +229,10 @@ def select_model_spec_by_profile(
             spec.family == family
             and spec.architecture == expected_arch
             and spec.training_dataset == expected_dataset
+            and (
+                resolved_expected_checkpoint is None
+                or Path(spec.checkpoint.path).resolve() == resolved_expected_checkpoint
+            )
         ):
             matches.append((manifest_path, spec))
 

@@ -1,0 +1,45 @@
+{
+  "artifact_type": "prepared_population_saliency_inputs",
+  "schema_version": 3,
+  "extraction_uid": "population-63cab99073e253db91b34d0f",
+  "dataset_id": "lfw",
+  "model_uid": "arcface-7972a704552df378345f",
+  "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+  "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+  "origin_embedding_artifact_uid": "origin-embedding-68a5ac5cbf3d388fa00d7218",
+  "target_name": "origin_leave_one_out_identity_cosine",
+  "row_count": 4186,
+  "embedding_dimension": 512,
+  "eligible_count": 2962,
+  "sample_index": {
+    "path": "sample_index.csv",
+    "sha256": "0d921ec64ab22c1eaeadb1a91a9a55387073c37b27faa32555468fc20b52fde5",
+    "bytes": 1855911
+  },
+  "embedding_shards": [
+    {
+      "path": "embedding_shards/part-00000.npz",
+      "sha256": "de98e494f25469d9bc89a36e1c2ee62ff55ff5bb55be6ee15bf8fd17f83584d8",
+      "bytes": 10721208,
+      "row_start": 0,
+      "row_stop": 2048,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00001.npz",
+      "sha256": "2103903bc8cd22809fd95c1d3e90db651aaf588689e1c7dfd3a2313995d05b48",
+      "bytes": 10479396,
+      "row_start": 2048,
+      "row_stop": 4096,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00002.npz",
+      "sha256": "1370a41bcb8ad3aaa5ba9c1f8cbdb0031c24b4731b7538a2fc54674c86735c76",
+      "bytes": 433478,
+      "row_start": 4096,
+      "row_stop": 4186,
+      "row_count": 90
+    }
+  ]
+}

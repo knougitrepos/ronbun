@@ -188,16 +188,16 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
         ("ca2", "cal-a", "calibration", 0.2, None, None),
         ("cb1", "cal-b", "calibration", 2.2, None, None),
         ("cb2", "cal-b", "calibration", 2.2, None, None),
-        ("g1", "official-a", "test", 0.4, "gallery", 0),
-        ("g2", "official-a", "test", 0.4, "gallery", 1),
-        ("p1", "official-a", "test", 0.4, "registered_probe", 0),
+        ("g1", "official-a", "test", 0.4, "gallery", 5),
+        ("g2", "official-a", "test", 0.4, "gallery", 9),
+        ("p1", "official-a", "test", 0.4, "registered_probe", 7),
         (
             "u1",
             "official-unknown",
             "test",
             2.6,
             "unknown_unknown_probe",
-            0,
+            11,
         ),
     ]
     vectors = np.zeros((len(rows), 512), dtype=np.float32)

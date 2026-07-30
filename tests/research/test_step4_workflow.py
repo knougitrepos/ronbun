@@ -12,13 +12,130 @@ import yaml
 
 from research.evaluation.saliency_compression import DEFAULT_SALIENCY_FEATURES
 from research.experiments import step4_workflow
+from research.experiments.scope import ExperimentScope
 from research.experiments.step4_workflow import (
     analyze_step4_saliency_compression,
     freeze_step4_source_and_model,
+    select_step4_source_manifest,
 )
+from research.protocols import build_survface_official_protocol
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_git_readiness_allows_pinned_dirty_quick_but_not_dirty_full() -> None:
+    provenance = {
+        "commit": "a" * 40,
+        "branch": "step5",
+        "dirty": True,
+        "working_tree_diff_sha256": "b" * 64,
+        "untracked_content_sha256": "c" * 64,
+    }
+    snapshot = dict(provenance)
+    quick_config = {
+        "execution": {"allow_dirty": True},
+        "orchestration": {"source_snapshot": snapshot},
+    }
+    full_config = {
+        "execution": {"allow_dirty": False},
+        "orchestration": {"source_snapshot": snapshot},
+    }
+
+    quick = step4_workflow._git_source_readiness(
+        quick_config,
+        provenance,
+    )
+    full = step4_workflow._git_source_readiness(
+        full_config,
+        provenance,
+    )
+    changed = step4_workflow._git_source_readiness(
+        quick_config,
+        {
+            **provenance,
+            "working_tree_diff_sha256": "d" * 64,
+        },
+    )
+
+    assert quick["git_policy_satisfied"] is True
+    assert quick["source_snapshot_matches"] is True
+    assert full["git_policy_satisfied"] is False
+    assert changed["git_policy_satisfied"] is True
+    assert changed["source_snapshot_matches"] is False
+
+
+def test_survface_quick_selection_records_source_and_local_protocol_indexes():
+    rows: list[dict[str, object]] = []
+    for index in range(4):
+        registered_id = f"registered-{index}"
+        unknown_id = f"unknown-{index}"
+        rows.extend(
+            [
+                {
+                    "image_id": f"gallery-{index}",
+                    "identity_id": registered_id,
+                    "split": "test",
+                    "image_path": f"gallery-{index}.jpg",
+                    "protocol_role": "gallery",
+                    "protocol_index": index,
+                },
+                {
+                    "image_id": f"probe-{index}",
+                    "identity_id": registered_id,
+                    "split": "test",
+                    "image_path": f"probe-{index}.jpg",
+                    "protocol_role": "registered_probe",
+                    "protocol_index": index,
+                },
+                {
+                    "image_id": f"unknown-{index}",
+                    "identity_id": unknown_id,
+                    "split": "test",
+                    "image_path": f"unknown-{index}.jpg",
+                    "protocol_role": "unknown_unknown_probe",
+                    "protocol_index": index,
+                },
+            ]
+        )
+    for split in ("development", "calibration"):
+        for index in range(4):
+            rows.append(
+                {
+                    "image_id": f"{split}-{index}",
+                    "identity_id": f"{split}-identity-{index}",
+                    "split": split,
+                    "image_path": f"{split}-{index}.jpg",
+                    "protocol_role": None,
+                    "protocol_index": None,
+                }
+            )
+    source = pd.DataFrame.from_records(rows)
+
+    selected = select_step4_source_manifest(
+        source,
+        dataset_id="survface",
+        scope=ExperimentScope(mode="real", data_fraction=0.5, seed=42),
+    )
+    official_mask = selected["protocol_role"].astype(str).isin(
+        {"gallery", "registered_probe", "unknown_unknown_probe"}
+    )
+    official = selected.loc[official_mask].copy()
+    protocol = build_survface_official_protocol(official)
+    source_indexes = source.set_index("image_id")["protocol_index"]
+
+    assert official["source_protocol_index"].notna().all()
+    assert all(
+        int(row.source_protocol_index)
+        == int(source_indexes.loc[row.image_id])
+        for row in official.itertuples()
+    )
+    for frame in (
+        protocol.gallery,
+        protocol.registered_probes,
+        protocol.unknown_unknown_probes,
+    ):
+        assert frame["protocol_index"].tolist() == list(range(len(frame)))
 
 
 class _FakePhase:

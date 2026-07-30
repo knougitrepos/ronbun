@@ -3,20 +3,31 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 import json
+import math
 import os
 from pathlib import Path
 import tempfile
 from typing import Any, Callable, Mapping
 
+import numpy as np
 import pandas as pd
 import yaml
 
+from research.embeddings import (
+    CheckpointProvenance,
+    ModelSpec,
+    PreprocessingSpec,
+    create_pytorch_adapter_from_spec,
+    resolve_smoke_input_batch,
+    write_model_spec,
+)
 from research.experiments.scope import ExperimentScope
 from research.experiments.step4_datasets import (
     load_step4_source_manifest,
     resolve_step4_dataset_spec,
 )
 from research.experiments.step4_workflow import (
+    SOURCE_SNAPSHOT_FIELDS,
     analyze_step4_saliency_compression,
     characterize_step4_compression,
     extract_step4_origin_embeddings,
@@ -32,6 +43,7 @@ from research.experiments.step4_workflow import (
 )
 from research.runtime import (
     RunStore,
+    inspect_git_provenance,
     resolve_active_dataset_run,
 )
 from research.runtime.hashing import canonical_sha256, sha256_file
@@ -39,6 +51,22 @@ from research.runtime.hashing import canonical_sha256, sha256_file
 
 SUPPORTED_COMMON_DATASETS = ("lfw", "survface")
 SUPPORTED_RUN_TIERS = ("quick", "full")
+SUPPORTED_MODEL_NAMES = ("arc", "ada", "mag")
+MODEL_NAME_TO_FAMILY: Mapping[str, str] = {
+    "arc": "arcface",
+    "ada": "adaface",
+    "mag": "magface",
+}
+DEFAULT_MODEL_PROFILES: Mapping[str, str] = {
+    "arc": "arcface_ms1mv3_r100",
+    "ada": "adaface_ms1mv3_r100",
+    "mag": "magface_ms1mv2_iresnet100",
+}
+DEFAULT_MODEL_WEIGHT_PATHS: Mapping[str, str] = {
+    "arc": "models/arcface/ms1mv3_r100_backbone.pth",
+    "ada": "models/adaface/adaface_ir101_ms1mv3.ckpt",
+    "mag": "models/magface/magface_epoch_00025.pth",
+}
 QUICK_DATA_FRACTIONS: Mapping[str, float] = {
     "lfw": 0.10,
     "survface": 0.02,
@@ -58,6 +86,9 @@ MAIN_COMPARISON_PROFILES = (
 FORMAL_FPIR_TARGETS = (0.30, 0.20, 0.10, 0.01, 0.001)
 EXPLORATORY_FPIR_TARGETS = (0.0001,)
 CALIBRATION_IDENTITY_COUNTS = (100, 500, 1000)
+SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID = (
+    "survface_quick_protocol_index_rebase_v1"
+)
 
 
 @dataclass(frozen=True)
@@ -124,13 +155,48 @@ STEP4_PIPELINE_STAGES = (
 
 
 @dataclass(frozen=True)
+class CommonModelPreparation:
+    model_name: str
+    model_profile: str
+    family: str
+    checkpoint_path: Path
+    checkpoint_sha256: str
+    model_uid: str
+    model_spec_path: Path
+    smoke_validation_status: str
+    smoke_validation_path: Path | None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "model_name": self.model_name,
+            "model_profile": self.model_profile,
+            "family": self.family,
+            "checkpoint_path": str(self.checkpoint_path),
+            "checkpoint_sha256": self.checkpoint_sha256,
+            "model_uid": self.model_uid,
+            "model_spec_path": str(self.model_spec_path),
+            "smoke_validation_status": self.smoke_validation_status,
+            "smoke_validation_path": (
+                None
+                if self.smoke_validation_path is None
+                else str(self.smoke_validation_path)
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class CommonExperimentPlan:
     project_root: Path
     dataset_id: str
     run_tier: str
     data_fraction: float
+    quick_data_fractions: dict[str, float]
+    quick_fraction_override: bool
     seed: int
+    model_name: str
     model_profile: str
+    model_uid: str | None
+    model_checkpoint_path: Path | None
     pipeline_id: str
     evaluation_contract_id: str
     base_step4_config_path: Path
@@ -155,8 +221,17 @@ class CommonExperimentPlan:
             "dataset_id": self.dataset_id,
             "run_tier": self.run_tier,
             "data_fraction": self.data_fraction,
+            "quick_data_fractions": self.quick_data_fractions,
+            "quick_fraction_override": self.quick_fraction_override,
             "seed": self.seed,
+            "model_name": self.model_name,
             "model_profile": self.model_profile,
+            "model_uid": self.model_uid,
+            "model_checkpoint_path": (
+                None
+                if self.model_checkpoint_path is None
+                else str(self.model_checkpoint_path)
+            ),
             "evaluation_contract_id": self.evaluation_contract_id,
             "evaluation_contract_path": str(self.evaluation_contract_path),
             "evaluation_contract_sha256": self.evaluation_contract_sha256,
@@ -192,6 +267,242 @@ def _resolve_project_file(
     if not resolved.is_file():
         raise FileNotFoundError(resolved)
     return resolved
+
+
+def _resolve_checkpoint_file(
+    project_root: Path,
+    path: str | Path,
+) -> Path:
+    candidate = Path(path)
+    resolved = (
+        candidate.expanduser().resolve()
+        if candidate.is_absolute()
+        else (project_root / candidate).resolve()
+    )
+    if not resolved.is_file():
+        raise FileNotFoundError(f"model checkpoint does not exist: {resolved}")
+    return resolved
+
+
+def _validated_model_name(model_name: str) -> str:
+    resolved = str(model_name).strip().lower()
+    if resolved not in SUPPORTED_MODEL_NAMES:
+        raise ValueError(f"model_name must be one of {SUPPORTED_MODEL_NAMES}")
+    return resolved
+
+
+def _validated_quick_data_fractions(
+    values: Mapping[str, float] | None,
+) -> dict[str, float]:
+    source = QUICK_DATA_FRACTIONS if values is None else values
+    if not isinstance(source, Mapping):
+        raise ValueError("quick_data_fractions must be a mapping")
+    if set(source) != set(SUPPORTED_COMMON_DATASETS):
+        raise ValueError(
+            f"quick_data_fractions must contain exactly {SUPPORTED_COMMON_DATASETS}"
+        )
+    resolved: dict[str, float] = {}
+    for dataset_id in SUPPORTED_COMMON_DATASETS:
+        value = source[dataset_id]
+        if isinstance(value, bool):
+            raise ValueError("quick data fractions must be numbers in (0, 1]")
+        try:
+            fraction = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("quick data fractions must be numbers in (0, 1]") from exc
+        if not math.isfinite(fraction) or not 0.0 < fraction <= 1.0:
+            raise ValueError("quick data fractions must be in (0, 1]")
+        resolved[dataset_id] = fraction
+    return resolved
+
+
+def _source_snapshot(provenance: Mapping[str, object]) -> dict[str, object]:
+    return {
+        field: provenance.get(field)
+        for field in SOURCE_SNAPSHOT_FIELDS
+    }
+
+
+def _write_json_atomic(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(
+        json.dumps(dict(payload), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
+
+
+def prepare_common_model_checkpoint(
+    *,
+    project_root: str | Path,
+    model_name: str,
+    model_profile: str | None = None,
+    checkpoint_path: str | Path | None = None,
+    step4_config_path: str | Path = DEFAULT_STEP4_CONFIG_PATH,
+    run_smoke_validation: bool = True,
+    smoke_device: str = "cuda",
+    max_smoke_images: int = 8,
+    seed: int = 42,
+) -> CommonModelPreparation:
+    """Register and optionally smoke-test one explicitly selected checkpoint.
+
+    The short notebook aliases ``arc``, ``ada`` and ``mag`` select a profile,
+    while the checkpoint path remains an explicit user-controlled input.  The
+    resulting model UID pins the exact checkpoint hash and preprocessing
+    contract for the experiment plan.
+    """
+
+    root = Path(project_root).resolve()
+    name = _validated_model_name(model_name)
+    config_path = _resolve_project_file(
+        root,
+        step4_config_path,
+        label="Step 4 config",
+    )
+    config = load_step4_config(config_path)
+    profiles = config.get("models", {}).get("profiles", {})
+    profile_id = str(model_profile or DEFAULT_MODEL_PROFILES[name]).strip()
+    if profile_id not in profiles:
+        raise ValueError(
+            f"unknown model_profile {profile_id!r}; available={sorted(profiles)}"
+        )
+    if profile_id in set(config["models"].get("blocked_profiles", ())):
+        raise RuntimeError(f"blocked model profile cannot be prepared: {profile_id}")
+    profile = profiles[profile_id]
+    expected_family = MODEL_NAME_TO_FAMILY[name]
+    actual_family = str(profile["family"])
+    if actual_family != expected_family:
+        raise ValueError(
+            f"model_name {name!r} requires family {expected_family!r}, "
+            f"but profile {profile_id!r} declares {actual_family!r}"
+        )
+    if not bool(profile.get("run_gradcam", False)):
+        raise ValueError(
+            f"profile {profile_id!r} is not enabled for the common Grad-CAM "
+            "pipeline; select a run_gradcam=true profile"
+        )
+
+    selected_checkpoint = _resolve_checkpoint_file(
+        root,
+        checkpoint_path or DEFAULT_MODEL_WEIGHT_PATHS[name],
+    )
+    source_url = str(
+        profile.get("checkpoint_source_url")
+        or profile.get("checkpoint_source_page")
+        or profile["implementation_repository"]
+    ).strip()
+    checkpoint = CheckpointProvenance.from_file(
+        selected_checkpoint,
+        source_url=source_url,
+    )
+    preprocessing = PreprocessingSpec(
+        input_height=int(profile["preprocessing"]["input_size"][0]),
+        input_width=int(profile["preprocessing"]["input_size"][1]),
+        source_color_order=str(config["aligned_crops"]["source_color_order"]),
+        model_color_order=str(profile["preprocessing"]["model_color_order"]),
+        channel_mean=tuple(float(value) for value in profile["preprocessing"]["mean"]),
+        channel_std=tuple(float(value) for value in profile["preprocessing"]["std"]),
+    )
+    spec = ModelSpec(
+        family=actual_family,
+        architecture=str(profile["architecture"]),
+        training_dataset=str(profile["training_dataset"]),
+        implementation_repository=str(profile["implementation_repository"]),
+        checkpoint=checkpoint,
+        preprocessing=preprocessing,
+        target_layer=str(profile["target_layer"]),
+        embedding_dim=int(profile["embedding_dim"]),
+        module_factory=str(profile["loader_factory"]),
+    )
+    registry_path = root / config["models"]["registry_root"] / f"{spec.model_uid}.json"
+    write_model_spec(registry_path, spec)
+
+    validation_path = (
+        root
+        / config["models"]["validation_root"]
+        / spec.model_uid
+        / "smoke_summary.json"
+    )
+    smoke_status = "not_requested"
+    if validation_path.is_file():
+        existing = json.loads(validation_path.read_text(encoding="utf-8"))
+        expected = {
+            "model_uid": spec.model_uid,
+            "profile_id": profile_id,
+            "family": spec.family,
+            "architecture": spec.architecture,
+            "training_dataset": spec.training_dataset,
+            "checkpoint_sha256": spec.checkpoint.sha256,
+            "preprocess_hash": spec.preprocessing.preprocess_hash,
+            "target_layer": spec.target_layer,
+            "status": "validated",
+        }
+        mismatches = {
+            key: {"expected": value, "actual": existing.get(key)}
+            for key, value in expected.items()
+            if existing.get(key) != value
+        }
+        if mismatches:
+            raise RuntimeError(
+                "existing smoke validation does not match the selected model: "
+                f"{mismatches}"
+            )
+        smoke_status = "reused_validated"
+    elif run_smoke_validation:
+        if (
+            isinstance(max_smoke_images, bool)
+            or int(max_smoke_images) != max_smoke_images
+            or int(max_smoke_images) < 1
+        ):
+            raise ValueError("max_smoke_images must be a positive integer")
+        smoke_input = resolve_smoke_input_batch(
+            root,
+            source_color_order=spec.preprocessing.source_color_order,
+            lfw_manifest_path=(root / config["datasets"]["lfw"]["manifest_path"]),
+            max_images=int(max_smoke_images),
+            seed=int(seed),
+        )
+        adapter = create_pytorch_adapter_from_spec(
+            spec,
+            device=str(smoke_device),
+        )
+        output = adapter.embed(smoke_input.aligned_faces)
+        _ = adapter.target_layer
+        unit_norms = np.linalg.norm(output.normalized_embedding, axis=1)
+        smoke_summary = {
+            "model_uid": spec.model_uid,
+            "model_name": name,
+            "profile_id": profile_id,
+            "family": spec.family,
+            "architecture": spec.architecture,
+            "training_dataset": spec.training_dataset,
+            "model_spec_path": str(registry_path),
+            "smoke_input": smoke_input.metadata,
+            "checkpoint_sha256": spec.checkpoint.sha256,
+            "preprocess_hash": spec.preprocessing.preprocess_hash,
+            "sample_count": int(len(smoke_input.aligned_faces)),
+            "raw_shape": list(output.raw_embedding.shape),
+            "raw_norm_min": float(output.raw_norm.min()),
+            "raw_norm_max": float(output.raw_norm.max()),
+            "maximum_unit_norm_error": float(np.max(np.abs(unit_norms - 1.0))),
+            "target_layer": spec.target_layer,
+            "status": "validated",
+        }
+        _write_json_atomic(validation_path, smoke_summary)
+        smoke_status = "validated_now"
+
+    return CommonModelPreparation(
+        model_name=name,
+        model_profile=profile_id,
+        family=actual_family,
+        checkpoint_path=selected_checkpoint,
+        checkpoint_sha256=spec.checkpoint.sha256,
+        model_uid=spec.model_uid,
+        model_spec_path=registry_path,
+        smoke_validation_status=smoke_status,
+        smoke_validation_path=(validation_path if validation_path.is_file() else None),
+    )
 
 
 def load_evaluation_contract(path: str | Path) -> dict[str, Any]:
@@ -280,11 +591,17 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
 def _effective_step4_config(
     base_config: Mapping[str, Any],
     *,
+    project_root: Path,
     dataset_id: str,
     run_tier: str,
     data_fraction: float,
+    quick_data_fractions: Mapping[str, float],
+    quick_fraction_override: bool,
     seed: int,
+    model_name: str | None,
     model_profile: str | None,
+    model_uid: str | None,
+    model_checkpoint_path: str | Path | None,
     contract_id: str,
     contract_sha256: str,
 ) -> dict[str, Any]:
@@ -298,22 +615,65 @@ def _effective_step4_config(
         raise ValueError(
             f"unknown model_profile {selected_profile!r}; available={sorted(profiles)}"
         )
+    profile = profiles[selected_profile]
+    profile_family = str(profile["family"])
+    if profile.get("run_gradcam") is False:
+        raise ValueError(
+            f"profile {selected_profile!r} is not enabled for the common "
+            "Grad-CAM pipeline"
+        )
+    selected_model_name = (
+        next(
+            name
+            for name, family in MODEL_NAME_TO_FAMILY.items()
+            if family == profile_family
+        )
+        if model_name is None
+        else _validated_model_name(model_name)
+    )
+    if MODEL_NAME_TO_FAMILY[selected_model_name] != profile_family:
+        raise ValueError(
+            f"model_name {selected_model_name!r} does not match profile "
+            f"{selected_profile!r} family {profile_family!r}"
+        )
+    resolved_checkpoint_path = (
+        None
+        if model_checkpoint_path is None
+        else _resolve_checkpoint_file(
+            project_root,
+            model_checkpoint_path,
+        )
+    )
+    if model_uid is not None:
+        profile["model_uid"] = str(model_uid)
+        config["models"]["model_uid"] = str(model_uid)
+    if resolved_checkpoint_path is not None:
+        profile["checkpoint_path"] = str(resolved_checkpoint_path)
     execution.update(
         {
+            "model_name": selected_model_name,
             "model_profile": selected_profile,
+            "model_uid": None if model_uid is None else str(model_uid),
+            "model_checkpoint_path": (
+                None
+                if resolved_checkpoint_path is None
+                else str(resolved_checkpoint_path)
+            ),
             "mode": "real",
             "data_fraction": data_fraction,
             "seed": seed,
             "execute_stage": True,
             "write_outputs": True,
             "overwrite": False,
-            "allow_dirty": False,
+            "allow_dirty": run_tier == "quick",
         }
     )
     config["orchestration"] = {
         "pipeline_id": "common_step4_gradcam_v1",
         "dataset_id": dataset_id,
         "run_tier": run_tier,
+        "quick_data_fractions": dict(quick_data_fractions),
+        "quick_fraction_override": quick_fraction_override,
         "evaluation_contract_id": contract_id,
         "evaluation_contract_sha256": contract_sha256,
         "comparison_contract_coverage": "partial",
@@ -342,7 +702,11 @@ def build_common_experiment_plan(
     dataset_id: str,
     run_tier: str,
     seed: int = 42,
+    model_name: str | None = None,
     model_profile: str | None = None,
+    model_uid: str | None = None,
+    model_checkpoint_path: str | Path | None = None,
+    quick_data_fractions: Mapping[str, float] | None = None,
     step4_config_path: str | Path = DEFAULT_STEP4_CONFIG_PATH,
     evaluation_contract_path: str | Path = (DEFAULT_EVALUATION_CONTRACT_PATH),
 ) -> CommonExperimentPlan:
@@ -358,8 +722,10 @@ def build_common_experiment_plan(
     if isinstance(seed, bool) or int(seed) != seed:
         raise ValueError("seed must be an integer")
     resolved_seed = int(seed)
+    resolved_quick_fractions = _validated_quick_data_fractions(quick_data_fractions)
+    quick_fraction_override = resolved_quick_fractions != dict(QUICK_DATA_FRACTIONS)
     data_fraction = (
-        float(QUICK_DATA_FRACTIONS[dataset]) if tier == "quick" else FULL_DATA_FRACTION
+        resolved_quick_fractions[dataset] if tier == "quick" else FULL_DATA_FRACTION
     )
     if tier == "full" and data_fraction != 1.0:
         raise RuntimeError("full runs must use data_fraction=1.0")
@@ -378,15 +744,28 @@ def build_common_experiment_plan(
     contract = load_evaluation_contract(contract_path)
     contract_id = str(contract["contract_id"])
     contract_sha256 = sha256_file(contract_path)
+    source_provenance = inspect_git_provenance(
+        root,
+        run_root=root / base_config["run"]["root"],
+    )
     effective_config = _effective_step4_config(
         base_config,
+        project_root=root,
         dataset_id=dataset,
         run_tier=tier,
         data_fraction=data_fraction,
+        quick_data_fractions=resolved_quick_fractions,
+        quick_fraction_override=quick_fraction_override,
         seed=resolved_seed,
+        model_name=model_name,
         model_profile=model_profile,
+        model_uid=model_uid,
+        model_checkpoint_path=model_checkpoint_path,
         contract_id=contract_id,
         contract_sha256=contract_sha256,
+    )
+    effective_config["orchestration"]["source_snapshot"] = (
+        _source_snapshot(source_provenance)
     )
 
     spec = resolve_step4_dataset_spec(
@@ -425,14 +804,26 @@ def build_common_experiment_plan(
         "effective_step4_config": effective_config,
     }
     plan_id = canonical_sha256(fingerprint_payload)[:16]
+    selected_model_name = str(effective_config["execution"]["model_name"])
     selected_profile = str(effective_config["execution"]["model_profile"])
+    selected_model_uid = effective_config["execution"]["model_uid"]
+    selected_checkpoint_value = effective_config["execution"]["model_checkpoint_path"]
     return CommonExperimentPlan(
         project_root=root,
         dataset_id=dataset,
         run_tier=tier,
         data_fraction=data_fraction,
+        quick_data_fractions=resolved_quick_fractions,
+        quick_fraction_override=quick_fraction_override,
         seed=resolved_seed,
+        model_name=selected_model_name,
         model_profile=selected_profile,
+        model_uid=(None if selected_model_uid is None else str(selected_model_uid)),
+        model_checkpoint_path=(
+            None
+            if selected_checkpoint_value is None
+            else Path(str(selected_checkpoint_value)).resolve()
+        ),
         pipeline_id="common_step4_gradcam_v1",
         evaluation_contract_id=contract_id,
         base_step4_config_path=base_path,
@@ -571,6 +962,21 @@ def _completed_matching_runs(plan: CommonExperimentPlan) -> list[Path]:
 def _active_matching_run(
     plan: CommonExperimentPlan,
 ) -> RunStore | None:
+    run = _active_dataset_run(plan)
+    if run is None:
+        return None
+    if run.config.get("step4") != plan.effective_step4_config:
+        raise RuntimeError(
+            "a different incomplete dataset run is active. Complete or "
+            "selectively clean that run before executing this plan: "
+            f"{run.run_dir}"
+        )
+    return run
+
+
+def _active_dataset_run(
+    plan: CommonExperimentPlan,
+) -> RunStore | None:
     config = plan.effective_step4_config
     try:
         run_dir = resolve_active_dataset_run(
@@ -580,14 +986,143 @@ def _active_matching_run(
         )
     except FileNotFoundError:
         return None
-    run = RunStore.open(run_dir)
-    if run.config.get("step4") != config:
+    return RunStore.open(run_dir)
+
+
+def _config_without_source_snapshot(
+    config: Mapping[str, object],
+) -> dict[str, object]:
+    comparable = deepcopy(dict(config))
+    orchestration = comparable.get("orchestration")
+    if isinstance(orchestration, dict):
+        orchestration.pop("source_snapshot", None)
+    return comparable
+
+
+def _latest_phase_attempt_manifest(
+    run: RunStore,
+    phase_name: str,
+) -> dict[str, object] | None:
+    attempts_dir = run.run_dir / "phases" / phase_name / "attempts"
+    candidates: list[tuple[int, dict[str, object]]] = []
+    for path in attempts_dir.glob("A*/phase_manifest.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            attempt = int(payload["attempt"])
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+        candidates.append((attempt, payload))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item[0])[1]
+
+
+def _is_known_survface_quick_protocol_index_failure(
+    run: RunStore,
+    plan: CommonExperimentPlan,
+) -> bool:
+    existing_config = run.config.get("step4")
+    if not isinstance(existing_config, Mapping):
+        return False
+    if plan.dataset_id != "survface" or plan.run_tier != "quick":
+        return False
+    if (
+        _config_without_source_snapshot(existing_config)
+        != _config_without_source_snapshot(plan.effective_step4_config)
+    ):
+        return False
+    required_completed = (
+        "00_source_and_model_freeze",
+        "01_origin_embedding_and_target_templates",
+        "02_population_gradcam_extraction",
+        "03_saliency_feature_validation",
+    )
+    if not all(
+        _completed_phase(run.run_dir, phase_name)
+        for phase_name in required_completed
+    ):
+        return False
+    latest = _latest_phase_attempt_manifest(
+        run,
+        "04_step2_compression_characterization",
+    )
+    if latest is None or latest.get("status") != "failed":
+        return False
+    failure = latest.get("failure")
+    if not isinstance(failure, Mapping):
+        return False
+    return str(failure.get("message", "")).endswith(
+        "protocol_index must be unique and contiguous from 0"
+    )
+
+
+def _recorded_step4_config_path(run: RunStore) -> Path:
+    manifest = json.loads(run.manifest_path.read_text(encoding="utf-8"))
+    candidates = [
+        entry
+        for entry in manifest.get("inputs", [])
+        if entry.get("role") == "step4_config"
+    ]
+    if len(candidates) != 1:
+        raise RuntimeError(
+            "the active run must contain exactly one frozen step4_config input"
+        )
+    entry = candidates[0]
+    path = Path(str(entry["path"])).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"frozen Step 4 config is missing: {path}")
+    if sha256_file(path) != str(entry.get("sha256")):
+        raise ValueError(f"frozen Step 4 config hash mismatch: {path}")
+    recorded_config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(recorded_config, Mapping):
+        raise ValueError(f"frozen Step 4 config must be a mapping: {path}")
+    if recorded_config != run.config.get("step4"):
+        raise ValueError(
+            "frozen Step 4 config content differs from the active run config"
+        )
+    return path
+
+
+def _resolve_execution_run(
+    plan: CommonExperimentPlan,
+    *,
+    current_config_path: Path,
+) -> tuple[RunStore | None, Path, dict[str, object] | None]:
+    run = _active_dataset_run(plan)
+    if run is None:
+        return None, current_config_path, None
+    existing_config = run.config.get("step4")
+    if existing_config == plan.effective_step4_config:
+        return run, current_config_path, None
+    if not _is_known_survface_quick_protocol_index_failure(run, plan):
         raise RuntimeError(
             "a different incomplete dataset run is active. Complete or "
             "selectively clean that run before executing this plan: "
             f"{run.run_dir}"
         )
-    return run
+
+    frozen_config_path = _recorded_step4_config_path(run)
+    existing_orchestration = existing_config.get("orchestration", {})
+    correction_context = {
+        "correction_id": SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID,
+        "reason": (
+            "resume the known SurvFace Quick protocol_index gap failure "
+            "without rewriting completed phase artifacts"
+        ),
+        "frozen_source_snapshot": existing_orchestration.get(
+            "source_snapshot"
+        ),
+        "resume_source_snapshot": plan.effective_step4_config.get(
+            "orchestration", {}
+        ).get("source_snapshot"),
+        "resume_plan_id": plan.plan_id,
+        "frozen_config_path": str(frozen_config_path),
+    }
+    run.record_event(
+        "source_correction_resume_authorized",
+        **correction_context,
+    )
+    return run, frozen_config_path, correction_context
 
 
 def _call_step4_stage(
@@ -596,6 +1131,7 @@ def _call_step4_stage(
     config_path: Path,
     plan: CommonExperimentPlan,
     progress: Callable[[str, dict[str, object]], None] | None,
+    execution_context: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     common = {
         "project_root": plan.project_root,
@@ -620,6 +1156,7 @@ def _call_step4_stage(
         return characterize_step4_compression(
             config_path,
             progress=progress,
+            execution_context=execution_context,
             **common,
         )
     if stage_id == "saliency_compression_join":
@@ -655,8 +1192,11 @@ def run_common_step4_experiment(
     preflight = inspect_common_experiment_plan(plan)
     if not preflight["ready_to_execute_pipeline"]:
         raise RuntimeError("local preflight failed; inspect readiness before execution")
-    config_path = materialize_effective_step4_config(plan)
-    run = _active_matching_run(plan)
+    current_config_path = materialize_effective_step4_config(plan)
+    run, config_path, execution_context = _resolve_execution_run(
+        plan,
+        current_config_path=current_config_path,
+    )
     if run is None:
         completed = _completed_matching_runs(plan)
         if completed and not start_new_run:
@@ -757,6 +1297,11 @@ def run_common_step4_experiment(
             config_path=config_path,
             plan=plan,
             progress=progress,
+            execution_context=(
+                execution_context
+                if stage.stage_id == "compression_characterization"
+                else None
+            ),
         )
         stage_results.append(
             {
@@ -774,6 +1319,7 @@ def run_common_step4_experiment(
         "run_id": run.run_id,
         "run_dir": str(run.run_dir),
         "plan_id": plan.plan_id,
+        "source_correction_resume": execution_context,
         "materialization": materialized,
         "stages": stage_results,
         "comparison_paper_eligible": False,

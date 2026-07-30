@@ -232,6 +232,71 @@ def build_survface_official_protocol(manifest: pd.DataFrame) -> OpenSetProtocol:
     )
 
 
+def rebase_survface_protocol_subset_indexes(
+    manifest: pd.DataFrame,
+) -> pd.DataFrame:
+    """Give a selected official subset contiguous local protocol indexes.
+
+    ``source_protocol_index`` retains the row's position in the complete QMUL-
+    SurvFace protocol. ``protocol_index`` is then rebased independently inside
+    each selected role so the subset itself remains a valid ordered protocol.
+    The input row order is preserved.
+    """
+
+    required = {"protocol_role", "protocol_index"}
+    missing = required.difference(manifest.columns)
+    if missing:
+        raise ValueError(
+            f"missing SurvFace protocol columns: {sorted(missing)}"
+        )
+    expected_roles = {
+        "gallery",
+        "registered_probe",
+        "unknown_unknown_probe",
+    }
+    roles = set(manifest["protocol_role"].astype(str))
+    if roles != expected_roles:
+        raise ValueError(
+            "SurvFace protocol roles must be "
+            f"{sorted(expected_roles)}, got {sorted(roles)}"
+        )
+
+    rebased = manifest.copy()
+    if "source_protocol_index" not in rebased.columns:
+        rebased["source_protocol_index"] = rebased["protocol_index"]
+
+    for role in sorted(expected_roles):
+        role_mask = rebased["protocol_role"].astype(str).eq(role)
+        source_indexes = pd.to_numeric(
+            rebased.loc[role_mask, "source_protocol_index"],
+            errors="coerce",
+        )
+        if source_indexes.isna().any() or not source_indexes.map(
+            lambda value: float(value).is_integer()
+        ).all():
+            raise ValueError(
+                f"{role} source_protocol_index must contain integers"
+            )
+        integer_indexes = source_indexes.astype(int)
+        if integer_indexes.duplicated().any():
+            raise ValueError(
+                f"{role} source_protocol_index must be unique"
+            )
+        ordered_rows = integer_indexes.sort_values(kind="stable").index
+        rebased.loc[ordered_rows, "source_protocol_index"] = (
+            integer_indexes.loc[ordered_rows].to_numpy()
+        )
+        rebased.loc[ordered_rows, "protocol_index"] = range(len(ordered_rows))
+
+    rebased["source_protocol_index"] = pd.to_numeric(
+        rebased["source_protocol_index"]
+    ).astype("int64")
+    rebased["protocol_index"] = pd.to_numeric(
+        rebased["protocol_index"]
+    ).astype("int64")
+    return rebased
+
+
 def filter_protocol_to_available_embeddings(
     protocol: OpenSetProtocol,
     available_image_paths: Sequence[str | Path],

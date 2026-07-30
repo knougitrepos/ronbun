@@ -1,0 +1,15 @@
+{
+  "run_id": "20260731-R001-d0e03786",
+  "dataset_id": "survface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "selected_samples": 135529,
+  "saliency_selected_samples": 52775,
+  "saliency_selection_sha256": "0f03106d1cf8cbf2aeea1573f2d7ab6004cc28f16c76b014dc9bc8855f8e967c",
+  "paired_rows": 1355290,
+  "retrieval_rows": 1055500,
+  "geometry_association_rows": 570,
+  "retrieval_association_rows": 2280,
+  "representative_cases": 320,
+  "threshold_policy": "frozen_origin",
+  "regenerated_gradcam": false
+}

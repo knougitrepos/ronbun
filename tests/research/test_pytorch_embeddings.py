@@ -19,6 +19,7 @@ from research.embeddings.manifests import (
     ModelSpecSelectionError,
     read_model_spec,
     select_model_spec,
+    select_model_spec_by_profile,
     write_model_spec,
 )
 from research.embeddings.registry import (
@@ -221,6 +222,61 @@ def test_model_spec_registry_requires_uid_when_family_is_ambiguous(tmp_path):
 
     with pytest.raises(ModelSpecSelectionError, match="MODEL_UID explicitly"):
         select_model_spec(registry, family="arcface")
+
+
+def test_profile_selection_pins_exact_uid_and_checkpoint(tmp_path):
+    registry = tmp_path / "registry"
+    first_root = tmp_path / "first"
+    first_root.mkdir()
+    second_root = tmp_path / "second"
+    second_root.mkdir()
+    first = _spec(first_root, "arcface")
+    write_model_spec(registry / f"{first.model_uid}.json", first)
+    second_base = _spec(second_root, "arcface")
+    Path(second_base.checkpoint.path).write_bytes(b"second-arcface-checkpoint")
+    second = ModelSpec(
+        family=second_base.family,
+        architecture=second_base.architecture,
+        training_dataset=second_base.training_dataset,
+        implementation_repository=second_base.implementation_repository,
+        checkpoint=CheckpointProvenance.from_file(
+            second_base.checkpoint.path,
+            source_url=second_base.checkpoint.source_url,
+        ),
+        preprocessing=second_base.preprocessing,
+        target_layer=second_base.target_layer,
+    )
+    second_path = write_model_spec(
+        registry / f"{second.model_uid}.json",
+        second,
+    )
+    profile = {
+        "family": "arcface",
+        "architecture": second.architecture,
+        "training_dataset": second.training_dataset,
+        "model_uid": second.model_uid,
+        "checkpoint_path": second.checkpoint.path,
+    }
+
+    selected_path, selected = select_model_spec_by_profile(
+        registry,
+        profile_id="arcface_test",
+        profile_config=profile,
+    )
+
+    assert selected_path == second_path
+    assert selected == second
+
+    wrong_checkpoint = dict(
+        profile,
+        checkpoint_path=first.checkpoint.path,
+    )
+    with pytest.raises(ModelSpecSelectionError, match="pins checkpoint"):
+        select_model_spec_by_profile(
+            registry,
+            profile_id="arcface_test",
+            profile_config=wrong_checkpoint,
+        )
 
 
 def test_model_spec_registry_rejects_unsafe_or_wrong_family_uid(tmp_path):

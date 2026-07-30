@@ -27,6 +27,7 @@ from research.protocols import (
     build_calibration_protocol,
     build_open_set_protocol,
     build_survface_official_protocol,
+    rebase_survface_protocol_subset_indexes,
     validate_identity_disjoint_splits,
 )
 from research.templates.aggregation import aggregate_templates
@@ -591,6 +592,7 @@ def characterize_step2_survface_compression(
     ].copy()
     if official.empty:
         raise ValueError("SurvFace official evaluation rows are missing")
+    official = rebase_survface_protocol_subset_indexes(official)
     evaluation_protocol = build_survface_official_protocol(official)
     if not evaluation_protocol.known_unknown_probes.empty:
         raise ValueError("SurvFace official protocol must not contain known-unknown")

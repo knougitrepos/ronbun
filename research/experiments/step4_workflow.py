@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 import gc
 import hashlib
@@ -60,7 +60,10 @@ from research.preprocessing.aligned_crops import (
     materialize_aligned_crops,
     validate_aligned_crop_bundle,
 )
-from research.protocols import build_survface_official_protocol
+from research.protocols import (
+    build_survface_official_protocol,
+    rebase_survface_protocol_subset_indexes,
+)
 from research.runtime import (
     RunStore,
     inspect_git_provenance,
@@ -73,6 +76,13 @@ from research.runtime.hashing import sha256_file
 ProgressCallback = Callable[[str, dict[str, object]], None]
 STEP4_JOIN_CHUNK_ROWS = 100_000
 STEP4_BOOTSTRAP_BATCH_SIZE = 4
+SOURCE_SNAPSHOT_FIELDS = (
+    "commit",
+    "branch",
+    "dirty",
+    "working_tree_diff_sha256",
+    "untracked_content_sha256",
+)
 
 
 def load_step4_config(path: str | Path) -> dict[str, Any]:
@@ -83,6 +93,32 @@ def load_step4_config(path: str | Path) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise ValueError("Step 4 config root must be a mapping")
     return config
+
+
+def _git_source_readiness(
+    config: dict[str, Any],
+    git_provenance: dict[str, object],
+) -> dict[str, object]:
+    git_clean = not bool(git_provenance["dirty"])
+    allow_dirty = bool(config["execution"].get("allow_dirty", False))
+    expected_source_snapshot = config.get("orchestration", {}).get(
+        "source_snapshot"
+    )
+    current_source_snapshot = {
+        field: git_provenance.get(field)
+        for field in SOURCE_SNAPSHOT_FIELDS
+    }
+    return {
+        "git_clean": git_clean,
+        "allow_dirty": allow_dirty,
+        "git_policy_satisfied": git_clean or allow_dirty,
+        "source_snapshot_matches": (
+            expected_source_snapshot is None
+            or expected_source_snapshot == current_source_snapshot
+        ),
+        "expected_source_snapshot": expected_source_snapshot,
+        "current_source_snapshot": current_source_snapshot,
+    }
 
 
 def inspect_step4_readiness(
@@ -132,6 +168,7 @@ def inspect_step4_readiness(
         root,
         run_root=root / config["run"]["root"],
     )
+    git_readiness = _git_source_readiness(config, git_provenance)
     required_provider = str(
         config["aligned_crops"]["required_primary_provider"]
     )
@@ -142,7 +179,7 @@ def inspect_step4_readiness(
         for name in ("execute_stage", "write_outputs", "overwrite")
     }
     checks = {
-        "git_clean": not bool(git_provenance["dirty"]),
+        **git_readiness,
         "git_provenance": git_provenance,
         "cuda_available": cuda_available,
         "required_onnx_provider_available": required_provider
@@ -158,7 +195,8 @@ def inspect_step4_readiness(
         "execution_gates": gates,
     }
     ready_to_materialize = bool(
-        checks["git_clean"]
+        checks["git_policy_satisfied"]
+        and checks["source_snapshot_matches"]
         and checks["cuda_available"]
         and checks["required_onnx_provider_available"]
         and checks["model_spec_verified"]
@@ -222,6 +260,9 @@ def select_step4_source_manifest(
             ],
             ignore_index=True,
         )
+        official_selected = rebase_survface_protocol_subset_indexes(
+            official_selected
+        )
         training_parts = [
             select_manifest_fraction(
                 group,
@@ -233,14 +274,41 @@ def select_step4_source_manifest(
                 sort=True,
             )
         ]
-        selected_ids = set(
-            pd.concat([*training_parts, official_selected], ignore_index=True)[
-                "image_id"
-            ].astype(str)
+        training_selected = pd.concat(training_parts, ignore_index=True)
+        selected = pd.concat(
+            [training_selected, official_selected],
+            ignore_index=True,
         )
-        return source.loc[
+        selected_ids = set(selected["image_id"].astype(str))
+        source_order = source.loc[
             source["image_id"].astype(str).isin(selected_ids)
-        ].copy().reset_index(drop=True)
+        ].copy()
+        protocol_columns = official_selected[
+            ["image_id", "source_protocol_index", "protocol_index"]
+        ].copy()
+        source_order = source_order.drop(
+            columns=["source_protocol_index"],
+            errors="ignore",
+        ).merge(
+            protocol_columns,
+            on="image_id",
+            how="left",
+            suffixes=("_source", ""),
+            validate="one_to_one",
+        )
+        official_selected_mask = source_order["protocol_role"].astype(str).isin(
+            official_roles
+        )
+        source_order.loc[
+            ~official_selected_mask,
+            "protocol_index",
+        ] = source_order.loc[
+            ~official_selected_mask,
+            "protocol_index_source",
+        ]
+        return source_order.drop(
+            columns=["protocol_index_source"]
+        ).reset_index(drop=True)
     selected_parts = [
         select_manifest_fraction(
             group,
@@ -1101,6 +1169,7 @@ def characterize_step4_compression(
     dataset_id: str,
     execution_acknowledged: bool = False,
     progress: ProgressCallback | None = None,
+    execution_context: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Run only PCA/PQ characterization and open-set evaluation."""
 
@@ -1133,6 +1202,12 @@ def characterize_step4_compression(
         for item in config["compression"]["families"]["pq"]["settings"]
     )
     with run.phase("04_step2_compression_characterization") as phase:
+        if execution_context is not None:
+            phase.details["execution_context"] = dict(execution_context)
+            phase.record(
+                "phase_execution_context",
+                execution_context=dict(execution_context),
+            )
         if dataset_spec.dataset_id == "survface":
             compression = characterize_step2_survface_compression(
                 prepared,

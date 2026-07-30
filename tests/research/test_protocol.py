@@ -5,6 +5,7 @@ from research.protocols.open_set import (
     build_calibration_protocol,
     build_open_set_protocol,
     build_survface_official_protocol,
+    rebase_survface_protocol_subset_indexes,
     validate_identity_disjoint_splits,
 )
 
@@ -161,6 +162,23 @@ def test_survface_protocol_preserves_each_official_role_order():
     assert protocol.gallery["image_id"].tolist() == ["g0", "g1"]
     assert protocol.registered_probes["image_id"].tolist() == ["p0", "p1"]
     assert protocol.known_unknown_probes.empty
+    assert protocol.unknown_unknown_probes["image_id"].tolist() == ["u0", "u1"]
+
+
+def test_survface_subset_rebase_preserves_source_indexes_and_local_order():
+    manifest = _survface_manifest().assign(
+        protocol_index=[4, 9, 7, 12, 3, 18]
+    )
+
+    rebased = rebase_survface_protocol_subset_indexes(manifest)
+    repeated = rebase_survface_protocol_subset_indexes(rebased)
+    protocol = build_survface_official_protocol(rebased)
+
+    assert rebased["source_protocol_index"].tolist() == [4, 9, 7, 12, 3, 18]
+    assert rebased["protocol_index"].tolist() == [0, 1, 0, 1, 0, 1]
+    pd.testing.assert_frame_equal(rebased, repeated)
+    assert protocol.gallery["image_id"].tolist() == ["g0", "g1"]
+    assert protocol.registered_probes["image_id"].tolist() == ["p0", "p1"]
     assert protocol.unknown_unknown_probes["image_id"].tolist() == ["u0", "u1"]
 
 
