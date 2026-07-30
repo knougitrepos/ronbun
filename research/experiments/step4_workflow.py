@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+import gc
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 from typing import Any
 
 import numpy as np
@@ -17,11 +20,13 @@ from research.embeddings import (
     select_model_spec_by_profile,
 )
 from research.evaluation import (
+    WEIGHTED_RERANK_ALGORITHM_VERSION,
+    WEIGHTED_RERANK_STRATEGY,
     annotate_compression_lineage,
-    join_population_saliency_with_compression,
-    join_population_saliency_with_retrieval,
     saliency_geometry_associations,
     saliency_retrieval_associations,
+    stream_join_population_saliency_with_compression,
+    stream_join_population_saliency_with_retrieval,
 )
 from research.experiments.scope import (
     ExperimentScope,
@@ -65,6 +70,8 @@ from research.runtime.hashing import sha256_file
 
 
 ProgressCallback = Callable[[str, dict[str, object]], None]
+STEP4_JOIN_CHUNK_ROWS = 100_000
+STEP4_BOOTSTRAP_BATCH_SIZE = 4
 
 
 def load_step4_config(path: str | Path) -> dict[str, Any]:
@@ -331,6 +338,57 @@ def _write_csv(path: Path, frame: pd.DataFrame, *, overwrite: bool) -> None:
         raise FileExistsError(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(path, index=False, encoding="utf-8")
+
+
+def _latest_completed_phase_counts(
+    run: RunStore,
+    phase_name: str,
+) -> dict[str, int]:
+    attempts_dir = run.run_dir / "phases" / phase_name / "attempts"
+    candidates: list[tuple[int, dict[str, Any]]] = []
+    for path in sorted(attempts_dir.glob("A*/phase_manifest.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("status") != "completed":
+            continue
+        candidates.append((int(payload["attempt"]), payload))
+    if not candidates:
+        raise RuntimeError(f"no completed attempt for prerequisite phase {phase_name}")
+    _, latest = max(candidates, key=lambda item: item[0])
+    raw_counts = latest.get("details", {}).get("counts", {})
+    if not isinstance(raw_counts, dict):
+        raise ValueError(f"{phase_name} counts must be a mapping")
+    return {str(key): int(value) for key, value in raw_counts.items()}
+
+
+def _scoped_progress(
+    progress: ProgressCallback | None,
+    scope: str,
+) -> ProgressCallback | None:
+    if progress is None:
+        return None
+
+    def report(message: str, details: dict[str, object]) -> None:
+        progress(f"{scope} {message}", details)
+
+    return report
+
+
+def _current_git_commit(project_root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=project_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    commit = result.stdout.strip()
+    if result.returncode != 0 or not commit:
+        raise RuntimeError(
+            "cannot resolve the current Git commit for phase provenance"
+        )
+    return commit
 
 
 def _require_execution_acknowledgement(
@@ -1163,8 +1221,9 @@ def analyze_step4_saliency_compression(
     project_root: str | Path,
     dataset_id: str,
     execution_acknowledged: bool = False,
+    progress: ProgressCallback | None = None,
 ) -> dict[str, object]:
-    """Join saliency with geometry/retrieval tables and estimate associations."""
+    """Stream strict joins and estimate scalable identity-cluster associations."""
 
     _require_execution_acknowledgement(execution_acknowledged)
     root = Path(project_root).resolve()
@@ -1189,49 +1248,212 @@ def analyze_step4_saliency_compression(
                 "compression characterization must complete before join: "
                 f"{path}"
             )
-    features = read_population_saliency_features(saliency_dir)
-    paired = pd.read_csv(paired_path)
-    retrieval = pd.read_csv(retrieval_path)
-    geometry_join = join_population_saliency_with_compression(features, paired)
-    retrieval_join = join_population_saliency_with_retrieval(features, retrieval)
-    bootstrap = int(
-        config["joint_analysis"]["association"]["bootstrap_repeats"]
-    )
-    with run.phase("05_saliency_compression_join") as phase:
-        geometry_associations = saliency_geometry_associations(
-            geometry_join,
-            bootstrap_repeats=bootstrap,
-            seed=int(execution["seed"]),
+    association_config = config["joint_analysis"]["association"]
+    bootstrap_method = str(association_config["bootstrap_method"])
+    bootstrap_unit = str(association_config["bootstrap_unit"])
+    if bootstrap_method != "identity_cluster":
+        raise ValueError(
+            "Step 4 saliency association requires identity_cluster bootstrap"
         )
-        retrieval_associations = saliency_retrieval_associations(
-            retrieval_join,
-            bootstrap_repeats=bootstrap,
-            seed=int(execution["seed"]),
+    if bootstrap_unit != "identity_id":
+        raise ValueError(
+            "Step 4 saliency association requires bootstrap_unit=identity_id"
         )
-        for key, frame in (
-            ("geometry_joined_metrics_path", geometry_join),
-            ("retrieval_joined_metrics_path", retrieval_join),
-            ("geometry_association_path", geometry_associations),
-            ("retrieval_association_path", retrieval_associations),
-        ):
-            _write_csv(
-                workflow_root / config["workflow"][key],
-                frame,
-                overwrite=overwrite,
+    raw_bootstrap = association_config["bootstrap_repeats"]
+    if (
+        isinstance(raw_bootstrap, bool)
+        or not isinstance(raw_bootstrap, int)
+        or raw_bootstrap < 0
+    ):
+        raise ValueError("bootstrap_repeats must be a non-negative integer")
+    bootstrap = raw_bootstrap
+    output_paths = {
+        key: workflow_root / config["workflow"][key]
+        for key in (
+            "geometry_joined_metrics_path",
+            "retrieval_joined_metrics_path",
+            "geometry_association_path",
+            "retrieval_association_path",
+        )
+    }
+    if not overwrite:
+        existing = [path for path in output_paths.values() if path.exists()]
+        if existing:
+            raise FileExistsError(
+                "Step 4 join outputs already exist and overwrite=false: "
+                + ", ".join(str(path) for path in existing)
             )
+    phase04_counts = _latest_completed_phase_counts(
+        run,
+        "04_step2_compression_characterization",
+    )
+    expected_geometry_rows = int(phase04_counts["paired_rows"])
+    expected_retrieval_rows = int(phase04_counts["retrieval_rows"])
+
+    with run.phase("05_saliency_compression_join") as phase:
+        implementation_sources = {
+            "association": (
+                root / "research/evaluation/saliency_compression.py"
+            ),
+            "streaming_join": (
+                root / "research/evaluation/saliency_streaming.py"
+            ),
+            "workflow": root / "research/experiments/step4_workflow.py",
+        }
+        phase.details["implementation"] = {
+            "association_algorithm_version": (
+                WEIGHTED_RERANK_ALGORITHM_VERSION
+            ),
+            "bootstrap_method": bootstrap_method,
+            "bootstrap_unit": bootstrap_unit,
+            "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
+            "bootstrap_repeats": bootstrap,
+            "bootstrap_batch_size": STEP4_BOOTSTRAP_BATCH_SIZE,
+            "join_chunk_rows": STEP4_JOIN_CHUNK_ROWS,
+            "source_git_commit": _current_git_commit(root),
+            "source_sha256": {
+                name: sha256_file(path)
+                for name, path in implementation_sources.items()
+            },
+        }
+        phase.record(
+            "saliency_compression_analysis_started",
+            **phase.details["implementation"],
+        )
+        features = read_population_saliency_features(saliency_dir)
+        with tempfile.TemporaryDirectory(
+            prefix=".05_saliency_compression_join.",
+            dir=workflow_root,
+        ) as staging_name:
+            staging = Path(staging_name)
+            staged_geometry_join = staging / "saliency_geometry_join.csv"
+            staged_geometry_projection = (
+                staging / "saliency_geometry_projection.parquet"
+            )
+            staged_geometry_association = (
+                staging / "saliency_geometry_associations.csv"
+            )
+            staged_retrieval_join = staging / "saliency_retrieval_join.csv"
+            staged_retrieval_projection = (
+                staging / "saliency_retrieval_projection.parquet"
+            )
+            staged_retrieval_association = (
+                staging / "saliency_retrieval_associations.csv"
+            )
+
+            geometry_stream = (
+                stream_join_population_saliency_with_compression(
+                    features,
+                    paired_path,
+                    joined_output_path=staged_geometry_join,
+                    association_projection_path=staged_geometry_projection,
+                    chunksize=STEP4_JOIN_CHUNK_ROWS,
+                    expected_rows=expected_geometry_rows,
+                    progress=_scoped_progress(progress, "geometry"),
+                )
+            )
+            geometry_projection = pd.read_parquet(
+                geometry_stream.association_projection_path
+            )
+            geometry_associations = saliency_geometry_associations(
+                geometry_projection,
+                bootstrap_repeats=bootstrap,
+                seed=int(execution["seed"]),
+                bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
+                bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
+                progress=_scoped_progress(
+                    progress,
+                    "geometry association",
+                ),
+            )
+            _write_csv(
+                staged_geometry_association,
+                geometry_associations,
+                overwrite=False,
+            )
+            geometry_association_rows = int(len(geometry_associations))
+            del geometry_projection, geometry_associations
+            gc.collect()
+
+            retrieval_stream = stream_join_population_saliency_with_retrieval(
+                features,
+                retrieval_path,
+                joined_output_path=staged_retrieval_join,
+                association_projection_path=staged_retrieval_projection,
+                chunksize=STEP4_JOIN_CHUNK_ROWS,
+                expected_rows=expected_retrieval_rows,
+                progress=_scoped_progress(progress, "retrieval"),
+            )
+            retrieval_projection = pd.read_parquet(
+                retrieval_stream.association_projection_path
+            )
+            retrieval_associations = saliency_retrieval_associations(
+                retrieval_projection,
+                bootstrap_repeats=bootstrap,
+                seed=int(execution["seed"]),
+                bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
+                bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
+                progress=_scoped_progress(
+                    progress,
+                    "retrieval association",
+                ),
+            )
+            _write_csv(
+                staged_retrieval_association,
+                retrieval_associations,
+                overwrite=False,
+            )
+            retrieval_association_rows = int(len(retrieval_associations))
+            del retrieval_projection, retrieval_associations, features
+            gc.collect()
+
+            staged_outputs = {
+                "geometry_joined_metrics_path": staged_geometry_join,
+                "retrieval_joined_metrics_path": staged_retrieval_join,
+                "geometry_association_path": staged_geometry_association,
+                "retrieval_association_path": staged_retrieval_association,
+            }
+            if not overwrite:
+                appeared = [
+                    output_paths[key]
+                    for key in staged_outputs
+                    if output_paths[key].exists()
+                ]
+                if appeared:
+                    raise FileExistsError(
+                        "Step 4 join outputs appeared during computation: "
+                        + ", ".join(str(path) for path in appeared)
+                    )
+            for key, staged_path in staged_outputs.items():
+                destination = output_paths[key]
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(staged_path, destination)
+
         phase.record_counts(
-            geometry_join_rows=len(geometry_join),
-            retrieval_join_rows=len(retrieval_join),
-            geometry_association_rows=len(geometry_associations),
-            retrieval_association_rows=len(retrieval_associations),
+            geometry_join_rows=geometry_stream.row_count,
+            geometry_projection_rows=geometry_stream.projected_row_count,
+            retrieval_join_rows=retrieval_stream.row_count,
+            retrieval_projection_rows=retrieval_stream.projected_row_count,
+            geometry_association_rows=geometry_association_rows,
+            retrieval_association_rows=retrieval_association_rows,
+            geometry_join_chunks=geometry_stream.chunk_count,
+            retrieval_join_chunks=retrieval_stream.chunk_count,
+        )
+        phase.record(
+            "saliency_compression_analysis_completed",
+            association_algorithm_version=(
+                WEIGHTED_RERANK_ALGORITHM_VERSION
+            ),
         )
     return {
         "run_id": run.run_id,
         "dataset_id": dataset_spec.dataset_id,
-        "geometry_join_rows": int(len(geometry_join)),
-        "retrieval_join_rows": int(len(retrieval_join)),
-        "geometry_association_rows": int(len(geometry_associations)),
-        "retrieval_association_rows": int(len(retrieval_associations)),
+        "geometry_join_rows": int(geometry_stream.row_count),
+        "retrieval_join_rows": int(retrieval_stream.row_count),
+        "geometry_association_rows": geometry_association_rows,
+        "retrieval_association_rows": retrieval_association_rows,
+        "association_algorithm_version": WEIGHTED_RERANK_ALGORITHM_VERSION,
+        "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
         "next_stage": "06_representative_case_visualization",
     }
 

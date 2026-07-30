@@ -141,6 +141,23 @@ def test_step4_notebooks_are_dataset_specific_single_stage_runbooks() -> None:
             assert "run_step4_experiment" not in source
 
 
+def test_survface_saliency_join_runbook_exposes_long_run_progress() -> None:
+    path = (
+        NOTEBOOK_ROOT
+        / "survface"
+        / "04_gradcam"
+        / "experiment"
+        / "03_saliency_compression_join.ipynb"
+    )
+    source = _source(path)
+
+    assert "ProgressReporter" in source
+    assert "heartbeat_seconds=60" in source
+    assert '"bootstrap_batch_size": 4' in source
+    assert 'bootstrap_rank_strategy": "weighted_rerank"' in source
+    assert 'progress=PROGRESS.callback(key_prefix="step4-05:")' in source
+
+
 def test_all_notebooks_are_valid_restartable_and_output_free() -> None:
     for path in sorted(NOTEBOOK_ROOT.rglob("*.ipynb")):
         notebook = nbformat.read(path, as_version=4)

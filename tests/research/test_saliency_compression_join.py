@@ -5,6 +5,12 @@ import pandas as pd
 import pytest
 
 from research.evaluation.saliency_compression import (
+    WEIGHTED_RERANK_ALGORITHM_VERSION,
+    WEIGHTED_RERANK_STRATEGY,
+    _bootstrap_seed,
+    _rank_spec,
+    _spearman,
+    _weighted_average_rank_batch,
     annotate_compression_lineage,
     join_population_saliency_with_compression,
     join_population_saliency_with_retrieval,
@@ -290,5 +296,187 @@ def test_profile_specific_identity_bootstrap_is_reproducible():
     assert (first["bootstrap_valid_repeats"] == 80).all()
     assert np.allclose(first["bootstrap_ci_low"], [1.0, -1.0])
     assert np.allclose(first["bootstrap_ci_high"], [1.0, -1.0])
+
+
+def test_weighted_rerank_identity_bootstrap_is_reproducible_without_concat(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    joined = _association_frame()
+    common = {
+        "saliency_features": ("saliency_entropy",),
+        "sensitivity_metrics": ("angular_error_rad",),
+        "bootstrap_repeats": 80,
+        "confidence_level": 0.90,
+        "seed": 1701,
+    }
+    legacy = saliency_compression_associations(joined, **common)
+
+    def reject_concat(*args: object, **kwargs: object) -> None:
+        raise AssertionError(
+            "weighted rerank bootstrap must not materialize concat samples"
+        )
+
+    monkeypatch.setattr(pd, "concat", reject_concat)
+    weighted = saliency_compression_associations(
+        joined,
+        **common,
+        bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
+        bootstrap_batch_size=7,
+    )
+    shuffled = saliency_compression_associations(
+        joined.sample(frac=1.0, random_state=23),
+        **common,
+        bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
+        bootstrap_batch_size=7,
+    )
+
+    pd.testing.assert_frame_equal(weighted, shuffled)
+    assert np.allclose(weighted["spearman_rho"], legacy["spearman_rho"])
+    assert weighted["bootstrap_rank_strategy"].eq(
+        WEIGHTED_RERANK_STRATEGY
+    ).all()
+    assert weighted["association_algorithm_version"].eq(
+        WEIGHTED_RERANK_ALGORITHM_VERSION
+    ).all()
+    assert (weighted["bootstrap_valid_repeats"] == 80).all()
+    assert np.allclose(weighted["bootstrap_ci_low"], [1.0, -1.0])
+    assert np.allclose(weighted["bootstrap_ci_high"], [1.0, -1.0])
+
+
+def test_weighted_average_ranks_match_explicit_expanded_rows():
+    values = np.array([1.0, 1.0, 2.0, 4.0, 4.0])
+    row_weights = np.array(
+        [
+            [2, 0, 3, 1, 2],
+            [0, 2, 1, 3, 0],
+        ],
+        dtype=np.int64,
+    )
+
+    actual = _weighted_average_rank_batch(
+        row_weights,
+        _rank_spec(values),
+    )
+
+    for batch_index, weights in enumerate(row_weights):
+        expanded_values = np.repeat(values, weights)
+        expected = pd.Series(expanded_values).rank(method="average").to_numpy()
+        expanded_actual = np.repeat(actual[batch_index], weights)
+        np.testing.assert_allclose(expanded_actual, expected)
+
+
+def test_weighted_rerank_ci_matches_explicit_cluster_expansion():
+    joined = (
+        _association_frame()
+        .loc[lambda frame: frame["compression_profile"].eq("pca_128")]
+        .copy()
+    )
+    joined["saliency_entropy"] = [1.0, 1.0, 2.0, 3.0, 3.0, 4.0, 5.0, 5.0]
+    joined["angular_error_rad"] = [4.0, 1.0, 1.0, 3.0, 2.0, 5.0, 4.0, 2.0]
+    repeats = 40
+    batch_size = 7
+    seed = 1701
+
+    weighted = saliency_compression_associations(
+        joined,
+        saliency_features=("saliency_entropy",),
+        sensitivity_metrics=("angular_error_rad",),
+        bootstrap_repeats=repeats,
+        seed=seed,
+        bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
+        bootstrap_batch_size=batch_size,
+    )
+
+    identities = joined["identity_id"].astype(str).to_numpy()
+    cluster_identities, cluster_codes = np.unique(
+        identities,
+        return_inverse=True,
+    )
+    cluster_count = len(cluster_identities)
+    rng = np.random.default_rng(
+        _bootstrap_seed(
+            seed,
+            ("lfw", "model-a", "pca", "pca_128"),
+            cluster_identities,
+        )
+    )
+    probabilities = np.full(cluster_count, 1.0 / cluster_count)
+    reference: list[float] = []
+    for start in range(0, repeats, batch_size):
+        counts = rng.multinomial(
+            cluster_count,
+            probabilities,
+            size=min(batch_size, repeats - start),
+        )
+        for cluster_weights in counts:
+            row_weights = cluster_weights[cluster_codes]
+            expanded = np.repeat(np.arange(len(joined)), row_weights)
+            value = _spearman(
+                pd.Series(
+                    joined["saliency_entropy"].to_numpy()[expanded]
+                ),
+                pd.Series(
+                    joined["angular_error_rad"].to_numpy()[expanded]
+                ),
+            )
+            if np.isfinite(value):
+                reference.append(float(value))
+    expected_low, expected_high = np.quantile(reference, [0.025, 0.975])
+
+    assert weighted.loc[0, "bootstrap_valid_repeats"] == len(reference)
+    assert weighted.loc[0, "bootstrap_ci_low"] == pytest.approx(expected_low)
+    assert weighted.loc[0, "bootstrap_ci_high"] == pytest.approx(expected_high)
+
+
+def test_weighted_rerank_bootstrap_is_stable_when_other_pairs_are_added():
+    joined = _association_frame().assign(
+        saliency_spread=lambda frame: frame["saliency_entropy"] ** 2
+    )
+    common = {
+        "sensitivity_metrics": ("angular_error_rad",),
+        "bootstrap_repeats": 80,
+        "seed": 1701,
+        "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
+    }
+    subset = saliency_compression_associations(
+        joined,
+        saliency_features=("saliency_entropy",),
+        **common,
+    )
+    expanded = saliency_compression_associations(
+        joined,
+        saliency_features=("saliency_entropy", "saliency_spread"),
+        **common,
+    )
+    expanded_subset = expanded.loc[
+        expanded["saliency_feature"].eq("saliency_entropy")
+    ].reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(subset, expanded_subset)
+
+
+@pytest.mark.parametrize(
+    ("keyword", "value", "message"),
+    [
+        (
+            "bootstrap_rank_strategy",
+            "unknown",
+            "bootstrap_rank_strategy",
+        ),
+        ("bootstrap_batch_size", 0, "bootstrap_batch_size"),
+    ],
+)
+def test_association_rejects_invalid_scalable_bootstrap_options(
+    keyword: str,
+    value: object,
+    message: str,
+):
+    kwargs = {
+        "saliency_features": ("saliency_entropy",),
+        "sensitivity_metrics": ("angular_error_rad",),
+        keyword: value,
+    }
+    with pytest.raises(ValueError, match=message):
+        saliency_compression_associations(_association_frame(), **kwargs)
 
 # wrapper tests follow

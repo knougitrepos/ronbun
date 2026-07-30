@@ -97,7 +97,7 @@ def _read_index_frame(path: Path) -> pd.DataFrame:
     """Read the current CSV index while preserving old completed Parquet runs."""
 
     if path.suffix.lower() == ".csv":
-        frame = pd.read_csv(path)
+        frame = pd.read_csv(path, low_memory=False)
         # Empty identity strings are meaningful in the LOO eligibility
         # contract; CSV's default NA parsing must not turn them into NaN.
         if "identity_id" in frame:

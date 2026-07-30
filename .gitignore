@@ -40,6 +40,27 @@ runs/**
 !runs/lfw_*/**
 !runs/archives/
 !runs/archives/**
+# Completed SurvFace Step 4 runs keep only a curated, analysis-ready payload
+# visible to Git. Directories must be unignored so the file-level exceptions
+# below can take effect; every other working artifact remains ignored.
+!runs/survface_*/
+!runs/survface_*/**/
+!runs/survface_*/*/COMPLETED
+!runs/survface_*/*/run_manifest.json
+!runs/survface_*/*/ANALYSIS_GUIDE.md
+!runs/survface_*/*/retention_manifest.json
+!runs/survface_*/*/logs/events.jsonl
+!runs/survface_*/*/phases/**/phase_manifest.json
+!runs/survface_*/*/artifacts/step2_workflow/freeze_manifest.json
+!runs/survface_*/*/artifacts/step2_workflow/step4_summary.json
+!runs/survface_*/*/artifacts/step2_workflow/saliency_validation.json
+!runs/survface_*/*/artifacts/step2_workflow/selected_manifest.csv
+!runs/survface_*/*/artifacts/step2_workflow/saliency_geometry_associations.csv
+!runs/survface_*/*/artifacts/step2_workflow/saliency_retrieval_associations.csv
+!runs/survface_*/*/artifacts/step2_workflow/representative_cases.csv
+!runs/survface_*/*/artifacts/step2_workflow/saliency_population/manifest.json
+!runs/survface_*/*/artifacts/step2_workflow/saliency_population/saliency_features.csv
+!runs/survface_*/*/artifacts/step2_workflow/prepared_population/manifest.json
 results/step1/
 results/step2/
 # Compact publication results are intentionally tracked.

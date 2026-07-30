@@ -21,12 +21,19 @@ from research.evaluation.saliency_compression import (
     JOIN_KEYS,
     LINEAGE_COLUMNS,
     PROFILE_KEYS,
+    WEIGHTED_RERANK_ALGORITHM_VERSION,
+    WEIGHTED_RERANK_STRATEGY,
     annotate_compression_lineage,
     join_population_saliency_with_compression,
     join_population_saliency_with_retrieval,
     saliency_compression_associations,
     saliency_geometry_associations,
     saliency_retrieval_associations,
+)
+from research.evaluation.saliency_streaming import (
+    StreamingJoinResult,
+    stream_join_population_saliency_with_compression,
+    stream_join_population_saliency_with_retrieval,
 )
 
 __all__ = [
@@ -54,4 +61,9 @@ __all__ = [
     "saliency_compression_associations",
     "saliency_geometry_associations",
     "saliency_retrieval_associations",
+    "StreamingJoinResult",
+    "WEIGHTED_RERANK_ALGORITHM_VERSION",
+    "WEIGHTED_RERANK_STRATEGY",
+    "stream_join_population_saliency_with_compression",
+    "stream_join_population_saliency_with_retrieval",
 ]

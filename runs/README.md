@@ -38,10 +38,25 @@ tracked with Git LFS. Each archive must include an analysis guide and retain
 the run/phase manifests needed to verify configuration, attempt selection,
 artifact size, and SHA-256 lineage.
 
-The `runs/<dataset>_<YYYYMMDD>/` names are reserved for mutable Step 4 run
-roots selected by `dataset_date_dir_template`. A curated SurvFace archive must
-therefore remain below `runs/archives/` and must never occupy
-`runs/survface_<YYYYMMDD>/`.
+Completed SurvFace Step 4 roots under `runs/survface_YYYYMMDD/` are a narrow
+exception to the working-run ignore rule. Git sees only the completed marker,
+run/phase manifests, analysis guide, retention manifest, compact JSON
+summaries, and the explicitly allowlisted analysis CSVs. The allowlisted CSVs
+are tracked with Git LFS. Raw retrieval and paired ledgers, full join tables,
+embedding/heatmap shards, sample images, and representative overlay figures
+remain local-only. This keeps the immutable conclusion-bearing payload
+versioned without turning the repository into a copy of the working cache.
+
+The `runs/<dataset>_<YYYYMMDD>/` names are reserved for Step 4 run roots
+selected by `dataset_date_dir_template`. A full copied SurvFace archive remains
+below `runs/archives/`; it must not be copied back into
+`runs/survface_<YYYYMMDD>/`. The selective completed-run payload described
+above is versioned in place and is not a second full archive.
+
+For SurvFace Step 4, the selective in-place payload becomes eligible only after
+the run has a `COMPLETED` marker. Do not force-add any ignored file. The
+allowlist in `.gitignore` and the run's `retention_manifest.json` are the
+retention contract.
 
 ## Run reset and quarantine
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import hashlib
 from typing import Sequence
 
@@ -62,6 +63,12 @@ BASE_ASSOCIATION_GROUP_COLUMNS = (
     "compression_family",
     "compression_profile",
 )
+RESAMPLED_RANK_STRATEGY = "resampled"
+WEIGHTED_RERANK_STRATEGY = "weighted_rerank"
+WEIGHTED_RERANK_ALGORITHM_VERSION = "identity-cluster-weighted-rerank-v1"
+RESAMPLED_RANK_ALGORITHM_VERSION = "identity-cluster-resampled-rank-v1"
+
+AssociationProgressCallback = Callable[[str, dict[str, object]], None]
 
 
 def annotate_compression_lineage(
@@ -435,6 +442,382 @@ def _pair_seed(
     )
 
 
+def _bootstrap_seed(
+    seed: int,
+    group_key: tuple[object, ...],
+    cluster_identities: Sequence[object],
+) -> int:
+    digest = hashlib.sha256()
+    for value in (seed, *group_key, *cluster_identities):
+        encoded = str(value).encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, "big", signed=False))
+        digest.update(encoded)
+    return int.from_bytes(digest.digest()[:8], "big", signed=False)
+
+
+def _emit_association_progress(
+    progress: AssociationProgressCallback | None,
+    message: str,
+    **details: object,
+) -> None:
+    if progress is not None:
+        progress(message, details)
+
+
+_RankSpec = tuple[np.ndarray, np.ndarray | None, np.ndarray | None]
+
+
+def _rank_spec(values: np.ndarray) -> _RankSpec:
+    order = np.argsort(values, kind="mergesort")
+    sorted_values = values[order]
+    tie_starts_mask = np.concatenate(
+        (
+            np.ones(1, dtype=bool),
+            sorted_values[1:] != sorted_values[:-1],
+        )
+    )
+    if bool(tie_starts_mask.all()):
+        return order, None, None
+    tie_starts = np.flatnonzero(tie_starts_mask).astype(np.intp, copy=False)
+    tie_codes = np.cumsum(tie_starts_mask, dtype=np.intp) - 1
+    return order, tie_starts, tie_codes
+
+
+def _weighted_average_rank_batch(
+    row_weights: np.ndarray,
+    rank_spec: _RankSpec,
+    *,
+    out: np.ndarray | None = None,
+) -> np.ndarray:
+    """Reconstruct average ranks for integer-weighted expanded samples."""
+
+    order, tie_starts, tie_codes = rank_spec
+    if row_weights.ndim != 2 or row_weights.shape[1] != len(order):
+        raise ValueError("row_weights shape does not match the rank specification")
+    sorted_weights = row_weights[:, order].astype(np.float64, copy=False)
+    if tie_starts is None:
+        sorted_ranks = np.cumsum(sorted_weights, axis=1)
+        sorted_ranks -= (sorted_weights - 1.0) / 2.0
+    else:
+        assert tie_codes is not None
+        group_weights = np.add.reduceat(
+            sorted_weights,
+            tie_starts,
+            axis=1,
+        )
+        group_ranks = np.cumsum(group_weights, axis=1)
+        group_ranks -= (group_weights - 1.0) / 2.0
+        sorted_ranks = group_ranks[:, tie_codes]
+    if out is None:
+        out = np.empty(sorted_weights.shape, dtype=np.float64)
+    elif out.shape != sorted_weights.shape:
+        raise ValueError("rank output shape does not match row_weights")
+    out[:, order] = sorted_ranks
+    return out
+
+
+def _weighted_rerank_group_records(
+    group: pd.DataFrame,
+    *,
+    group_key: tuple[object, ...],
+    group_columns: Sequence[str],
+    saliency_features: Sequence[str],
+    sensitivity_metrics: Sequence[str],
+    identity_column: str,
+    bootstrap_repeats: int,
+    confidence_level: float,
+    seed: int,
+    bootstrap_batch_size: int,
+) -> list[dict[str, object]]:
+    """Return exact Spearman statistics with scalable cluster-bootstrap CIs.
+
+    Each sampled identity count becomes an integer weight on its rows. Average
+    ranks are reconstructed exactly for that weighted expanded sample, including
+    cross-identity ties, and weighted Pearson correlation is then evaluated.
+    This is the same reranked statistic as concatenating sampled identity frames,
+    without materializing repeated rows.
+    """
+
+    identities = group[identity_column].astype(str).to_numpy(copy=False)
+    numeric_columns = tuple(
+        dict.fromkeys((*saliency_features, *sensitivity_metrics))
+    )
+    numeric = {
+        column: pd.to_numeric(group[column], errors="coerce").to_numpy(
+            dtype=np.float64,
+            copy=False,
+        )
+        for column in numeric_columns
+    }
+    pair_specs: list[dict[str, object]] = []
+    mask_groups: dict[bytes, list[int]] = {}
+    mask_examples: dict[bytes, np.ndarray] = {}
+    for saliency_feature in saliency_features:
+        left = numeric[str(saliency_feature)]
+        for sensitivity_metric in sensitivity_metrics:
+            right = numeric[str(sensitivity_metric)]
+            valid = np.isfinite(left) & np.isfinite(right)
+            valid_count = int(valid.sum())
+            if valid_count >= 3:
+                left_rank = (
+                    pd.Series(left[valid], copy=False)
+                    .rank(method="average")
+                    .to_numpy(dtype=np.float64, copy=False)
+                )
+                right_rank = (
+                    pd.Series(right[valid], copy=False)
+                    .rank(method="average")
+                    .to_numpy(dtype=np.float64, copy=False)
+                )
+                if np.unique(left_rank).size >= 2 and np.unique(right_rank).size >= 2:
+                    observed = float(np.corrcoef(left_rank, right_rank)[0, 1])
+                else:
+                    observed = np.nan
+            else:
+                observed = np.nan
+            pair_index = len(pair_specs)
+            pair_specs.append(
+                {
+                    "saliency_feature": str(saliency_feature),
+                    "sensitivity_metric": str(sensitivity_metric),
+                    "valid": valid,
+                    "sample_count": valid_count,
+                    "identity_count": int(np.unique(identities[valid]).size),
+                    "observed": observed,
+                }
+            )
+            digest = hashlib.sha256(np.packbits(valid).tobytes()).digest()
+            existing = mask_examples.get(digest)
+            if existing is not None and not np.array_equal(existing, valid):
+                raise RuntimeError("association validity-mask hash collision")
+            mask_examples.setdefault(digest, valid)
+            mask_groups.setdefault(digest, []).append(pair_index)
+
+    bootstrap_values = np.full(
+        (bootstrap_repeats, len(pair_specs)),
+        np.nan,
+        dtype=np.float64,
+    )
+    if bootstrap_repeats:
+        for pair_indices in sorted(mask_groups.values(), key=lambda values: values[0]):
+            valid = pair_specs[pair_indices[0]]["valid"]
+            assert isinstance(valid, np.ndarray)
+            valid_row_count = int(valid.sum())
+            if valid_row_count < 3:
+                continue
+            valid_identities = identities[valid]
+            cluster_identities, cluster_codes = np.unique(
+                valid_identities,
+                return_inverse=True,
+            )
+            cluster_count = int(len(cluster_identities))
+            if cluster_count < 1:
+                continue
+
+            pair_names = [
+                (
+                    str(pair_specs[index]["saliency_feature"]),
+                    str(pair_specs[index]["sensitivity_metric"]),
+                )
+                for index in pair_indices
+            ]
+            left_names = tuple(
+                dict.fromkeys(name[0] for name in pair_names)
+            )
+            right_names = tuple(
+                dict.fromkeys(name[1] for name in pair_names)
+            )
+            column_names = tuple(dict.fromkeys((*left_names, *right_names)))
+            column_positions = {
+                name: position for position, name in enumerate(column_names)
+            }
+            left_column_positions = [
+                column_positions[name] for name in left_names
+            ]
+            right_column_positions = [
+                column_positions[name] for name in right_names
+            ]
+            left_positions = {
+                name: position for position, name in enumerate(left_names)
+            }
+            right_positions = {
+                name: position for position, name in enumerate(right_names)
+            }
+            rank_specs = {
+                name: _rank_spec(numeric[name][valid])
+                for name in column_names
+            }
+            left_nonconstant = np.array(
+                [
+                    np.unique(numeric[name][valid]).size >= 2
+                    for name in left_names
+                ],
+                dtype=bool,
+            )
+            right_nonconstant = np.array(
+                [
+                    np.unique(numeric[name][valid]).size >= 2
+                    for name in right_names
+                ],
+                dtype=bool,
+            )
+            pair_targets = [
+                (
+                    pair_index,
+                    left_positions[pair_name[0]],
+                    right_positions[pair_name[1]],
+                )
+                for pair_index, pair_name in zip(pair_indices, pair_names)
+            ]
+
+            rng = np.random.default_rng(
+                _bootstrap_seed(int(seed), group_key, cluster_identities)
+            )
+            probabilities = np.full(
+                cluster_count,
+                1.0 / cluster_count,
+                dtype=np.float64,
+            )
+            for start in range(0, bootstrap_repeats, bootstrap_batch_size):
+                stop = min(start + bootstrap_batch_size, bootstrap_repeats)
+                counts = rng.multinomial(
+                    cluster_count,
+                    probabilities,
+                    size=stop - start,
+                ).astype(np.float64, copy=False)
+                row_weights = counts[:, cluster_codes]
+                ranked = np.empty(
+                    (
+                        stop - start,
+                        len(column_names),
+                        valid_row_count,
+                    ),
+                    dtype=np.float64,
+                )
+                for column_name in column_names:
+                    _weighted_average_rank_batch(
+                        row_weights,
+                        rank_specs[column_name],
+                        out=ranked[
+                            :,
+                            column_positions[column_name],
+                            :,
+                        ],
+                    )
+                correlations = np.full(
+                    (
+                        stop - start,
+                        len(left_names),
+                        len(right_names),
+                    ),
+                    np.nan,
+                    dtype=np.float64,
+                )
+                for batch_index in range(stop - start):
+                    weights = row_weights[batch_index]
+                    sample_count = float(weights.sum())
+                    if sample_count < 3.0:
+                        continue
+                    left_rank = ranked[
+                        batch_index,
+                        left_column_positions,
+                        :,
+                    ]
+                    right_rank = ranked[
+                        batch_index,
+                        right_column_positions,
+                        :,
+                    ]
+                    weighted_left = left_rank * weights
+                    weighted_right = right_rank * weights
+                    sum_left = weighted_left.sum(axis=1)
+                    sum_right = weighted_right.sum(axis=1)
+                    covariance = (
+                        weighted_left @ right_rank.T
+                        - np.outer(sum_left, sum_right) / sample_count
+                    )
+                    second_left = (weighted_left * left_rank).sum(axis=1)
+                    second_right = (weighted_right * right_rank).sum(axis=1)
+                    variance_left = (
+                        second_left - sum_left * sum_left / sample_count
+                    )
+                    variance_right = (
+                        second_right - sum_right * sum_right / sample_count
+                    )
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        batch_correlations = covariance / np.sqrt(
+                            np.outer(variance_left, variance_right)
+                        )
+                    tolerance_scale = 16.0 * np.finfo(np.float64).eps
+                    invalid_left = (
+                        ~left_nonconstant
+                        | (
+                            variance_left
+                            <= tolerance_scale * np.maximum(second_left, 1.0)
+                        )
+                    )
+                    invalid_right = (
+                        ~right_nonconstant
+                        | (
+                            variance_right
+                            <= tolerance_scale * np.maximum(second_right, 1.0)
+                        )
+                    )
+                    invalid = (
+                        invalid_left[:, np.newaxis]
+                        | invalid_right[np.newaxis, :]
+                    )
+                    batch_correlations[invalid] = np.nan
+                    finite = np.isfinite(batch_correlations)
+                    batch_correlations[finite] = np.clip(
+                        batch_correlations[finite],
+                        -1.0,
+                        1.0,
+                    )
+                    correlations[batch_index] = batch_correlations
+                for pair_index, left_position, right_position in pair_targets:
+                    bootstrap_values[start:stop, pair_index] = correlations[
+                        :,
+                        left_position,
+                        right_position,
+                    ]
+
+    alpha = (1.0 - confidence_level) / 2.0
+    records: list[dict[str, object]] = []
+    for pair_index, pair_spec in enumerate(pair_specs):
+        finite = bootstrap_values[:, pair_index]
+        finite = finite[np.isfinite(finite)]
+        if finite.size:
+            lower, upper = np.quantile(
+                finite,
+                [alpha, 1.0 - alpha],
+            )
+        else:
+            lower = upper = np.nan
+        record = {
+            column: value for column, value in zip(group_columns, group_key)
+        }
+        record.update(
+            {
+                "saliency_feature": pair_spec["saliency_feature"],
+                "sensitivity_metric": pair_spec["sensitivity_metric"],
+                "sample_count": int(pair_spec["sample_count"]),
+                "identity_count": int(pair_spec["identity_count"]),
+                "spearman_rho": float(pair_spec["observed"]),
+                "bootstrap_confidence_level": confidence_level,
+                "bootstrap_ci_low": float(lower),
+                "bootstrap_ci_high": float(upper),
+                "bootstrap_valid_repeats": int(finite.size),
+                "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
+                "association_algorithm_version": (
+                    WEIGHTED_RERANK_ALGORITHM_VERSION
+                ),
+            }
+        )
+        records.append(record)
+    return records
+
+
 def saliency_compression_associations(
     joined: pd.DataFrame,
     *,
@@ -450,6 +833,9 @@ def saliency_compression_associations(
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
     seed: int = 42,
+    bootstrap_rank_strategy: str = RESAMPLED_RANK_STRATEGY,
+    bootstrap_batch_size: int = 4,
+    progress: AssociationProgressCallback | None = None,
 ) -> pd.DataFrame:
     """Estimate profile-specific Spearman associations with identity bootstrap."""
 
@@ -465,20 +851,59 @@ def saliency_compression_associations(
         raise ValueError("bootstrap_repeats must be a non-negative integer")
     if repeats < 0:
         raise ValueError("bootstrap_repeats must be a non-negative integer")
+    rank_strategy = str(bootstrap_rank_strategy)
+    if rank_strategy not in {
+        RESAMPLED_RANK_STRATEGY,
+        WEIGHTED_RERANK_STRATEGY,
+    }:
+        raise ValueError(
+            "bootstrap_rank_strategy must be 'resampled' or 'weighted_rerank'"
+        )
+    if (
+        isinstance(bootstrap_batch_size, bool)
+        or int(bootstrap_batch_size) != bootstrap_batch_size
+        or int(bootstrap_batch_size) <= 0
+    ):
+        raise ValueError("bootstrap_batch_size must be a positive integer")
+    batch_size = int(bootstrap_batch_size)
     level = float(confidence_level)
     if not np.isfinite(level) or not 0.0 < level < 1.0:
         raise ValueError("confidence_level must be in (0, 1)")
     alpha = (1.0 - level) / 2.0
 
     records: list[dict[str, object]] = []
-    for raw_group_key, group in joined.groupby(
+    grouped = joined.groupby(
         list(group_columns),
         dropna=False,
         sort=True,
-    ):
+    )
+    total_groups = int(grouped.ngroups)
+    for group_index, (raw_group_key, group) in enumerate(grouped, start=1):
         group_key = (
             raw_group_key if isinstance(raw_group_key, tuple) else (raw_group_key,)
         )
+        if rank_strategy == WEIGHTED_RERANK_STRATEGY:
+            records.extend(
+                _weighted_rerank_group_records(
+                    group,
+                    group_key=group_key,
+                    group_columns=group_columns,
+                    saliency_features=saliency_features,
+                    sensitivity_metrics=sensitivity_metrics,
+                    identity_column=identity_column,
+                    bootstrap_repeats=repeats,
+                    confidence_level=level,
+                    seed=int(seed),
+                    bootstrap_batch_size=batch_size,
+                )
+            )
+            _emit_association_progress(
+                progress,
+                "association groups",
+                completed=group_index,
+                total=total_groups,
+            )
+            continue
         identities = sorted(
             str(identity) for identity in group[identity_column].drop_duplicates()
         )
@@ -560,9 +985,19 @@ def saliency_compression_associations(
                         "bootstrap_ci_low": float(lower),
                         "bootstrap_ci_high": float(upper),
                         "bootstrap_valid_repeats": len(bootstrap_values),
+                        "bootstrap_rank_strategy": RESAMPLED_RANK_STRATEGY,
+                        "association_algorithm_version": (
+                            RESAMPLED_RANK_ALGORITHM_VERSION
+                        ),
                     }
                 )
                 records.append(record)
+        _emit_association_progress(
+            progress,
+            "association groups",
+            completed=group_index,
+            total=total_groups,
+        )
     return pd.DataFrame.from_records(records)
 
 
@@ -575,6 +1010,9 @@ def saliency_geometry_associations(
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
     seed: int = 42,
+    bootstrap_rank_strategy: str = RESAMPLED_RANK_STRATEGY,
+    bootstrap_batch_size: int = 4,
+    progress: AssociationProgressCallback | None = None,
 ) -> pd.DataFrame:
     """Estimate saliency associations for one geometry row per sample/profile."""
 
@@ -592,6 +1030,9 @@ def saliency_geometry_associations(
         bootstrap_repeats=bootstrap_repeats,
         confidence_level=confidence_level,
         seed=seed,
+        bootstrap_rank_strategy=bootstrap_rank_strategy,
+        bootstrap_batch_size=bootstrap_batch_size,
+        progress=progress,
     )
     result.insert(0, "analysis_scope", "geometry")
     return result
@@ -606,6 +1047,9 @@ def saliency_retrieval_associations(
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
     seed: int = 42,
+    bootstrap_rank_strategy: str = RESAMPLED_RANK_STRATEGY,
+    bootstrap_batch_size: int = 4,
+    progress: AssociationProgressCallback | None = None,
 ) -> pd.DataFrame:
     """Estimate retrieval associations separately by policy and mated status."""
 
@@ -643,6 +1087,9 @@ def saliency_retrieval_associations(
         bootstrap_repeats=bootstrap_repeats,
         confidence_level=confidence_level,
         seed=seed,
+        bootstrap_rank_strategy=bootstrap_rank_strategy,
+        bootstrap_batch_size=bootstrap_batch_size,
+        progress=progress,
     )
     result.insert(0, "analysis_scope", "retrieval")
     return result
