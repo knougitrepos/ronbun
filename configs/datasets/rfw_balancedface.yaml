@@ -1,0 +1,125 @@
+schema_version: 1
+recorded_at_kst: "2026-07-23"
+path_policy: repository_relative
+raw_data_git_tracked: false
+
+datasets:
+  rfw:
+    dataset_id: rfw-v1
+    root: data/raw/RFW
+    role: evaluation_test_only
+    task: official_10fold_pair_verification
+    official_open_set_protocol: false
+    compressor_fit_allowed: false
+    threshold_fit_on_full_test_allowed: false
+    preferred_protocol_source: jpg_loose_with_protocol
+    preferred_model_input_source: aligned_pair_bin
+    checkpoint_overlap_policy: fail_closed
+    artifacts:
+      jpg_archive:
+        path: data/raw/RFW/images/test.tar.gz
+        byte_count: 1349393437
+        sha256: 2EC1875599D01888431BE83FE51ED9614188A026539FB970653081CA0FBF3E39
+        integrity: verified_readable_to_eof
+        contents: 400x400_loose_jpg_pairs_landmarks
+      aligned_bin_archive:
+        path: data/raw/RFW/bin_for_mxnet/RFW_test.tar.gz
+        byte_count: 231211429
+        sha256: 8259E53AB1B542A9747335F34B2AE48E22A675BCE472E391D6B94BC900FDE572
+        integrity: verified_readable_to_eof
+        contents: 112x112_aligned_pair_bin
+      readme:
+        path: data/raw/RFW/readme.txt
+        byte_count: 2233
+        sha256: FBFA5FE0759B76EBB6E5455A93BA965C41F647BD56101DF6F85EB1FE776C0BE2
+        integrity: verified_local_file
+    observed_protocol:
+      groups: [African, Asian, Caucasian, Indian]
+      image_count: 40607
+      group_pair_count: 6000
+      fold_count: 10
+      genuine_per_fold: 300
+      impostor_per_fold: 300
+      people_zero_image_row_count: 1
+
+  balancedface:
+    dataset_id: bupt-balancedface-equalizedface
+    root: data/raw/RFW-balancedface
+    role: development_and_calibration_only
+    final_evaluation_allowed: false
+    train_face_recognition_models: false
+    group_stratified_identity_split: true
+    exclude_source_identity_overlap_with: rfw
+    selected_representation: mxnet_recordio_aligned
+    materialization_status: recordio_decoder_not_implemented
+    artifacts:
+      jpg_archive:
+        path: data/raw/RFW-balancedface/images/Equalizedface.tar.gz
+        byte_count: 33377022995
+        sha256: B9630A4A9E7C67CB12EB286B32DD06E31992725C79F953222AF7DBEDE496AE42
+        integrity: verified_readable_to_eof
+        usable: true
+        contents: original_jpg_variable_resolution
+        action: alignment_and_group_coverage_audit_required
+      recordio_archive:
+        path: data/raw/RFW-balancedface/rec_for_mxnet/Equalizedface.tar.gz
+        byte_count: 6213545547
+        sha256: 7B47F25492858C87F91F79C745A5C8A92D555212F2FC2AF38DD375E3AD81CF66
+        integrity: verified_readable_to_eof
+        usable: true
+        contents: aligned_112x112_train_rec_idx
+      list_index:
+        path: data/raw/RFW-balancedface/rec_for_mxnet/train_balancedface.lst
+        byte_count: 46369652
+        sha256: E43B0A820400F201DF534588E49DEA06D78FF5E38EBDE7A87A3F559D0E5CD1AF
+        integrity: verified_local_file
+    observed_index:
+      image_count: 1251416
+      identity_count: 27999
+      race_label_mapping:
+        0: Caucasian
+        1: Indian
+        2: Asian
+        3: African
+      identity_counts:
+        Caucasian: 7000
+        Indian: 6999
+        Asian: 7000
+        African: 7000
+    observed_jpg_archive:
+      image_count: 1251430
+      identity_count: 28000
+      unexpected_regular_file_count: 0
+      identity_counts:
+        Caucasian: 7000
+        Indian: 7000
+        Asian: 7000
+        African: 7000
+      image_counts:
+        Caucasian: 326484
+        Indian: 275095
+        Asian: 325475
+        African: 324376
+      differs_from_recordio_list: true
+      raw_minus_recordio_list_image_counts:
+        Caucasian: 0
+        Indian: 32
+        Asian: -18
+        African: 0
+      raw_minus_recordio_list_identity_counts:
+        Caucasian: 0
+        Indian: 1
+        Asian: 0
+        African: 0
+      alignment_note: Asian and Indian include variable-resolution images; do not assume all files are aligned 400x400 crops
+    observed_rfw_overlap:
+      source_identity_count: 3
+      balancedface_image_count: 177
+      overlap_identity_list_sha256: 84E8C234E9493B47E37B21384CC4053D3CEBBDF27B08CD749CE99A5F4EA22BD4
+      removal_required_before_split: true
+
+notes:
+  - JPG, BIN, and RecordIO entries are alternative physical representations; never add their image counts.
+  - The BalancedFace JPG archive and RecordIO list differ slightly at row and identity level; do not join them by row index or report them as exact copies.
+  - Checksums above are local provenance values because the downloaded package did not include an official checksum file.
+  - Provider access email is not treated as permission to redistribute raw or derived biometric data.

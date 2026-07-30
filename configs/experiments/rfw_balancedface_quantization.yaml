@@ -1,0 +1,121 @@
+run:
+  name: rfw_balancedface_quantization_diagnostic
+  root: runs/step2/rfw_balancedface
+  promotion_root: results/step2/rfw_balancedface
+
+execution:
+  mode: dev
+  data_fraction: 0.10
+  seed: 42
+  execute_stage: false
+  write_outputs: false
+
+source_inventory:
+  config_path: configs/datasets/rfw_balancedface.yaml
+  verify_recorded_sha256_before_real_run: true
+  extract_archives: false
+  combine_alternative_representations: false
+
+study_boundary:
+  train_face_recognition_models: false
+  exact_origin_fallback: false
+  comparison_unit: pretrained_checkpoint
+  balancedface_final_evaluation: false
+  rfw_open_set_claim: false
+
+datasets:
+  balancedface:
+    dataset_id: bupt-balancedface-equalizedface
+    enabled_for_source_index: true
+    enabled_for_embedding_extraction: false
+    blocked_reason: recordio_decoder_not_implemented
+    role: development_and_calibration_only
+    representation: mxnet_recordio_aligned
+    jpg_archive_alternative:
+      path: data/raw/RFW-balancedface/images/Equalizedface.tar.gz
+      integrity: verified_readable_to_eof
+      enabled_for_embedding_extraction: false
+      blocked_reason: alignment_and_group_coverage_audit_not_implemented
+    source_list_path: data/raw/RFW-balancedface/rec_for_mxnet/train_balancedface.lst
+    source_archive_path: data/raw/RFW-balancedface/rec_for_mxnet/Equalizedface.tar.gz
+    development_fraction: 0.80
+    group_stratified_identity_split: true
+    exclude_identity_overlap_with: rfw
+    development_role: compression_fit
+    calibration_role: threshold_calibration
+    test_split: null
+  rfw:
+    dataset_id: rfw-v1
+    enabled_for_protocol_manifest: true
+    enabled_for_headline_evaluation: false
+    blocked_reason: selected_step2_checkpoints_are_ms1mv2
+    role: evaluation_test_only
+    task: official_10fold_pair_verification
+    jpg_archive_path: data/raw/RFW/images/test.tar.gz
+    aligned_bin_archive_path: data/raw/RFW/bin_for_mxnet/RFW_test.tar.gz
+    compressor_fit: false
+    official_order_required: true
+    checkpoint_overlap_policy: fail_closed
+
+checkpoint_eligibility:
+  training_dataset_provenance_required: true
+  reject_unknown_training_dataset: true
+  blocked_training_families:
+    - ms1m
+    - ms1mv2
+    - ms1mv3
+    - ms-celeb-1m
+  accepted_overlap_controls:
+    - official_ms1m_wo_rfw
+    - verified_rfw_identity_removal
+    - verified_non_overlap_training_source
+  evidence_required: true
+
+compression:
+  fit_dataset: balancedface
+  fit_split: development
+  baseline_profile: origin_512
+  exact_fallback: false
+  families:
+    pca:
+      source_profile: origin_512
+      dimensions: [384, 256, 128, 64, 32]
+    pq:
+      source_profile: origin_512
+      source_dimension: 512
+      settings:
+        - {m: 8, nbits: 8}
+        - {m: 16, nbits: 8}
+        - {m: 32, nbits: 8}
+        - {m: 64, nbits: 8}
+        - {m: 128, nbits: 8}
+
+thresholds:
+  primary:
+    source_dataset: balancedface
+    source_split: calibration
+    apply_frozen_to_rfw: true
+  secondary_diagnostic:
+    source: rfw_9fold
+    evaluation: heldout_fold
+    report_separately_from_external_calibration: true
+  fit_on_all_rfw_pairs: false
+
+evaluation:
+  origin_fallback_used: false
+  official_result_requires:
+    mode: real
+    data_fraction: 1.0
+    checkpoint_eligibility: passed
+  dev_pair_sampling: group_fold_label_stratified
+  metrics:
+    - angular_error
+    - cosine_score_drift
+    - threshold_crossing
+    - verification_accuracy
+    - eer
+    - tar_at_far
+    - group_gap
+  forbidden_official_metrics:
+    - dir_at_fpir
+    - open_set_rank

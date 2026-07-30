@@ -1,0 +1,95 @@
+run:
+  name: thesis3_survface_official_v1
+  root: runs/survface
+
+dataset:
+  name: qmul_survface_v1
+  manifest_path: data/interim/survface/official_manifest.csv
+  aligned_bundle_dir: data/interim/step4/survface/aligned_112
+  gallery_path: data/interim/survface/gallery.csv
+  registered_probes_path: data/interim/survface/registered_probes.csv
+  unknown_unknown_probes_path: data/interim/survface/unknown_unknown_probes.csv
+  embedding_column: embedding
+  identity_column: identity_id
+  image_id_column: image_id
+
+embedding:
+  framework: pytorch
+  model_uid: arcface-7972a704552df378345f
+  model_spec_path: runs/step2/model_registry/arcface-7972a704552df378345f.json
+  source_color_order: rgb
+  input_size: [112, 112]
+  device: cuda
+  batch_size: 64
+  detector_inference: false
+
+protocol:
+  adapter: survface_official
+  preserve_protocol_index: true
+  known_unknown_count: 0
+  enrollment_policy: official_all
+  rank: 20
+  fpir_targets: [0.1, 0.2, 0.3]
+
+compression:
+  # Fit once from this dataset's identity-disjoint training development split.
+  # Official gallery/probe rows are transform/evaluation-only.
+  fit_policy: same_dataset_training_development
+  training_manifest_path: data/interim/survface/training_manifest.csv
+  fit_split: development
+  batch_size: 512
+  profiles:
+    - origin_512
+    - pca_384
+    - pca_256
+    - pca_128
+    - pca_64
+    - pca_32
+    - pq_auxiliary
+  pca:
+    source_profile: origin_512
+    dimensions: [384, 256, 128, 64, 32]
+  pq:
+    source_profile: origin_512
+    settings:
+      - {m: 8, nbits: 8}
+      - {m: 16, nbits: 8}
+      - {m: 32, nbits: 8}
+      - {m: 64, nbits: 8}
+      - {m: 128, nbits: 8}
+    materialized_setting: {m: 16, nbits: 8}
+    pgvector_searchable: false
+
+search:
+  compression_profiles: [origin_512, pca_256]
+  modes: [exact, hnsw]
+  top_k: 20
+  exact_baseline: true
+  approximate_backend: pgvector_hnsw
+
+calibration:
+  # Thresholds use the identity-disjoint training calibration split. The
+  # official test protocol remains evaluation-only.
+  fit_policy: same_dataset_training_calibration
+  source_manifest_path: data/interim/survface/training_manifest.csv
+  source_split: calibration
+  target_fpir: 0.1
+  evaluation_split: test
+  models:
+    - global_threshold
+    - per_compression_threshold
+    - logistic_regression
+
+certification:
+  enabled: true
+  threshold: 0.8
+  fallback_profile: origin_512
+  candidate_scope: exhaustive_only
+
+output:
+  save_csv: true
+  save_parquet: true
+
+progress:
+  milestone_percent: 10
+  heartbeat_seconds: null

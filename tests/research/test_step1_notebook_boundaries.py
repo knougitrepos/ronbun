@@ -1,0 +1,178 @@
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+import nbformat
+import yaml
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
+CONFIG_PATH = (
+    PROJECT_ROOT / "configs" / "experiments" / "step1_embedding_compression.yaml"
+)
+
+
+def _code_source(path: Path) -> str:
+    notebook = nbformat.read(path, as_version=4)
+    return "\n".join(
+        cell.source for cell in notebook.cells if cell.cell_type == "code"
+    )
+
+
+def _call_argument_names(source: str, function_name: str) -> list[tuple[str, ...]]:
+    calls: list[tuple[str, ...]] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        name = None
+        if isinstance(node.func, ast.Name):
+            name = node.func.id
+        elif isinstance(node.func, ast.Attribute):
+            name = node.func.attr
+        if name == function_name:
+            calls.append(
+                tuple(argument.id for argument in node.args if isinstance(argument, ast.Name))
+            )
+    return calls
+
+
+def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
+    expected_modes = {"lfw": "real", "survface": "real"}
+    for dataset in ("lfw", "survface"):
+        source = _code_source(
+            NOTEBOOK_ROOT
+            / dataset
+            / "00_data_preparation"
+            / "00_data_preparation.ipynb"
+        )
+
+        expected_mode = expected_modes[dataset]
+        assert (
+            f'MODE = "{expected_mode}"' in source
+            or f"MODE = '{expected_mode}'" in source
+        )
+        assert "DATA_FRACTION = 1.0" in source
+        assert "SEED = 42" in source
+        assert "ExperimentScope(" in source
+        assert source.count("select_manifest_fraction(") >= 2
+        assert "select_open_set_protocol_fraction(" in source
+        assert "validate_identity_disjoint_splits(" in source
+
+
+def test_survface_execution_profile_uses_the_full_official_probe_set():
+    source = _code_source(
+        NOTEBOOK_ROOT
+        / "survface"
+        / "03_open_set"
+        / "00_official_probe_search.ipynb"
+    )
+
+    assert "MODE = 'real'" in source
+    assert "PROBE_LIMIT = None" in source
+    assert 'FULL_RUN_ACKNOWLEDGEMENT = "SURVFACE_FULL_SEARCH"' in source
+
+
+def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
+    for dataset in ("lfw", "survface"):
+        source = _code_source(
+            NOTEBOOK_ROOT
+            / dataset
+            / "02_compression"
+            / "02_step1_compression_characterization.ipynb"
+        )
+
+        assert "validate_prepared_scope(" in source
+        assert "expected_scope = EXPERIMENT_SCOPE.as_dict()" in source
+        assert "MODE/DATA_FRACTION/SEED" in source
+        assert "validate_identity_disjoint_splits(" in source
+        assert 'get("fit_split") != "development"' in source
+        assert 'get("enabled") != [MODEL_NAME]' in source
+
+
+def test_lfw_step1_records_embedding_exclusions_without_origin_fallback():
+    source = _code_source(
+        NOTEBOOK_ROOT
+        / "lfw"
+        / "02_compression"
+        / "02_step1_compression_characterization.ipynb"
+    )
+
+    assert 'embedding_exclusions["reason"] = "missing_origin_512"' in source
+    assert '"explicit_missing_origin_512_no_fallback"' in source
+    assert '"embedding_exclusions.csv"' in source
+    assert "analysis_manifest" in source
+    assert "validate_identity_disjoint_splits(analysis_manifest)" in source
+
+
+def test_step1_notebook_paths_are_guarded_by_the_dataset_config():
+    config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+    lfw_config = config["datasets"]["lfw"]
+    survface_config = config["datasets"]["survface"]
+    lfw_source = _code_source(
+        NOTEBOOK_ROOT
+        / "lfw"
+        / "02_compression"
+        / "02_step1_compression_characterization.ipynb"
+    )
+    survface_source = _code_source(
+        NOTEBOOK_ROOT
+        / "survface"
+        / "02_compression"
+        / "02_step1_compression_characterization.ipynb"
+    )
+
+    assert lfw_config["manifest_path"] == "data/interim/lfw/face_manifest.csv"
+    assert 'dataset_config.get("manifest_path")' in lfw_source
+    assert "configured_manifest" in lfw_source
+    assert lfw_config["protocol_adapter"] == "lfw_identity_disjoint"
+    assert "lfw_identity_disjoint" in lfw_source
+
+    assert (
+        survface_config["training_manifest_path"]
+        == "data/interim/survface/training_manifest.csv"
+    )
+    assert survface_config["manifest_path"] == "data/interim/survface/official_manifest.csv"
+    assert 'dataset_config.get("training_manifest_path")' in survface_source
+    assert 'dataset_config.get("manifest_path")' in survface_source
+    assert survface_config["protocol_adapter"] == "survface_official"
+    assert "survface_official" in survface_source
+
+
+def test_survface_official_test_is_evaluation_only_in_step1_code_path():
+    preparation_source = _code_source(
+        NOTEBOOK_ROOT
+        / "survface"
+        / "00_data_preparation"
+        / "00_data_preparation.ipynb"
+    )
+    study_source = _code_source(
+        NOTEBOOK_ROOT
+        / "survface"
+        / "02_compression"
+        / "02_step1_compression_characterization.ipynb"
+    )
+
+    assert "opaque_per_image_key_no_identity_labels" in preparation_source
+    assert _call_argument_names(study_source, "fit") == []
+    assert _call_argument_names(study_source, "fit_pca_family") == []
+    assert _call_argument_names(
+        study_source,
+        "load_survface_compressor_bundle",
+    ) == [("run",)]
+    assert _call_argument_names(study_source, "build_calibration_protocol") == [
+        ("training_manifest",)
+    ]
+    assert _call_argument_names(study_source, "build_survface_official_protocol") == [
+        ("official_manifest",)
+    ]
+    threshold_inputs = _call_argument_names(study_source, "choose_profile_threshold")
+    assert threshold_inputs == [
+        ("calibration_comparison",),
+        ("calibration_comparison",),
+    ]
+    assert 'compared["threshold_source_split"] = "training_calibration"' in study_source
+    assert 'compared["evaluation_split"] = "official_test"' in study_source
+    assert '"official_test_role": "evaluation_only"' in study_source
+

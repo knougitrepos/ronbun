@@ -1,0 +1,264 @@
+{
+  "config": {
+    "calibration": {
+      "evaluation_split": "test",
+      "fit_policy": "same_dataset_training_calibration",
+      "models": [
+        "global_threshold",
+        "per_compression_threshold",
+        "logistic_regression"
+      ],
+      "source_manifest_path": "data/interim/survface/training_manifest.csv",
+      "source_split": "calibration",
+      "target_fpir": 0.1
+    },
+    "certification": {
+      "candidate_scope": "exhaustive_only",
+      "enabled": true,
+      "fallback_profile": "origin_512",
+      "threshold": 0.8
+    },
+    "compression": {
+      "batch_size": 512,
+      "fit_policy": "same_dataset_training_development",
+      "fit_split": "development",
+      "pca": {
+        "dimensions": [
+          384,
+          256,
+          128,
+          64,
+          32
+        ],
+        "source_profile": "origin_512"
+      },
+      "pq": {
+        "materialized_setting": {
+          "m": 16,
+          "nbits": 8
+        },
+        "pgvector_searchable": false,
+        "settings": [
+          {
+            "m": 8,
+            "nbits": 8
+          },
+          {
+            "m": 16,
+            "nbits": 8
+          },
+          {
+            "m": 32,
+            "nbits": 8
+          },
+          {
+            "m": 64,
+            "nbits": 8
+          },
+          {
+            "m": 128,
+            "nbits": 8
+          }
+        ],
+        "source_profile": "origin_512"
+      },
+      "profiles": [
+        "origin_512",
+        "pca_384",
+        "pca_256",
+        "pca_128",
+        "pca_64",
+        "pca_32",
+        "pq_auxiliary"
+      ],
+      "training_manifest_path": "data/interim/survface/training_manifest.csv"
+    },
+    "dataset": {
+      "aligned_bundle_dir": "data/interim/step4/survface/aligned_112",
+      "embedding_column": "embedding",
+      "gallery_path": "data/interim/survface/gallery.csv",
+      "identity_column": "identity_id",
+      "image_id_column": "image_id",
+      "manifest_path": "data/interim/survface/official_manifest.csv",
+      "name": "qmul_survface_v1",
+      "registered_probes_path": "data/interim/survface/registered_probes.csv",
+      "unknown_unknown_probes_path": "data/interim/survface/unknown_unknown_probes.csv"
+    },
+    "embedding": {
+      "batch_size": 64,
+      "detector_inference": false,
+      "device": "cuda",
+      "framework": "pytorch",
+      "input_size": [
+        112,
+        112
+      ],
+      "model_spec_path": "runs/step2/model_registry/arcface-7972a704552df378345f.json",
+      "model_uid": "arcface-7972a704552df378345f",
+      "source_color_order": "rgb"
+    },
+    "output": {
+      "save_csv": true,
+      "save_parquet": true
+    },
+    "progress": {
+      "heartbeat_seconds": null,
+      "milestone_percent": 10
+    },
+    "protocol": {
+      "adapter": "survface_official",
+      "enrollment_policy": "official_all",
+      "fpir_targets": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "known_unknown_count": 0,
+      "preserve_protocol_index": true,
+      "rank": 20
+    },
+    "run": {
+      "name": "thesis3_survface_official_v1",
+      "root": "runs/survface"
+    },
+    "search": {
+      "approximate_backend": "pgvector_hnsw",
+      "compression_profiles": [
+        "origin_512",
+        "pca_256"
+      ],
+      "exact_baseline": true,
+      "modes": [
+        "exact",
+        "hnsw"
+      ],
+      "top_k": 20
+    }
+  },
+  "config_hash": "3c19d8dcc2477ed2c2a67ee3452f79f9c3dd9e19bb6f79188e9ab94afa2fb732",
+  "created_at_kst": "2026-07-29T01:08:48.954642+09:00",
+  "created_at_utc": "2026-07-28T16:08:48.954642+00:00",
+  "environment": {
+    "gpu": {
+      "driver": "582.28",
+      "memory_mib": "11264",
+      "name": "NVIDIA GeForce GTX 1080 Ti"
+    },
+    "packages": {
+      "faiss-cpu": "1.14.3",
+      "insightface": "1.0.1",
+      "numpy": "1.26.4",
+      "onnxruntime": null,
+      "onnxruntime-gpu": "1.16.3",
+      "opencv-python": "5.0.0.93",
+      "pandas": "3.0.3",
+      "pgvector": "0.5.0",
+      "scikit-learn": "1.9.0",
+      "sqlalchemy": "2.0.49",
+      "torch": "2.7.1+cu118",
+      "torchvision": "0.22.1+cu118"
+    },
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "git": {
+    "allowed_untracked_roots": [
+      "runs"
+    ],
+    "branch": "step4",
+    "commit": "c1ff2bf398b47c59ef0de7335123fe85fd31337a",
+    "dirty": true,
+    "dirty_run_explicitly_allowed": false,
+    "untracked_content_sha256": "e9b331b260b4134e953132e69337ed0e264be98bfcc08d3002aa7e67aaf0da2b",
+    "untracked_paths": [
+      "architect/20260729.md"
+    ],
+    "working_tree_diff_sha256": "0e11b6d189c0eaf313a0fe26351adfe3c43dbd9af79c8943bd682c9493265f80"
+  },
+  "inputs": [
+    {
+      "bytes": 2508,
+      "path": "C:\\ronbun\\configs\\experiments\\survface_face_search.yaml",
+      "role": "experiment_config",
+      "sha256": "dcb64c0dcfe09631c0facae916ec9d40d0b2bfa222452bb0d9d35992bd2a7e25"
+    },
+    {
+      "bytes": 36333799,
+      "path": "C:\\ronbun\\data\\interim\\SurvFace\\training_manifest.csv",
+      "role": "training_manifest",
+      "sha256": "db5bb106a5e33ea3ebf7c9dfb06a1330c92aa2638dba8fc298318169e4bd5456"
+    },
+    {
+      "bytes": 574,
+      "path": "C:\\ronbun\\data\\interim\\SurvFace\\training_summary.json",
+      "role": "training_summary",
+      "sha256": "0046b9beaacfc2963cd22606dab2675b1a101c97aa0430cae48f545f0539d850"
+    },
+    {
+      "bytes": 52849471,
+      "path": "C:\\ronbun\\data\\interim\\SurvFace\\official_manifest.csv",
+      "role": "official_manifest",
+      "sha256": "a2c68717aaf989cd4cadae03808dde6f1b56d039b488d41258a82372c3f19737"
+    },
+    {
+      "bytes": 11651224,
+      "path": "C:\\ronbun\\data\\interim\\SurvFace\\gallery.csv",
+      "role": "gallery",
+      "sha256": "01743666e67ca2f35456585833a82b2557d9d64c95dc646e2c3d6c71b54c2377"
+    },
+    {
+      "bytes": 12780401,
+      "path": "C:\\ronbun\\data\\interim\\SurvFace\\registered_probes.csv",
+      "role": "registered_probes",
+      "sha256": "6998105d83100c27b6c94b9a132d56657936093e59216ff31c07ec76df8871e5"
+    },
+    {
+      "bytes": 28418104,
+      "path": "C:\\ronbun\\data\\interim\\SurvFace\\unknown_unknown_probes.csv",
+      "role": "unknown_unknown_probes",
+      "sha256": "4499072e6d2dbab0f40e74294e3b948e0fc70b806c0833d400d04a33c85357d2"
+    },
+    {
+      "bytes": 957,
+      "path": "C:\\ronbun\\data\\interim\\SurvFace\\summary.json",
+      "role": "summary",
+      "sha256": "21f66fa352bb6ccf1bbd3ff875b48f9964044db3404872e697f4841e87673713"
+    },
+    {
+      "bytes": 1706,
+      "path": "C:\\ronbun\\data\\interim\\step4\\survface\\aligned_112\\bundle_manifest.json",
+      "role": "aligned_bundle_manifest",
+      "sha256": "d32fe10081dc311f3ac82921e9ef6f16cccf42826c68d824c05ae785e3798a1b"
+    },
+    {
+      "bytes": 203538265,
+      "path": "C:\\ronbun\\data\\interim\\step4\\survface\\aligned_112\\aligned_index.csv",
+      "role": "aligned_index",
+      "sha256": "00443db9c597ca08862a57e8261969163195421a7d283ac99c533c7c51c96baa"
+    },
+    {
+      "bytes": 10,
+      "path": "C:\\ronbun\\data\\interim\\step4\\survface\\aligned_112\\_SUCCESS",
+      "role": "aligned_success",
+      "sha256": "5963977da4c2cb333a978aa0daa86f36234831cd8bc416443ca9087268bc8645"
+    },
+    {
+      "bytes": 1191,
+      "path": "C:\\ronbun\\runs\\step2\\model_registry\\arcface-7972a704552df378345f.json",
+      "role": "arcface_model_spec",
+      "sha256": "a8a5ddf33d37ddd4cde8f4b7e9868ae82657189b97006cb0c75d4c6526540253"
+    },
+    {
+      "bytes": 261223796,
+      "path": "C:\\ronbun\\models\\arcface\\ms1mv3_r100_backbone.pth",
+      "role": "arcface_checkpoint",
+      "sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b"
+    }
+  ],
+  "partition_by_date": true,
+  "run_id": "20260729-R001-3c19d8dc",
+  "run_name": "thesis3_survface_official_v1",
+  "sequence": 1,
+  "started_at_utc": "2026-07-28T16:08:50.845264+00:00",
+  "status": "running"
+}

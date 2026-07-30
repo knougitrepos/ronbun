@@ -1,0 +1,10 @@
+database:
+  driver: postgresql+psycopg2
+  host: localhost
+  port: 5432
+  database: postgres
+  user: postgres
+  password_env: postgres
+  connect_timeout_seconds: 10
+  pool_pre_ping: true
+  echo_sql: false

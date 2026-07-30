@@ -1,0 +1,120 @@
+"""Reusable experiment-stage orchestration used by dataset-specific notebooks."""
+
+from research.experiments.scope import (
+    EXPERIMENT_MODES,
+    ExperimentScope,
+    select_manifest_fraction,
+    select_open_set_protocol_fraction,
+)
+
+from research.experiments.materialization import (
+    materialize_compressed_embeddings,
+    materialize_compressed_embeddings_with_frozen_stats,
+    materialize_pca_sweep_embeddings,
+)
+from research.experiments.lfw_certification import (
+    LFWCertificationInputs,
+    assemble_lfw_certification_inputs,
+    build_lfw_certification_inputs,
+    write_vector_frame_csv,
+)
+from research.experiments.lfw_pgvector import (
+    LFWTemplateScope,
+    calibrate_lfw_pgvector_threshold,
+    materialize_lfw_templates,
+    protocol_frames,
+    run_lfw_pgvector_search,
+    summarize_lfw_pgvector_search,
+)
+from research.experiments.step2_compression import (
+    Step2CompressionResult,
+    characterize_step2_compression,
+    characterize_step2_survface_compression,
+)
+from research.experiments.step4_datasets import (
+    SUPPORTED_STEP4_DATASETS,
+    Step4DatasetSpec,
+    load_step4_source_manifest,
+    resolve_step4_dataset_spec,
+    select_step4_saliency_sample_mask,
+)
+from research.experiments.step4_workflow import (
+    analyze_step4_saliency_compression,
+    characterize_step4_compression,
+    extract_step4_origin_embeddings,
+    extract_step4_population_gradcam,
+    finalize_step4_representative_cases,
+    freeze_step4_source_and_model,
+    inspect_step4_readiness,
+    load_step4_config,
+    materialize_step4_aligned_crops,
+    materialize_step4_landmark_regions,
+    validate_step4_saliency,
+)
+from research.experiments.survface_pgvector import (
+    SURVFACE_PROTOCOL_NAME,
+    build_survface_official_templates,
+    run_survface_official_search,
+    run_survface_official_search_matrix,
+)
+from research.experiments.survface_compression import (
+    SURVFACE_COMPRESSOR_PHASE,
+    SURVFACE_MATERIALIZATION_PHASE,
+    SurvFaceCompressorBundle,
+    fit_survface_compressors,
+    load_survface_compressor_bundle,
+    materialize_survface_compressed_profiles,
+    survface_development_image_paths,
+    validate_survface_training_manifest,
+)
+
+__all__ = [
+    "EXPERIMENT_MODES",
+    "ExperimentScope",
+    "materialize_compressed_embeddings",
+    "materialize_compressed_embeddings_with_frozen_stats",
+    "materialize_pca_sweep_embeddings",
+    "LFWCertificationInputs",
+    "assemble_lfw_certification_inputs",
+    "build_lfw_certification_inputs",
+    "LFWTemplateScope",
+    "Step2CompressionResult",
+    "Step4DatasetSpec",
+    "SUPPORTED_STEP4_DATASETS",
+    "calibrate_lfw_pgvector_threshold",
+    "characterize_step4_compression",
+    "characterize_step2_compression",
+    "characterize_step2_survface_compression",
+    "extract_step4_origin_embeddings",
+    "extract_step4_population_gradcam",
+    "finalize_step4_representative_cases",
+    "freeze_step4_source_and_model",
+    "load_step4_source_manifest",
+    "load_step4_config",
+    "inspect_step4_readiness",
+    "analyze_step4_saliency_compression",
+    "materialize_lfw_templates",
+    "materialize_step4_aligned_crops",
+    "materialize_step4_landmark_regions",
+    "protocol_frames",
+    "run_lfw_pgvector_search",
+    "run_survface_official_search",
+    "run_survface_official_search_matrix",
+    "resolve_step4_dataset_spec",
+    "select_step4_saliency_sample_mask",
+    "select_manifest_fraction",
+    "select_open_set_protocol_fraction",
+    "summarize_lfw_pgvector_search",
+    "SURVFACE_PROTOCOL_NAME",
+    "SURVFACE_COMPRESSOR_PHASE",
+    "SURVFACE_MATERIALIZATION_PHASE",
+    "SurvFaceCompressorBundle",
+    "validate_step4_saliency",
+    "validate_survface_training_manifest",
+    "build_survface_official_templates",
+    "fit_survface_compressors",
+    "load_survface_compressor_bundle",
+    "materialize_survface_compressed_profiles",
+    "survface_development_image_paths",
+    "write_vector_frame_csv",
+]

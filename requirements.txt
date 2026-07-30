@@ -1,15 +1,29 @@
-fastapi
-uvicorn
-jinja2
+# Core numerical and experiment stack
+numpy>=1.21.0
+pandas>=1.5.0
+scikit-learn>=1.1.0
+scipy>=1.8.0
+joblib>=1.2.0
+pyyaml>=6.0
+pyarrow>=10.0.0
+
+# Face embeddings and vector compression
+opencv-python>=4.7.0
+insightface>=0.7.3
+pillow>=9.0.0
+faiss-cpu>=1.7.4
+
+# PostgreSQL and pgvector
 sqlalchemy>=2.0
-psycopg2-binary
-pgvector
-opencv-python
-insightface
-numpy
-torch
-torchvision
-matplotlib
-pillow
-pywavelets
-python-multipart
+psycopg2-binary>=2.9
+pgvector>=0.2.0
+
+# Evaluation and visualization
+matplotlib>=3.6.0
+seaborn>=0.12.0
+tqdm>=4.64.0
+
+# Notebook and tests
+jupyter>=1.0.0
+ipykernel>=6.0.0
+pytest>=8.0

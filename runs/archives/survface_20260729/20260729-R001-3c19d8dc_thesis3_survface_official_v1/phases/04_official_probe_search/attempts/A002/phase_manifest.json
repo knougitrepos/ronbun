@@ -1,0 +1,27 @@
+{
+  "attempt": 2,
+  "details": {
+    "artifacts": [
+      {
+        "bytes": 879273487,
+        "path": "artifacts\\04_official_probe_search\\official_top20_search_matrix_A002.csv",
+        "sha256": "37f5b15240f7ec647fa910289c8ee44528a68676bead6bea045fd888cf5bd73a"
+      },
+      {
+        "bytes": 4879,
+        "path": "artifacts\\04_official_probe_search\\official_search_summary_A002.json",
+        "sha256": "183ef37ce4a73a3fa24e52fb9802b65c3a3cb9403209c6bf980f0712def9fc3c"
+      }
+    ],
+    "counts": {
+      "combinations": 4,
+      "registered": 241692,
+      "rows": 728636,
+      "unknown_unknown": 486944
+    }
+  },
+  "finished_at_utc": "2026-07-29T11:43:48.285023+00:00",
+  "phase": "04_official_probe_search",
+  "started_at_utc": "2026-07-29T08:58:10.573133+00:00",
+  "status": "completed"
+}
