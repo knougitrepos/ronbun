@@ -12,6 +12,17 @@ from research.experiments.materialization import (
     materialize_compressed_embeddings_with_frozen_stats,
     materialize_pca_sweep_embeddings,
 )
+from research.experiments.pipeline_runner import (
+    DEFAULT_EVALUATION_CONTRACT_PATH,
+    DEFAULT_STEP4_CONFIG_PATH,
+    FULL_DATA_FRACTION,
+    QUICK_DATA_FRACTIONS,
+    CommonExperimentPlan,
+    build_common_experiment_plan,
+    inspect_common_experiment_plan,
+    materialize_effective_step4_config,
+    run_common_step4_experiment,
+)
 from research.experiments.lfw_certification import (
     LFWCertificationInputs,
     assemble_lfw_certification_inputs,
@@ -49,6 +60,7 @@ from research.experiments.step4_workflow import (
     load_step4_config,
     materialize_step4_aligned_crops,
     materialize_step4_landmark_regions,
+    select_step4_source_manifest,
     validate_step4_saliency,
 )
 from research.experiments.survface_pgvector import (
@@ -71,6 +83,15 @@ from research.experiments.survface_compression import (
 __all__ = [
     "EXPERIMENT_MODES",
     "ExperimentScope",
+    "CommonExperimentPlan",
+    "DEFAULT_EVALUATION_CONTRACT_PATH",
+    "DEFAULT_STEP4_CONFIG_PATH",
+    "FULL_DATA_FRACTION",
+    "QUICK_DATA_FRACTIONS",
+    "build_common_experiment_plan",
+    "inspect_common_experiment_plan",
+    "materialize_effective_step4_config",
+    "run_common_step4_experiment",
     "materialize_compressed_embeddings",
     "materialize_compressed_embeddings_with_frozen_stats",
     "materialize_pca_sweep_embeddings",
@@ -102,6 +123,7 @@ __all__ = [
     "run_survface_official_search_matrix",
     "resolve_step4_dataset_spec",
     "select_step4_saliency_sample_mask",
+    "select_step4_source_manifest",
     "select_manifest_fraction",
     "select_open_set_protocol_fraction",
     "summarize_lfw_pgvector_search",

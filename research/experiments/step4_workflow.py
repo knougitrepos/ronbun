@@ -63,6 +63,7 @@ from research.preprocessing.aligned_crops import (
 from research.protocols import build_survface_official_protocol
 from research.runtime import (
     RunStore,
+    inspect_git_provenance,
     resolve_active_dataset_run,
     resolve_or_create_dataset_run_root,
 )
@@ -127,14 +128,9 @@ def inspect_step4_readiness(
     import onnxruntime as ort
     import torch
 
-    git = subprocess.run(
-        ["git", "status", "--porcelain=v1"],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+    git_provenance = inspect_git_provenance(
+        root,
+        run_root=root / config["run"]["root"],
     )
     required_provider = str(
         config["aligned_crops"]["required_primary_provider"]
@@ -146,7 +142,8 @@ def inspect_step4_readiness(
         for name in ("execute_stage", "write_outputs", "overwrite")
     }
     checks = {
-        "git_clean": git.returncode == 0 and not git.stdout.strip(),
+        "git_clean": not bool(git_provenance["dirty"]),
+        "git_provenance": git_provenance,
         "cuda_available": cuda_available,
         "required_onnx_provider_available": required_provider
         in available_providers,
@@ -194,7 +191,7 @@ def _scope(config: dict[str, Any]) -> ExperimentScope:
     )
 
 
-def _selected_source_manifest(
+def select_step4_source_manifest(
     source: pd.DataFrame,
     *,
     dataset_id: str,
@@ -263,7 +260,7 @@ def _freeze_selected_manifest(
     dataset_id: str,
     scope: ExperimentScope,
 ) -> pd.DataFrame:
-    selected = _selected_source_manifest(
+    selected = select_step4_source_manifest(
         source,
         dataset_id=dataset_id,
         scope=scope,
@@ -407,6 +404,7 @@ def _step4_run_config(
     model_uid: str,
     scope: ExperimentScope,
     overwrite: bool,
+    execution_source: str,
 ) -> dict[str, object]:
     return {
         "step4": config,
@@ -417,7 +415,7 @@ def _step4_run_config(
             "acknowledged": True,
             "write_outputs": True,
             "overwrite_existing": overwrite,
-            "source": "dataset_notebook",
+            "source": execution_source,
         },
     }
 
@@ -577,10 +575,14 @@ def freeze_step4_source_and_model(
     project_root: str | Path,
     dataset_id: str,
     execution_acknowledged: bool = False,
+    execution_source: str = "dataset_notebook",
 ) -> dict[str, object]:
     """Freeze one dataset's inputs and create its incomplete Step 4 run."""
 
     _require_execution_acknowledgement(execution_acknowledged)
+    source_label = str(execution_source).strip()
+    if not source_label:
+        raise ValueError("execution_source must not be empty")
     root = Path(project_root).resolve()
     config_file = Path(config_path).resolve()
     config = load_step4_config(config_file)
@@ -643,6 +645,7 @@ def freeze_step4_source_and_model(
         model_uid=model_spec.model_uid,
         scope=scope,
         overwrite=overwrite,
+        execution_source=source_label,
     )
     run = RunStore.create_or_reuse_active(
         experiment_name=f"step4_{dataset_spec.dataset_id}_{model_spec.model_uid}",

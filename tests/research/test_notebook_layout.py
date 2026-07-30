@@ -75,6 +75,7 @@ EXPECTED_NOTEBOOKS = {
     },
     "common/reports": {"00_cross_dataset_results.ipynb"},
     "common/maintenance": {"00_selective_cleanup.ipynb"},
+    "common/orchestration": {"00_batch_experiment_runner.ipynb"},
 }
 
 
@@ -139,6 +140,32 @@ def test_step4_notebooks_are_dataset_specific_single_stage_runbooks() -> None:
             assert "execution_acknowledged=True" in source
             assert sum(name in source for name in stage_functions) == 1
             assert "run_step4_experiment" not in source
+
+
+def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
+    path = (
+        NOTEBOOK_ROOT
+        / "common"
+        / "orchestration"
+        / "00_batch_experiment_runner.ipynb"
+    )
+    source = _source(path)
+
+    for phrase in (
+        'DATASET_ID = "survface"',
+        'RUN_TIER = "quick"',
+        "QUICK_DATA_FRACTIONS",
+        "FULL_DATA_FRACTION",
+        "build_common_experiment_plan",
+        "inspect_common_experiment_plan",
+        "run_common_step4_experiment",
+        "ACKNOWLEDGE_LOCAL_EXECUTION = False",
+        "milestone_percent=10",
+        "heartbeat_seconds=None",
+    ):
+        assert phrase in source
+    assert "DATA_FRACTION =" not in source
+    assert "%run" not in source
 
 
 def test_survface_saliency_join_runbook_exposes_long_run_progress() -> None:

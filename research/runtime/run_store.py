@@ -236,6 +236,32 @@ def _git_provenance(
     }
 
 
+def inspect_git_provenance(
+    repo_root: str | Path,
+    *,
+    run_root: str | Path | None = None,
+) -> dict[str, object]:
+    """Return the source-aware local Git state used by :class:`RunStore`.
+
+    Notebook execution counts, outputs, and transient UI metadata are ignored
+    when the tracked notebook source contract itself is unchanged.  Generated
+    files under ``run_root`` are also ignored when that root is inside the
+    repository's canonical ``runs`` directory.
+    """
+
+    repository = Path(repo_root).resolve()
+    allowed_roots: tuple[Path, ...] = ()
+    if run_root is not None:
+        allowed_roots = _allowed_run_artifact_roots(
+            repository,
+            Path(run_root).resolve(),
+        )
+    return _git_provenance(
+        repository,
+        allowed_untracked_roots=allowed_roots,
+    )
+
+
 def _dirty_git_error(git_provenance: dict[str, object]) -> RuntimeError:
     tracked = list(git_provenance.get("tracked_source_changes") or [])
     untracked = list(git_provenance.get("untracked_paths") or [])

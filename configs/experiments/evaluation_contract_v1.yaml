@@ -1,0 +1,90 @@
+contract_id: face_search_evaluation_v1
+status: proposed_user_confirmed
+paper_result_requires_full_coverage: true
+
+execution:
+  tiers: [quick, full]
+  seed: 42
+  quick_data_fractions:
+    lfw: 0.10
+    survface: 0.02
+  full_data_fraction: 1.00
+  quick_paper_eligible: false
+
+comparison:
+  main_profiles:
+    - origin_512
+    - pca_256
+    - pca_128
+    - pq_origin_512_m128_nbits8
+  sensitivity_profiles:
+    pca_dimensions: [384, 256, 128, 64, 32]
+    pq_settings:
+      - {m: 8, nbits: 8}
+      - {m: 16, nbits: 8}
+      - {m: 32, nbits: 8}
+      - {m: 64, nbits: 8}
+      - {m: 128, nbits: 8}
+  test_selected_profile_changes_forbidden: true
+
+pq_search:
+  primary: exhaustive_adc
+  system_ablation: ivf_pq_selected_profiles
+  decoded_vector_cosine_is_adc: false
+
+baselines:
+  - id: official
+    purpose: official_protocol_reproduction
+  - id: db
+    purpose: postgresql_pgvector_cosine_system
+
+calibration:
+  enrollment_identity_counts: [100, 500, 1000]
+  identity_disjoint: true
+  test_split_selection_forbidden: true
+
+thresholds:
+  policies:
+    - frozen_origin
+    - recalibrated_compressed
+
+evaluation:
+  formal_fpir_targets: [0.30, 0.20, 0.10, 0.01, 0.001]
+  exploratory_fpir_targets: [0.0001]
+  identification_metrics:
+    - dir_at_fpir
+    - fnir
+    - fpir
+    - rank_1
+  compression_diagnostics:
+    - angular_error
+    - cosine_score_drift
+    - rank_flip
+    - threshold_crossing
+  efficiency_metrics:
+    - vector_bytes
+    - code_bytes
+    - index_bytes
+    - query_latency_distribution
+    - throughput
+    - fit_time
+    - index_build_time
+  report_realized_fpir: true
+  report_denominator_and_error_count: true
+  report_confidence_interval: true
+
+templates:
+  primary: mean
+  ablations:
+    - quality_weighted_mean
+
+gradcam:
+  current_role: supporting_explanation
+  promotion_requires:
+    - target_and_unit_contract
+    - faithfulness
+    - confound_and_multiple_comparison_control
+    - out_of_sample_incremental_prediction
+    - fixed_fpir_operational_improvement
+    - stability_and_generalization_limits
+    - end_to_end_cost_justification
