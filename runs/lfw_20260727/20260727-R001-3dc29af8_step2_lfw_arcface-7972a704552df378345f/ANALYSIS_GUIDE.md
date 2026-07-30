@@ -16,10 +16,13 @@
 2. `artifacts/step2_workflow/saliency_compression_associations.csv`
    - 주 분석 결과다. 900행이며 saliency 특징과 압축 민감도 지표의
      Spearman 상관계수, identity-cluster bootstrap 95% 신뢰구간을 담는다.
-   - Excel 또는 pandas로 열 수 있다.
+   - GitHub 연결에서도 원문을 읽을 수 있도록 일반 Git 텍스트로 추적하며,
+     Excel 또는 pandas로 열 수 있다.
 3. `artifacts/step2_workflow/representative_cases.csv`
    - 283개 대표 사례의 선택 근거와 지표를 담는다.
    - `artifacts/step2_workflow/figures/`의 PNG와 `case_id`로 연결된다.
+   - GitHub 연결에서 표와 그림을 함께 검토할 수 있도록 일반 Git 텍스트로
+     추적한다.
 4. `run_manifest.json`과
    `artifacts/step2_workflow/freeze_manifest.json`
    - 실행 설정, 모델·입력 checksum, lineage를 확인할 때 사용한다.
@@ -61,3 +64,10 @@ NPZ는 손상되거나 해석 불가능한 파일이 아니라 NumPy 압축 배�
   compression profile별 분석이 필요하다.
 - 논문의 우선 분석표는 association CSV이며, 대용량 join CSV는 그 결과를
   재검증하거나 새로운 하위집단 분석을 할 때만 사용한다.
+
+## GitHub 공개 방식 변경
+
+- 2026-07-30: 핵심 association CSV와 대표 사례 CSV를 Git LFS 포인터가 아닌
+  일반 Git 텍스트로 전환했다.
+- 이 변경은 완료된 실험 값이나 행 내용을 수정하지 않고 저장 방식만
+  변경한 것이다. 대형 상세 CSV와 NPZ shard는 계속 Git LFS로 유지한다.

@@ -55,9 +55,12 @@ runs/**
 !runs/survface_*/*/artifacts/step2_workflow/step4_summary.json
 !runs/survface_*/*/artifacts/step2_workflow/saliency_validation.json
 !runs/survface_*/*/artifacts/step2_workflow/selected_manifest.csv
+# GitHub-readable analysis entry points (regular Git; see .gitattributes).
 !runs/survface_*/*/artifacts/step2_workflow/saliency_geometry_associations.csv
 !runs/survface_*/*/artifacts/step2_workflow/saliency_retrieval_associations.csv
 !runs/survface_*/*/artifacts/step2_workflow/representative_cases.csv
+!runs/survface_*/*/artifacts/step2_workflow/figures/
+!runs/survface_*/*/artifacts/step2_workflow/figures/*.png
 !runs/survface_*/*/artifacts/step2_workflow/saliency_population/manifest.json
 !runs/survface_*/*/artifacts/step2_workflow/saliency_population/saliency_features.csv
 !runs/survface_*/*/artifacts/step2_workflow/prepared_population/manifest.json
