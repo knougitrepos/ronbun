@@ -1,0 +1,13 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "paired_rows": 131950,
+      "retrieval_rows": 43280
+    }
+  },
+  "finished_at_utc": "2026-07-31T14:39:43.606857+00:00",
+  "phase": "04_step2_compression_characterization",
+  "started_at_utc": "2026-07-31T14:38:57.546755+00:00",
+  "status": "completed"
+}

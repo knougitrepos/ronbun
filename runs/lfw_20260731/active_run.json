@@ -1,6 +1,6 @@
 {
-  "config_hash": "248783c0613db750fd080ca72ac1967a14cb33a6960d64a6f5189914fb3854d8",
-  "run_dir": "C:\\ronbun\\runs\\lfw_20260731\\20260731-R001-248783c0_step4_lfw_arcface-7972a704552df378345f",
-  "run_id": "20260731-R001-248783c0",
-  "updated_at_utc": "2026-07-31T12:43:44.747783+00:00"
+  "config_hash": "de27340c96e1a9e0fa0246ab54c8be34fc23551a66fbf1dcd5047bbd238d7d9d",
+  "run_dir": "C:\\ronbun\\runs\\lfw_20260731\\20260731-R001-de27340c_step4_lfw_adaface-4df25b75e065b0b9ed43",
+  "run_id": "20260731-R001-de27340c",
+  "updated_at_utc": "2026-07-31T14:31:46.180466+00:00"
 }
