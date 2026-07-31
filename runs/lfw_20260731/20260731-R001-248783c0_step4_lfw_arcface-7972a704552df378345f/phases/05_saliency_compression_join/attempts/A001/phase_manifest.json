@@ -1,0 +1,34 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "geometry_association_rows": 570,
+      "geometry_join_chunks": 2,
+      "geometry_join_rows": 131950,
+      "geometry_projection_rows": 91220,
+      "retrieval_association_rows": 2280,
+      "retrieval_join_chunks": 1,
+      "retrieval_join_rows": 43280,
+      "retrieval_projection_rows": 26620
+    },
+    "implementation": {
+      "association_algorithm_version": "identity-cluster-weighted-rerank-v1",
+      "bootstrap_batch_size": 4,
+      "bootstrap_method": "identity_cluster",
+      "bootstrap_rank_strategy": "weighted_rerank",
+      "bootstrap_repeats": 500,
+      "bootstrap_unit": "identity_id",
+      "join_chunk_rows": 100000,
+      "source_git_commit": "77a1d7e05e5509afe1f3ee9dffda10142acf1ebf",
+      "source_sha256": {
+        "association": "4d12f607ecda719600b29bb0db70bccce3589d6b180642b74ca5b175fb954772",
+        "streaming_join": "f56b50330b6379465d438cf43c437756145adc9139fd7083107c3ad8aab8fa62",
+        "workflow": "cc2d9db7c4ff7a73ab4f2686adadaf2844d1259afd2239b2c7d92f560ab2e599"
+      }
+    }
+  },
+  "finished_at_utc": "2026-07-31T12:51:55.127277+00:00",
+  "phase": "05_saliency_compression_join",
+  "started_at_utc": "2026-07-31T12:50:48.449416+00:00",
+  "status": "completed"
+}

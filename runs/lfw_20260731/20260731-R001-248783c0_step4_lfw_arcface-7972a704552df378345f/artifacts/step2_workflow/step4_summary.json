@@ -1,0 +1,15 @@
+{
+  "run_id": "20260731-R001-248783c0",
+  "dataset_id": "lfw",
+  "model_uid": "arcface-7972a704552df378345f",
+  "selected_samples": 13195,
+  "saliency_selected_samples": 9133,
+  "saliency_selection_sha256": "5ae923f4ec1ae78a320e34d8ef45f7be833ff47a77dcb6616385aba248f380e8",
+  "paired_rows": 131950,
+  "retrieval_rows": 43280,
+  "geometry_association_rows": 570,
+  "retrieval_association_rows": 2280,
+  "representative_cases": 283,
+  "threshold_policy": "frozen_origin",
+  "regenerated_gradcam": false
+}
