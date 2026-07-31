@@ -1,0 +1,81 @@
+{
+  "artifact_type": "step4_compact_summaries",
+  "dataset_id": "survface",
+  "generated_at_utc": "2026-07-31T19:19:20.716457+00:00",
+  "generator": {
+    "path": "scripts/generate_step4_compact_summaries.py",
+    "sha256": "7eee216de76518a2f62768c64badabbf24c98914253d63eb84924812f5fcaa33"
+  },
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "output_files": {
+    "compression_summary.csv": {
+      "bytes": 3509,
+      "path": "results/paper/survface/20260731-R001-8f94ec62/summaries/compression_summary.csv",
+      "rows": 10,
+      "sha256": "8d745e33c846cdb7e8c6b9e0ad0c4ea534f6f514f0cbe88fa93c94a73ba41d59"
+    },
+    "retrieval_summary.csv": {
+      "bytes": 13823,
+      "path": "results/paper/survface/20260731-R001-8f94ec62/summaries/retrieval_summary.csv",
+      "rows": 20,
+      "sha256": "02a41289548b50e446eb114c0d6da63eebb61bd5e00a326dc50a2dce5e8f599f"
+    }
+  },
+  "run_id": "20260731-R001-8f94ec62",
+  "schema_version": 1,
+  "source_files": {
+    "freeze_manifest.json": {
+      "bytes": 942,
+      "path": "runs/survface_20260731/20260731-R001-8f94ec62_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/freeze_manifest.json",
+      "sha256": "5d2eeab7f0754ad870512c17a6490263cf7189e33944dcf45d87c45af318175d"
+    },
+    "paired_embedding_metrics.csv": {
+      "bytes": 1366236413,
+      "path": "runs/survface_20260731/20260731-R001-8f94ec62_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/paired_embedding_metrics.csv",
+      "sha256": "59c17517f23a35cee131284ca2618f3410a545b8c76329e8a40cc9045a3938c5"
+    },
+    "retrieval_metrics.csv": {
+      "bytes": 13669374413,
+      "path": "runs/survface_20260731/20260731-R001-8f94ec62_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/retrieval_metrics.csv",
+      "sha256": "5b7085a644bb76b7caeeea2de0f5d311699f85dab6d7116cdd759e25b6bb0b1a"
+    },
+    "run_manifest.json": {
+      "bytes": 25707,
+      "path": "runs/survface_20260731/20260731-R001-8f94ec62_step4_survface_adaface-4df25b75e065b0b9ed43/run_manifest.json",
+      "sha256": "21284f51fe8a711481d5e1ce74e6b785dbbf2a8e72ae99d802a90b061ec07dc0"
+    },
+    "step4_summary.json": {
+      "bytes": 530,
+      "path": "runs/survface_20260731/20260731-R001-8f94ec62_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/step4_summary.json",
+      "sha256": "c11ef44d49d777f902388edfef9d980879e0e41a347cc19e2e3112943c2bb087"
+    }
+  },
+  "source_ledgers_preserved_immutable": true,
+  "source_run_git": {
+    "allowed_untracked_roots": [
+      "runs"
+    ],
+    "branch": "step5",
+    "commit": "0dc52029277c12566b7e5ce48074f974bf874429",
+    "dirty": false,
+    "dirty_run_explicitly_allowed": false,
+    "ignored_notebook_runtime_paths": [],
+    "tracked_source_changes": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked_paths": [],
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "source_run_status": "completed",
+  "summary_contract": {
+    "compression_grain": "one row per compression family and profile",
+    "origin_and_compressed_operating_points": "reported separately",
+    "rates": "fractions in [0,1] with explicit numerator and denominator columns",
+    "retrieval_grain": "one row per compression family, profile, and threshold policy"
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "paired_rows": 4633410,
+    "retrieval_rows": 3643180,
+    "retrieval_summary_rows": 20
+  }
+}

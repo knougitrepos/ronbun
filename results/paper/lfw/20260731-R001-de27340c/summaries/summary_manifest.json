@@ -1,0 +1,81 @@
+{
+  "artifact_type": "step4_compact_summaries",
+  "dataset_id": "lfw",
+  "generated_at_utc": "2026-07-31T19:18:06.759948+00:00",
+  "generator": {
+    "path": "scripts/generate_step4_compact_summaries.py",
+    "sha256": "7eee216de76518a2f62768c64badabbf24c98914253d63eb84924812f5fcaa33"
+  },
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "output_files": {
+    "compression_summary.csv": {
+      "bytes": 3442,
+      "path": "results/paper/lfw/20260731-R001-de27340c/summaries/compression_summary.csv",
+      "rows": 10,
+      "sha256": "3e33d673dbcfdee242366b8063b70634eef32e56e8f1aa150e5878eff5f23157"
+    },
+    "retrieval_summary.csv": {
+      "bytes": 12728,
+      "path": "results/paper/lfw/20260731-R001-de27340c/summaries/retrieval_summary.csv",
+      "rows": 20,
+      "sha256": "1caaa4aa29a0d975609a144207ebd2349a19d4a68ffd4d04e9395a30b8ae3058"
+    }
+  },
+  "run_id": "20260731-R001-de27340c",
+  "schema_version": 1,
+  "source_files": {
+    "freeze_manifest.json": {
+      "bytes": 936,
+      "path": "runs/lfw_20260731/20260731-R001-de27340c_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/freeze_manifest.json",
+      "sha256": "39d1dfd4cbf3bf4be1e660f5583cb8542ac18a435b0ea93f1d54f5b545d5b938"
+    },
+    "paired_embedding_metrics.csv": {
+      "bytes": 37752184,
+      "path": "runs/lfw_20260731/20260731-R001-de27340c_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/paired_embedding_metrics.csv",
+      "sha256": "62b7ff58618b872eadc03ebeda0d46626a50031a41cbb37793afa19caf35de73"
+    },
+    "retrieval_metrics.csv": {
+      "bytes": 137008620,
+      "path": "runs/lfw_20260731/20260731-R001-de27340c_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/retrieval_metrics.csv",
+      "sha256": "9b96c1b5c32a0b8490c68d0fd300a09c6cc74bdd16f70d233b4047769f81f0f4"
+    },
+    "run_manifest.json": {
+      "bytes": 25429,
+      "path": "runs/lfw_20260731/20260731-R001-de27340c_step4_lfw_adaface-4df25b75e065b0b9ed43/run_manifest.json",
+      "sha256": "e4a2246336bf964b2db02877e18a18d719ec587aa06676d37efb342753d38e57"
+    },
+    "step4_summary.json": {
+      "bytes": 519,
+      "path": "runs/lfw_20260731/20260731-R001-de27340c_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/step4_summary.json",
+      "sha256": "bc935431c60ef6aecc11781d049041ba7c40c17873f5b5e589f1721cbf7fbcf4"
+    }
+  },
+  "source_ledgers_preserved_immutable": true,
+  "source_run_git": {
+    "allowed_untracked_roots": [
+      "runs"
+    ],
+    "branch": "step5",
+    "commit": "1456030d3653b75999044afdb83dbac07cb39784",
+    "dirty": false,
+    "dirty_run_explicitly_allowed": false,
+    "ignored_notebook_runtime_paths": [],
+    "tracked_source_changes": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked_paths": [],
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "source_run_status": "completed",
+  "summary_contract": {
+    "compression_grain": "one row per compression family and profile",
+    "origin_and_compressed_operating_points": "reported separately",
+    "rates": "fractions in [0,1] with explicit numerator and denominator columns",
+    "retrieval_grain": "one row per compression family, profile, and threshold policy"
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "paired_rows": 131950,
+    "retrieval_rows": 43280,
+    "retrieval_summary_rows": 20
+  }
+}
