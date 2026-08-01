@@ -1,0 +1,55 @@
+{
+  "artifact_type": "cross_dataset_compact_summary",
+  "datasets": [
+    "lfw",
+    "survface"
+  ],
+  "generated_at_utc": "2026-08-01T19:24:33.854328+00:00",
+  "join_contract": {
+    "grain": "one row per dataset, model, run, compression profile, and threshold policy",
+    "rows": 40,
+    "validation": "compression one-to-retrieval many"
+  },
+  "model_name": "magface",
+  "output_files": {
+    "compression_summary_all.csv": {
+      "bytes": 30892,
+      "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/compression_summary_all.csv",
+      "sha256": "33bf89f87fc23767cc5a7a71907144154c489500ed520b9614a70f6f28255a93"
+    },
+    "retrieval_summary_all.csv": {
+      "bytes": 25364,
+      "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/retrieval_summary_all.csv",
+      "sha256": "a01053c7817b66449a035f966347d80747406325e3a5bfa51d155fb4c8c896b7"
+    },
+    "storage_distortion.png": {
+      "bytes": 121152,
+      "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/storage_distortion.png",
+      "sha256": "774e5e94d8fdaece82b0211a111be8fb1b20fc232717f03db555c4b9b53be9cc"
+    },
+    "storage_open_set.png": {
+      "bytes": 302841,
+      "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/storage_open_set.png",
+      "sha256": "e403c4a9ed12f122fb7c0c3cf71be5979cbf8e9f7641067c3b4ef9d82b2f1361"
+    }
+  },
+  "schema_version": 1,
+  "selected_runs": {
+    "lfw": {
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "run_id": "20260801-R001-250c665b",
+      "summary_manifest": {
+        "path": "results/paper/lfw/20260801-R001-250c665b/summaries/summary_manifest.json",
+        "sha256": "e31416ac980f87d43804681521d17843db5bf609afb20ea249b98f384504c377"
+      }
+    },
+    "survface": {
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "run_id": "20260802-R001-9bccb0c1",
+      "summary_manifest": {
+        "path": "results/paper/survface/20260802-R001-9bccb0c1/summaries/summary_manifest.json",
+        "sha256": "190ccccf917947de1d92788a1f8bb93feac78bdfd533c8d466ea49d71d9b4ca6"
+      }
+    }
+  }
+}
