@@ -1,0 +1,13 @@
+{
+  "attempt": 1,
+  "details": {},
+  "failure": {
+    "message": "[WinError 5] 액세스가 거부되었습니다: 'C:\\\\ronbun\\\\runs\\\\lfw_20260801\\\\20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799\\\\artifacts\\\\step2_workflow\\\\.saliency_population.v2zf8vhk' -> 'C:\\\\ronbun\\\\runs\\\\lfw_20260801\\\\20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799\\\\artifacts\\\\step2_workflow\\\\saliency_population'",
+    "traceback": "Traceback (most recent call last):\n  File \"C:\\ronbun\\research\\experiments\\step4_workflow.py\", line 1012, in extract_step4_population_gradcam\n    write_population_saliency_artifact(\n  File \"C:\\ronbun\\research\\explainability\\gradcam\\artifacts.py\", line 436, in write_population_saliency_artifact\n    return _publish_atomic_directory(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\ronbun\\research\\explainability\\gradcam\\artifacts.py\", line 65, in _publish_atomic_directory\n    os.replace(temporary, destination)\nPermissionError: [WinError 5] 액세스가 거부되었습니다: 'C:\\\\ronbun\\\\runs\\\\lfw_20260801\\\\20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799\\\\artifacts\\\\step2_workflow\\\\.saliency_population.v2zf8vhk' -> 'C:\\\\ronbun\\\\runs\\\\lfw_20260801\\\\20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799\\\\artifacts\\\\step2_workflow\\\\saliency_population'\n",
+    "type": "PermissionError"
+  },
+  "finished_at_utc": "2026-08-01T12:40:24.824438+00:00",
+  "phase": "02_population_gradcam_extraction",
+  "started_at_utc": "2026-08-01T12:35:15.660929+00:00",
+  "status": "failed"
+}
