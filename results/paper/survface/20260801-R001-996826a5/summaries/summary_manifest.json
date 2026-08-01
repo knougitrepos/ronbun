@@ -1,0 +1,81 @@
+{
+  "artifact_type": "step4_compact_summaries",
+  "dataset_id": "survface",
+  "generated_at_utc": "2026-08-01T14:53:20.957863+00:00",
+  "generator": {
+    "path": "scripts/generate_step4_compact_summaries.py",
+    "sha256": "7eee216de76518a2f62768c64badabbf24c98914253d63eb84924812f5fcaa33"
+  },
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "output_files": {
+    "compression_summary.csv": {
+      "bytes": 3520,
+      "path": "results/paper/survface/20260801-R001-996826a5/summaries/compression_summary.csv",
+      "rows": 10,
+      "sha256": "b5ad443fbda605ed6ad19921efdd989398a20f28dac8ebd0e19c482d3c14fd7b"
+    },
+    "retrieval_summary.csv": {
+      "bytes": 13697,
+      "path": "results/paper/survface/20260801-R001-996826a5/summaries/retrieval_summary.csv",
+      "rows": 20,
+      "sha256": "d96af02e3d7793dd7db46a6676e73b244fb59baa207a4c77754904cd10660f9d"
+    }
+  },
+  "run_id": "20260801-R001-996826a5",
+  "schema_version": 1,
+  "source_files": {
+    "freeze_manifest.json": {
+      "bytes": 939,
+      "path": "runs/survface_20260801/20260801-R001-996826a5_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/freeze_manifest.json",
+      "sha256": "baae6b2a64ee5f6b3b777fecd9cda1f93a402cce2997862ccddff243017749e2"
+    },
+    "paired_embedding_metrics.csv": {
+      "bytes": 683148773,
+      "path": "runs/survface_20260801/20260801-R001-996826a5_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/paired_embedding_metrics.csv",
+      "sha256": "b952b3941c724bbe5475b3deef302d09f0bed0443038cd08b35bdc0728a47fe4"
+    },
+    "retrieval_metrics.csv": {
+      "bytes": 6803590253,
+      "path": "runs/survface_20260801/20260801-R001-996826a5_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/retrieval_metrics.csv",
+      "sha256": "0155b050f242e5c02bd4c08e614b2eed84e8d57809c5695430aa2b4125580c6f"
+    },
+    "run_manifest.json": {
+      "bytes": 25710,
+      "path": "runs/survface_20260801/20260801-R001-996826a5_step4_survface_magface-6931178ad2025e1b3799/run_manifest.json",
+      "sha256": "f5c7c395ebfacbaf2ac7c55093f5d381afe9fe56d297687ca4b9d5686cc6b167"
+    },
+    "step4_summary.json": {
+      "bytes": 529,
+      "path": "runs/survface_20260801/20260801-R001-996826a5_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/step4_summary.json",
+      "sha256": "fd5cae891a382d90438827e8cb54965dd61e357957319960ab68089f94225209"
+    }
+  },
+  "source_ledgers_preserved_immutable": true,
+  "source_run_git": {
+    "allowed_untracked_roots": [
+      "runs"
+    ],
+    "branch": "step5",
+    "commit": "04dac607aa5b67b6b3fe8aa1374243aec94a4376",
+    "dirty": false,
+    "dirty_run_explicitly_allowed": true,
+    "ignored_notebook_runtime_paths": [],
+    "tracked_source_changes": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked_paths": [],
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "source_run_status": "completed",
+  "summary_contract": {
+    "compression_grain": "one row per compression family and profile",
+    "origin_and_compressed_operating_points": "reported separately",
+    "rates": "fractions in [0,1] with explicit numerator and denominator columns",
+    "retrieval_grain": "one row per compression family, profile, and threshold policy"
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "paired_rows": 2315110,
+    "retrieval_rows": 1814040,
+    "retrieval_summary_rows": 20
+  }
+}
