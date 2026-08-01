@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "run_id": "20260801-R001-996826a5",
+  "dataset_id": "survface",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "checkpoint_sha256": "cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58",
+  "preprocess_hash": "b0c4a75bb57cc6edd0c89c6ad4b510961e5f18e7beba5be3ccd8c323beea7a41",
+  "target_layer": "layer4.2.conv2",
+  "extraction_uid": "population-f03a8d220e60b097e10818ea",
+  "scope": {
+    "mode": "real",
+    "data_fraction": 0.5,
+    "seed": 42,
+    "is_full_dataset": false,
+    "is_paper_run": false
+  },
+  "selected_sample_count": 231511,
+  "selected_manifest_sha256": "e83a0bc801d8c485633ddca306bb0ddbe0dbdb854a0b0f88c8c01411c1b73cd7",
+  "aligned_bundle_manifest_sha256": "d32fe10081dc311f3ac82921e9ef6f16cccf42826c68d824c05ae785e3798a1b",
+  "landmark_region_manifest_sha256": "9f1408baa59dd81df2c803949f144060ef9e2d53a2eb576f64b8c1ad352b7c94",
+  "fallback_free": true
+}
