@@ -493,3 +493,141 @@ def read_population_heatmaps(
         np.concatenate(sample_parts, axis=0),
         np.concatenate(heatmap_parts, axis=0),
     )
+
+
+def _validated_unique_row_indices(
+    row_indices: np.ndarray | list[int],
+    *,
+    row_count: int,
+    name: str,
+) -> np.ndarray:
+    indices = np.asarray(row_indices)
+    if indices.ndim != 1 or indices.dtype.kind not in {"i", "u"}:
+        raise ValueError(f"{name} must be a one-dimensional integer vector")
+    indices = indices.astype(np.int64, copy=False)
+    if len(np.unique(indices)) != len(indices):
+        raise ValueError(f"{name} must not contain duplicates")
+    if np.any(indices < 0) or np.any(indices >= int(row_count)):
+        raise IndexError(f"{name} contains an out-of-range index")
+    return indices
+
+
+def read_population_heatmap_subset(
+    directory: str | Path,
+    heatmap_indices: np.ndarray | list[int],
+    *,
+    expected_sample_ids: np.ndarray | list[str] | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Read and verify only selected heatmaps while preserving request order."""
+
+    source = Path(directory).resolve()
+    manifest = _verified_manifest(
+        source,
+        artifact_type="population_gradcam_saliency",
+    )
+    if int(manifest.get("schema_version", -1)) != SALIENCY_SCHEMA_VERSION:
+        raise ValueError("unsupported population saliency schema version")
+    indices = _validated_unique_row_indices(
+        heatmap_indices,
+        row_count=int(manifest["heatmap_row_count"]),
+        name="heatmap_indices",
+    )
+    sample_ids = np.empty(len(indices), dtype=object)
+    heatmaps: np.ndarray | None = None
+    filled = np.zeros(len(indices), dtype=bool)
+    for entry in list(manifest["heatmap_shards"]):
+        item = dict(entry)
+        start = int(item["row_start"])
+        stop = int(item["row_stop"])
+        positions = np.flatnonzero((indices >= start) & (indices < stop))
+        if len(positions) == 0:
+            continue
+        shard_path = _verify_entry(source, item)
+        local = indices[positions] - start
+        with np.load(shard_path, allow_pickle=False) as shard:
+            shard_ids = shard["sample_id"].astype(str)
+            shard_heatmaps = shard["normalized_heatmap"].astype(np.float32)
+        if heatmaps is None:
+            heatmaps = np.empty(
+                (len(indices), *shard_heatmaps.shape[1:]),
+                dtype=np.float32,
+            )
+        elif heatmaps.shape[1:] != shard_heatmaps.shape[1:]:
+            raise ValueError("heatmap shard shapes are inconsistent")
+        sample_ids[positions] = shard_ids[local]
+        heatmaps[positions] = shard_heatmaps[local]
+        filled[positions] = True
+    if not bool(filled.all()) or heatmaps is None:
+        raise ValueError("selected heatmap rows were not fully resolved")
+    sample_ids = sample_ids.astype(str)
+    if expected_sample_ids is not None:
+        expected = np.asarray(expected_sample_ids).astype(str)
+        if expected.shape != sample_ids.shape or not np.array_equal(
+            expected,
+            sample_ids,
+        ):
+            raise ValueError("selected heatmap sample IDs differ from expectation")
+    return sample_ids, heatmaps
+
+
+def read_prepared_population_template_subset(
+    directory: str | Path,
+    row_indices: np.ndarray | list[int],
+    *,
+    expected_sample_ids: np.ndarray | list[str] | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Read verified LOO/search targets for selected prepared-population rows."""
+
+    source = Path(directory).resolve()
+    manifest = _verified_manifest(
+        source,
+        artifact_type="prepared_population_saliency_inputs",
+    )
+    if int(manifest.get("schema_version", -1)) not in (
+        SUPPORTED_PREPARED_SCHEMA_VERSIONS
+    ):
+        raise ValueError("unsupported prepared population schema version")
+    indices = _validated_unique_row_indices(
+        row_indices,
+        row_count=int(manifest["row_count"]),
+        name="row_indices",
+    )
+    sample_ids = np.empty(len(indices), dtype=object)
+    templates: np.ndarray | None = None
+    scores = np.empty(len(indices), dtype=np.float32)
+    filled = np.zeros(len(indices), dtype=bool)
+    for entry in list(manifest["embedding_shards"]):
+        item = dict(entry)
+        start = int(item["row_start"])
+        stop = int(item["row_stop"])
+        positions = np.flatnonzero((indices >= start) & (indices < stop))
+        if len(positions) == 0:
+            continue
+        shard_path = _verify_entry(source, item)
+        local = indices[positions] - start
+        with np.load(shard_path, allow_pickle=False) as shard:
+            shard_ids = shard["sample_id"].astype(str)
+            shard_templates = shard["loo_template"].astype(np.float32)
+            shard_scores = shard["identity_template_cosine"].astype(np.float32)
+        if templates is None:
+            templates = np.empty(
+                (len(indices), shard_templates.shape[1]),
+                dtype=np.float32,
+            )
+        elif templates.shape[1] != shard_templates.shape[1]:
+            raise ValueError("prepared template dimensions are inconsistent")
+        sample_ids[positions] = shard_ids[local]
+        templates[positions] = shard_templates[local]
+        scores[positions] = shard_scores[local]
+        filled[positions] = True
+    if not bool(filled.all()) or templates is None:
+        raise ValueError("selected prepared-population rows were not fully resolved")
+    sample_ids = sample_ids.astype(str)
+    if expected_sample_ids is not None:
+        expected = np.asarray(expected_sample_ids).astype(str)
+        if expected.shape != sample_ids.shape or not np.array_equal(
+            expected,
+            sample_ids,
+        ):
+            raise ValueError("selected prepared sample IDs differ from expectation")
+    return sample_ids, templates, scores

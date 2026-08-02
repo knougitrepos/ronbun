@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+import hashlib
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -19,6 +21,8 @@ from research.compression import (
 from research.evaluation import (
     apply_retrieval_thresholds,
     compare_cosine_retrieval,
+    compare_pq_adc_retrieval,
+    origin_cosine_retrieval,
     paired_embedding_metrics,
 )
 from research.explainability.gradcam.extraction import PreparedPopulationInputs
@@ -45,7 +49,85 @@ def _emit(progress: ProgressCallback | None, message: str, **details: object) ->
 class Step2CompressionResult:
     paired_metrics: pd.DataFrame
     retrieval_metrics: pd.DataFrame
+    origin_score_audit: pd.DataFrame
+    calibration_diagnostics: dict[str, object]
     summary: pd.DataFrame
+
+
+@dataclass(frozen=True)
+class SurvFaceOriginCalibrationSweepResult:
+    score_audit: pd.DataFrame
+    condition_summary: pd.DataFrame
+    diagnostics: dict[str, object]
+
+
+def _stable_protocol_key(value: str, *, seed: int, namespace: str) -> str:
+    payload = f"{namespace}:{seed}:{value}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _build_matched_survface_test_protocol(
+    official_protocol: OpenSetProtocol,
+    *,
+    gallery_identity_count: int,
+    enrollment_count: int,
+    seed: int,
+) -> OpenSetProtocol:
+    gallery = official_protocol.gallery.copy()
+    sizes = gallery.groupby("identity_id")["image_id"].nunique()
+    eligible = [
+        str(identity_id)
+        for identity_id, count in sizes.items()
+        if int(count) >= enrollment_count
+    ]
+    eligible.sort(
+        key=lambda value: _stable_protocol_key(
+            value,
+            seed=seed,
+            namespace="test:gallery-identity",
+        )
+    )
+    if len(eligible) < gallery_identity_count:
+        raise ValueError(
+            "official test gallery has too few identities for matched condition: "
+            f"gallery={gallery_identity_count}, enrollment={enrollment_count}, "
+            f"eligible={len(eligible)}"
+        )
+    selected_identities = set(eligible[:gallery_identity_count])
+    selected_gallery = gallery.loc[
+        gallery["identity_id"].astype(str).isin(selected_identities)
+    ].copy()
+    enrollment_parts: list[pd.DataFrame] = []
+    for identity_id, group in selected_gallery.groupby("identity_id", sort=True):
+        ordered = group.assign(
+            _stable_order=group["image_id"].astype(str).map(
+                lambda value: _stable_protocol_key(
+                    value,
+                    seed=seed,
+                    namespace=f"test:{identity_id}:enrollment",
+                )
+            )
+        ).sort_values("_stable_order")
+        enrollment_parts.append(
+            ordered.head(enrollment_count).drop(columns="_stable_order")
+        )
+    matched_gallery = pd.concat(enrollment_parts, ignore_index=True)
+    registered = official_protocol.registered_probes.loc[
+        official_protocol.registered_probes["identity_id"]
+        .astype(str)
+        .isin(selected_identities)
+    ].copy()
+    empty_known = official_protocol.known_unknown_probes.iloc[0:0].copy()
+    return OpenSetProtocol(
+        gallery=matched_gallery.sort_values(
+            ["identity_id", "image_id"], kind="stable"
+        ).reset_index(drop=True),
+        registered_probes=registered.reset_index(drop=True),
+        known_unknown_probes=empty_known.reset_index(drop=True),
+        unknown_unknown_probes=official_protocol.unknown_unknown_probes.copy().reset_index(
+            drop=True
+        ),
+    )
 
 
 def _identity_tuple(values: Sequence[str], *, name: str) -> tuple[str, ...]:
@@ -82,8 +164,16 @@ def _population_frame(
         raise ValueError(
             f"Step 2 compression requires [N, 512] embeddings, got {embeddings.shape}"
         )
+    raw_norms = np.asarray(prepared.raw_norms, dtype=np.float32)
+    if raw_norms.shape != (len(selected),):
+        raise ValueError(
+            "Step 2 compression requires one raw embedding norm per sample"
+        )
+    if not np.all(np.isfinite(raw_norms)) or np.any(raw_norms <= 0.0):
+        raise ValueError("raw embedding norms must be positive and finite")
     selected = selected.rename(columns={"sample_id": "image_id"})
     selected["origin_embedding"] = list(embeddings)
+    selected["raw_embedding_norm"] = raw_norms
     protocol_columns = ["image_id", "identity_id", "split"]
     if "image_path" in selected:
         protocol_columns.append("image_path")
@@ -98,7 +188,9 @@ def _protocol_arrays(
     protocol: OpenSetProtocol,
     population: pd.DataFrame,
 ) -> dict[str, np.ndarray]:
-    lookup = population[["image_id", "origin_embedding"]]
+    lookup = population[
+        ["image_id", "origin_embedding", "raw_embedding_norm"]
+    ]
 
     def attach(frame: pd.DataFrame) -> pd.DataFrame:
         if "origin_embedding" in frame:
@@ -139,11 +231,746 @@ def _protocol_arrays(
     return {
         "query_ids": queries["image_id"].astype(str).to_numpy(),
         "query_identity_ids": queries["identity_id"].astype(str).to_numpy(),
+        "query_probe_types": queries["probe_type"].astype(str).to_numpy(),
+        "query_raw_norms": queries["raw_embedding_norm"].to_numpy(
+            dtype=np.float32
+        ),
         "queries": np.stack(queries["origin_embedding"]).astype(np.float32),
         "gallery_ids": templates["identity_id"].astype(str).to_numpy(),
         "gallery_identity_ids": templates["identity_id"].astype(str).to_numpy(),
         "gallery": np.stack(templates["embedding"]).astype(np.float32),
     }
+
+
+def _distribution_summary(values: np.ndarray, *, name: str) -> dict[str, object]:
+    array = np.asarray(values, dtype=np.float64)
+    if array.ndim != 1 or len(array) == 0:
+        raise ValueError(f"{name} must be a non-empty one-dimensional array")
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must contain only finite values")
+    quantiles = np.quantile(array, [0.50, 0.90, 0.95, 0.99])
+    return {
+        "count": int(len(array)),
+        "minimum": float(np.min(array)),
+        "mean": float(np.mean(array)),
+        "p50": float(quantiles[0]),
+        "p90": float(quantiles[1]),
+        "p95": float(quantiles[2]),
+        "p99": float(quantiles[3]),
+        "maximum": float(np.max(array)),
+    }
+
+
+def _wilson_interval_95(successes: int, total: int) -> tuple[float, float]:
+    if total <= 0 or successes < 0 or successes > total:
+        raise ValueError("Wilson interval counts are invalid")
+    z = 1.959963984540054
+    proportion = successes / total
+    denominator = 1.0 + z * z / total
+    center = (proportion + z * z / (2.0 * total)) / denominator
+    margin = (
+        z
+        * np.sqrt(
+            proportion * (1.0 - proportion) / total
+            + z * z / (4.0 * total * total)
+        )
+        / denominator
+    )
+    return float(center - margin), float(center + margin)
+
+
+def _template_count_summary(protocol: OpenSetProtocol) -> dict[str, object]:
+    counts = (
+        protocol.gallery.assign(
+            identity_id=protocol.gallery["identity_id"].astype(str),
+            image_id=protocol.gallery["image_id"].astype(str),
+        )
+        .groupby("identity_id", sort=True)["image_id"]
+        .nunique()
+        .to_numpy(dtype=np.int64)
+    )
+    if len(counts) == 0 or np.any(counts <= 0):
+        raise ValueError("gallery must contain at least one image per template")
+    return {
+        "template_count": int(len(counts)),
+        "source_image_count": int(np.sum(counts)),
+        "images_per_template": _distribution_summary(
+            counts.astype(np.float64),
+            name="gallery images per template",
+        ),
+    }
+
+
+def _assert_same_origin_comparison(
+    reference: pd.DataFrame,
+    candidate: pd.DataFrame,
+    *,
+    split_name: str,
+) -> None:
+    exact_columns = (
+        "query_id",
+        "query_identity_id",
+        "is_mated",
+        "origin_top1_gallery_id",
+        "origin_top1_identity_id",
+        "origin_rank1_correct",
+        "origin_top_k_correct",
+    )
+    if len(reference) != len(candidate):
+        raise RuntimeError(f"{split_name} origin retrieval row count drifted")
+    for column in exact_columns:
+        if not np.array_equal(
+            reference[column].to_numpy(),
+            candidate[column].to_numpy(),
+        ):
+            raise RuntimeError(
+                f"{split_name} origin retrieval column drifted: {column}"
+            )
+    if not np.allclose(
+        reference["origin_top1_score"].to_numpy(dtype=np.float64),
+        candidate["origin_top1_score"].to_numpy(dtype=np.float64),
+        rtol=0.0,
+        atol=1e-7,
+    ):
+        raise RuntimeError(f"{split_name} origin top-1 scores drifted")
+
+
+def _origin_score_rows(
+    comparison: pd.DataFrame,
+    protocol_arrays: dict[str, np.ndarray],
+    *,
+    dataset_id: str,
+    model_uid: str,
+    protocol_uid: str,
+    evaluation_split: str,
+    decision_threshold: float,
+    target_fpir: float,
+) -> pd.DataFrame:
+    query_ids = protocol_arrays["query_ids"].astype(str)
+    if not np.array_equal(
+        comparison["query_id"].astype(str).to_numpy(),
+        query_ids,
+    ):
+        raise RuntimeError(
+            f"{evaluation_split} origin audit query order differs from protocol"
+        )
+    scores = comparison["origin_top1_score"].to_numpy(dtype=np.float64)
+    if not np.all(np.isfinite(scores)) or np.any(scores < -1.000001) or np.any(
+        scores > 1.000001
+    ):
+        raise ValueError("origin cosine scores must be finite and inside [-1, 1]")
+    is_mated = comparison["is_mated"].to_numpy(dtype=bool)
+    rank1_correct = comparison["origin_rank1_correct"].to_numpy(dtype=bool)
+    accepted = scores >= float(decision_threshold)
+    result = pd.DataFrame(
+        {
+            "dataset": str(dataset_id),
+            "model_uid": str(model_uid),
+            "protocol_uid": str(protocol_uid),
+            "evaluation_split": str(evaluation_split),
+            "threshold_source_split": "calibration",
+            "query_id": query_ids,
+            "query_identity_id": protocol_arrays["query_identity_ids"].astype(
+                str
+            ),
+            "probe_type": protocol_arrays["query_probe_types"].astype(str),
+            "is_mated": is_mated,
+            "origin_top1_gallery_id": comparison[
+                "origin_top1_gallery_id"
+            ].astype(str),
+            "origin_top1_identity_id": comparison[
+                "origin_top1_identity_id"
+            ].astype(str),
+            "origin_top1_score": scores,
+            "origin_rank1_correct": rank1_correct,
+            "origin_top_k_correct": comparison[
+                "origin_top_k_correct"
+            ].to_numpy(dtype=bool),
+            "query_raw_embedding_norm": protocol_arrays[
+                "query_raw_norms"
+            ].astype(np.float32),
+            "target_fpir": float(target_fpir),
+            "origin_decision_threshold": float(decision_threshold),
+            "threshold_comparator": ">=",
+            "origin_accepted": accepted,
+            "origin_false_accept": accepted & ~is_mated,
+            "origin_true_identification": accepted & is_mated & rank1_correct,
+        }
+    )
+    if result["query_id"].duplicated().any():
+        raise RuntimeError(f"{evaluation_split} origin audit query IDs repeat")
+    return result
+
+
+def _split_diagnostics(
+    rows: pd.DataFrame,
+    protocol: OpenSetProtocol,
+    *,
+    target_fpir: float,
+    require_target_bound: bool,
+) -> dict[str, object]:
+    is_mated = rows["is_mated"].to_numpy(dtype=bool)
+    accepted = rows["origin_accepted"].to_numpy(dtype=bool)
+    correct = rows["origin_rank1_correct"].to_numpy(dtype=bool)
+    non_mated_count = int((~is_mated).sum())
+    if non_mated_count <= 0:
+        raise ValueError("origin calibration audit requires non-mated probes")
+    false_accept_count = int((accepted & ~is_mated).sum())
+    realized_fpir = float(false_accept_count / non_mated_count)
+    fpir_ci_low, fpir_ci_high = _wilson_interval_95(
+        false_accept_count,
+        non_mated_count,
+    )
+    if require_target_bound and realized_fpir > float(target_fpir) + 1e-12:
+        raise RuntimeError(
+            "calibration FPIR exceeds its target under the persisted comparator"
+        )
+    mated_count = int(is_mated.sum())
+    true_identification_count = int((accepted & is_mated & correct).sum())
+    probe_type_counts = {
+        str(key): int(value)
+        for key, value in rows["probe_type"].value_counts(sort=False).items()
+    }
+    return {
+        **_template_count_summary(protocol),
+        "query_count": int(len(rows)),
+        "mated_count": mated_count,
+        "non_mated_count": non_mated_count,
+        "probe_type_counts": probe_type_counts,
+        "origin_decision_threshold": float(
+            rows["origin_decision_threshold"].iloc[0]
+        ),
+        "threshold_comparator": ">=",
+        "target_fpir": float(target_fpir),
+        "origin_false_accept_count": false_accept_count,
+        "origin_fpir": realized_fpir,
+        "origin_fpir_wilson95_low": fpir_ci_low,
+        "origin_fpir_wilson95_high": fpir_ci_high,
+        "origin_true_identification_count": true_identification_count,
+        "origin_dir_rank1": (
+            float(true_identification_count / mated_count)
+            if mated_count
+            else None
+        ),
+        "non_mated_top1_score": _distribution_summary(
+            rows.loc[~rows["is_mated"], "origin_top1_score"].to_numpy(
+                dtype=np.float64
+            ),
+            name="non-mated origin top-1 scores",
+        ),
+        "query_raw_embedding_norm": _distribution_summary(
+            rows["query_raw_embedding_norm"].to_numpy(dtype=np.float64),
+            name="query raw embedding norms",
+        ),
+    }
+
+
+def _independent_threshold(
+    comparison: pd.DataFrame,
+    *,
+    target_fpir: float,
+) -> float:
+    scores = comparison["origin_top1_score"].to_numpy(dtype=np.float64)
+    is_mated = comparison["is_mated"].to_numpy(dtype=bool)
+    correct = comparison["origin_rank1_correct"].to_numpy(dtype=bool)
+    if not (len(scores) == len(is_mated) == len(correct)) or len(scores) == 0:
+        raise ValueError("origin threshold audit arrays must have equal non-zero length")
+    if not np.all(np.isfinite(scores)):
+        raise ValueError("origin threshold audit scores must be finite")
+    non_mated_count = int((~is_mated).sum())
+    if non_mated_count <= 0:
+        raise ValueError("origin threshold audit requires non-mated probes")
+
+    grouped = pd.DataFrame(
+        {
+            "score": scores,
+            "false_accept": (~is_mated).astype(np.int64),
+            "true_identification": (is_mated & correct).astype(np.int64),
+        }
+    ).groupby("score", sort=False, as_index=False).sum()
+    grouped = grouped.sort_values("score", ascending=False, kind="stable")
+    grouped["false_accept"] = grouped["false_accept"].cumsum()
+    grouped["true_identification"] = grouped["true_identification"].cumsum()
+    candidates = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "score": [np.inf],
+                    "false_accept": [0],
+                    "true_identification": [0],
+                }
+            ),
+            grouped,
+        ],
+        ignore_index=True,
+    )
+    feasible = candidates.loc[
+        candidates["false_accept"] / non_mated_count
+        <= float(target_fpir) + 1e-15
+    ]
+    if feasible.empty:
+        raise RuntimeError("origin threshold audit found no feasible threshold")
+    best_true_identifications = int(feasible["true_identification"].max())
+    best = feasible.loc[
+        feasible["true_identification"].eq(best_true_identifications)
+    ].iloc[0]
+    return float(best["score"])
+
+
+def _build_origin_calibration_audit(
+    calibration_comparison: pd.DataFrame,
+    evaluation_comparison: pd.DataFrame,
+    calibration_arrays: dict[str, np.ndarray],
+    evaluation_arrays: dict[str, np.ndarray],
+    calibration_protocol: OpenSetProtocol,
+    evaluation_protocol: OpenSetProtocol,
+    *,
+    dataset_id: str,
+    model_uid: str,
+    protocol_uid: str,
+    decision_threshold: float,
+    target_fpir: float,
+) -> tuple[pd.DataFrame, dict[str, object]]:
+    independently_calculated_threshold = _independent_threshold(
+        calibration_comparison,
+        target_fpir=target_fpir,
+    )
+    thresholds_match = (
+        np.isinf(decision_threshold)
+        and np.isinf(independently_calculated_threshold)
+        or np.isclose(
+            decision_threshold,
+            independently_calculated_threshold,
+            rtol=0.0,
+            atol=1e-12,
+        )
+    )
+    if not thresholds_match:
+        raise RuntimeError(
+            "calibration threshold differs from the independent grouped-score audit"
+        )
+    calibration_rows = _origin_score_rows(
+        calibration_comparison,
+        calibration_arrays,
+        dataset_id=dataset_id,
+        model_uid=model_uid,
+        protocol_uid=protocol_uid,
+        evaluation_split="calibration",
+        decision_threshold=decision_threshold,
+        target_fpir=target_fpir,
+    )
+    test_rows = _origin_score_rows(
+        evaluation_comparison,
+        evaluation_arrays,
+        dataset_id=dataset_id,
+        model_uid=model_uid,
+        protocol_uid=protocol_uid,
+        evaluation_split="test",
+        decision_threshold=decision_threshold,
+        target_fpir=target_fpir,
+    )
+    audit = pd.concat([calibration_rows, test_rows], ignore_index=True)
+    summary: dict[str, object] = {
+        "schema_version": 2,
+        "artifact_type": "origin_open_set_calibration_diagnostics",
+        "dataset_id": str(dataset_id),
+        "model_uid": str(model_uid),
+        "protocol_uid": str(protocol_uid),
+        "score_definition": "maximum cosine similarity over gallery templates",
+        "threshold_source_split": "calibration",
+        "threshold_selection": (
+            "maximize calibration DIR subject to empirical FPIR <= target"
+        ),
+        "threshold_comparator": ">=",
+        "target_fpir": float(target_fpir),
+        "origin_decision_threshold": float(decision_threshold),
+        "independent_threshold_verification": {
+            "algorithm": "descending grouped-score cumulative-count audit",
+            "origin_decision_threshold": float(decision_threshold),
+            "independently_calculated_threshold": float(
+                independently_calculated_threshold
+            ),
+            "matches": True,
+        },
+        "splits": {
+            "calibration": _split_diagnostics(
+                calibration_rows,
+                calibration_protocol,
+                target_fpir=target_fpir,
+                require_target_bound=True,
+            ),
+            "test": _split_diagnostics(
+                test_rows,
+                evaluation_protocol,
+                target_fpir=target_fpir,
+                require_target_bound=False,
+            ),
+        },
+    }
+    test_fpir = float(summary["splits"]["test"]["origin_fpir"])
+    target_met = test_fpir <= float(target_fpir) + 1e-12
+    summary["calibration_transfer_assessment"] = {
+        "status": "target_met" if target_met else "failed_target_fpir",
+        "target_met": target_met,
+        "threshold_dependent_results_valid_for_target_operating_point": target_met,
+        "test_used_for_threshold_selection": False,
+        "observed_test_fpir": test_fpir,
+        "target_fpir": float(target_fpir),
+    }
+    return audit, summary
+
+
+def _origin_protocol_comparison(
+    arrays: dict[str, np.ndarray],
+    *,
+    top_k: int,
+    progress: ProgressCallback | None,
+    progress_message: str,
+    progress_details: dict[str, object],
+) -> pd.DataFrame:
+    return origin_cosine_retrieval(
+        arrays["queries"],
+        arrays["gallery"],
+        query_ids=arrays["query_ids"],
+        gallery_ids=arrays["gallery_ids"],
+        query_identity_ids=arrays["query_identity_ids"],
+        gallery_identity_ids=arrays["gallery_identity_ids"],
+        top_k=top_k,
+        progress=progress,
+        progress_message=progress_message,
+        progress_details=progress_details,
+    )
+
+
+def diagnose_step2_survface_origin_calibration(
+    prepared: PreparedPopulationInputs,
+    selected_manifest: pd.DataFrame,
+    *,
+    calibration_conditions: Sequence[tuple[int, int]] = (
+        (100, 1),
+        (200, 1),
+        (500, 1),
+        (1000, 1),
+        (200, 5),
+        (200, 20),
+    ),
+    seed: int = 42,
+    target_fpir: float = 0.10,
+    top_k: int = 1,
+    progress: ProgressCallback | None = None,
+) -> SurvFaceOriginCalibrationSweepResult:
+    """Diagnose SurvFace origin FPIR without fitting or searching compression.
+
+    Each calibration condition varies the number of gallery identities and
+    source images averaged per template. The official test search is performed
+    once and each frozen calibration threshold is then applied to those same
+    test scores. This isolates gallery-size and template-aggregation effects
+    from PCA/PQ behavior.
+    """
+
+    normalized_conditions: list[tuple[int, int]] = []
+    for gallery_identity_count, enrollment_count in calibration_conditions:
+        gallery_value = int(gallery_identity_count)
+        enrollment_value = int(enrollment_count)
+        if gallery_value <= 0 or enrollment_value <= 0:
+            raise ValueError("calibration sweep counts must be positive")
+        condition = (gallery_value, enrollment_value)
+        if condition in normalized_conditions:
+            raise ValueError(f"duplicate calibration condition: {condition}")
+        normalized_conditions.append(condition)
+    if not normalized_conditions:
+        raise ValueError("calibration_conditions must not be empty")
+    target_value = float(target_fpir)
+    if not 0.0 <= target_value <= 1.0:
+        raise ValueError("target_fpir must be inside [0, 1]")
+
+    population = _population_frame(prepared, selected_manifest)
+    required_protocol_columns = {
+        "protocol_role",
+        "probe_type",
+        "protocol_index",
+    }
+    missing = sorted(required_protocol_columns.difference(population.columns))
+    if missing:
+        raise ValueError(
+            "SurvFace selected manifest is missing official protocol columns: "
+            f"{missing}"
+        )
+    official_roles = {
+        "gallery",
+        "registered_probe",
+        "unknown_unknown_probe",
+    }
+    official = population.loc[
+        population["protocol_role"].astype(str).isin(official_roles)
+    ].copy()
+    if official.empty:
+        raise ValueError("SurvFace official evaluation rows are missing")
+    official = rebase_survface_protocol_subset_indexes(official)
+    evaluation_protocol = build_survface_official_protocol(official)
+    evaluation_arrays = _protocol_arrays(evaluation_protocol, population)
+    evaluation_comparison = _origin_protocol_comparison(
+        evaluation_arrays,
+        top_k=top_k,
+        progress=progress,
+        progress_message="SurvFace official origin retrieval",
+        progress_details={"evaluation_split": "test"},
+    )
+
+    calibration_sizes = (
+        population.loc[population["split"].eq("calibration")]
+        .groupby("identity_id")["image_id"]
+        .nunique()
+    )
+    audit_frames: list[pd.DataFrame] = []
+    summary_rows: list[dict[str, object]] = []
+    condition_diagnostics: list[dict[str, object]] = []
+    protocol_uid = "qmul-survface-v1-official-open-set-identification"
+    for condition_index, (gallery_identity_count, enrollment_count) in enumerate(
+        normalized_conditions
+    ):
+        eligible_identity_count = int((calibration_sizes > enrollment_count).sum())
+        if gallery_identity_count >= eligible_identity_count:
+            raise ValueError(
+                "calibration condition must reserve at least one eligible "
+                "known-unknown identity: "
+                f"gallery={gallery_identity_count}, enrollment={enrollment_count}, "
+                f"eligible={eligible_identity_count}"
+            )
+        condition_uid = (
+            f"gallery-{gallery_identity_count}_enrollment-{enrollment_count}"
+        )
+        calibration_protocol = build_calibration_protocol(
+            population,
+            split_name="calibration",
+            gallery_identity_count=gallery_identity_count,
+            enrollment_count=enrollment_count,
+            seed=seed,
+        )
+        calibration_arrays = _protocol_arrays(calibration_protocol, population)
+        calibration_comparison = _origin_protocol_comparison(
+            calibration_arrays,
+            top_k=top_k,
+            progress=progress,
+            progress_message="SurvFace calibration origin retrieval",
+            progress_details={
+                "condition_index": int(condition_index),
+                "condition_count": int(len(normalized_conditions)),
+                "calibration_condition_uid": condition_uid,
+            },
+        )
+        threshold = _threshold(
+            calibration_comparison,
+            score_column="origin_top1_score",
+            correct_column="origin_rank1_correct",
+            target_fpir=target_value,
+        )
+        matched_test_protocol = _build_matched_survface_test_protocol(
+            evaluation_protocol,
+            gallery_identity_count=gallery_identity_count,
+            enrollment_count=enrollment_count,
+            seed=seed,
+        )
+        matched_test_arrays = _protocol_arrays(matched_test_protocol, population)
+        matched_test_comparison = _origin_protocol_comparison(
+            matched_test_arrays,
+            top_k=top_k,
+            progress=progress,
+            progress_message="SurvFace matched-test origin retrieval",
+            progress_details={
+                "condition_index": int(condition_index),
+                "condition_count": int(len(normalized_conditions)),
+                "calibration_condition_uid": condition_uid,
+            },
+        )
+        audit, diagnostics = _build_origin_calibration_audit(
+            calibration_comparison,
+            evaluation_comparison,
+            calibration_arrays,
+            evaluation_arrays,
+            calibration_protocol,
+            evaluation_protocol,
+            dataset_id=prepared.dataset_id,
+            model_uid=prepared.model_uid,
+            protocol_uid=protocol_uid,
+            decision_threshold=threshold,
+            target_fpir=target_value,
+        )
+        matched_test_rows = _origin_score_rows(
+            matched_test_comparison,
+            matched_test_arrays,
+            dataset_id=prepared.dataset_id,
+            model_uid=prepared.model_uid,
+            protocol_uid=protocol_uid,
+            evaluation_split="test_matched",
+            decision_threshold=threshold,
+            target_fpir=target_value,
+        )
+        matched_test_diagnostics = _split_diagnostics(
+            matched_test_rows,
+            matched_test_protocol,
+            target_fpir=target_value,
+            require_target_bound=False,
+        )
+        diagnostics["splits"]["test_matched"] = matched_test_diagnostics
+        audit = pd.concat([audit, matched_test_rows], ignore_index=True)
+        audit.insert(4, "calibration_condition_uid", condition_uid)
+        audit.insert(
+            5,
+            "calibration_gallery_identity_count",
+            gallery_identity_count,
+        )
+        audit.insert(6, "calibration_enrollment_count", enrollment_count)
+        audit_frames.append(audit)
+
+        calibration_split = diagnostics["splits"]["calibration"]
+        test_split = diagnostics["splits"]["test"]
+        matched_test_split = diagnostics["splits"]["test_matched"]
+        summary_rows.append(
+            {
+                "dataset_id": str(prepared.dataset_id),
+                "model_uid": str(prepared.model_uid),
+                "protocol_uid": protocol_uid,
+                "calibration_condition_uid": condition_uid,
+                "seed": int(seed),
+                "target_fpir": target_value,
+                "calibration_gallery_identity_count": gallery_identity_count,
+                "calibration_enrollment_count": enrollment_count,
+                "eligible_calibration_identity_count": eligible_identity_count,
+                "calibration_source_image_count": int(
+                    calibration_split["source_image_count"]
+                ),
+                "calibration_non_mated_count": int(
+                    calibration_split["non_mated_count"]
+                ),
+                "origin_decision_threshold": float(threshold),
+                "calibration_false_accept_count": int(
+                    calibration_split["origin_false_accept_count"]
+                ),
+                "calibration_fpir": float(calibration_split["origin_fpir"]),
+                "calibration_fpir_wilson95_low": float(
+                    calibration_split["origin_fpir_wilson95_low"]
+                ),
+                "calibration_fpir_wilson95_high": float(
+                    calibration_split["origin_fpir_wilson95_high"]
+                ),
+                "calibration_non_mated_score_p50": float(
+                    calibration_split["non_mated_top1_score"]["p50"]
+                ),
+                "calibration_non_mated_score_p90": float(
+                    calibration_split["non_mated_top1_score"]["p90"]
+                ),
+                "calibration_non_mated_score_p95": float(
+                    calibration_split["non_mated_top1_score"]["p95"]
+                ),
+                "calibration_non_mated_score_p99": float(
+                    calibration_split["non_mated_top1_score"]["p99"]
+                ),
+                "test_gallery_template_count": int(test_split["template_count"]),
+                "test_gallery_source_image_count": int(
+                    test_split["source_image_count"]
+                ),
+                "test_non_mated_count": int(test_split["non_mated_count"]),
+                "test_false_accept_count": int(
+                    test_split["origin_false_accept_count"]
+                ),
+                "test_fpir": float(test_split["origin_fpir"]),
+                "test_fpir_wilson95_low": float(
+                    test_split["origin_fpir_wilson95_low"]
+                ),
+                "test_fpir_wilson95_high": float(
+                    test_split["origin_fpir_wilson95_high"]
+                ),
+                "test_to_target_fpir_ratio": float(
+                    test_split["origin_fpir"] / target_value
+                )
+                if target_value > 0.0
+                else None,
+                "test_non_mated_score_p50": float(
+                    test_split["non_mated_top1_score"]["p50"]
+                ),
+                "test_non_mated_score_p90": float(
+                    test_split["non_mated_top1_score"]["p90"]
+                ),
+                "test_non_mated_score_p95": float(
+                    test_split["non_mated_top1_score"]["p95"]
+                ),
+                "test_non_mated_score_p99": float(
+                    test_split["non_mated_top1_score"]["p99"]
+                ),
+                "matched_test_gallery_template_count": int(
+                    matched_test_split["template_count"]
+                ),
+                "matched_test_gallery_source_image_count": int(
+                    matched_test_split["source_image_count"]
+                ),
+                "matched_test_non_mated_count": int(
+                    matched_test_split["non_mated_count"]
+                ),
+                "matched_test_false_accept_count": int(
+                    matched_test_split["origin_false_accept_count"]
+                ),
+                "matched_test_fpir": float(matched_test_split["origin_fpir"]),
+                "matched_test_fpir_wilson95_low": float(
+                    matched_test_split["origin_fpir_wilson95_low"]
+                ),
+                "matched_test_fpir_wilson95_high": float(
+                    matched_test_split["origin_fpir_wilson95_high"]
+                ),
+                "matched_test_to_target_fpir_ratio": float(
+                    matched_test_split["origin_fpir"] / target_value
+                )
+                if target_value > 0.0
+                else None,
+                "matched_test_non_mated_score_p50": float(
+                    matched_test_split["non_mated_top1_score"]["p50"]
+                ),
+                "matched_test_non_mated_score_p90": float(
+                    matched_test_split["non_mated_top1_score"]["p90"]
+                ),
+                "matched_test_non_mated_score_p95": float(
+                    matched_test_split["non_mated_top1_score"]["p95"]
+                ),
+                "matched_test_non_mated_score_p99": float(
+                    matched_test_split["non_mated_top1_score"]["p99"]
+                ),
+            }
+        )
+        condition_diagnostics.append(
+            {
+                "calibration_condition_uid": condition_uid,
+                "calibration_gallery_identity_count": gallery_identity_count,
+                "calibration_enrollment_count": enrollment_count,
+                "eligible_calibration_identity_count": eligible_identity_count,
+                **diagnostics,
+            }
+        )
+
+    score_audit = pd.concat(audit_frames, ignore_index=True)
+    condition_summary = pd.DataFrame(summary_rows)
+    diagnostics_payload: dict[str, object] = {
+        "schema_version": 2,
+        "artifact_type": "survface_origin_fpir_calibration_sweep",
+        "dataset_id": str(prepared.dataset_id),
+        "model_uid": str(prepared.model_uid),
+        "protocol_uid": protocol_uid,
+        "seed": int(seed),
+        "target_fpir": target_value,
+        "score_definition": "maximum cosine similarity over gallery templates",
+        "threshold_source_split": "calibration",
+        "test_threshold_recalibration": False,
+        "matched_test_definition": (
+            "deterministic official-test gallery subset with the same gallery "
+            "identity and enrollment counts as each calibration condition"
+        ),
+        "calibration_identity_count": int(len(calibration_sizes)),
+        "conditions": condition_diagnostics,
+    }
+    return SurvFaceOriginCalibrationSweepResult(
+        score_audit=score_audit,
+        condition_summary=condition_summary,
+        diagnostics=diagnostics_payload,
+    )
 
 
 def _compressed_matrix(family: str, compressor: Any, matrix: np.ndarray) -> np.ndarray:
@@ -221,11 +1048,12 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
         [
             "compression_family",
             "compression_profile",
+            "search_mode",
             "threshold_policy",
         ],
         sort=True,
     ):
-        family, profile, policy = keys
+        family, profile, search_mode, policy = keys
         mated = group["is_mated"].astype(bool)
         accepted = group["compressed_accepted"].astype(bool)
         correct = group["compressed_rank1_correct"].astype(bool)
@@ -233,6 +1061,7 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
             {
                 "compression_family": family,
                 "compression_profile": profile,
+                "search_mode": search_mode,
                 "threshold_policy": policy,
                 "query_count": int(len(group)),
                 "dir_rank1": (
@@ -250,6 +1079,34 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 ),
                 "threshold_crossing_rate": float(
                     group["threshold_crossing"].mean()
+                ),
+                "gallery_template_count": int(
+                    group["gallery_template_count"].iloc[0]
+                ),
+                "origin_storage_bytes_per_embedding": 512 * 4,
+                "origin_gallery_storage_bytes": int(
+                    group["gallery_template_count"].iloc[0]
+                )
+                * 512
+                * 4,
+                "compressed_gallery_storage_bytes": int(
+                    group["gallery_template_count"].iloc[0]
+                )
+                * int(group["storage_bytes_per_embedding"].iloc[0])
+                + int(group["codebook_bytes"].iloc[0]),
+                "amortized_storage_bytes_per_gallery_template": float(
+                    int(group["storage_bytes_per_embedding"].iloc[0])
+                    + int(group["codebook_bytes"].iloc[0])
+                    / int(group["gallery_template_count"].iloc[0])
+                ),
+                "compressed_search_latency_ms_total": float(
+                    group["compressed_search_latency_ms_total"].iloc[0]
+                ),
+                "compressed_search_latency_ms_per_query": float(
+                    group["compressed_search_latency_ms_per_query"].iloc[0]
+                ),
+                "compressed_search_queries_per_second": float(
+                    group["compressed_search_queries_per_second"].iloc[0]
                 ),
             }
         )
@@ -278,29 +1135,34 @@ def _characterize_population_with_protocols(
 ) -> Step2CompressionResult:
     requested_pca = tuple(int(value) for value in pca_dimensions)
     requested_pq = tuple((int(m), int(bits)) for m, bits in pq_settings)
-    if not requested_pca or not requested_pq:
-        raise ValueError("both PCA and PQ profile sets are required")
+    if not requested_pca and not requested_pq:
+        raise ValueError("at least one PCA or PQ profile is required")
     development_values = np.asarray(development_matrix, dtype=np.float32)
     if development_values.ndim != 2 or development_values.shape[1] != 512:
         raise ValueError("development_matrix must have shape [N, 512]")
 
-    pca_models = fit_pca_family(
-        development_values,
-        dimensions=requested_pca,
-        random_state=seed,
+    pca_models = (
+        fit_pca_family(
+            development_values,
+            dimensions=requested_pca,
+            random_state=seed,
+        )
+        if requested_pca
+        else {}
     )
     compressors: list[tuple[str, str, Any]] = [
         ("pca", profile, compressor)
         for profile, compressor in pca_models.items()
     ]
     compressor_total = len(requested_pca) + len(requested_pq)
-    _emit(
-        progress,
-        f"{prepared.dataset_id} compressor fit",
-        processed=len(pca_models),
-        total=compressor_total,
-        family="pca",
-    )
+    if pca_models:
+        _emit(
+            progress,
+            f"{prepared.dataset_id} compressor fit",
+            processed=len(pca_models),
+            total=compressor_total,
+            family="pca",
+        )
     for m, nbits in requested_pq:
         compressor = PQCompressor(
             source_dim=512,
@@ -320,14 +1182,21 @@ def _characterize_population_with_protocols(
 
     calibration = _protocol_arrays(calibration_protocol, population)
     evaluation = _protocol_arrays(evaluation_protocol, population)
-    work_per_profile = 2 * (
+    work_per_cosine_mode = 2 * (
         len(calibration["queries"]) + len(evaluation["queries"])
     )
-    retrieval_work_total = len(compressors) * work_per_profile
+    cosine_mode_count = sum(
+        2 if family == "pca" else 1 for family, _, _ in compressors
+    )
+    retrieval_work_total = cosine_mode_count * work_per_cosine_mode
     full_matrix = np.stack(population["origin_embedding"]).astype(np.float32)
     paired_frames = []
     retrieval_frames = []
-    for profile_index, (family, profile, compressor) in enumerate(compressors):
+    origin_calibration_reference: pd.DataFrame | None = None
+    origin_evaluation_reference: pd.DataFrame | None = None
+    origin_threshold: float | None = None
+    progress_offset = 0
+    for family, profile, compressor in compressors:
         full_result = compressor.transform_profile(full_matrix)
         storage = _storage_metadata(family, full_result)
         paired = paired_embedding_metrics(
@@ -355,30 +1224,73 @@ def _characterize_population_with_protocols(
             gallery_identity_ids=calibration["gallery_identity_ids"],
             compression_family=family,
             compression_profile=profile,
+            search_mode=(
+                "pca_direct_cosine"
+                if family == "pca"
+                else "pq_reconstruction_cosine"
+            ),
             top_k=min(int(top_k), len(calibration["gallery"])),
             progress=progress,
             progress_message=(
                 f"{prepared.dataset_id} compression retrieval"
             ),
-            progress_offset=profile_index * work_per_profile,
+            progress_offset=progress_offset,
             progress_total=retrieval_work_total,
             progress_details={
                 "profile": profile,
                 "split": "calibration",
             },
         )
-        origin_threshold = _threshold(
-            calibration_comparison,
-            score_column="origin_top1_score",
-            correct_column="origin_rank1_correct",
-            target_fpir=target_fpir,
-        )
+        if origin_calibration_reference is None:
+            origin_calibration_reference = calibration_comparison.copy()
+            origin_threshold = _threshold(
+                calibration_comparison,
+                score_column="origin_top1_score",
+                correct_column="origin_rank1_correct",
+                target_fpir=target_fpir,
+            )
+        else:
+            _assert_same_origin_comparison(
+                origin_calibration_reference,
+                calibration_comparison,
+                split_name="calibration",
+            )
         compressed_threshold = _threshold(
             calibration_comparison,
             score_column="compressed_top1_score",
             correct_column="compressed_rank1_correct",
             target_fpir=target_fpir,
         )
+        adc_calibration_threshold: float | None = None
+        if family == "pq":
+            calibration_gallery_codes = compressor.encode(calibration["gallery"])
+            (
+                adc_calibration_distances,
+                adc_calibration_indices,
+                _,
+            ) = compressor.search_adc_with_metrics(
+                calibration["queries"],
+                calibration_gallery_codes,
+                top_k=min(int(top_k), len(calibration["gallery"])),
+            )
+            adc_calibration_comparison = compare_pq_adc_retrieval(
+                calibration_comparison,
+                calibration["queries"],
+                calibration["gallery"],
+                adc_calibration_distances,
+                adc_calibration_indices,
+                query_ids=calibration["query_ids"],
+                gallery_ids=calibration["gallery_ids"],
+                query_identity_ids=calibration["query_identity_ids"],
+                gallery_identity_ids=calibration["gallery_identity_ids"],
+                compression_profile=profile,
+            )
+            adc_calibration_threshold = _threshold(
+                adc_calibration_comparison,
+                score_column="compressed_top1_score",
+                correct_column="compressed_rank1_correct",
+                target_fpir=target_fpir,
+            )
         evaluation_queries = _compressed_matrix(
             family,
             compressor,
@@ -400,13 +1312,18 @@ def _characterize_population_with_protocols(
             gallery_identity_ids=evaluation["gallery_identity_ids"],
             compression_family=family,
             compression_profile=profile,
+            search_mode=(
+                "pca_direct_cosine"
+                if family == "pca"
+                else "pq_reconstruction_cosine"
+            ),
             top_k=min(int(top_k), len(evaluation["gallery"])),
             progress=progress,
             progress_message=(
                 f"{prepared.dataset_id} compression retrieval"
             ),
             progress_offset=(
-                profile_index * work_per_profile
+                progress_offset
                 + 2 * len(calibration["queries"])
             ),
             progress_total=retrieval_work_total,
@@ -415,6 +1332,16 @@ def _characterize_population_with_protocols(
                 "split": "evaluation",
             },
         )
+        if origin_evaluation_reference is None:
+            origin_evaluation_reference = evaluation_comparison.copy()
+        else:
+            _assert_same_origin_comparison(
+                origin_evaluation_reference,
+                evaluation_comparison,
+                split_name="test",
+            )
+        if origin_threshold is None:
+            raise RuntimeError("origin calibration threshold was not initialized")
         for threshold_policy, operating_threshold in (
             ("frozen_origin", origin_threshold),
             ("recalibrated_compressed", compressed_threshold),
@@ -432,7 +1359,159 @@ def _characterize_population_with_protocols(
             compared["evaluation_split"] = "test"
             for column, value in storage.items():
                 compared[column] = value
+            compared["gallery_template_count"] = len(evaluation["gallery"])
             retrieval_frames.append(compared)
+        progress_offset += work_per_cosine_mode
+
+        if family == "pca":
+            reconstructed_calibration = compressor.transform_profile(
+                calibration["queries"]
+            ).reconstructed_vectors
+            reconstructed_calibration_gallery = compressor.transform_profile(
+                calibration["gallery"]
+            ).reconstructed_vectors
+            reconstructed_calibration_comparison = compare_cosine_retrieval(
+                calibration["queries"],
+                calibration["gallery"],
+                reconstructed_calibration,
+                reconstructed_calibration_gallery,
+                query_ids=calibration["query_ids"],
+                gallery_ids=calibration["gallery_ids"],
+                query_identity_ids=calibration["query_identity_ids"],
+                gallery_identity_ids=calibration["gallery_identity_ids"],
+                compression_family=family,
+                compression_profile=profile,
+                search_mode="pca_reconstruction_cosine",
+                top_k=min(int(top_k), len(calibration["gallery"])),
+                progress=progress,
+                progress_message=(
+                    f"{prepared.dataset_id} compression retrieval"
+                ),
+                progress_offset=progress_offset,
+                progress_total=retrieval_work_total,
+                progress_details={
+                    "profile": profile,
+                    "split": "calibration",
+                    "search_mode": "pca_reconstruction_cosine",
+                },
+            )
+            _assert_same_origin_comparison(
+                origin_calibration_reference,
+                reconstructed_calibration_comparison,
+                split_name="calibration",
+            )
+            reconstructed_threshold = _threshold(
+                reconstructed_calibration_comparison,
+                score_column="compressed_top1_score",
+                correct_column="compressed_rank1_correct",
+                target_fpir=target_fpir,
+            )
+            reconstructed_evaluation = compressor.transform_profile(
+                evaluation["queries"]
+            ).reconstructed_vectors
+            reconstructed_evaluation_gallery = compressor.transform_profile(
+                evaluation["gallery"]
+            ).reconstructed_vectors
+            reconstructed_evaluation_comparison = compare_cosine_retrieval(
+                evaluation["queries"],
+                evaluation["gallery"],
+                reconstructed_evaluation,
+                reconstructed_evaluation_gallery,
+                query_ids=evaluation["query_ids"],
+                gallery_ids=evaluation["gallery_ids"],
+                query_identity_ids=evaluation["query_identity_ids"],
+                gallery_identity_ids=evaluation["gallery_identity_ids"],
+                compression_family=family,
+                compression_profile=profile,
+                search_mode="pca_reconstruction_cosine",
+                top_k=min(int(top_k), len(evaluation["gallery"])),
+                progress=progress,
+                progress_message=(
+                    f"{prepared.dataset_id} compression retrieval"
+                ),
+                progress_offset=(
+                    progress_offset + 2 * len(calibration["queries"])
+                ),
+                progress_total=retrieval_work_total,
+                progress_details={
+                    "profile": profile,
+                    "split": "evaluation",
+                    "search_mode": "pca_reconstruction_cosine",
+                },
+            )
+            _assert_same_origin_comparison(
+                origin_evaluation_reference,
+                reconstructed_evaluation_comparison,
+                split_name="test",
+            )
+            for threshold_policy, operating_threshold in (
+                ("frozen_origin", origin_threshold),
+                ("recalibrated_compressed", reconstructed_threshold),
+            ):
+                reconstructed_compared = apply_retrieval_thresholds(
+                    reconstructed_evaluation_comparison,
+                    origin_threshold=origin_threshold,
+                    compressed_threshold=operating_threshold,
+                )
+                reconstructed_compared.insert(0, "dataset", prepared.dataset_id)
+                reconstructed_compared.insert(1, "model_uid", prepared.model_uid)
+                reconstructed_compared["protocol_uid"] = str(protocol_uid)
+                reconstructed_compared["threshold_policy"] = threshold_policy
+                reconstructed_compared["threshold_source_split"] = "calibration"
+                reconstructed_compared["evaluation_split"] = "test"
+                for column, value in storage.items():
+                    reconstructed_compared[column] = value
+                reconstructed_compared["gallery_template_count"] = len(
+                    evaluation["gallery"]
+                )
+                retrieval_frames.append(reconstructed_compared)
+            progress_offset += work_per_cosine_mode
+        if family == "pq":
+            if adc_calibration_threshold is None:
+                raise RuntimeError("PQ ADC calibration threshold was not initialized")
+            gallery_encode_started = perf_counter()
+            evaluation_gallery_codes = compressor.encode(evaluation["gallery"])
+            gallery_encode_elapsed = perf_counter() - gallery_encode_started
+            (
+                adc_evaluation_distances,
+                adc_evaluation_indices,
+                adc_search_metrics,
+            ) = compressor.search_adc_with_metrics(
+                evaluation["queries"],
+                evaluation_gallery_codes,
+                top_k=min(int(top_k), len(evaluation["gallery"])),
+            )
+            adc_search_metrics["compressed_gallery_encode_latency_ms"] = float(
+                gallery_encode_elapsed * 1000.0
+            )
+            adc_evaluation_comparison = compare_pq_adc_retrieval(
+                evaluation_comparison,
+                evaluation["queries"],
+                evaluation["gallery"],
+                adc_evaluation_distances,
+                adc_evaluation_indices,
+                query_ids=evaluation["query_ids"],
+                gallery_ids=evaluation["gallery_ids"],
+                query_identity_ids=evaluation["query_identity_ids"],
+                gallery_identity_ids=evaluation["gallery_identity_ids"],
+                compression_profile=profile,
+                search_metrics=adc_search_metrics,
+            )
+            adc_compared = apply_retrieval_thresholds(
+                adc_evaluation_comparison,
+                origin_threshold=origin_threshold,
+                compressed_threshold=adc_calibration_threshold,
+            )
+            adc_compared.insert(0, "dataset", prepared.dataset_id)
+            adc_compared.insert(1, "model_uid", prepared.model_uid)
+            adc_compared["protocol_uid"] = str(protocol_uid)
+            adc_compared["threshold_policy"] = "recalibrated_compressed"
+            adc_compared["threshold_source_split"] = "calibration"
+            adc_compared["evaluation_split"] = "test"
+            for column, value in storage.items():
+                adc_compared[column] = value
+            adc_compared["gallery_template_count"] = len(evaluation["gallery"])
+            retrieval_frames.append(adc_compared)
 
     paired_metrics = pd.concat(paired_frames, ignore_index=True)
     retrieval_metrics = pd.concat(retrieval_frames, ignore_index=True)
@@ -440,9 +1519,30 @@ def _characterize_population_with_protocols(
         raise RuntimeError("paired metrics contain origin fallback rows")
     if retrieval_metrics["origin_fallback_used"].astype(bool).any():
         raise RuntimeError("retrieval metrics contain origin fallback rows")
+    if (
+        origin_calibration_reference is None
+        or origin_evaluation_reference is None
+        or origin_threshold is None
+    ):
+        raise RuntimeError("origin calibration diagnostics were not initialized")
+    origin_score_audit, calibration_diagnostics = _build_origin_calibration_audit(
+        origin_calibration_reference,
+        origin_evaluation_reference,
+        calibration,
+        evaluation,
+        calibration_protocol,
+        evaluation_protocol,
+        dataset_id=prepared.dataset_id,
+        model_uid=prepared.model_uid,
+        protocol_uid=protocol_uid,
+        decision_threshold=origin_threshold,
+        target_fpir=target_fpir,
+    )
     return Step2CompressionResult(
         paired_metrics=paired_metrics,
         retrieval_metrics=retrieval_metrics,
+        origin_score_audit=origin_score_audit,
+        calibration_diagnostics=calibration_diagnostics,
         summary=_summarize(paired_metrics, retrieval_metrics),
     )
 

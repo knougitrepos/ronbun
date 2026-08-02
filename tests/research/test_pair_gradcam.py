@@ -181,6 +181,44 @@ def test_select_gradcam_cases_rejects_fallback_and_ambiguous_rows():
         select_gradcam_cases(paired, duplicated)
 
 
+def test_select_gradcam_cases_separates_search_modes():
+    paired = pd.DataFrame(
+        {
+            "sample_id": list("abcd"),
+            "compression_family": ["pca"] * 4,
+            "compression_profile": ["pca_128"] * 4,
+            "angular_error_rad": [0.01, 0.9, 0.4, 0.6],
+            "origin_fallback_used": [False] * 4,
+        }
+    )
+    retrieval = pd.DataFrame(
+        {
+            "query_id": list("abcd"),
+            "compression_family": ["pca"] * 4,
+            "compression_profile": ["pca_128"] * 4,
+            "top1_score_drift": [0.01, -0.4, -0.2, -0.3],
+            "agreement_with_origin": [True, True, False, False],
+            "threshold_crossing": [False, False, False, True],
+            "origin_fallback_used": [False] * 4,
+        }
+    )
+    direct = retrieval.assign(search_mode="pca_direct_cosine")
+    reconstructed = retrieval.assign(search_mode="pca_reconstruction_cosine")
+
+    selected = select_gradcam_cases(
+        paired,
+        pd.concat([direct, reconstructed], ignore_index=True),
+        cases_per_group=1,
+        seed=17,
+    )
+
+    assert set(selected["search_mode"]) == {
+        "pca_direct_cosine",
+        "pca_reconstruction_cosine",
+    }
+    assert selected["case_id"].is_unique
+
+
 def test_population_case_selection_runs_only_on_joined_retrieval_rows():
     joined = pd.DataFrame(
         {

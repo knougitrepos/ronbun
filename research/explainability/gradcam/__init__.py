@@ -1,6 +1,8 @@
 from research.explainability.gradcam.artifacts import (
     read_population_heatmaps,
+    read_population_heatmap_subset,
     read_population_saliency_features,
+    read_prepared_population_template_subset,
     read_prepared_population_artifact,
     write_population_saliency_artifact,
     write_prepared_population_artifact,
@@ -15,6 +17,7 @@ from research.explainability.gradcam.extraction import (
     PopulationSaliencyResult,
     PreparedPopulationInputs,
     extract_population_gradcam,
+    measure_population_faithfulness,
     prepare_population_saliency_inputs,
 )
 from research.explainability.gradcam.features import (
@@ -95,6 +98,7 @@ __all__ = [
     "build_origin_top1_gallery_templates",
     "central_region_concentration",
     "extract_population_gradcam",
+    "measure_population_faithfulness",
     "is_torch_available",
     "occlude_by_saliency",
     "occlusion_faithfulness",
@@ -104,7 +108,9 @@ __all__ = [
     "materialize_landmark_region_bundle",
     "quadrant_saliency_concentration",
     "read_population_heatmaps",
+    "read_population_heatmap_subset",
     "read_population_saliency_features",
+    "read_prepared_population_template_subset",
     "read_landmark_region_bundle",
     "read_prepared_population_artifact",
     "saliency_concentration",

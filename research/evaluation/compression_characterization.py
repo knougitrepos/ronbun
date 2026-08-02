@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -32,6 +33,20 @@ RETRIEVAL_COMPARISON_COLUMNS = (
     "compression_family",
     "compression_profile",
     "top_k",
+    "search_mode",
+    "origin_score_space",
+    "compressed_score_space",
+    "score_spaces_comparable",
+    "frozen_origin_threshold_applicable",
+    "latency_measurement_repeats",
+    "latency_timer",
+    "compressed_index_build_latency_ms",
+    "compressed_gallery_add_latency_ms",
+    "compressed_gallery_encode_latency_ms",
+    "origin_search_latency_ms_total",
+    "compressed_search_latency_ms_total",
+    "compressed_search_latency_ms_per_query",
+    "compressed_search_queries_per_second",
     "origin_top1_gallery_id",
     "compressed_top1_gallery_id",
     "origin_top1_identity_id",
@@ -65,6 +80,19 @@ RETRIEVAL_COMPARISON_COLUMNS = (
     "origin_top_k_scores",
     "compressed_top_k_scores",
     "origin_fallback_used",
+)
+
+
+ORIGIN_RETRIEVAL_COLUMNS = (
+    "query_id",
+    "query_identity_id",
+    "is_mated",
+    "top_k",
+    "origin_top1_gallery_id",
+    "origin_top1_identity_id",
+    "origin_top1_score",
+    "origin_rank1_correct",
+    "origin_top_k_correct",
 )
 
 
@@ -303,6 +331,118 @@ def _cosine_threshold(value: float, *, name: str) -> float:
     return threshold
 
 
+def origin_cosine_retrieval(
+    queries: np.ndarray,
+    gallery: np.ndarray,
+    *,
+    query_ids: Sequence[Any] | np.ndarray,
+    gallery_ids: Sequence[Any] | np.ndarray,
+    query_identity_ids: Sequence[Any] | np.ndarray,
+    gallery_identity_ids: Sequence[Any] | np.ndarray,
+    top_k: int = 1,
+    query_batch_size: int = 128,
+    gallery_batch_size: int = 4096,
+    max_pairwise_elements: int = 1_000_000,
+    progress: ProgressCallback | None = None,
+    progress_message: str = "origin cosine retrieval",
+    progress_details: dict[str, object] | None = None,
+) -> pd.DataFrame:
+    """Search one cosine space once and return origin-prefixed audit fields.
+
+    This path is intentionally separate from ``compare_cosine_retrieval`` so
+    calibration diagnostics do not perform the same origin search once per
+    compression profile (or twice by comparing origin with itself).
+    """
+
+    query_matrix = _as_float_matrix(queries, name="queries")
+    gallery_matrix = _as_float_matrix(gallery, name="gallery")
+    if query_matrix.shape[1] != gallery_matrix.shape[1]:
+        raise ValueError("query and gallery dimensions must match")
+
+    top_k_value = _positive_integer(top_k, name="top_k")
+    query_batch = _positive_integer(query_batch_size, name="query_batch_size")
+    gallery_batch = _positive_integer(gallery_batch_size, name="gallery_batch_size")
+    pair_limit = _positive_integer(max_pairwise_elements, name="max_pairwise_elements")
+    if top_k_value > len(gallery_matrix):
+        raise ValueError("top_k must not exceed the gallery row count")
+    effective_query_batch = min(query_batch, len(query_matrix))
+    effective_gallery_batch = min(gallery_batch, len(gallery_matrix))
+    largest_score_block = effective_query_batch * effective_gallery_batch
+    largest_merge_block = effective_query_batch * (
+        effective_gallery_batch + top_k_value
+    )
+    if max(largest_score_block, largest_merge_block) > pair_limit:
+        raise ValueError(
+            "batched retrieval working set exceeds max_pairwise_elements "
+            f"for this input ({largest_merge_block} > {pair_limit}); reduce "
+            "query_batch_size, gallery_batch_size, or top_k"
+        )
+
+    query_identifiers = _as_identifier_array(
+        query_ids,
+        name="query_ids",
+        length=len(query_matrix),
+        require_unique=True,
+    )
+    gallery_identifiers = _as_identifier_array(
+        gallery_ids,
+        name="gallery_ids",
+        length=len(gallery_matrix),
+        require_unique=True,
+    )
+    query_identities = _as_identifier_array(
+        query_identity_ids,
+        name="query_identity_ids",
+        length=len(query_matrix),
+    )
+    gallery_identities = _as_identifier_array(
+        gallery_identity_ids,
+        name="gallery_identity_ids",
+        length=len(gallery_matrix),
+    )
+    query_unit = _row_normalize(query_matrix, name="queries")
+    gallery_unit = _row_normalize(gallery_matrix, name="gallery")
+    indices, scores = _batched_cosine_top_k(
+        query_unit,
+        gallery_unit,
+        top_k=top_k_value,
+        query_batch_size=query_batch,
+        gallery_batch_size=gallery_batch,
+        progress=progress,
+        progress_message=progress_message,
+        progress_total=len(query_matrix),
+        progress_details=progress_details,
+    )
+
+    ranked_identities = gallery_identities[indices]
+    top1_identities = ranked_identities[:, 0]
+    gallery_identity_set = set(gallery_identities.tolist())
+    is_mated = np.fromiter(
+        (identity in gallery_identity_set for identity in query_identities),
+        dtype=bool,
+        count=len(query_identities),
+    )
+    rank1_correct = top1_identities == query_identities
+    top_k_correct = np.any(
+        ranked_identities == query_identities[:, np.newaxis],
+        axis=1,
+    )
+    result = pd.DataFrame(
+        {
+            "query_id": query_identifiers,
+            "query_identity_id": query_identities,
+            "is_mated": is_mated,
+            "top_k": top_k_value,
+            "origin_top1_gallery_id": gallery_identifiers[indices[:, 0]],
+            "origin_top1_identity_id": top1_identities,
+            "origin_top1_score": scores[:, 0].astype(np.float64),
+            "origin_rank1_correct": rank1_correct,
+            "origin_top_k_correct": top_k_correct,
+        }
+    )
+    return result.loc[:, ORIGIN_RETRIEVAL_COLUMNS]
+
+
 def compare_cosine_retrieval(
     original_queries: np.ndarray,
     original_gallery: np.ndarray,
@@ -327,6 +467,7 @@ def compare_cosine_retrieval(
     progress_offset: int = 0,
     progress_total: int | None = None,
     progress_details: dict[str, object] | None = None,
+    search_mode: str = "cosine_search",
 ) -> pd.DataFrame:
     """Compare origin and compressed cosine retrieval without fallback.
 
@@ -345,6 +486,9 @@ def compare_cosine_retrieval(
     """
 
     family, profile = _validate_profile(compression_family, compression_profile)
+    search_mode_value = str(search_mode).strip()
+    if not search_mode_value:
+        raise ValueError("search_mode must not be empty")
     origin_query = _as_float_matrix(original_queries, name="original_queries")
     origin_gallery = _as_float_matrix(original_gallery, name="original_gallery")
     compressed_query = _as_float_matrix(compressed_queries, name="compressed_queries")
@@ -460,6 +604,7 @@ def compare_cosine_retrieval(
         name="compressed_gallery",
     )
 
+    origin_search_started = perf_counter()
     origin_indices, origin_scores = _batched_cosine_top_k(
         origin_query_unit,
         origin_gallery_unit,
@@ -475,6 +620,8 @@ def compare_cosine_retrieval(
             "representation": "origin",
         },
     )
+    origin_search_elapsed = perf_counter() - origin_search_started
+    compressed_search_started = perf_counter()
     compressed_indices, compressed_scores = _batched_cosine_top_k(
         compressed_query_unit,
         compressed_gallery_unit,
@@ -489,6 +636,17 @@ def compare_cosine_retrieval(
             **(progress_details or {}),
             "representation": "compressed",
         },
+    )
+    compressed_search_elapsed = perf_counter() - compressed_search_started
+    compressed_search_ms = float(compressed_search_elapsed * 1000.0)
+    origin_search_ms = float(origin_search_elapsed * 1000.0)
+    compressed_search_ms_per_query = float(
+        compressed_search_ms / len(origin_query)
+    )
+    compressed_search_qps = float(
+        len(origin_query) / compressed_search_elapsed
+        if compressed_search_elapsed > 0.0
+        else np.inf
     )
 
     row_indices = np.arange(len(origin_query))
@@ -566,6 +724,22 @@ def compare_cosine_retrieval(
                 "compression_family": family,
                 "compression_profile": profile,
                 "top_k": top_k_value,
+                "search_mode": search_mode_value,
+                "origin_score_space": "cosine_similarity",
+                "compressed_score_space": "cosine_similarity",
+                "score_spaces_comparable": True,
+                "frozen_origin_threshold_applicable": True,
+                "latency_measurement_repeats": 1,
+                "latency_timer": "time.perf_counter",
+                "compressed_index_build_latency_ms": np.nan,
+                "compressed_gallery_add_latency_ms": np.nan,
+                "compressed_gallery_encode_latency_ms": np.nan,
+                "origin_search_latency_ms_total": origin_search_ms,
+                "compressed_search_latency_ms_total": compressed_search_ms,
+                "compressed_search_latency_ms_per_query": (
+                    compressed_search_ms_per_query
+                ),
+                "compressed_search_queries_per_second": compressed_search_qps,
                 "origin_top1_gallery_id": origin_gallery_rows[0],
                 "compressed_top1_gallery_id": compressed_gallery_rows[0],
                 "origin_top1_identity_id": origin_top1_identity,
@@ -624,6 +798,204 @@ def compare_cosine_retrieval(
     return pd.DataFrame.from_records(records, columns=RETRIEVAL_COMPARISON_COLUMNS)
 
 
+def compare_pq_adc_retrieval(
+    origin_comparison: pd.DataFrame,
+    original_queries: np.ndarray,
+    original_gallery: np.ndarray,
+    adc_distances: np.ndarray,
+    adc_indices: np.ndarray,
+    *,
+    query_ids: Sequence[Any] | np.ndarray,
+    gallery_ids: Sequence[Any] | np.ndarray,
+    query_identity_ids: Sequence[Any] | np.ndarray,
+    gallery_identity_ids: Sequence[Any] | np.ndarray,
+    compression_profile: str,
+    search_metrics: dict[str, object] | None = None,
+) -> pd.DataFrame:
+    """Compare origin cosine ranking with exhaustive PQ ADC squared-L2 ranking.
+
+    ADC distances are transformed to negative squared L2 only so larger values
+    remain better for threshold calibration. They are never treated as cosine,
+    and cross-space score drift fields remain missing by construction.
+    """
+
+    _, profile = _validate_profile("pq", compression_profile)
+    query_matrix = _as_float_matrix(original_queries, name="original_queries")
+    gallery_matrix = _as_float_matrix(original_gallery, name="original_gallery")
+    if query_matrix.shape[1] != gallery_matrix.shape[1]:
+        raise ValueError("original query and gallery dimensions must match")
+    distances = np.asarray(adc_distances, dtype=np.float32)
+    indices = np.asarray(adc_indices, dtype=np.int64)
+    if distances.ndim != 2 or indices.shape != distances.shape:
+        raise ValueError("ADC distances and indices must be equal-shape 2D arrays")
+    if distances.shape[0] != len(query_matrix) or distances.shape[1] == 0:
+        raise ValueError("ADC result shape must match the query count and top-k")
+    if not np.all(np.isfinite(distances)) or np.any(distances < -1e-5):
+        raise ValueError("ADC squared-L2 distances must be finite and non-negative")
+    if np.any(indices < 0) or np.any(indices >= len(gallery_matrix)):
+        raise ValueError("ADC indices are outside the gallery")
+    if len(origin_comparison) != len(query_matrix):
+        raise ValueError("origin comparison row count must match ADC queries")
+
+    query_identifiers = _as_identifier_array(
+        query_ids,
+        name="query_ids",
+        length=len(query_matrix),
+        require_unique=True,
+    )
+    gallery_identifiers = _as_identifier_array(
+        gallery_ids,
+        name="gallery_ids",
+        length=len(gallery_matrix),
+        require_unique=True,
+    )
+    query_identities = _as_identifier_array(
+        query_identity_ids,
+        name="query_identity_ids",
+        length=len(query_matrix),
+    )
+    gallery_identities = _as_identifier_array(
+        gallery_identity_ids,
+        name="gallery_identity_ids",
+        length=len(gallery_matrix),
+    )
+    if not np.array_equal(
+        origin_comparison["query_id"].astype(str).to_numpy(),
+        query_identifiers.astype(str),
+    ):
+        raise ValueError("origin comparison query order differs from ADC queries")
+    top_k_value = int(distances.shape[1])
+    if not origin_comparison["top_k"].eq(top_k_value).all():
+        raise ValueError("origin comparison and ADC top-k values differ")
+
+    original_query_unit = _row_normalize(query_matrix, name="original_queries")
+    original_gallery_unit = _row_normalize(gallery_matrix, name="original_gallery")
+    origin_score_at_adc_top1 = np.sum(
+        original_query_unit * original_gallery_unit[indices[:, 0]],
+        axis=1,
+        dtype=np.float64,
+    )
+    adc_scores = -distances.astype(np.float64)
+    metrics = dict(search_metrics or {})
+    latency_repeats = int(metrics.get("latency_measurement_repeats", 1))
+    latency_timer = str(metrics.get("latency_timer", "not_measured"))
+    index_build_latency = float(
+        metrics.get("compressed_index_build_latency_ms", np.nan)
+    )
+    gallery_add_latency = float(
+        metrics.get("compressed_gallery_add_latency_ms", np.nan)
+    )
+    gallery_encode_latency = float(
+        metrics.get("compressed_gallery_encode_latency_ms", np.nan)
+    )
+    search_latency = float(
+        metrics.get("compressed_search_latency_ms_total", np.nan)
+    )
+    search_latency_per_query = float(
+        metrics.get("compressed_search_latency_ms_per_query", np.nan)
+    )
+    search_qps = float(
+        metrics.get("compressed_search_queries_per_second", np.nan)
+    )
+    gallery_identity_set = set(gallery_identities.tolist())
+    records: list[dict[str, Any]] = []
+    for row_index in range(len(query_matrix)):
+        origin_row = origin_comparison.iloc[row_index]
+        query_identity = query_identities[row_index]
+        origin_gallery_rows = tuple(origin_row["origin_top_k_gallery_ids"])
+        origin_identity_ranking = tuple(origin_row["origin_top_k_identity_ids"])
+        origin_score_ranking = tuple(origin_row["origin_top_k_scores"])
+        adc_gallery_rows = tuple(
+            gallery_identifiers[indices[row_index]].tolist()
+        )
+        adc_identity_ranking = tuple(
+            gallery_identities[indices[row_index]].tolist()
+        )
+        adc_score_ranking = tuple(float(value) for value in adc_scores[row_index])
+        origin_top1_identity = origin_identity_ranking[0]
+        adc_top1_identity = adc_identity_ranking[0]
+        is_mated = query_identity in gallery_identity_set
+        records.append(
+            {
+                "query_id": query_identifiers[row_index],
+                "query_identity_id": query_identity,
+                "is_mated": bool(is_mated),
+                "compression_family": "pq",
+                "compression_profile": profile,
+                "top_k": top_k_value,
+                "search_mode": "pq_adc_exhaustive",
+                "origin_score_space": "cosine_similarity",
+                "compressed_score_space": "negative_squared_l2_adc",
+                "score_spaces_comparable": False,
+                "frozen_origin_threshold_applicable": False,
+                "latency_measurement_repeats": latency_repeats,
+                "latency_timer": latency_timer,
+                "compressed_index_build_latency_ms": index_build_latency,
+                "compressed_gallery_add_latency_ms": gallery_add_latency,
+                "compressed_gallery_encode_latency_ms": gallery_encode_latency,
+                "origin_search_latency_ms_total": float(
+                    origin_row["origin_search_latency_ms_total"]
+                ),
+                "compressed_search_latency_ms_total": search_latency,
+                "compressed_search_latency_ms_per_query": (
+                    search_latency_per_query
+                ),
+                "compressed_search_queries_per_second": search_qps,
+                "origin_top1_gallery_id": origin_gallery_rows[0],
+                "compressed_top1_gallery_id": adc_gallery_rows[0],
+                "origin_top1_identity_id": origin_top1_identity,
+                "compressed_top1_identity_id": adc_top1_identity,
+                "origin_top1_score": float(origin_row["origin_top1_score"]),
+                "compressed_top1_score": float(adc_scores[row_index, 0]),
+                "compressed_score_at_origin_top1": np.nan,
+                "origin_score_at_compressed_top1": float(
+                    origin_score_at_adc_top1[row_index]
+                ),
+                "top1_score_drift": np.nan,
+                "origin_winner_score_drift": np.nan,
+                "agreement_with_origin": bool(
+                    adc_top1_identity == origin_top1_identity
+                ),
+                "top_k_identity_agreement": bool(
+                    adc_identity_ranking == origin_identity_ranking
+                ),
+                "top_k_identity_jaccard": _identity_jaccard(
+                    origin_identity_ranking,
+                    adc_identity_ranking,
+                ),
+                "origin_rank1_correct": bool(
+                    origin_top1_identity == query_identity
+                ),
+                "compressed_rank1_correct": bool(
+                    adc_top1_identity == query_identity
+                ),
+                "origin_top_k_correct": bool(
+                    query_identity in origin_identity_ranking
+                ),
+                "compressed_top_k_correct": bool(
+                    query_identity in adc_identity_ranking
+                ),
+                "decision_threshold": None,
+                "origin_decision_threshold": None,
+                "compressed_decision_threshold": None,
+                "origin_accepted": None,
+                "compressed_accepted": None,
+                "threshold_crossing": None,
+                "threshold_crossing_direction": None,
+                "origin_decision_correct": None,
+                "compressed_decision_correct": None,
+                "origin_top_k_gallery_ids": origin_gallery_rows,
+                "compressed_top_k_gallery_ids": adc_gallery_rows,
+                "origin_top_k_identity_ids": origin_identity_ranking,
+                "compressed_top_k_identity_ids": adc_identity_ranking,
+                "origin_top_k_scores": origin_score_ranking,
+                "compressed_top_k_scores": adc_score_ranking,
+                "origin_fallback_used": False,
+            }
+        )
+    return pd.DataFrame.from_records(records, columns=RETRIEVAL_COMPARISON_COLUMNS)
+
+
 def apply_retrieval_thresholds(
     comparison: pd.DataFrame,
     *,
@@ -646,10 +1018,19 @@ def apply_retrieval_thresholds(
         origin_threshold,
         name="origin_threshold",
     )
-    compressed_value = _cosine_threshold(
-        compressed_threshold,
-        name="compressed_threshold",
+    compressed_value = float(compressed_threshold)
+    if not np.isfinite(compressed_value):
+        raise ValueError("compressed_threshold must be finite")
+    compressed_spaces = (
+        comparison["compressed_score_space"].astype(str).unique().tolist()
+        if "compressed_score_space" in comparison
+        else ["cosine_similarity"]
     )
+    if compressed_spaces == ["cosine_similarity"]:
+        compressed_value = _cosine_threshold(
+            compressed_value,
+            name="compressed_threshold",
+        )
     result = comparison.copy()
     origin_accepted = (
         result["origin_top1_score"].to_numpy(dtype=float) >= origin_value

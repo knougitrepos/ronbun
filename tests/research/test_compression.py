@@ -186,6 +186,44 @@ def test_pq_budget_names_do_not_collide_across_m_or_bit_width():
     assert len(names) == 3
 
 
+def test_pq_adc_matches_brute_force_distance_to_decoded_codes() -> None:
+    pytest.importorskip("faiss")
+    rng = np.random.default_rng(123)
+    development = rng.normal(size=(512, 16)).astype(np.float32)
+    gallery = rng.normal(size=(41, 16)).astype(np.float32)
+    queries = rng.normal(size=(7, 16)).astype(np.float32)
+    compressor = PQCompressor(source_dim=16, m=4, nbits=4).fit(development)
+    gallery_codes = compressor.encode(gallery)
+
+    distances, indices, metrics = compressor.search_adc_with_metrics(
+        queries,
+        gallery_codes,
+        top_k=5,
+    )
+
+    decoded_gallery = compressor.decode(gallery_codes)
+    brute_distances = np.sum(
+        (queries[:, np.newaxis, :] - decoded_gallery[np.newaxis, :, :]) ** 2,
+        axis=2,
+    )
+    brute_indices = np.argsort(brute_distances, axis=1, kind="stable")[:, :5]
+    expected_distances = np.take_along_axis(
+        brute_distances,
+        brute_indices,
+        axis=1,
+    )
+    assert compressor.index is not None
+    assert compressor.index.ntotal == 0
+    np.testing.assert_array_equal(indices, brute_indices)
+    np.testing.assert_allclose(distances, expected_distances, rtol=1e-5, atol=1e-5)
+    assert metrics["latency_measurement_repeats"] == 1
+    assert metrics["latency_timer"] == "time.perf_counter"
+    assert float(metrics["compressed_index_build_latency_ms"]) >= 0.0
+    assert float(metrics["compressed_gallery_add_latency_ms"]) >= 0.0
+    assert float(metrics["compressed_search_latency_ms_total"]) >= 0.0
+    assert float(metrics["compressed_search_queries_per_second"]) > 0.0
+
+
 def test_reconstruction_error_stats_are_fit_once_and_applied_without_test_refit():
     development = {"pca_256": np.array([1.0, 2.0, 3.0], dtype=np.float32)}
     test = {"pca_256": np.array([10.0, 11.0], dtype=np.float32)}

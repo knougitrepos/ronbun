@@ -49,6 +49,7 @@ def _tie_key(row: pd.Series, *, seed: int) -> str:
             str(row["query_id"]),
             str(row["compression_family"]),
             str(row["compression_profile"]),
+            str(row.get("search_mode", "legacy_unspecified")),
         )
     )
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
@@ -61,6 +62,7 @@ def _case_id(row: pd.Series) -> str:
             str(row["query_id"]),
             str(row["compression_family"]),
             str(row["compression_profile"]),
+            str(row.get("search_mode", "legacy_unspecified")),
             str(row["case_group"]),
         )
     )
@@ -155,10 +157,13 @@ def select_gradcam_cases(
         raise ValueError("Grad-CAM case selection requires fallback-free artifacts")
     if paired.duplicated(join_columns).any():
         raise ValueError("paired_metrics rows must be unique by query and profile")
-    if retrieval.duplicated(join_columns).any():
+    retrieval_unique_columns = [*join_columns]
+    if "search_mode" in retrieval:
+        retrieval_unique_columns.append("search_mode")
+    if retrieval.duplicated(retrieval_unique_columns).any():
         raise ValueError(
-            "retrieval_metrics rows must be unique by query and profile; "
-            "filter to one evaluation policy first"
+            "retrieval_metrics rows must be unique by query, profile, and "
+            "search mode; filter to one evaluation policy first"
         )
 
     paired_columns = [*join_columns, error_column]
@@ -166,7 +171,7 @@ def select_gradcam_cases(
         paired.loc[:, paired_columns],
         on=join_columns,
         how="inner",
-        validate="one_to_one",
+        validate="many_to_one",
     )
     if merged.empty:
         raise ValueError("paired and retrieval metrics have no matching cases")
@@ -190,6 +195,8 @@ def select_gradcam_cases(
 
     selected_parts: list[pd.DataFrame] = []
     profile_columns = ["compression_family", "compression_profile"]
+    if "search_mode" in merged:
+        profile_columns.append("search_mode")
     for _, profile_rows in merged.groupby(
         profile_columns,
         sort=True,
@@ -357,10 +364,12 @@ def select_population_representative_cases(
         "compression_family",
         "compression_profile",
     ]
+    if "search_mode" in frame:
+        key_columns.append("search_mode")
     if frame.duplicated(key_columns).any():
         raise ValueError(
             "joined_metrics must be filtered to one retrieval policy per "
-            "sample, model, and compression profile"
+            "sample, model, compression profile, and search mode"
         )
     frame["_error"] = pd.to_numeric(frame[error_column], errors="coerce")
     frame["_absolute_drift"] = pd.to_numeric(
@@ -375,6 +384,8 @@ def select_population_representative_cases(
         "compression_family",
         "compression_profile",
     ]
+    if "search_mode" in frame:
+        tie_columns.append("search_mode")
     frame["_tie_key"] = frame.apply(
         lambda row: hashlib.sha256(
             "\x1f".join(
@@ -396,6 +407,8 @@ def select_population_representative_cases(
         "compression_family",
         "compression_profile",
     ]
+    if "search_mode" in frame:
+        profile_columns.append("search_mode")
     selected_parts: list[pd.DataFrame] = []
     for _, group in frame.groupby(profile_columns, sort=True, dropna=False):
         crossing = _take(

@@ -4,23 +4,28 @@
     "lfw",
     "survface"
   ],
-  "generated_at_utc": "2026-08-01T19:24:33.854328+00:00",
+  "generated_at_utc": "2026-08-02T14:46:41.465312+00:00",
   "join_contract": {
-    "grain": "one row per dataset, model, run, compression profile, and threshold policy",
-    "rows": 40,
+    "grain": "one row per dataset, model, run, compression profile, search mode, and threshold policy",
+    "rows": 70,
     "validation": "compression one-to-retrieval many"
   },
   "model_name": "magface",
   "output_files": {
     "compression_summary_all.csv": {
-      "bytes": 30892,
+      "bytes": 72617,
       "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/compression_summary_all.csv",
-      "sha256": "33bf89f87fc23767cc5a7a71907144154c489500ed520b9614a70f6f28255a93"
+      "sha256": "60113522de2a030f8222dd1051ca91a2880b5168c77375213c403d5217bcc81d"
+    },
+    "dir_fpir_storage_latency.csv": {
+      "bytes": 22376,
+      "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/dir_fpir_storage_latency.csv",
+      "sha256": "da3815da3c3b461d90e14ee9949bc189bbada2c163cf19aa3fa337e264d4dd0e"
     },
     "retrieval_summary_all.csv": {
-      "bytes": 25364,
+      "bytes": 63137,
       "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/retrieval_summary_all.csv",
-      "sha256": "a01053c7817b66449a035f966347d80747406325e3a5bfa51d155fb4c8c896b7"
+      "sha256": "3ea3833e74a81a279d129008cb4fa7c8f495aa2bb8036762e0bc65378371eaff"
     },
     "storage_distortion.png": {
       "bytes": 121152,
@@ -28,28 +33,49 @@
       "sha256": "774e5e94d8fdaece82b0211a111be8fb1b20fc232717f03db555c4b9b53be9cc"
     },
     "storage_open_set.png": {
-      "bytes": 302841,
+      "bytes": 453920,
       "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/storage_open_set.png",
-      "sha256": "e403c4a9ed12f122fb7c0c3cf71be5979cbf8e9f7641067c3b4ef9d82b2f1361"
+      "sha256": "12aa896419a7e503c63df1dabbeac1dc2d217d837f07c156d74ffe466f854ea0"
+    },
+    "survface_faithfulness_cross_model.csv": {
+      "bytes": 2175,
+      "path": "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/survface_faithfulness_cross_model.csv",
+      "sha256": "874f4e12f6a944ae49fa760de1998d328adb4c3939663677184cd61f2dc51907"
     }
   },
-  "schema_version": 1,
+  "schema_version": 4,
   "selected_runs": {
     "lfw": {
       "model_uid": "magface-6931178ad2025e1b3799",
       "run_id": "20260801-R001-250c665b",
+      "summary_artifact_type": "step4_search_space_refresh",
+      "summary_claim_status": "exploratory_dirty_evaluator",
       "summary_manifest": {
-        "path": "results/paper/lfw/20260801-R001-250c665b/summaries/summary_manifest.json",
-        "sha256": "e31416ac980f87d43804681521d17843db5bf609afb20ea249b98f384504c377"
+        "path": "results/paper/lfw/20260801-R001-250c665b/search_space_v2/summary_manifest.json",
+        "sha256": "42fa65f5bd8740f00306b70a01d27b430beb968df375d826c463807d267e6580"
       }
     },
     "survface": {
       "model_uid": "magface-6931178ad2025e1b3799",
       "run_id": "20260802-R001-9bccb0c1",
+      "summary_artifact_type": "step4_search_space_refresh",
+      "summary_claim_status": "exploratory_dirty_evaluator",
       "summary_manifest": {
-        "path": "results/paper/survface/20260802-R001-9bccb0c1/summaries/summary_manifest.json",
-        "sha256": "190ccccf917947de1d92788a1f8bb93feac78bdfd533c8d466ea49d71d9b4ca6"
+        "path": "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/summary_manifest.json",
+        "sha256": "ac058604d0d3db5b37d0eb9fa610c9dc492d07a9b13421e3bc09bb8abfa3f159"
       }
     }
-  }
+  },
+  "survface_faithfulness": {
+    "claim_status": "exploratory_dirty_evaluator",
+    "included": true,
+    "paper_eligible": false,
+    "source_manifest": {
+      "path": "results/paper/survface/faithfulness_cross_model_v1/manifest.json",
+      "sha256": "1c7c09b07d4dec4470fc01ab7481c3be9d25006634418af6507d372fbe8b8b81"
+    },
+    "strong_faithfulness_pass_count": 0,
+    "threshold_independent": true
+  },
+  "survface_threshold_claim_status": "blocked_calibration_transfer"
 }

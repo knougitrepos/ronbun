@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "artifact_type": "step4_search_space_refresh",
+  "generated_at_utc": "2026-08-02T13:26:53.389475+00:00",
+  "dataset_id": "lfw",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "run_id": "20260801-R001-250c665b",
+  "source_run_id": "20260801-R001-250c665b",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": false,
+  "derived_evaluation_paper_eligible": false,
+  "claim_status": "exploratory_dirty_evaluator",
+  "origin_calibration_signature": {
+    "target_fpir": 0.01,
+    "decision_threshold": 0.4329013526439667,
+    "calibration_non_mated_count": 2910,
+    "calibration_false_accept_count": 0,
+    "calibration_fpir": 0.0,
+    "test_non_mated_count": 1688,
+    "test_false_accept_count": 1,
+    "test_fpir": 0.0005924170616113745,
+    "status": "target_met"
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "matched",
+    "compression_rows": 10,
+    "retrieval_rows": 20,
+    "maximum_absolute_difference": 9.999596636833807e-16,
+    "legacy_files": {
+      "compression_summary.csv": {
+        "path": "results/paper/lfw/20260801-R001-250c665b/summaries/compression_summary.csv",
+        "bytes": 3446,
+        "sha256": "2ea640fe75e7a1023cb04fc93435ae4c59721fc2cf7153c55d2b62e1ec8b2507"
+      },
+      "retrieval_summary.csv": {
+        "path": "results/paper/lfw/20260801-R001-250c665b/summaries/retrieval_summary.csv",
+        "bytes": 12687,
+        "sha256": "a4999879a66bae3eb6104e9c5893c9420ad789708ded677dc9b6ed1d590c0d1c"
+      }
+    }
+  },
+  "evaluator_git": {
+    "commit": "7c59c440d1fa2da68bdca0e1b214766fba9eca25",
+    "branch": "step6",
+    "dirty": true,
+    "working_tree_diff_sha256": "621b6de4766d9b4504e0da60c6a4c5cd57d77b5a3be9f58ae23f439088ea474a",
+    "tracked_source_changes": [
+      "configs/experiments/step2_pytorch_gradcam.yaml",
+      "notebooks/common/reports/00_cross_dataset_results.ipynb",
+      "research/calibration/__init__.py",
+      "research/compression/profiles.py",
+      "research/evaluation/__init__.py",
+      "research/evaluation/compression_characterization.py",
+      "research/evaluation/saliency_compression.py",
+      "research/experiments/__init__.py",
+      "research/experiments/step2_compression.py",
+      "research/experiments/step4_workflow.py",
+      "research/explainability/gradcam/cases.py",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/compression_summary_all.csv",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/retrieval_summary_all.csv",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/storage_open_set.png",
+      "scripts/generate_step4_compact_summaries.py",
+      "tests/research/test_compression.py",
+      "tests/research/test_compression_characterization.py",
+      "tests/research/test_pair_gradcam.py",
+      "tests/research/test_saliency_compression_join.py",
+      "tests/research/test_step2_compression.py",
+      "tests/research/test_step2_config.py",
+      "tests/research/test_step4_workflow.py"
+    ],
+    "ignored_notebook_runtime_paths": [],
+    "untracked_paths": [
+      "analyze/step5_실험결과_요약_20260802_v1.md",
+      "architect/20260802.md",
+      "research/calibration/gallery_size.py",
+      "research/experiments/survface_calibration_validation.py",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/dir_fpir_storage_latency.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/family_manifest.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/origin_calibration_diagnostics.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/family_manifest.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/origin_calibration_diagnostics.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/summary_manifest.json",
+      "scripts/generate_survface_origin_fpir_diagnostics.py",
+      "scripts/refresh_step4_search_spaces.py",
+      "scripts/summarize_survface_origin_fpir_models.py",
+      "scripts/validate_survface_sidak_calibration.py",
+      "tests/research/test_gallery_size_calibration.py",
+      "tests/research/test_step4_compact_summary_search_modes.py",
+      "tests/research/test_survface_cross_model_summary.py"
+    ],
+    "untracked_content_sha256": "45d43b0059db58aea04a209b365a5183f643ba61834b3e60ef849a86e612ed2d",
+    "allowed_untracked_roots": [
+      "runs"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/lfw_20260801/20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799/run_manifest.json",
+      "bytes": 25431,
+      "sha256": "e0cab857848dbdf43f6a297b9268341d4b2c4a614fe0fcbe2a5cb6e86cd2198b"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/lfw_20260801/20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 931,
+      "sha256": "dd003bbe7ddc5295162a5b9278d74fe218f0aa7233316ee08b0ca09604e6bb00"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/lfw_20260801/20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 2581,
+      "sha256": "7d55129c7e4b5426657495960ed541ee171b49e8b7284208925123c68aa6a13c"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/lfw_20260801/20260801-R001-250c665b_step4_lfw_magface-6931178ad2025e1b3799/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 3343034,
+      "sha256": "c868cd5ae74bc79c2226a41f323970cec008d7bce1612ce9627d2002992d7ff8"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/family_manifest.json",
+      "bytes": 1572,
+      "sha256": "ddd06e0c57a2d9823fdeb5d11a213f42de700a234f398c500d1abb6dd5fa58fd"
+    },
+    "pq": {
+      "path": "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/family_manifest.json",
+      "bytes": 1571,
+      "sha256": "0eab01f340bbbd0caabd4bbcbac606bd0f6bc07bacf889fbd67846ae0b29e64a"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 35
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "SurvFace threshold-dependent claims remain blocked when calibration transfer status is failed_target_fpir.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/lfw/20260801-R001-250c665b/search_space_v2/compression_summary.csv",
+      "bytes": 3446,
+      "sha256": "f09ffee0273b548dc57e80baa5384f4ef6fb890f0ecd39324b0dd77af304e174"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/lfw/20260801-R001-250c665b/search_space_v2/retrieval_summary.csv",
+      "bytes": 29009,
+      "sha256": "7c362f2dd0724d9b45add6bb7a1631d4ecb006158b01f5fe8b68988ffb71524e"
+    }
+  }
+}

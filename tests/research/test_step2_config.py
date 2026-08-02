@@ -177,6 +177,13 @@ def test_step2_gradcam_persists_bounded_shards_and_defers_cases() -> None:
     assert gradcam["faithfulness"]["coverage"] == "all_target_eligible_samples"
     assert gradcam["faithfulness"]["random_seed_unit"] == "sample_id"
     assert gradcam["faithfulness"]["enabled"] is True
+    assert gradcam["faithfulness"]["enabled_datasets"] == ["lfw"]
+    assert gradcam["faithfulness"]["derived_stratified_datasets"] == [
+        "survface"
+    ]
+    assert gradcam["faithfulness"]["derived_maximum_samples"] == {
+        "survface": 2048
+    }
     assert gradcam["extraction"]["capture_intermediates"] is False
 
     representative = gradcam["representative_case_visualization"]
@@ -214,6 +221,7 @@ def test_step2_joint_analysis_requires_strict_keys_and_origin_lineage() -> None:
         "model_uid",
         "compression_family",
         "compression_profile",
+        "search_mode",
         "threshold_source_split",
         "evaluation_split",
         "threshold_policy",

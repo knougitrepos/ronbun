@@ -1,0 +1,188 @@
+{
+  "artifact_type": "survface_gradcam_faithfulness",
+  "schema_version": 1,
+  "created_at_utc": "2026-08-02T14:39:47.222353+00:00",
+  "dataset_id": "survface",
+  "source_run_id": "20260729-R001-cccb59d5",
+  "model_uid": "arcface-7972a704552df378345f",
+  "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+  "origin_embedding_artifact_uid": "origin-embedding-4d71012a55218b293555bcd0",
+  "saliency_spec_uid": "saliency-afcb212283c724e9e55be34b",
+  "saliency_target_name": "origin_top1_gallery_cosine",
+  "claim_status": "exploratory_dirty_evaluator",
+  "paper_eligible": false,
+  "threshold_independent": true,
+  "source_full_paper_run": true,
+  "sampling": {
+    "candidate_count": 182159,
+    "selected_count": 2048,
+    "maximum_samples": 2048,
+    "seed": 42,
+    "unit": "sample_id",
+    "strata": [
+      "protocol_role",
+      "raw_embedding_norm_within_role_quartile",
+      "gradcam_target_score_within_role_quartile"
+    ],
+    "selected_sample_sha256": "c3874a9347b1d697e0b4f4ddc9cf820dbe5f3a6a3f7dd99c4b067eff77dc95ee",
+    "stratum_count": 32
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "strategies": [
+      "high_saliency",
+      "low_saliency",
+      "random"
+    ],
+    "random_repeats": 5,
+    "random_seed_unit": "sample_id",
+    "fill_value": "model_preprocessing_channel_mean"
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "bootstrap_repeats": 1000,
+    "confidence_level": 0.95,
+    "grouping": [
+      "all",
+      "protocol_role"
+    ]
+  },
+  "validation": {
+    "maximum_stored_target_score_abs_difference": 3.0994415283203125e-06,
+    "source_completed": true,
+    "source_fallback_free": true,
+    "source_artifacts_immutable": true
+  },
+  "evaluator_git": {
+    "commit": "7c59c440d1fa2da68bdca0e1b214766fba9eca25",
+    "branch": "step6",
+    "dirty": true,
+    "working_tree_diff_sha256": "5f18dc1970de18b08faebc5bb6698cd0aec0bec3f67679161f09a8112fb3ad75",
+    "tracked_source_changes": [
+      "configs/experiments/step2_pytorch_gradcam.yaml",
+      "notebooks/common/orchestration/README.md",
+      "notebooks/common/reports/00_cross_dataset_results.ipynb",
+      "research/calibration/__init__.py",
+      "research/compression/profiles.py",
+      "research/evaluation/__init__.py",
+      "research/evaluation/compression_characterization.py",
+      "research/evaluation/saliency_compression.py",
+      "research/experiments/__init__.py",
+      "research/experiments/pipeline_runner.py",
+      "research/experiments/step2_compression.py",
+      "research/experiments/step4_workflow.py",
+      "research/explainability/gradcam/__init__.py",
+      "research/explainability/gradcam/artifacts.py",
+      "research/explainability/gradcam/cases.py",
+      "research/explainability/gradcam/extraction.py",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/compression_summary_all.csv",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/retrieval_summary_all.csv",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/storage_open_set.png",
+      "scripts/generate_step4_compact_summaries.py",
+      "tests/research/test_compression.py",
+      "tests/research/test_compression_characterization.py",
+      "tests/research/test_notebook_layout.py",
+      "tests/research/test_pair_gradcam.py",
+      "tests/research/test_pipeline_runner.py",
+      "tests/research/test_population_saliency_pipeline.py",
+      "tests/research/test_saliency_compression_join.py",
+      "tests/research/test_step2_compression.py",
+      "tests/research/test_step2_config.py",
+      "tests/research/test_step4_workflow.py"
+    ],
+    "ignored_notebook_runtime_paths": [],
+    "untracked_paths": [
+      "analyze/step5_실험결과_요약_20260802_v1.md",
+      "architect/20260802.md",
+      "research/calibration/gallery_size.py",
+      "research/evaluation/saliency_faithfulness.py",
+      "research/experiments/survface_calibration_validation.py",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/dir_fpir_storage_latency.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/family_manifest.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/origin_calibration_diagnostics.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/family_manifest.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/origin_calibration_diagnostics.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/summary_manifest.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/faithfulness_v1/faithfulness_rows.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/faithfulness_v1/faithfulness_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/faithfulness_v1/manifest.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/faithfulness_v1_provenance_flawed_backup/faithfulness_rows.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/faithfulness_v1_provenance_flawed_backup/faithfulness_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/faithfulness_v1_provenance_flawed_backup/manifest.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/compression_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/compression_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/family_manifest.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/origin_calibration_diagnostics.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/retrieval_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pq/compression_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pq/family_manifest.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pq/origin_calibration_diagnostics.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pq/retrieval_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/retrieval_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/summary_manifest.json",
+      "scripts/derive_survface_faithfulness.py",
+      "scripts/generate_survface_origin_fpir_diagnostics.py",
+      "scripts/refresh_step4_search_spaces.py",
+      "scripts/summarize_survface_origin_fpir_models.py",
+      "scripts/validate_survface_sidak_calibration.py",
+      "tests/research/test_gallery_size_calibration.py",
+      "tests/research/test_saliency_faithfulness.py",
+      "tests/research/test_step4_compact_summary_search_modes.py",
+      "tests/research/test_survface_cross_model_summary.py"
+    ],
+    "untracked_content_sha256": "5c304fe6e3f2c91df35ee061180aeb0985d30501a4eba5fc63e7e8615bf566be",
+    "allowed_untracked_roots": []
+  },
+  "sources": [
+    {
+      "path": "runs/survface_20260729/20260729-R001-cccb59d5_step4_survface_arcface-7972a704552df378345f/run_manifest.json",
+      "bytes": 24571,
+      "sha256": "51529371e3cc78c4e5aa8ba5c6e100120d284cac298d6bf48a244045ba6dad84"
+    },
+    {
+      "path": "runs/survface_20260729/20260729-R001-cccb59d5_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 937,
+      "sha256": "95218c853b5792e7257a05ad44847e76e3cbb45b2fad65e41b1bdb7dc883229e"
+    },
+    {
+      "path": "runs/survface_20260729/20260729-R001-cccb59d5_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    },
+    {
+      "path": "runs/survface_20260729/20260729-R001-cccb59d5_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58675,
+      "sha256": "5395b050eaf69b55494ff1ed5f695334da8290cd0717d0bc3c41410505eb2791"
+    },
+    {
+      "path": "runs/survface_20260729/20260729-R001-cccb59d5_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/saliency_population/manifest.json",
+      "bytes": 25354,
+      "sha256": "8f52466d94ee08b7e4fae9076b0c37409697e0689ccbd3e1c676e9104745abbc"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 737752,
+      "sha256": "789b318b1a2e70cbb41da49ed02246af67b51f1cd8ca87850218a2dd5df80e53"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 2672,
+      "sha256": "70bcdd1ff4bbe4022b4381c816ffb63f8563ab81e68922df6bce2a0d3b190765"
+    }
+  ],
+  "limitations": [
+    "This is a deterministic stratified subset, not all 182159 valid probe heatmaps.",
+    "The source run is clean and full, but the derived evaluator is running from a dirty Step 6 worktree.",
+    "Each artifact validates one model; matched-condition cross-model interpretation requires combining ArcFace, AdaFace, and MagFace artifacts.",
+    "No FPIR threshold or threshold-crossing metric is used because SurvFace calibration transfer failed."
+  ]
+}

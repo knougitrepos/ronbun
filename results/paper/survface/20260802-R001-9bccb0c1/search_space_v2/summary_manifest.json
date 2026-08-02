@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "artifact_type": "step4_search_space_refresh",
+  "generated_at_utc": "2026-08-02T14:15:53.365397+00:00",
+  "dataset_id": "survface",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "run_id": "20260802-R001-9bccb0c1",
+  "source_run_id": "20260802-R001-9bccb0c1",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": false,
+  "derived_evaluation_paper_eligible": false,
+  "claim_status": "exploratory_dirty_evaluator",
+  "origin_calibration_signature": {
+    "target_fpir": 0.1,
+    "decision_threshold": 0.686036229133606,
+    "calibration_non_mated_count": 33974,
+    "calibration_false_accept_count": 3294,
+    "calibration_fpir": 0.0969564961441102,
+    "test_non_mated_count": 121736,
+    "test_false_accept_count": 61679,
+    "test_fpir": 0.506661957021752,
+    "status": "failed_target_fpir"
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "matched",
+    "compression_rows": 10,
+    "retrieval_rows": 20,
+    "maximum_absolute_difference": 1.000013873792005e-15,
+    "legacy_files": {
+      "compression_summary.csv": {
+        "path": "results/paper/survface/20260802-R001-9bccb0c1/summaries/compression_summary.csv",
+        "bytes": 3520,
+        "sha256": "81e5587c838e486dae7bcc66dc03e37112f6efafe472635d10b89daf65627bc5"
+      },
+      "retrieval_summary.csv": {
+        "path": "results/paper/survface/20260802-R001-9bccb0c1/summaries/retrieval_summary.csv",
+        "bytes": 13786,
+        "sha256": "b78def3b955d70246d7c573b30329347b10711d87184b696aacc60fc0ca7cf39"
+      }
+    }
+  },
+  "evaluator_git": {
+    "commit": "7c59c440d1fa2da68bdca0e1b214766fba9eca25",
+    "branch": "step6",
+    "dirty": true,
+    "working_tree_diff_sha256": "c71f105926c65bb06dfd02927428ade70e3494f667d443ffb65379b41efd0426",
+    "tracked_source_changes": [
+      "configs/experiments/step2_pytorch_gradcam.yaml",
+      "notebooks/common/orchestration/README.md",
+      "notebooks/common/reports/00_cross_dataset_results.ipynb",
+      "research/calibration/__init__.py",
+      "research/compression/profiles.py",
+      "research/evaluation/__init__.py",
+      "research/evaluation/compression_characterization.py",
+      "research/evaluation/saliency_compression.py",
+      "research/experiments/__init__.py",
+      "research/experiments/pipeline_runner.py",
+      "research/experiments/step2_compression.py",
+      "research/experiments/step4_workflow.py",
+      "research/explainability/gradcam/cases.py",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/compression_summary_all.csv",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/retrieval_summary_all.csv",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/storage_open_set.png",
+      "scripts/generate_step4_compact_summaries.py",
+      "tests/research/test_compression.py",
+      "tests/research/test_compression_characterization.py",
+      "tests/research/test_notebook_layout.py",
+      "tests/research/test_pair_gradcam.py",
+      "tests/research/test_pipeline_runner.py",
+      "tests/research/test_saliency_compression_join.py",
+      "tests/research/test_step2_compression.py",
+      "tests/research/test_step2_config.py",
+      "tests/research/test_step4_workflow.py"
+    ],
+    "ignored_notebook_runtime_paths": [],
+    "untracked_paths": [
+      "analyze/step5_실험결과_요약_20260802_v1.md",
+      "architect/20260802.md",
+      "research/calibration/gallery_size.py",
+      "research/experiments/survface_calibration_validation.py",
+      "results/paper/common/magface/lfw-20260801-R001-250c665b__survface-20260802-R001-9bccb0c1/dir_fpir_storage_latency.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/family_manifest.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/origin_calibration_diagnostics.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pca/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/compression_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/family_manifest.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/origin_calibration_diagnostics.json",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/pq/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/retrieval_summary.csv",
+      "results/paper/lfw/20260801-R001-250c665b/search_space_v2/summary_manifest.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/compression_summary.csv",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/family_manifest.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/origin_calibration_diagnostics.json",
+      "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/retrieval_summary.csv",
+      "scripts/generate_survface_origin_fpir_diagnostics.py",
+      "scripts/refresh_step4_search_spaces.py",
+      "scripts/summarize_survface_origin_fpir_models.py",
+      "scripts/validate_survface_sidak_calibration.py",
+      "tests/research/test_gallery_size_calibration.py",
+      "tests/research/test_step4_compact_summary_search_modes.py",
+      "tests/research/test_survface_cross_model_summary.py"
+    ],
+    "untracked_content_sha256": "fc1576b92820c62ffcff1b65446a5892bef13583d26512f4f0bee2e78692bf8f",
+    "allowed_untracked_roots": [
+      "runs"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/survface_20260802/20260802-R001-9bccb0c1_step4_survface_magface-6931178ad2025e1b3799/run_manifest.json",
+      "bytes": 25709,
+      "sha256": "0d067cb2c08c5fc1c11ca330ace16fa1b2ec8b473fdebd3be30918131e80cae8"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/survface_20260802/20260802-R001-9bccb0c1_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 937,
+      "sha256": "ab0a93c4772df42b0cb60bf304046f425977d0e8e9bb951735eb20aaa626f89b"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/survface_20260802/20260802-R001-9bccb0c1_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58679,
+      "sha256": "9ea30eca8521cb9632631f46496968c1f41c495cd377b4ab2f030cb601b2f772"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/survface_20260802/20260802-R001-9bccb0c1_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pca/family_manifest.json",
+      "bytes": 1609,
+      "sha256": "7af049e0ec1330f97ed14f5d5e0aeb2c30f7ff3461c4ea0f919ab63628697e72"
+    },
+    "pq": {
+      "path": "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/pq/family_manifest.json",
+      "bytes": 1608,
+      "sha256": "033d5c368a054303f8515a91ff6985754bba0af7575d64e89fd48a56bc201b2d"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 35
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "SurvFace threshold-dependent claims remain blocked when calibration transfer status is failed_target_fpir.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/compression_summary.csv",
+      "bytes": 3520,
+      "sha256": "b9e5d6413c9797581043e1444c4302b3e49f17a6501d7c43314adac1003036d1"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/survface/20260802-R001-9bccb0c1/search_space_v2/retrieval_summary.csv",
+      "bytes": 31547,
+      "sha256": "be5fd3cf9796f754c38b5ee9759cc84cb0f59d4eec04d4115b872188eee49013"
+    }
+  }
+}

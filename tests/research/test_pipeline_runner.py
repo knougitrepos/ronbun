@@ -436,7 +436,21 @@ def test_preflight_reports_partial_evaluation_contract(
     report = inspect_common_experiment_plan(plan)
 
     assert report["ready_to_execute_pipeline"] is True
-    assert report["evaluation_contract_coverage"]["pq_exhaustive_adc"] == ("proposed")
+    assert report["evaluation_contract_coverage"]["pq_exhaustive_adc"] == (
+        "implemented"
+    )
+    assert report["evaluation_contract_coverage"][
+        "search_space_clean_full_rerun"
+    ] == "validation_required"
+    assert report["evaluation_contract_coverage"][
+        "survface_gradcam_faithfulness_controls"
+    ] == "implemented"
+    assert report["evaluation_contract_coverage"][
+        "survface_gradcam_faithfulness_three_models"
+    ] == "implemented"
+    assert report["evaluation_contract_coverage"][
+        "gradcam_faithfulness_clean_promotion"
+    ] == "validation_required"
     assert plan.comparison_paper_eligible is False
 
 

@@ -2,10 +2,13 @@ import numpy as np
 import pytest
 
 from research.evaluation import (
+    ORIGIN_RETRIEVAL_COLUMNS,
     PAIRED_EMBEDDING_COLUMNS,
     RETRIEVAL_COMPARISON_COLUMNS,
     apply_retrieval_thresholds,
     compare_cosine_retrieval,
+    compare_pq_adc_retrieval,
+    origin_cosine_retrieval,
     paired_embedding_metrics,
 )
 
@@ -50,6 +53,43 @@ def test_paired_embedding_metrics_does_not_invent_lower_dimensional_reconstructi
     assert result["angular_error_rad"].isna().all()
     assert result["cosine_to_origin"].isna().all()
     assert not result["origin_fallback_used"].any()
+
+
+def test_origin_cosine_retrieval_searches_one_space_with_deterministic_ties():
+    gallery = np.array(
+        [[1.0, 0.0], [0.0, 1.0], [0.0, 1.0]],
+        dtype=np.float32,
+    )
+    queries = np.array(
+        [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]],
+        dtype=np.float32,
+    )
+
+    result = origin_cosine_retrieval(
+        queries,
+        gallery,
+        query_ids=["q-a", "q-b", "q-u"],
+        gallery_ids=["g-a", "g-b-first", "g-b-second"],
+        query_identity_ids=["a", "b", "unknown"],
+        gallery_identity_ids=["a", "b", "b-duplicate"],
+        top_k=2,
+        query_batch_size=2,
+        gallery_batch_size=1,
+        max_pairwise_elements=6,
+    )
+
+    assert tuple(result.columns) == ORIGIN_RETRIEVAL_COLUMNS
+    assert result["origin_top1_gallery_id"].tolist() == [
+        "g-a",
+        "g-b-first",
+        "g-a",
+    ]
+    assert result["is_mated"].tolist() == [True, True, False]
+    assert result["origin_rank1_correct"].tolist() == [True, True, False]
+    assert result["origin_top_k_correct"].tolist() == [True, True, False]
+    assert result["origin_top1_score"].to_numpy() == pytest.approx(
+        [1.0, 1.0, 1.0 / np.sqrt(2.0)]
+    )
 
 
 def test_compare_cosine_retrieval_separates_truth_agreement_and_crossing():
@@ -158,6 +198,53 @@ def test_compare_cosine_retrieval_supports_distinct_operating_thresholds():
             origin_threshold=0.8,
             compressed_threshold=0.8,
         )
+
+
+def test_compare_pq_adc_retrieval_keeps_distance_space_separate() -> None:
+    gallery = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+    queries = np.array([[1.0, 0.0], [1.0, 1.0]], dtype=np.float32)
+    origin = compare_cosine_retrieval(
+        queries,
+        gallery,
+        queries,
+        gallery,
+        query_ids=["q-a", "q-u"],
+        gallery_ids=["g-a", "g-b"],
+        query_identity_ids=["a", "unknown"],
+        gallery_identity_ids=["a", "b"],
+        compression_family="pq",
+        compression_profile="pq_512_m1_b2",
+        top_k=2,
+        search_mode="pq_reconstruction_cosine",
+    )
+    adc = compare_pq_adc_retrieval(
+        origin,
+        queries,
+        gallery,
+        np.array([[0.2, 0.9], [0.8, 1.1]], dtype=np.float32),
+        np.array([[1, 0], [0, 1]], dtype=np.int64),
+        query_ids=["q-a", "q-u"],
+        gallery_ids=["g-a", "g-b"],
+        query_identity_ids=["a", "unknown"],
+        gallery_identity_ids=["a", "b"],
+        compression_profile="pq_512_m1_b2",
+    )
+
+    assert adc["search_mode"].eq("pq_adc_exhaustive").all()
+    assert adc["compressed_score_space"].eq("negative_squared_l2_adc").all()
+    assert not adc["score_spaces_comparable"].any()
+    assert not adc["frozen_origin_threshold_applicable"].any()
+    assert adc["compressed_top1_score"].to_numpy() == pytest.approx([-0.2, -0.8])
+    assert adc["top1_score_drift"].isna().all()
+    assert adc["origin_winner_score_drift"].isna().all()
+    assert not bool(adc.iloc[0]["agreement_with_origin"])
+
+    thresholded = apply_retrieval_thresholds(
+        adc,
+        origin_threshold=0.9,
+        compressed_threshold=-2.0,
+    )
+    assert thresholded["compressed_accepted"].all()
 
 
 def test_threshold_policy_can_be_reapplied_without_repeating_search():

@@ -388,7 +388,7 @@ def _embed_unit(adapter: Any, images: np.ndarray, *, batch_size: int) -> np.ndar
     return np.concatenate(parts, axis=0)
 
 
-def _faithfulness_columns(
+def measure_population_faithfulness(
     adapter: Any,
     images: np.ndarray,
     heatmaps: np.ndarray,
@@ -647,7 +647,7 @@ def extract_population_gradcam(
     spatial["pass_a_pass_b_target_score_abs_diff"] = score_delta
 
     if faithfulness_fraction is not None:
-        faithfulness = _faithfulness_columns(
+        faithfulness = measure_population_faithfulness(
             adapter,
             faces[eligible_indices],
             combined["heatmaps"],

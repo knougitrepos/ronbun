@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from research.experiments import step2_compression as module
 from research.explainability.gradcam.extraction import PreparedPopulationInputs
@@ -38,6 +39,48 @@ class _FakePQ:
                 "codebook_bytes_source": "test",
             },
         )
+
+    def encode(self, vectors: np.ndarray) -> np.ndarray:
+        return np.asarray(vectors, dtype=np.float32).copy()
+
+    def search_adc(
+        self,
+        queries: np.ndarray,
+        gallery_codes: np.ndarray,
+        *,
+        top_k: int,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        query = np.asarray(queries, dtype=np.float32)
+        gallery = np.asarray(gallery_codes, dtype=np.float32)
+        distances = np.sum(
+            (query[:, None, :] - gallery[None, :, :]) ** 2,
+            axis=2,
+        )
+        indices = np.argsort(distances, axis=1, kind="stable")[:, :top_k]
+        selected = np.take_along_axis(distances, indices, axis=1)
+        return selected.astype(np.float32), indices.astype(np.int64)
+
+    def search_adc_with_metrics(
+        self,
+        queries: np.ndarray,
+        gallery_codes: np.ndarray,
+        *,
+        top_k: int,
+    ) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
+        distances, indices = self.search_adc(
+            queries,
+            gallery_codes,
+            top_k=top_k,
+        )
+        return distances, indices, {
+            "latency_measurement_repeats": 1,
+            "latency_timer": "test_clock",
+            "compressed_index_build_latency_ms": 1.0,
+            "compressed_gallery_add_latency_ms": 2.0,
+            "compressed_search_latency_ms_total": 3.0,
+            "compressed_search_latency_ms_per_query": 1.5,
+            "compressed_search_queries_per_second": 666.0,
+        }
 
 
 class _FakePCA:
@@ -146,7 +189,68 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
     assert set(result.retrieval_metrics["threshold_source_split"]) == {
         "calibration"
     }
-    assert len(result.summary) == 4
+    assert set(result.origin_score_audit["evaluation_split"]) == {
+        "calibration",
+        "test",
+    }
+    assert result.origin_score_audit["query_id"].notna().all()
+    assert not result.origin_score_audit.duplicated(
+        ["evaluation_split", "query_id"]
+    ).any()
+    assert result.origin_score_audit["threshold_comparator"].eq(">=").all()
+    calibration_rows = result.origin_score_audit.loc[
+        result.origin_score_audit["evaluation_split"].eq("calibration")
+    ]
+    expected_false_accepts = int(
+        (
+            calibration_rows["origin_accepted"].astype(bool)
+            & ~calibration_rows["is_mated"].astype(bool)
+        ).sum()
+    )
+    calibration_summary = result.calibration_diagnostics["splits"][
+        "calibration"
+    ]
+    assert calibration_summary["origin_false_accept_count"] == expected_false_accepts
+    assert calibration_summary["origin_fpir"] <= 1.0
+    assert (
+        calibration_summary["origin_fpir_wilson95_low"]
+        <= calibration_summary["origin_fpir"]
+        <= calibration_summary["origin_fpir_wilson95_high"]
+    )
+    assert result.calibration_diagnostics["threshold_comparator"] == ">="
+    assert result.calibration_diagnostics[
+        "independent_threshold_verification"
+    ]["matches"] is True
+    assert result.calibration_diagnostics[
+        "calibration_transfer_assessment"
+    ]["test_used_for_threshold_selection"] is False
+    assert set(result.retrieval_metrics["search_mode"]) == {
+        "pca_direct_cosine",
+        "pca_reconstruction_cosine",
+        "pq_reconstruction_cosine",
+        "pq_adc_exhaustive",
+    }
+    adc = result.retrieval_metrics.loc[
+        result.retrieval_metrics["search_mode"].eq("pq_adc_exhaustive")
+    ]
+    assert set(adc["threshold_policy"]) == {"recalibrated_compressed"}
+    assert not adc["frozen_origin_threshold_applicable"].any()
+    assert adc["compressed_score_space"].eq(
+        "negative_squared_l2_adc"
+    ).all()
+    assert adc["top1_score_drift"].isna().all()
+    assert adc["compressed_search_latency_ms_total"].eq(3.0).all()
+    assert adc["compressed_gallery_encode_latency_ms"].notna().all()
+    assert len(result.summary) == 7
+    assert result.summary["gallery_template_count"].eq(1).all()
+    assert result.summary["origin_gallery_storage_bytes"].eq(2048).all()
+    pq_summary = result.summary.loc[
+        result.summary["compression_family"].eq("pq")
+    ]
+    assert pq_summary["compressed_gallery_storage_bytes"].eq(136).all()
+    assert pq_summary[
+        "amortized_storage_bytes_per_gallery_template"
+    ].eq(136.0).all()
 
 
 def test_step2_runner_rejects_manifest_order_mismatch() -> None:
@@ -166,6 +270,99 @@ def test_step2_runner_rejects_manifest_order_mismatch() -> None:
         assert "row order" in str(exc)
     else:
         raise AssertionError("manifest order mismatch was not rejected")
+
+
+@pytest.mark.parametrize(
+    ("pca_dimensions", "pq_settings", "expected_family", "expected_modes"),
+    [
+        (
+            [2],
+            [],
+            "pca",
+            {"pca_direct_cosine", "pca_reconstruction_cosine"},
+        ),
+        (
+            [],
+            [(8, 1)],
+            "pq",
+            {"pq_reconstruction_cosine", "pq_adc_exhaustive"},
+        ),
+    ],
+)
+def test_step2_runner_supports_one_compression_family_for_bounded_refresh(
+    monkeypatch,
+    pca_dimensions,
+    pq_settings,
+    expected_family,
+    expected_modes,
+) -> None:
+    monkeypatch.setattr(module, "PQCompressor", _FakePQ)
+    monkeypatch.setattr(
+        module,
+        "fit_pca_family",
+        lambda development_vectors, dimensions, random_state: {
+            "pca_2": _FakePCA()
+        },
+    )
+    prepared, selected = _prepared()
+
+    result = module.characterize_step2_compression(
+        prepared,
+        selected,
+        gallery_identities=["test-gallery"],
+        unknown_unknown_identities=["test-unknown-unknown"],
+        pca_dimensions=pca_dimensions,
+        pq_settings=pq_settings,
+        target_fpir=1.0,
+        enrollment_count=1,
+        calibration_gallery_identities=1,
+        top_k=1,
+    )
+
+    assert set(result.paired_metrics["compression_family"]) == {
+        expected_family
+    }
+    assert set(result.retrieval_metrics["search_mode"]) == expected_modes
+    assert len(result.summary) == (4 if expected_family == "pca" else 3)
+
+
+def test_step2_runner_rejects_empty_profile_selection() -> None:
+    prepared, selected = _prepared()
+
+    with pytest.raises(ValueError, match="at least one PCA or PQ"):
+        module.characterize_step2_compression(
+            prepared,
+            selected,
+            gallery_identities=["test-gallery"],
+            unknown_unknown_identities=["test-unknown-unknown"],
+            pca_dimensions=[],
+            pq_settings=[],
+            enrollment_count=1,
+        )
+
+
+def test_independent_threshold_audit_preserves_greater_equal_ties() -> None:
+    comparison = pd.DataFrame(
+        {
+            "origin_top1_score": [0.90, 0.80, 0.80, 0.70],
+            "is_mated": [True, False, False, True],
+            "origin_rank1_correct": [True, False, False, True],
+        }
+    )
+
+    selected = module._threshold(
+        comparison,
+        score_column="origin_top1_score",
+        correct_column="origin_rank1_correct",
+        target_fpir=0.50,
+    )
+    audited = module._independent_threshold(
+        comparison,
+        target_fpir=0.50,
+    )
+
+    assert selected == pytest.approx(0.90)
+    assert audited == pytest.approx(selected)
 
 
 def test_survface_runner_preserves_official_protocol_and_training_boundary(
@@ -270,3 +467,39 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
         "frozen_origin",
         "recalibrated_compressed",
     }
+    diagnostics = result.calibration_diagnostics["splits"]
+    assert diagnostics["calibration"]["template_count"] == 1
+    assert diagnostics["calibration"]["source_image_count"] == 1
+    assert diagnostics["test"]["template_count"] == 1
+    assert diagnostics["test"]["source_image_count"] == 2
+    audit = result.origin_score_audit
+    assert set(audit.loc[audit["evaluation_split"].eq("calibration"), "probe_type"]) == {
+        "registered",
+        "known_unknown",
+    }
+    assert set(audit.loc[audit["evaluation_split"].eq("test"), "probe_type"]) == {
+        "registered",
+        "unknown_unknown",
+    }
+
+    sweep = module.diagnose_step2_survface_origin_calibration(
+        prepared,
+        selected,
+        calibration_conditions=[(1, 1)],
+        target_fpir=1.0,
+        top_k=1,
+    )
+    assert sweep.condition_summary["calibration_condition_uid"].tolist() == [
+        "gallery-1_enrollment-1"
+    ]
+    assert sweep.condition_summary["test_gallery_template_count"].tolist() == [1]
+    assert sweep.condition_summary[
+        "test_gallery_source_image_count"
+    ].tolist() == [2]
+    assert set(sweep.score_audit["evaluation_split"]) == {
+        "calibration",
+        "test",
+        "test_matched",
+    }
+    assert sweep.condition_summary["matched_test_fpir"].notna().all()
+    assert sweep.diagnostics["test_threshold_recalibration"] is False

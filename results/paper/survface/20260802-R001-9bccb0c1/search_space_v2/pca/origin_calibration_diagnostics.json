@@ -1,0 +1,129 @@
+{
+  "schema_version": 2,
+  "artifact_type": "origin_open_set_calibration_diagnostics",
+  "dataset_id": "survface",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "protocol_uid": "qmul-survface-v1-official-open-set-identification",
+  "score_definition": "maximum cosine similarity over gallery templates",
+  "threshold_source_split": "calibration",
+  "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+  "threshold_comparator": ">=",
+  "target_fpir": 0.1,
+  "origin_decision_threshold": 0.686036229133606,
+  "independent_threshold_verification": {
+    "algorithm": "descending grouped-score cumulative-count audit",
+    "origin_decision_threshold": 0.686036229133606,
+    "independently_calculated_threshold": 0.686036229133606,
+    "matches": true
+  },
+  "splits": {
+    "calibration": {
+      "template_count": 200,
+      "source_image_count": 200,
+      "images_per_template": {
+        "count": 200,
+        "minimum": 1.0,
+        "mean": 1.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0,
+        "p99": 1.0,
+        "maximum": 1.0
+      },
+      "query_count": 44483,
+      "mated_count": 10509,
+      "non_mated_count": 33974,
+      "probe_type_counts": {
+        "registered": 10509,
+        "known_unknown": 33974
+      },
+      "origin_decision_threshold": 0.686036229133606,
+      "threshold_comparator": ">=",
+      "target_fpir": 0.1,
+      "origin_false_accept_count": 3294,
+      "origin_fpir": 0.0969564961441102,
+      "origin_fpir_wilson95_low": 0.0938554851059607,
+      "origin_fpir_wilson95_high": 0.10014864157788556,
+      "origin_true_identification_count": 276,
+      "origin_dir_rank1": 0.026263202968883813,
+      "non_mated_top1_score": {
+        "count": 33974,
+        "minimum": 0.16792556643486023,
+        "mean": 0.5726109708196568,
+        "p50": 0.5860100984573364,
+        "p90": 0.6846122205257416,
+        "p95": 0.7117640376091003,
+        "p99": 0.7617323935031888,
+        "maximum": 0.8878166079521179
+      },
+      "query_raw_embedding_norm": {
+        "count": 44483,
+        "minimum": 12.309783935546875,
+        "mean": 20.89967683290826,
+        "p50": 21.057828903198242,
+        "p90": 23.9452693939209,
+        "p95": 24.675163650512697,
+        "p99": 26.095675888061525,
+        "maximum": 29.557777404785156
+      }
+    },
+    "test": {
+      "template_count": 3000,
+      "source_image_count": 60294,
+      "images_per_template": {
+        "count": 3000,
+        "minimum": 1.0,
+        "mean": 20.098,
+        "p50": 3.0,
+        "p90": 71.09999999999991,
+        "p95": 119.0,
+        "p99": 189.0,
+        "maximum": 363.0
+      },
+      "query_count": 182159,
+      "mated_count": 60423,
+      "non_mated_count": 121736,
+      "probe_type_counts": {
+        "registered": 60423,
+        "unknown_unknown": 121736
+      },
+      "origin_decision_threshold": 0.686036229133606,
+      "threshold_comparator": ">=",
+      "target_fpir": 0.1,
+      "origin_false_accept_count": 61679,
+      "origin_fpir": 0.506661957021752,
+      "origin_fpir_wilson95_low": 0.5038533195593167,
+      "origin_fpir_wilson95_high": 0.5094701740526628,
+      "origin_true_identification_count": 1081,
+      "origin_dir_rank1": 0.01789053837115006,
+      "non_mated_top1_score": {
+        "count": 121736,
+        "minimum": 0.259315550327301,
+        "mean": 0.6744404039379037,
+        "p50": 0.6875133812427521,
+        "p90": 0.7842731475830078,
+        "p95": 0.8087220042943954,
+        "p99": 0.8524076849222182,
+        "maximum": 0.9327493906021118
+      },
+      "query_raw_embedding_norm": {
+        "count": 182159,
+        "minimum": 11.85874080657959,
+        "mean": 21.07210364666409,
+        "p50": 21.240083694458008,
+        "p90": 24.029537200927734,
+        "p95": 24.768630027770996,
+        "p99": 26.15080173492432,
+        "maximum": 31.504032135009766
+      }
+    }
+  },
+  "calibration_transfer_assessment": {
+    "status": "failed_target_fpir",
+    "target_met": false,
+    "threshold_dependent_results_valid_for_target_operating_point": false,
+    "test_used_for_threshold_selection": false,
+    "observed_test_fpir": 0.506661957021752,
+    "target_fpir": 0.1
+  }
+}

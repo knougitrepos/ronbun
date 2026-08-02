@@ -20,9 +20,11 @@ from research.explainability.gradcam import (  # noqa: E402
     SINGLETON_IDENTITY_REASON,
     extract_population_gradcam,
     prepare_population_saliency_inputs,
+    read_population_heatmap_subset,
     read_population_heatmaps,
     read_population_saliency_features,
     read_prepared_population_artifact,
+    read_prepared_population_template_subset,
     write_population_saliency_artifact,
     write_prepared_population_artifact,
 )
@@ -307,6 +309,51 @@ def test_population_artifacts_are_roundtrippable_immutable_and_hash_checked(
     prepared_shard.write_bytes(prepared_shard.read_bytes() + b"tampered")
     with pytest.raises(ValueError, match="hash mismatch"):
         read_prepared_population_artifact(prepared_path)
+
+
+def test_population_artifacts_support_verified_ordered_subsets(
+    tmp_path: Path,
+    population_pipeline,
+):
+    _faces, prepared, result = population_pipeline
+    prepared_path = tmp_path / "prepared-subset"
+    saliency_path = tmp_path / "saliency-subset"
+    write_prepared_population_artifact(prepared, prepared_path, shard_size=2)
+    write_population_saliency_artifact(result, saliency_path, shard_size=2)
+
+    row_indices = np.asarray([3, 0], dtype=np.int64)
+    expected_ids = prepared.sample_ids[row_indices]
+    sample_ids, templates, scores = read_prepared_population_template_subset(
+        prepared_path,
+        row_indices,
+        expected_sample_ids=expected_ids,
+    )
+    assert sample_ids.tolist() == expected_ids.tolist()
+    np.testing.assert_allclose(
+        templates,
+        prepared.loo_templates.templates[row_indices],
+    )
+    np.testing.assert_allclose(
+        scores,
+        prepared.loo_templates.target_scores[row_indices],
+    )
+
+    heatmap_indices = np.asarray([3, 0], dtype=np.int64)
+    expected_heatmap_ids = result.heatmap_sample_ids[heatmap_indices]
+    sample_ids, heatmaps = read_population_heatmap_subset(
+        saliency_path,
+        heatmap_indices,
+        expected_sample_ids=expected_heatmap_ids,
+    )
+    assert sample_ids.tolist() == expected_heatmap_ids.tolist()
+    np.testing.assert_allclose(
+        heatmaps,
+        result.normalized_heatmaps[heatmap_indices],
+        atol=5e-4,
+    )
+
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        read_population_heatmap_subset(saliency_path, [0, 0])
 
     saliency_path = tmp_path / "saliency"
     assert (

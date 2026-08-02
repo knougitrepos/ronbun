@@ -83,15 +83,30 @@ SurvFace Quick 공식 protocol은 `source_protocol_index`에 전체 protocol의
 Grad-CAM, compression characterization, saliency join, 대표 사례 생성 단계를
 지원한다.
 
-다음 `evaluation_contract_v1` 항목은 아직 제안·구현 전이므로 현재 full 실행의
-완료만으로 논문 최종 비교가 되지 않는다.
+현재 Step 2에는 PCA direct/reconstruction, PQ reconstruction, exhaustive PQ
+ADC가 구현되어 있다. 다만 이전 완료 run에는 새 검색 공간 행이 없으므로
+`scripts/refresh_step4_search_spaces.py`의 SHA-검증 compact 파생 평가 또는
+새 clean-source full run이 필요하다. 다음 항목은 여전히 검증 전이므로 현재
+full 실행의 완료만으로 논문 최종 비교가 되지 않는다.
 
-- PQ exhaustive ADC
 - 선택 profile IVF-PQ 시스템 실험
 - official/DB baseline 전체 행렬
 - calibration 100/500/1,000명
 - 전체 FPIR target 행렬
 - 동일 commit과 동일 model UID의 LFW/SurvFace full 재실행
+- warm-up/repeat 기반 latency benchmark
 
 세부 단계의 디버깅이나 수동 복구는 기존 `notebooks/lfw` 또는
 `notebooks/survface` 순차 노트북을 사용한다.
+
+## SurvFace Grad-CAM faithfulness 파생 평가
+
+완료된 full SurvFace run의 heatmap과 frozen target template을 변경하지 않고
+`scripts/derive_survface_faithfulness.py`로 high-saliency, low-saliency,
+random occlusion 결과를 별도 생성한다. 표본은 protocol role, 모델별 raw-norm
+사분위, 원본 target-score 사분위의 32개 층에서 2,048개를 결정적으로 선택한다.
+ArcFace·AdaFace·MagFace 결과는
+`scripts/summarize_survface_faithfulness_models.py`가 동일 조건인지 검증한 뒤 한
+표로 결합한다. 이 평가는 threshold-independent이므로 SurvFace FPIR calibration
+transfer 실패와 분리되지만, 현재 파생 evaluator가 dirty source이므로 논문 최종
+수치로 승격하려면 clean commit에서 새 output version으로 재실행해야 한다.

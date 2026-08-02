@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 COMPRESSION_METRICS = (
     "reconstruction_mse",
     "angular_error_rad",
@@ -41,6 +41,36 @@ RETRIEVAL_FIXED_COLUMNS = (
     "extraction_uid",
     "dataset_id",
     "origin_embedding_artifact_uid",
+    "origin_score_space",
+    "compressed_score_space",
+    "score_spaces_comparable",
+    "frozen_origin_threshold_applicable",
+    "latency_measurement_repeats",
+    "latency_timer",
+    "compressed_index_build_latency_ms",
+    "compressed_gallery_add_latency_ms",
+    "compressed_gallery_encode_latency_ms",
+    "origin_search_latency_ms_total",
+    "compressed_search_latency_ms_total",
+    "compressed_search_latency_ms_per_query",
+    "compressed_search_queries_per_second",
+    "gallery_template_count",
+)
+OPTIONAL_RETRIEVAL_FIXED_COLUMNS = (
+    "origin_score_space",
+    "compressed_score_space",
+    "score_spaces_comparable",
+    "frozen_origin_threshold_applicable",
+    "latency_measurement_repeats",
+    "latency_timer",
+    "compressed_index_build_latency_ms",
+    "compressed_gallery_add_latency_ms",
+    "compressed_gallery_encode_latency_ms",
+    "origin_search_latency_ms_total",
+    "compressed_search_latency_ms_total",
+    "compressed_search_latency_ms_per_query",
+    "compressed_search_queries_per_second",
+    "gallery_template_count",
 )
 THRESHOLD_COLUMNS = (
     "decision_threshold",
@@ -135,9 +165,10 @@ def _rate(numerator: int, denominator: int) -> float:
 
 
 def summarize_compression(
-    source_path: Path,
+    source_path: Path | None,
     *,
     chunksize: int,
+    source_frame: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, int]:
     usecols = (
         "compression_family",
@@ -146,10 +177,16 @@ def summarize_compression(
         *COMPRESSION_METRICS,
         *COMPRESSION_FIXED_COLUMNS,
     )
+    if (source_path is None) == (source_frame is None):
+        raise ValueError("provide exactly one of source_path or source_frame")
     accumulators: dict[tuple[str, str], dict[str, Any]] = {}
     row_count = 0
-
-    for chunk in pd.read_csv(source_path, usecols=usecols, chunksize=chunksize):
+    chunks = (
+        (source_frame.loc[:, usecols].copy(),)
+        if source_frame is not None
+        else pd.read_csv(source_path, usecols=usecols, chunksize=chunksize)
+    )
+    for chunk in chunks:
         row_count += int(len(chunk))
         for key, group in chunk.groupby(
             ["compression_family", "compression_profile"], sort=False
@@ -255,6 +292,8 @@ def _new_retrieval_accumulator() -> dict[str, Any]:
         "compressed_false_accept_count": 0,
         "agreement_with_origin_count": 0,
         "threshold_crossing_count": 0,
+        "accept_to_reject_count": 0,
+        "reject_to_accept_count": 0,
         "origin_decision_correct_count": 0,
         "compressed_decision_correct_count": 0,
         "origin_fallback_count": 0,
@@ -268,29 +307,101 @@ def _new_retrieval_accumulator() -> dict[str, Any]:
 
 
 def summarize_retrieval(
-    source_path: Path,
+    source_path: Path | None,
     *,
     chunksize: int,
+    source_frame: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, int]:
-    usecols = (
+    requested_usecols = (
         "compression_family",
         "compression_profile",
+        "search_mode",
         "threshold_policy",
         *RETRIEVAL_BOOLEAN_COLUMNS,
         *RETRIEVAL_NUMERIC_COLUMNS,
         *RETRIEVAL_FIXED_COLUMNS,
         *THRESHOLD_COLUMNS,
     )
-    accumulators: dict[tuple[str, str, str], dict[str, Any]] = {}
+    if (source_path is None) == (source_frame is None):
+        raise ValueError("provide exactly one of source_path or source_frame")
+    source_columns = set(
+        source_frame.columns
+        if source_frame is not None
+        else pd.read_csv(source_path, nrows=0).columns
+    )
+    usecols = tuple(
+        column for column in requested_usecols if column in source_columns
+    )
+    required_source_columns = {
+        "compression_family",
+        "compression_profile",
+        "threshold_policy",
+        *RETRIEVAL_BOOLEAN_COLUMNS,
+        *RETRIEVAL_NUMERIC_COLUMNS,
+        *(
+            column
+            for column in RETRIEVAL_FIXED_COLUMNS
+            if column not in OPTIONAL_RETRIEVAL_FIXED_COLUMNS
+        ),
+        *THRESHOLD_COLUMNS,
+    }
+    missing_source_columns = sorted(required_source_columns - source_columns)
+    if missing_source_columns:
+        raise ValueError(
+            "retrieval metrics are missing required columns: "
+            f"{missing_source_columns}"
+        )
+    accumulators: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     row_count = 0
 
-    for chunk in pd.read_csv(source_path, usecols=usecols, chunksize=chunksize):
+    chunks = (
+        (source_frame.loc[:, usecols].copy(),)
+        if source_frame is not None
+        else pd.read_csv(source_path, usecols=usecols, chunksize=chunksize)
+    )
+    for chunk in chunks:
         row_count += int(len(chunk))
+        if "search_mode" not in chunk:
+            chunk["search_mode"] = np.where(
+                chunk["compression_family"].astype(str).eq("pca"),
+                "pca_direct_cosine",
+                "pq_reconstruction_cosine",
+            )
+        if "origin_score_space" not in chunk:
+            chunk["origin_score_space"] = "cosine_similarity"
+        if "compressed_score_space" not in chunk:
+            chunk["compressed_score_space"] = "cosine_similarity"
+        if "score_spaces_comparable" not in chunk:
+            chunk["score_spaces_comparable"] = True
+        if "frozen_origin_threshold_applicable" not in chunk:
+            chunk["frozen_origin_threshold_applicable"] = True
+        if "latency_measurement_repeats" not in chunk:
+            chunk["latency_measurement_repeats"] = 0
+        if "latency_timer" not in chunk:
+            chunk["latency_timer"] = "not_measured"
+        for latency_column in (
+            "compressed_index_build_latency_ms",
+            "compressed_gallery_add_latency_ms",
+            "compressed_gallery_encode_latency_ms",
+            "origin_search_latency_ms_total",
+            "compressed_search_latency_ms_total",
+            "compressed_search_latency_ms_per_query",
+            "compressed_search_queries_per_second",
+        ):
+            if latency_column not in chunk:
+                chunk[latency_column] = np.nan
+        if "gallery_template_count" not in chunk:
+            chunk["gallery_template_count"] = np.nan
         for key, group in chunk.groupby(
-            ["compression_family", "compression_profile", "threshold_policy"],
+            [
+                "compression_family",
+                "compression_profile",
+                "search_mode",
+                "threshold_policy",
+            ],
             sort=False,
         ):
-            normalized_key = (str(key[0]), str(key[1]), str(key[2]))
+            normalized_key = tuple(str(value) for value in key)
             acc = accumulators.setdefault(normalized_key, _new_retrieval_accumulator())
             boolean = {
                 column: _as_bool(group[column]) for column in RETRIEVAL_BOOLEAN_COLUMNS
@@ -331,6 +442,14 @@ def summarize_retrieval(
                 boolean["agreement_with_origin"].sum()
             )
             acc["threshold_crossing_count"] += int(boolean["threshold_crossing"].sum())
+            accept_to_reject = boolean["origin_accepted"] & ~boolean[
+                "compressed_accepted"
+            ]
+            reject_to_accept = ~boolean["origin_accepted"] & boolean[
+                "compressed_accepted"
+            ]
+            acc["accept_to_reject_count"] += int(accept_to_reject.sum())
+            acc["reject_to_accept_count"] += int(reject_to_accept.sum())
             acc["origin_decision_correct_count"] += int(
                 boolean["origin_decision_correct"].sum()
             )
@@ -355,7 +474,9 @@ def summarize_retrieval(
             )
 
     records: list[dict[str, Any]] = []
-    for (family, profile, policy), acc in sorted(accumulators.items()):
+    for (family, profile, search_mode, policy), acc in sorted(
+        accumulators.items()
+    ):
         fixed = {
             column: _one(
                 acc["fixed"][column],
@@ -363,6 +484,24 @@ def summarize_retrieval(
             )
             for column in (*RETRIEVAL_FIXED_COLUMNS, *THRESHOLD_COLUMNS)
         }
+        gallery_template_count = fixed["gallery_template_count"]
+        has_gallery_count = (
+            gallery_template_count is not None
+            and np.isfinite(float(gallery_template_count))
+            and int(gallery_template_count) > 0
+        )
+        compressed_gallery_storage_bytes = (
+            int(gallery_template_count) * int(fixed["storage_bytes_per_embedding"])
+            + int(fixed["codebook_bytes"])
+            if has_gallery_count
+            else np.nan
+        )
+        amortized_storage_bytes = (
+            float(fixed["storage_bytes_per_embedding"])
+            + float(fixed["codebook_bytes"]) / int(gallery_template_count)
+            if has_gallery_count
+            else np.nan
+        )
         records.append(
             {
                 "dataset": fixed["dataset_id"],
@@ -373,6 +512,49 @@ def summarize_retrieval(
                 "protocol_uid": fixed["protocol_uid"],
                 "compression_family": family,
                 "compression_profile": profile,
+                "search_mode": search_mode,
+                "origin_score_space": fixed["origin_score_space"],
+                "compressed_score_space": fixed["compressed_score_space"],
+                "score_spaces_comparable": fixed["score_spaces_comparable"],
+                "frozen_origin_threshold_applicable": fixed[
+                    "frozen_origin_threshold_applicable"
+                ],
+                "latency_measurement_repeats": fixed[
+                    "latency_measurement_repeats"
+                ],
+                "latency_timer": fixed["latency_timer"],
+                "compressed_index_build_latency_ms": fixed[
+                    "compressed_index_build_latency_ms"
+                ],
+                "compressed_gallery_add_latency_ms": fixed[
+                    "compressed_gallery_add_latency_ms"
+                ],
+                "compressed_gallery_encode_latency_ms": fixed[
+                    "compressed_gallery_encode_latency_ms"
+                ],
+                "origin_search_latency_ms_total": fixed[
+                    "origin_search_latency_ms_total"
+                ],
+                "compressed_search_latency_ms_total": fixed[
+                    "compressed_search_latency_ms_total"
+                ],
+                "compressed_search_latency_ms_per_query": fixed[
+                    "compressed_search_latency_ms_per_query"
+                ],
+                "compressed_search_queries_per_second": fixed[
+                    "compressed_search_queries_per_second"
+                ],
+                "gallery_template_count": gallery_template_count,
+                "origin_storage_bytes_per_embedding": 512 * 4,
+                "origin_gallery_storage_bytes": (
+                    int(gallery_template_count) * 512 * 4
+                    if has_gallery_count
+                    else np.nan
+                ),
+                "compressed_gallery_storage_bytes": compressed_gallery_storage_bytes,
+                "amortized_storage_bytes_per_gallery_template": (
+                    amortized_storage_bytes
+                ),
                 "threshold_policy": policy,
                 "threshold_source_split": fixed["threshold_source_split"],
                 "evaluation_split": fixed["evaluation_split"],
@@ -435,6 +617,14 @@ def summarize_retrieval(
                 "threshold_crossing_count": acc["threshold_crossing_count"],
                 "threshold_crossing_rate": _rate(
                     acc["threshold_crossing_count"], acc["query_count"]
+                ),
+                "accept_to_reject_count": acc["accept_to_reject_count"],
+                "accept_to_reject_rate": _rate(
+                    acc["accept_to_reject_count"], acc["query_count"]
+                ),
+                "reject_to_accept_count": acc["reject_to_accept_count"],
+                "reject_to_accept_rate": _rate(
+                    acc["reject_to_accept_count"], acc["query_count"]
                 ),
                 "origin_decision_correct_count": acc["origin_decision_correct_count"],
                 "origin_decision_correct_rate": _rate(
@@ -593,7 +783,12 @@ def generate(
         "summary_contract": {
             "compression_grain": "one row per compression family and profile",
             "retrieval_grain": (
-                "one row per compression family, profile, and threshold policy"
+                "one row per compression family, profile, search mode, and "
+                "threshold policy"
+            ),
+            "score_space_policy": (
+                "cross-space score drift is undefined for PQ ADC; frozen-origin "
+                "threshold is inapplicable outside cosine score space"
             ),
             "rates": "fractions in [0,1] with explicit numerator and denominator columns",
             "origin_and_compressed_operating_points": "reported separately",

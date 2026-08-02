@@ -1,0 +1,16 @@
+group,metric,sample_count,identity_count,mean,median,positive_fraction,mean_ci_lower,mean_ci_upper,confidence_level,bootstrap_method,bootstrap_repeats
+all,high_saliency_occlusion_score_drop,2048,1575,0.10581323793,0.0958472937346,0.87939453125,0.101539727354,0.110125532721,0.95,identity_cluster,1000
+all,low_saliency_occlusion_score_drop,2048,1575,0.0214521444286,0.0145513117313,0.64208984375,0.018844795838,0.0240259781267,0.95,identity_cluster,1000
+all,random_occlusion_score_drop,2048,1575,0.181398137418,0.175582274795,0.94970703125,0.176053725933,0.187063236154,0.95,identity_cluster,1000
+all,faithfulness_gain_over_low_saliency,2048,1575,0.0843610934717,0.0803763270378,0.794921875,0.0794800030676,0.0891914782697,0.95,identity_cluster,1000
+all,faithfulness_gain_over_random,2048,1575,-0.0755848994995,-0.0735750049353,0.240234375,-0.0807281367831,-0.0705237558748,0.95,identity_cluster,1000
+protocol_role=registered_probe,high_saliency_occlusion_score_drop,1024,551,0.109623967901,0.100892961025,0.8681640625,0.103063313222,0.115938053551,0.95,identity_cluster,1000
+protocol_role=registered_probe,low_saliency_occlusion_score_drop,1024,551,0.0202182857611,0.0135889351368,0.6357421875,0.0168953329307,0.0236680158214,0.95,identity_cluster,1000
+protocol_role=registered_probe,random_occlusion_score_drop,1024,551,0.183081773906,0.176621556282,0.94921875,0.175192657946,0.191289236305,0.95,identity_cluster,1000
+protocol_role=registered_probe,faithfulness_gain_over_low_saliency,1024,551,0.0894056820689,0.0851693749428,0.79296875,0.0826420678942,0.0961012041257,0.95,identity_cluster,1000
+protocol_role=registered_probe,faithfulness_gain_over_random,1024,551,-0.0734578060365,-0.0711248517036,0.24609375,-0.0803968225686,-0.0660278216101,0.95,identity_cluster,1000
+protocol_role=unknown_unknown_probe,high_saliency_occlusion_score_drop,1024,1024,0.10200250796,0.0907786637545,0.890625,0.0961465626966,0.107770911566,0.95,identity_cluster,1000
+protocol_role=unknown_unknown_probe,low_saliency_occlusion_score_drop,1024,1024,0.0226860030962,0.015711158514,0.6484375,0.0189481565507,0.0265778803419,0.95,identity_cluster,1000
+protocol_role=unknown_unknown_probe,random_occlusion_score_drop,1024,1024,0.17971450093,0.175055205822,0.9501953125,0.172847717855,0.186414790176,0.95,identity_cluster,1000
+protocol_role=unknown_unknown_probe,faithfulness_gain_over_low_saliency,1024,1024,0.0793165048744,0.0755817592144,0.796875,0.0728026484394,0.0859797610607,0.95,identity_cluster,1000
+protocol_role=unknown_unknown_probe,faithfulness_gain_over_random,1024,1024,-0.0777119929626,-0.0765026509762,0.234375,-0.0839763715527,-0.0709173659518,0.95,identity_cluster,1000

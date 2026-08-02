@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "artifact_type": "step4_search_space_refresh_family",
+  "generated_at_utc": "2026-08-02T13:25:05.612284+00:00",
+  "family": "pq",
+  "dataset_id": "lfw",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "source_run_id": "20260801-R001-250c665b",
+  "source_origin_embedding_artifact_uid": "origin-embedding-dbdd656529118ab21ebd65ab",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 13195,
+    "paired_rows": 65975,
+    "retrieval_rows": 32460
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 15
+  },
+  "origin_calibration_signature": {
+    "target_fpir": 0.01,
+    "decision_threshold": 0.4329013526439667,
+    "calibration_non_mated_count": 2910,
+    "calibration_false_accept_count": 0,
+    "calibration_fpir": 0.0,
+    "test_non_mated_count": 1688,
+    "test_false_accept_count": 1,
+    "test_fpir": 0.0005924170616113745,
+    "status": "target_met"
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 1954,
+      "sha256": "5c1b2f80c57710357b93718755b2c9cbeb6332eb327b747b8d77126c831ae5b0"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 13740,
+      "sha256": "4c80fb5794a5b38893fd9faa4581de3e8ce55051880bae6604eac00bb4aca240"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 4233,
+      "sha256": "7db96858d74a3494bc9be6d3f4690aef08b61d9b72e872b7e4ccc08af9ecd1b3"
+    }
+  }
+}

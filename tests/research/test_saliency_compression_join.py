@@ -15,6 +15,7 @@ from research.evaluation.saliency_compression import (
     join_population_saliency_with_compression,
     join_population_saliency_with_retrieval,
     saliency_compression_associations,
+    saliency_retrieval_associations,
 )
 
 
@@ -145,6 +146,33 @@ def test_retrieval_may_cover_only_a_protocol_query_subset():
 
     assert set(joined["sample_id"]) == {"sample-1"}
     assert len(joined) == 4
+
+
+def test_retrieval_join_and_associations_keep_search_modes_separate():
+    reconstruction = _retrieval_frame().assign(
+        search_mode="pca_reconstruction_cosine"
+    )
+    direct = _retrieval_frame().assign(search_mode="pca_direct_cosine")
+    joined = join_population_saliency_with_retrieval(
+        _saliency_frame(),
+        pd.concat([direct, reconstruction], ignore_index=True),
+    )
+
+    assert len(joined) == 16
+    assert set(joined["search_mode"]) == {
+        "pca_direct_cosine",
+        "pca_reconstruction_cosine",
+    }
+    associations = saliency_retrieval_associations(
+        joined,
+        saliency_features=("saliency_entropy",),
+        sensitivity_metrics=("top1_score_drift",),
+        bootstrap_repeats=0,
+    )
+    assert set(associations["search_mode"]) == {
+        "pca_direct_cosine",
+        "pca_reconstruction_cosine",
+    }
 
 
 def test_combined_join_rejects_multi_policy_geometry_duplication():

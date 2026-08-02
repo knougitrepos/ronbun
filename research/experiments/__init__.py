@@ -44,8 +44,10 @@ from research.experiments.lfw_pgvector import (
 )
 from research.experiments.step2_compression import (
     Step2CompressionResult,
+    SurvFaceOriginCalibrationSweepResult,
     characterize_step2_compression,
     characterize_step2_survface_compression,
+    diagnose_step2_survface_origin_calibration,
 )
 from research.experiments.step4_datasets import (
     SUPPORTED_STEP4_DATASETS,
@@ -73,6 +75,10 @@ from research.experiments.survface_pgvector import (
     build_survface_official_templates,
     run_survface_official_search,
     run_survface_official_search_matrix,
+)
+from research.experiments.survface_calibration_validation import (
+    SurvFaceSidakHoldoutResult,
+    validate_survface_sidak_calibration_holdout,
 )
 from research.experiments.survface_compression import (
     SURVFACE_COMPRESSOR_PHASE,
@@ -110,12 +116,14 @@ __all__ = [
     "build_lfw_certification_inputs",
     "LFWTemplateScope",
     "Step2CompressionResult",
+    "SurvFaceOriginCalibrationSweepResult",
     "Step4DatasetSpec",
     "SUPPORTED_STEP4_DATASETS",
     "calibrate_lfw_pgvector_threshold",
     "characterize_step4_compression",
     "characterize_step2_compression",
     "characterize_step2_survface_compression",
+    "diagnose_step2_survface_origin_calibration",
     "extract_step4_origin_embeddings",
     "extract_step4_population_gradcam",
     "finalize_step4_representative_cases",
@@ -141,8 +149,10 @@ __all__ = [
     "SURVFACE_COMPRESSOR_PHASE",
     "SURVFACE_MATERIALIZATION_PHASE",
     "SurvFaceCompressorBundle",
+    "SurvFaceSidakHoldoutResult",
     "validate_step4_saliency",
     "validate_survface_training_manifest",
+    "validate_survface_sidak_calibration_holdout",
     "build_survface_official_templates",
     "fit_survface_compressors",
     "load_survface_compressor_bundle",

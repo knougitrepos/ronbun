@@ -1272,23 +1272,57 @@ def characterize_step4_compression(
             compression.retrieval_metrics,
             **lineage,
         )
+        origin_score_audit = annotate_compression_lineage(
+            compression.origin_score_audit,
+            **lineage,
+        )
+        calibration_diagnostics = dict(compression.calibration_diagnostics)
+        calibration_diagnostics["lineage"] = dict(lineage)
         paired_path = (
             workflow_root / config["workflow"]["paired_metrics_path"]
         )
         retrieval_path = (
             workflow_root / config["workflow"]["retrieval_metrics_path"]
         )
+        origin_score_audit_path = (
+            workflow_root / config["workflow"]["origin_score_audit_path"]
+        )
+        calibration_diagnostics_path = (
+            workflow_root
+            / config["workflow"]["calibration_diagnostics_path"]
+        )
         _write_csv(paired_path, paired, overwrite=overwrite)
         _write_csv(retrieval_path, retrieval, overwrite=overwrite)
+        _write_csv(
+            origin_score_audit_path,
+            origin_score_audit,
+            overwrite=overwrite,
+        )
+        _write_json(
+            calibration_diagnostics_path,
+            calibration_diagnostics,
+            overwrite=overwrite,
+        )
         phase.record_counts(
             paired_rows=len(paired),
             retrieval_rows=len(retrieval),
+            origin_score_audit_rows=len(origin_score_audit),
         )
     return {
         "run_id": run.run_id,
         "dataset_id": dataset_spec.dataset_id,
         "paired_rows": int(len(paired)),
         "retrieval_rows": int(len(retrieval)),
+        "origin_score_audit_rows": int(len(origin_score_audit)),
+        "calibration_origin_fpir": float(
+            calibration_diagnostics["splits"]["calibration"]["origin_fpir"]
+        ),
+        "test_origin_fpir": float(
+            calibration_diagnostics["splits"]["test"]["origin_fpir"]
+        ),
+        "origin_calibration_transfer_status": str(
+            calibration_diagnostics["calibration_transfer_assessment"]["status"]
+        ),
         "next_stage": "05_saliency_compression_join",
     }
 
@@ -1694,6 +1728,15 @@ def finalize_step4_representative_cases(
     retrieval = pd.read_csv(
         workflow_root / config["workflow"]["retrieval_metrics_path"]
     )
+    origin_score_audit = pd.read_csv(
+        workflow_root / config["workflow"]["origin_score_audit_path"]
+    )
+    calibration_diagnostics = json.loads(
+        (
+            workflow_root
+            / config["workflow"]["calibration_diagnostics_path"]
+        ).read_text(encoding="utf-8")
+    )
     geometry_associations = pd.read_csv(
         workflow_root / config["workflow"]["geometry_association_path"]
     )
@@ -1713,6 +1756,16 @@ def finalize_step4_representative_cases(
         ],
         "paired_rows": int(len(paired)),
         "retrieval_rows": int(len(retrieval)),
+        "origin_score_audit_rows": int(len(origin_score_audit)),
+        "calibration_origin_fpir": float(
+            calibration_diagnostics["splits"]["calibration"]["origin_fpir"]
+        ),
+        "test_origin_fpir": float(
+            calibration_diagnostics["splits"]["test"]["origin_fpir"]
+        ),
+        "origin_calibration_transfer_status": str(
+            calibration_diagnostics["calibration_transfer_assessment"]["status"]
+        ),
         "geometry_association_rows": int(len(geometry_associations)),
         "retrieval_association_rows": int(len(retrieval_associations)),
         "representative_cases": int(len(cases)),

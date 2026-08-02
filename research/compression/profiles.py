@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 import os
 from pathlib import Path
+from time import perf_counter
 import tempfile
 
 import joblib
@@ -381,6 +382,105 @@ class PQCompressor:
 
     def decode(self, codes: np.ndarray) -> np.ndarray:
         return self._require_fit().sa_decode(np.ascontiguousarray(codes)).astype(np.float32)
+
+    def search_adc(
+        self,
+        queries: np.ndarray,
+        gallery_codes: np.ndarray,
+        *,
+        top_k: int = 1,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Run exhaustive asymmetric squared-L2 search over stored PQ codes."""
+
+        distances, indices, _ = self.search_adc_with_metrics(
+            queries,
+            gallery_codes,
+            top_k=top_k,
+        )
+        return distances, indices
+
+    def search_adc_with_metrics(
+        self,
+        queries: np.ndarray,
+        gallery_codes: np.ndarray,
+        *,
+        top_k: int = 1,
+    ) -> tuple[np.ndarray, np.ndarray, dict[str, float | int | str]]:
+        """Run ADC and report clone, add-code, and query-search wall time.
+
+        Queries stay in the original float32 space. Gallery vectors remain PQ
+        codes inside the cloned Faiss index; this method does not decode them
+        before search and does not mutate the fitted codec index.
+        """
+
+        try:
+            import faiss  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError("Faiss is required for PQ ADC search") from exc
+        query_matrix = _as_float_matrix(queries)
+        if query_matrix.shape[1] != self.source_dim:
+            raise ValueError(
+                f"PQ ADC expected {self.source_dim} query dimensions, "
+                f"got {query_matrix.shape[1]}"
+            )
+        codes = np.asarray(gallery_codes)
+        index = self._require_fit()
+        expected_code_size = int(index.sa_code_size())
+        if codes.ndim != 2 or codes.shape[0] == 0:
+            raise ValueError("gallery_codes must be a non-empty 2D array")
+        if codes.shape[1] != expected_code_size:
+            raise ValueError(
+                f"PQ ADC expected code size {expected_code_size}, got {codes.shape[1]}"
+            )
+        if codes.dtype != np.uint8:
+            raise ValueError("gallery_codes must use uint8 Faiss standalone codes")
+        top_k_value = int(top_k)
+        if isinstance(top_k, (bool, np.bool_)) or top_k_value <= 0:
+            raise ValueError("top_k must be a positive integer")
+        if top_k_value > len(codes):
+            raise ValueError("top_k must not exceed the gallery code count")
+        if int(index.metric_type) != int(faiss.METRIC_L2):
+            raise ValueError("PQ ADC primary search requires a squared-L2 codebook")
+
+        clone_started = perf_counter()
+        search_index = faiss.clone_index(index)
+        search_index.reset()
+        clone_elapsed = perf_counter() - clone_started
+        add_started = perf_counter()
+        search_index.add_sa_codes(np.ascontiguousarray(codes))
+        add_elapsed = perf_counter() - add_started
+        if int(search_index.ntotal) != len(codes):
+            raise RuntimeError("Faiss PQ ADC index did not retain every gallery code")
+        search_started = perf_counter()
+        distances, indices = search_index.search(
+            np.ascontiguousarray(query_matrix),
+            top_k_value,
+        )
+        search_elapsed = perf_counter() - search_started
+        distances = np.asarray(distances, dtype=np.float32)
+        indices = np.asarray(indices, dtype=np.int64)
+        if distances.shape != indices.shape or distances.shape != (
+            len(query_matrix),
+            top_k_value,
+        ):
+            raise RuntimeError("Faiss PQ ADC search returned an invalid result shape")
+        if not np.all(np.isfinite(distances)) or np.any(indices < 0):
+            raise RuntimeError("Faiss PQ ADC search returned invalid distances or indices")
+        query_count = int(len(query_matrix))
+        metrics: dict[str, float | int | str] = {
+            "latency_measurement_repeats": 1,
+            "latency_timer": "time.perf_counter",
+            "compressed_index_build_latency_ms": float(clone_elapsed * 1000.0),
+            "compressed_gallery_add_latency_ms": float(add_elapsed * 1000.0),
+            "compressed_search_latency_ms_total": float(search_elapsed * 1000.0),
+            "compressed_search_latency_ms_per_query": float(
+                search_elapsed * 1000.0 / query_count
+            ),
+            "compressed_search_queries_per_second": float(
+                query_count / search_elapsed if search_elapsed > 0.0 else np.inf
+            ),
+        }
+        return distances, indices, metrics
 
     def transform_profile(self, vectors: np.ndarray) -> CompressionResult:
         source = _as_float_matrix(vectors)

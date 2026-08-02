@@ -164,6 +164,20 @@ class _FakeRun:
         yield phase
 
 
+class _FakeCompressionRun:
+    def __init__(self, run_dir: Path) -> None:
+        self.run_dir = run_dir
+        self.run_id = "synthetic-compression-run"
+        self.last_phase: _FakePhase | None = None
+
+    @contextmanager
+    def phase(self, name: str) -> Iterator[_FakePhase]:
+        assert name == "04_step2_compression_characterization"
+        phase = _FakePhase()
+        self.last_phase = phase
+        yield phase
+
+
 def _saliency_frame() -> pd.DataFrame:
     frame = pd.DataFrame(
         {
@@ -335,6 +349,125 @@ def test_step4_execution_requires_explicit_runtime_acknowledgement(tmp_path):
             project_root=tmp_path,
             dataset_id="lfw",
         )
+
+
+def test_compression_phase_persists_origin_calibration_audit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workflow_root = tmp_path / "workflow"
+    prepared_dir = workflow_root / "prepared"
+    prepared_dir.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "sample_id": ["sample-1"],
+            "identity_id": ["identity-1"],
+            "split": ["calibration"],
+        }
+    ).to_csv(workflow_root / "selected.csv", index=False)
+    config = {
+        "execution": {"overwrite": False, "seed": 42},
+        "workflow": {
+            "prepared_population_dir": "prepared",
+            "selected_manifest_path": "selected.csv",
+            "paired_metrics_path": "paired.csv",
+            "retrieval_metrics_path": "retrieval.csv",
+            "origin_score_audit_path": "origin_score_audit.csv",
+            "calibration_diagnostics_path": "calibration_diagnostics.json",
+        },
+        "compression": {
+            "families": {
+                "pca": {"dimensions": [2]},
+                "pq": {"settings": [{"m": 8, "nbits": 1}]},
+            }
+        },
+        "evaluation": {
+            "survface_target_fpir": 0.10,
+            "survface_calibration_gallery_identities": 1,
+            "top_k": 1,
+        },
+    }
+    run = _FakeCompressionRun(tmp_path / "run")
+    prepared = SimpleNamespace(
+        extraction_uid="extract-a",
+        dataset_id="survface",
+        model_uid="model-a",
+        origin_embedding_artifact_uid="origin-a",
+    )
+    paired = pd.DataFrame(
+        {"sample_id": ["sample-1"], "value": [1.0]}
+    )
+    retrieval = pd.DataFrame(
+        {"query_id": ["sample-1"], "value": [2.0]}
+    )
+    origin_audit = pd.DataFrame(
+        {
+            "query_id": ["calibration-1", "test-1"],
+            "evaluation_split": ["calibration", "test"],
+            "origin_top1_score": [0.4, 0.8],
+        }
+    )
+    diagnostics = {
+        "schema_version": 1,
+        "calibration_transfer_assessment": {
+            "status": "failed_target_fpir",
+        },
+        "splits": {
+            "calibration": {"origin_fpir": 0.10},
+            "test": {"origin_fpir": 0.50},
+        },
+    }
+    monkeypatch.setattr(step4_workflow, "load_step4_config", lambda path: config)
+    monkeypatch.setattr(
+        step4_workflow,
+        "_open_step4_run",
+        lambda *args, **kwargs: (
+            run,
+            workflow_root,
+            SimpleNamespace(dataset_id="survface"),
+        ),
+    )
+    monkeypatch.setattr(
+        step4_workflow,
+        "read_prepared_population_artifact",
+        lambda path: prepared,
+    )
+    monkeypatch.setattr(
+        step4_workflow,
+        "characterize_step2_survface_compression",
+        lambda *args, **kwargs: SimpleNamespace(
+            paired_metrics=paired,
+            retrieval_metrics=retrieval,
+            origin_score_audit=origin_audit,
+            calibration_diagnostics=diagnostics,
+        ),
+    )
+
+    result = step4_workflow.characterize_step4_compression(
+        tmp_path / "config.yaml",
+        project_root=tmp_path,
+        dataset_id="survface",
+        execution_acknowledged=True,
+    )
+
+    assert result["origin_score_audit_rows"] == 2
+    assert result["calibration_origin_fpir"] == pytest.approx(0.10)
+    assert result["test_origin_fpir"] == pytest.approx(0.50)
+    assert result["origin_calibration_transfer_status"] == "failed_target_fpir"
+    assert (workflow_root / "origin_score_audit.csv").is_file()
+    payload = json.loads(
+        (workflow_root / "calibration_diagnostics.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["lineage"] == {
+        "extraction_uid": "extract-a",
+        "dataset_id": "survface",
+        "model_uid": "model-a",
+        "origin_embedding_artifact_uid": "origin-a",
+    }
+    assert run.last_phase is not None
+    assert run.last_phase.details["counts"]["origin_score_audit_rows"] == 2
 
 
 def test_saliency_compression_workflow_streams_and_publishes_after_success(

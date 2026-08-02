@@ -903,8 +903,13 @@ def inspect_common_experiment_plan(
         "identity_aware_role_preserving_selection": "implemented",
         "origin_pca_reconstruction_study": "implemented",
         "same_model_lfw_survface_full_rerun": "validation_required",
-        "four_profile_main_table": "proposed",
-        "pq_exhaustive_adc": "proposed",
+        "four_search_space_main_table": "implemented",
+        "pq_exhaustive_adc": "implemented",
+        "search_space_clean_full_rerun": "validation_required",
+        "survface_gradcam_faithfulness_controls": "implemented",
+        "survface_gradcam_faithfulness_three_models": "implemented",
+        "gradcam_faithfulness_clean_promotion": "validation_required",
+        "repeated_latency_benchmark": "validation_required",
         "ivf_pq_system_ablation": "proposed",
         "official_and_db_baseline_matrix": "proposed",
         "calibration_100_500_1000": "proposed",
@@ -1182,9 +1187,9 @@ def run_common_step4_experiment(
 ) -> dict[str, object]:
     """Run or resume the canonical Step 4 phases without running notebooks.
 
-    This dispatcher covers the existing Step 4 Grad-CAM workflow.  It does not
-    claim that the newly proposed exhaustive-ADC and calibration-matrix stages
-    are implemented.
+    This dispatcher covers the Step 4 Grad-CAM workflow and the four Step 2
+    search spaces, including exhaustive PQ ADC.  The complete calibration
+    matrix and repeated systems benchmark remain separate validation work.
     """
 
     if execution_acknowledged is not True:
@@ -1324,8 +1329,8 @@ def run_common_step4_experiment(
         "stages": stage_results,
         "comparison_paper_eligible": False,
         "comparison_limitation": (
-            "The common Step 4 dispatcher is implemented, but exhaustive ADC, "
-            "the complete calibration/FPIR matrix, and same-commit dual-dataset "
-            "full reruns remain outstanding."
+            "The common Step 4 dispatcher and exhaustive PQ ADC are implemented, "
+            "but the complete calibration/FPIR matrix, repeated latency benchmark, "
+            "and same-commit dual-dataset clean full reruns remain outstanding."
         ),
     }

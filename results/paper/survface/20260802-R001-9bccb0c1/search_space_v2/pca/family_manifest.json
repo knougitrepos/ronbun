@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "artifact_type": "step4_search_space_refresh_family",
+  "generated_at_utc": "2026-08-02T13:50:53.403711+00:00",
+  "family": "pca",
+  "dataset_id": "survface",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "source_run_id": "20260802-R001-9bccb0c1",
+  "source_origin_embedding_artifact_uid": "origin-embedding-f0093b4aa0b2ce25e8257f05",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 463341,
+    "paired_rows": 2316705,
+    "retrieval_rows": 3643180
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 20
+  },
+  "origin_calibration_signature": {
+    "target_fpir": 0.1,
+    "decision_threshold": 0.686036229133606,
+    "calibration_non_mated_count": 33974,
+    "calibration_false_accept_count": 3294,
+    "calibration_fpir": 0.0969564961441102,
+    "test_non_mated_count": 121736,
+    "test_false_accept_count": 61679,
+    "test_fpir": 0.506661957021752,
+    "status": "failed_target_fpir"
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 1951,
+      "sha256": "cf527feacad0ab06eda17d1667f1ff9309b1a2182984f890e55881ac9af4cd61"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 18508,
+      "sha256": "34e6bce396263bc5d342ee96809a44fe08b41c654858b6570f6a922a7a233411"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 4311,
+      "sha256": "52ef2d140f994bde9acbfe90d4da44903b991bee5ecc027bf50ff231df9bd295"
+    }
+  }
+}

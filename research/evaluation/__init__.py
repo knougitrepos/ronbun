@@ -1,8 +1,11 @@
 from research.evaluation.compression_characterization import (
+    ORIGIN_RETRIEVAL_COLUMNS,
     PAIRED_EMBEDDING_COLUMNS,
     RETRIEVAL_COMPARISON_COLUMNS,
     apply_retrieval_thresholds,
     compare_cosine_retrieval,
+    compare_pq_adc_retrieval,
+    origin_cosine_retrieval,
     paired_embedding_metrics,
 )
 from research.evaluation.metrics import (
@@ -30,6 +33,11 @@ from research.evaluation.saliency_compression import (
     saliency_geometry_associations,
     saliency_retrieval_associations,
 )
+from research.evaluation.saliency_faithfulness import (
+    FAITHFULNESS_METRICS,
+    select_stratified_faithfulness_sample,
+    summarize_faithfulness,
+)
 from research.evaluation.saliency_streaming import (
     StreamingJoinResult,
     stream_join_population_saliency_with_compression,
@@ -37,12 +45,14 @@ from research.evaluation.saliency_streaming import (
 )
 
 __all__ = [
+    "FAITHFULNESS_METRICS",
     "DEFAULT_GEOMETRY_METRICS",
     "DEFAULT_RETRIEVAL_METRICS",
     "DEFAULT_SALIENCY_FEATURES",
     "DEFAULT_SENSITIVITY_METRICS",
     "JOIN_KEYS",
     "LINEAGE_COLUMNS",
+    "ORIGIN_RETRIEVAL_COLUMNS",
     "PAIRED_EMBEDDING_COLUMNS",
     "PROFILE_KEYS",
     "RETRIEVAL_COMPARISON_COLUMNS",
@@ -52,15 +62,19 @@ __all__ = [
     "brier_score",
     "certified_open_set_metrics",
     "compare_cosine_retrieval",
+    "compare_pq_adc_retrieval",
     "expected_calibration_error",
     "join_population_saliency_with_compression",
     "join_population_saliency_with_retrieval",
     "open_set_identification_metrics",
+    "origin_cosine_retrieval",
     "paired_embedding_metrics",
     "rank_at_k",
     "saliency_compression_associations",
     "saliency_geometry_associations",
     "saliency_retrieval_associations",
+    "select_stratified_faithfulness_sample",
+    "summarize_faithfulness",
     "StreamingJoinResult",
     "WEIGHTED_RERANK_ALGORITHM_VERSION",
     "WEIGHTED_RERANK_STRATEGY",

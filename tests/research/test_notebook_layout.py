@@ -321,5 +321,13 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "origin_decision_threshold",
         "compressed_decision_threshold",
         "profile_storage schema mismatch",
+        "PREFER_SEARCH_SPACE_V2",
+        "step4_search_space_refresh",
+        "accept_to_reject_count",
+        "reject_to_accept_count",
+        "summary_claim_status",
+        "INCLUDE_SURVFACE_FAITHFULNESS",
+        "survface_gradcam_faithfulness_cross_model",
+        "strong_faithfulness_pass_count",
     ):
         assert phrase in report

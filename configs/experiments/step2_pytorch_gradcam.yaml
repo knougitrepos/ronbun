@@ -57,6 +57,8 @@ workflow:
   saliency_validation_path: saliency_validation.json
   paired_metrics_path: paired_embedding_metrics.csv
   retrieval_metrics_path: retrieval_metrics.csv
+  origin_score_audit_path: origin_open_set_score_audit.csv
+  calibration_diagnostics_path: origin_calibration_diagnostics.json
   geometry_joined_metrics_path: saliency_geometry_join.csv
   retrieval_joined_metrics_path: saliency_retrieval_join.csv
   geometry_association_path: saliency_geometry_associations.csv
@@ -382,8 +384,17 @@ gradcam:
     infer_missing_semantic_masks: false
   faithfulness:
     enabled: true
+    # LFW is computed inline for all eligible rows. SurvFace is derived from
+    # immutable heatmaps with bounded forward-only occlusion evaluation.
     enabled_datasets: [lfw]
     coverage: all_target_eligible_samples
+    derived_stratified_datasets: [survface]
+    derived_maximum_samples:
+      survface: 2048
+    derived_strata:
+      - protocol_role
+      - raw_embedding_norm_within_role_quartile
+      - gradcam_target_score_within_role_quartile
     primary_occlusion_fraction: 0.10
     baselines: [random, low_saliency]
     random_repeats: 5
@@ -426,6 +437,7 @@ joint_analysis:
       - model_uid
       - compression_family
       - compression_profile
+      - search_mode
       - threshold_source_split
       - evaluation_split
       - threshold_policy

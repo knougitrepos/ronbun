@@ -1,0 +1,93 @@
+{
+  "artifact_type": "survface_gradcam_faithfulness_cross_model",
+  "schema_version": 1,
+  "created_at_utc": "2026-08-02T14:44:23.759916+00:00",
+  "dataset_id": "survface",
+  "model_families": [
+    "arcface",
+    "adaface",
+    "magface"
+  ],
+  "evaluation_contract": {
+    "selected_count": 2048,
+    "maximum_samples": 2048,
+    "strata": [
+      "protocol_role",
+      "raw_embedding_norm_within_role_quartile",
+      "gradcam_target_score_within_role_quartile"
+    ],
+    "occlusion_fraction": 0.1,
+    "strategies": [
+      "high_saliency",
+      "low_saliency",
+      "random"
+    ],
+    "random_repeats": 5,
+    "bootstrap_repeats": 1000,
+    "target_name": "origin_top1_gallery_cosine"
+  },
+  "claim_status": "exploratory_dirty_evaluator",
+  "paper_eligible": false,
+  "threshold_independent": true,
+  "strong_faithfulness_pass_count": 0,
+  "sources": [
+    {
+      "model_family": "arcface",
+      "model_uid": "arcface-7972a704552df378345f",
+      "source_run_id": "20260729-R001-cccb59d5",
+      "manifest": {
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260729-R001-cccb59d5\\faithfulness_v1\\manifest.json",
+        "bytes": 10076,
+        "sha256": "39f4aa06f3bfca5f32c2bc909793202cfe37acc927af8f7571cb338b9339572f"
+      },
+      "summary": {
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260729-R001-cccb59d5\\faithfulness_v1\\faithfulness_summary.csv",
+        "bytes": 2672,
+        "sha256": "70bcdd1ff4bbe4022b4381c816ffb63f8563ab81e68922df6bce2a0d3b190765"
+      }
+    },
+    {
+      "model_family": "adaface",
+      "model_uid": "adaface-4df25b75e065b0b9ed43",
+      "source_run_id": "20260731-R001-8f94ec62",
+      "manifest": {
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260731-R001-8f94ec62\\faithfulness_v1\\manifest.json",
+        "bytes": 10354,
+        "sha256": "532db82122a95a09e6e3e03c91d6c07e08289c3239d406099a7a391d5697b735"
+      },
+      "summary": {
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260731-R001-8f94ec62\\faithfulness_v1\\faithfulness_summary.csv",
+        "bytes": 2666,
+        "sha256": "187a50207db56fc01ba8d1152e637e127e5fda52ea7dd56e637039fc9e5014bf"
+      }
+    },
+    {
+      "model_family": "magface",
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "source_run_id": "20260802-R001-9bccb0c1",
+      "manifest": {
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260802-R001-9bccb0c1\\faithfulness_v1\\manifest.json",
+        "bytes": 9799,
+        "sha256": "45840e6563c56f554f6c029332aac69336a62d474c6b5e84317f8aee24af8fad"
+      },
+      "summary": {
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260802-R001-9bccb0c1\\faithfulness_v1\\faithfulness_summary.csv",
+        "bytes": 2659,
+        "sha256": "93006e13404434bbf3262bc4e44bf5d626768141fec11dd3646249bda727a354"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "path": "faithfulness_cross_model_long.csv",
+      "bytes": 10432,
+      "sha256": "9a644510cbb2bb62943a4d98d198887cf8d5bb272792e6325357a6f3e7beb4d5"
+    },
+    {
+      "path": "faithfulness_cross_model_primary.csv",
+      "bytes": 2175,
+      "sha256": "874f4e12f6a944ae49fa760de1998d328adb4c3939663677184cd61f2dc51907"
+    }
+  ],
+  "interpretation_boundary": "High-saliency occlusion must exceed both low-saliency and random controls with a positive identity-cluster bootstrap CI to pass the strong faithfulness criterion."
+}
