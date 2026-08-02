@@ -182,6 +182,8 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     for phrase in (
         'DATASET_IDS = ("lfw", "survface")',
         "postprocess_completed_run",
+        "reuse_completed_run_for_plan",
+        "COMPLETED_RUN_OVERRIDES = {",
         "run_cross_dataset_report_notebook",
         "RUN_SEARCH_SPACE_REFRESH = True",
         "RUN_SURVFACE_FAITHFULNESS = True",
@@ -189,6 +191,11 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         "START_NEW_RUN = False",
     ):
         assert phrase in source
+    assert source.index("for dataset_id, plan in PLANS.items()") < (
+        source.index(
+            "for dataset_id, execution in EXECUTION_RESULTS.items()"
+        )
+    )
 
 
 def test_survface_saliency_join_runbook_exposes_long_run_progress() -> None:

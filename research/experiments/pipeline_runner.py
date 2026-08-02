@@ -89,6 +89,9 @@ CALIBRATION_IDENTITY_COUNTS = (100, 500, 1000)
 SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID = (
     "survface_quick_protocol_index_rebase_v1"
 )
+RETRIEVAL_SEARCH_MODE_JOIN_CORRECTION_ID = (
+    "retrieval_search_mode_join_grain_v1"
+)
 
 
 @dataclass(frozen=True)
@@ -964,6 +967,93 @@ def _completed_matching_runs(plan: CommonExperimentPlan) -> list[Path]:
     return [path for _, path in sorted(matches, key=lambda item: item[0])]
 
 
+def reuse_completed_run_for_plan(
+    plan: CommonExperimentPlan,
+    run_dir: str | Path,
+) -> dict[str, object]:
+    """Explicitly reuse one completed run after strict science-config checks.
+
+    This is intentionally opt-in. It permits source-snapshot drift only when
+    every non-snapshot Step 4 setting is unchanged and all phase artifacts are
+    complete and checksum-valid.
+    """
+
+    selected = Path(run_dir).expanduser().resolve()
+    base_root = (
+        plan.project_root / plan.effective_step4_config["run"]["root"]
+    ).resolve()
+    try:
+        selected.relative_to(base_root)
+    except ValueError as exc:
+        raise ValueError(
+            f"completed run override must stay under {base_root}: {selected}"
+        ) from exc
+    manifest_path = selected / "run_manifest.json"
+    completed_path = selected / "COMPLETED"
+    if not manifest_path.is_file() or not completed_path.is_file():
+        raise ValueError(
+            "completed run override requires run_manifest.json and COMPLETED: "
+            f"{selected}"
+        )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("status") != "completed":
+        raise ValueError(
+            f"completed run override has non-completed status: {selected}"
+        )
+    config = manifest.get("config")
+    if not isinstance(config, Mapping) or not isinstance(
+        config.get("step4"),
+        Mapping,
+    ):
+        raise ValueError("completed run override is missing the Step 4 config")
+    frozen_step4 = config["step4"]
+    if _config_without_source_snapshot(frozen_step4) != (
+        _config_without_source_snapshot(plan.effective_step4_config)
+    ):
+        raise ValueError(
+            "completed run override differs from the selected science config"
+        )
+    run = RunStore.open(selected)
+    reused_stages: list[dict[str, object]] = []
+    for stage in STEP4_PIPELINE_STAGES[2:]:
+        if stage.phase_name is None:
+            continue
+        if not _completed_phase(selected, stage.phase_name):
+            raise ValueError(
+                "completed run override is missing phase: "
+                f"{stage.phase_name}"
+            )
+        run.verify_phase_artifacts(stage.phase_name)
+        reused_stages.append(
+            {
+                "stage_id": stage.stage_id,
+                "status": "reused_completed_override",
+            }
+        )
+    frozen_snapshot = frozen_step4.get("orchestration", {}).get(
+        "source_snapshot"
+    )
+    current_snapshot = plan.effective_step4_config.get(
+        "orchestration",
+        {},
+    ).get("source_snapshot")
+    return {
+        "status": "already_completed",
+        "run_id": str(manifest["run_id"]),
+        "run_dir": str(selected),
+        "plan_id": plan.plan_id,
+        "materialization": [],
+        "stages": reused_stages,
+        "explicit_completed_override": True,
+        "frozen_source_snapshot": frozen_snapshot,
+        "current_source_snapshot": current_snapshot,
+        "message": (
+            "Explicit completed-run override verified; non-snapshot science "
+            "config and all phase artifact checks passed."
+        ),
+    }
+
+
 def _active_matching_run(
     plan: CommonExperimentPlan,
 ) -> RunStore | None:
@@ -1061,6 +1151,55 @@ def _is_known_survface_quick_protocol_index_failure(
     )
 
 
+def _is_known_retrieval_search_mode_join_failure(
+    run: RunStore,
+    plan: CommonExperimentPlan,
+) -> bool:
+    existing_config = run.config.get("step4")
+    if not isinstance(existing_config, Mapping):
+        return False
+    if (
+        _config_without_source_snapshot(existing_config)
+        != _config_without_source_snapshot(plan.effective_step4_config)
+    ):
+        return False
+    required_completed = (
+        "00_source_and_model_freeze",
+        "01_origin_embedding_and_target_templates",
+        "02_population_gradcam_extraction",
+        "03_saliency_feature_validation",
+        "04_step2_compression_characterization",
+    )
+    if not all(
+        _completed_phase(run.run_dir, phase_name)
+        for phase_name in required_completed
+    ):
+        return False
+    latest = _latest_phase_attempt_manifest(
+        run,
+        "05_saliency_compression_join",
+    )
+    if latest is None or latest.get("status") != "failed":
+        return False
+    failure = latest.get("failure")
+    if not isinstance(failure, Mapping):
+        return False
+    message = str(failure.get("message", ""))
+    if not message.startswith(
+        "retrieval_sensitivity rows are not unique by"
+    ):
+        return False
+    retrieval_path = (
+        run.run_dir
+        / "artifacts"
+        / "step2_workflow"
+        / "retrieval_metrics.csv"
+    )
+    if not retrieval_path.is_file():
+        return False
+    return "search_mode" in pd.read_csv(retrieval_path, nrows=0).columns
+
+
 def _recorded_step4_config_path(run: RunStore) -> Path:
     manifest = json.loads(run.manifest_path.read_text(encoding="utf-8"))
     candidates = [
@@ -1099,7 +1238,15 @@ def _resolve_execution_run(
     existing_config = run.config.get("step4")
     if existing_config == plan.effective_step4_config:
         return run, current_config_path, None
-    if not _is_known_survface_quick_protocol_index_failure(run, plan):
+    quick_protocol_failure = _is_known_survface_quick_protocol_index_failure(
+        run,
+        plan,
+    )
+    retrieval_join_failure = _is_known_retrieval_search_mode_join_failure(
+        run,
+        plan,
+    )
+    if not quick_protocol_failure and not retrieval_join_failure:
         raise RuntimeError(
             "a different incomplete dataset run is active. Complete or "
             "selectively clean that run before executing this plan: "
@@ -1108,12 +1255,21 @@ def _resolve_execution_run(
 
     frozen_config_path = _recorded_step4_config_path(run)
     existing_orchestration = existing_config.get("orchestration", {})
+    correction_id = (
+        SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID
+        if quick_protocol_failure
+        else RETRIEVAL_SEARCH_MODE_JOIN_CORRECTION_ID
+    )
+    reason = (
+        "resume the known SurvFace Quick protocol_index gap failure "
+        "without rewriting completed phase artifacts"
+        if quick_protocol_failure
+        else "resume the known retrieval search-mode join-grain failure "
+        "without rewriting completed phases 00-04"
+    )
     correction_context = {
-        "correction_id": SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID,
-        "reason": (
-            "resume the known SurvFace Quick protocol_index gap failure "
-            "without rewriting completed phase artifacts"
-        ),
+        "correction_id": correction_id,
+        "reason": reason,
         "frozen_source_snapshot": existing_orchestration.get(
             "source_snapshot"
         ),

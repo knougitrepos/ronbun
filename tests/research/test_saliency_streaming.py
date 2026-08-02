@@ -172,6 +172,41 @@ def test_streaming_retrieval_join_matches_in_memory_join(tmp_path: Path) -> None
     assert set(projection["is_mated"]) == {False, True}
 
 
+def test_streaming_retrieval_join_keeps_search_modes_separate(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "retrieval_search_modes.csv"
+    joined_path = tmp_path / "retrieval_join.csv"
+    projection_path = tmp_path / "retrieval_projection.parquet"
+    retrieval = pd.concat(
+        [
+            _retrieval().assign(search_mode="pca_direct_cosine"),
+            _retrieval().assign(search_mode="pca_reconstruction_cosine"),
+        ],
+        ignore_index=True,
+    )
+    retrieval.to_csv(source, index=False)
+
+    result = stream_join_population_saliency_with_retrieval(
+        _saliency(),
+        source,
+        joined_output_path=joined_path,
+        association_projection_path=projection_path,
+        chunksize=4,
+        expected_rows=len(retrieval),
+    )
+
+    joined = pd.read_csv(joined_path)
+    projection = pd.read_parquet(projection_path)
+    expected_modes = {
+        "pca_direct_cosine",
+        "pca_reconstruction_cosine",
+    }
+    assert result.row_count == len(retrieval)
+    assert set(joined["search_mode"]) == expected_modes
+    assert set(projection["search_mode"]) == expected_modes
+
+
 def test_streaming_join_detects_duplicate_keys_across_chunks(
     tmp_path: Path,
 ) -> None:

@@ -86,7 +86,49 @@ def test_run_root_untracked_artifacts_do_not_block_a_clean_code_resume(tmp_path)
 
     manifest = run._read_manifest()
     assert manifest["git"]["dirty"] is False
-    assert manifest["git"]["allowed_untracked_roots"] == ["runs"]
+    assert manifest["git"]["allowed_untracked_roots"] == [
+        "runs",
+        "results",
+    ]
+
+
+def test_tracked_run_and_result_artifacts_do_not_dirty_source_contract(
+    tmp_path,
+):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.invalid")
+    _git(repo, "config", "user.name", "RunStore Test")
+    tracked = repo / "tracked.txt"
+    run_manifest = repo / "runs" / "lfw_20260803" / "run_manifest.json"
+    result_summary = repo / "results" / "paper" / "summary.csv"
+    run_manifest.parent.mkdir(parents=True)
+    result_summary.parent.mkdir(parents=True)
+    tracked.write_text("clean\n", encoding="utf-8")
+    run_manifest.write_text('{"status":"running"}\n', encoding="utf-8")
+    result_summary.write_text("metric,value\nfpir,0.1\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "initial")
+    run_manifest.write_text('{"status":"completed"}\n', encoding="utf-8")
+    result_summary.write_text("metric,value\nfpir,0.2\n", encoding="utf-8")
+
+    run = RunStore.create(
+        experiment_name="artifact-dirty-source-clean",
+        config={"seed": 42},
+        root=repo / "runs" / "survface_20260803",
+        repo_root=repo,
+        now=datetime(2026, 8, 3, 5, 40, tzinfo=KST),
+        allow_dirty=False,
+    )
+
+    git = run._read_manifest()["git"]
+    assert git["dirty"] is False
+    assert git["tracked_source_changes"] == []
+    assert git["ignored_tracked_artifact_paths"] == [
+        "results/paper/summary.csv",
+        "runs/lfw_20260803/run_manifest.json",
+    ]
 
 
 def _write_notebook(path, *, source: str, executed: bool) -> None:

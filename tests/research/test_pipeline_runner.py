@@ -19,6 +19,7 @@ from research.experiments.pipeline_runner import (
     load_evaluation_contract,
     materialize_effective_step4_config,
     prepare_common_model_checkpoint,
+    reuse_completed_run_for_plan,
     run_common_step4_experiment,
 )
 
@@ -605,6 +606,192 @@ def test_known_survface_quick_protocol_failure_resumes_with_frozen_config(
     assert context["frozen_source_snapshot"] == frozen_snapshot
     assert context["resume_source_snapshot"] == resume_snapshot
     assert run.events[-1][0] == "source_correction_resume_authorized"
+
+
+def test_known_retrieval_search_mode_join_failure_resumes_completed_phases(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frozen_snapshot = {
+        "commit": "a" * 40,
+        "branch": "step6",
+        "dirty": False,
+        "working_tree_diff_sha256": "b" * 64,
+        "untracked_content_sha256": "c" * 64,
+    }
+    resume_snapshot = {
+        **frozen_snapshot,
+        "commit": "d" * 40,
+    }
+    frozen_config: dict[str, object] = {
+        "execution": {"data_fraction": 1.0},
+        "orchestration": {
+            "dataset_id": "lfw",
+            "run_tier": "full",
+            "source_snapshot": frozen_snapshot,
+        },
+    }
+    current_config = {
+        **frozen_config,
+        "orchestration": {
+            **frozen_config["orchestration"],
+            "source_snapshot": resume_snapshot,
+        },
+    }
+    frozen_config_path = tmp_path / "frozen.yaml"
+    frozen_config_path.write_text(
+        yaml.safe_dump(frozen_config, sort_keys=False),
+        encoding="utf-8",
+    )
+    current_config_path = tmp_path / "current.yaml"
+    current_config_path.write_text(
+        yaml.safe_dump(current_config, sort_keys=False),
+        encoding="utf-8",
+    )
+    run = _SyntheticResumeRun(
+        tmp_path / "active-run",
+        frozen_config=frozen_config,
+        frozen_config_path=frozen_config_path,
+    )
+    for phase_name in (
+        "00_source_and_model_freeze",
+        "01_origin_embedding_and_target_templates",
+        "02_population_gradcam_extraction",
+        "03_saliency_feature_validation",
+        "04_step2_compression_characterization",
+    ):
+        _write_phase_attempt(run.run_dir, phase_name, status="completed")
+    _write_phase_attempt(
+        run.run_dir,
+        "05_saliency_compression_join",
+        status="failed",
+        message=(
+            "retrieval_sensitivity rows are not unique by "
+            "['sample_id', 'compression_profile']"
+        ),
+    )
+    retrieval_path = (
+        run.run_dir
+        / "artifacts"
+        / "step2_workflow"
+        / "retrieval_metrics.csv"
+    )
+    retrieval_path.parent.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "query_id": ["sample-1", "sample-1"],
+            "search_mode": [
+                "pca_direct_cosine",
+                "pca_reconstruction_cosine",
+            ],
+        }
+    ).to_csv(retrieval_path, index=False)
+    plan = SimpleNamespace(
+        dataset_id="lfw",
+        run_tier="full",
+        effective_step4_config=current_config,
+        plan_id="resume-retrieval-plan",
+    )
+    monkeypatch.setattr(
+        pipeline_runner,
+        "_active_dataset_run",
+        lambda selected_plan: run,
+    )
+
+    resolved_run, resolved_path, context = (
+        pipeline_runner._resolve_execution_run(
+            plan,
+            current_config_path=current_config_path,
+        )
+    )
+
+    assert resolved_run is run
+    assert resolved_path == frozen_config_path.resolve()
+    assert context is not None
+    assert context["correction_id"] == (
+        "retrieval_search_mode_join_grain_v1"
+    )
+    assert context["frozen_source_snapshot"] == frozen_snapshot
+    assert context["resume_source_snapshot"] == resume_snapshot
+    assert run.events[-1][0] == "source_correction_resume_authorized"
+
+
+def test_explicit_completed_override_allows_only_source_snapshot_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "project"
+    selected = root / "runs" / "lfw_20260803" / "completed-run"
+    selected.mkdir(parents=True)
+    frozen_config = {
+        "run": {"root": "runs"},
+        "execution": {"data_fraction": 1.0},
+        "orchestration": {
+            "dataset_id": "lfw",
+            "source_snapshot": {"commit": "a" * 40},
+        },
+    }
+    current_config = {
+        **frozen_config,
+        "orchestration": {
+            **frozen_config["orchestration"],
+            "source_snapshot": {"commit": "b" * 40},
+        },
+    }
+    (selected / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": "20260803-R001-test",
+                "status": "completed",
+                "config": {"step4": frozen_config},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (selected / "COMPLETED").write_text("done\n", encoding="utf-8")
+
+    class _VerifiedCompletedRun:
+        def __init__(self) -> None:
+            self.verified: list[str] = []
+
+        def verify_phase_artifacts(self, phase_name: str) -> None:
+            self.verified.append(phase_name)
+
+    verified = _VerifiedCompletedRun()
+    monkeypatch.setattr(
+        pipeline_runner.RunStore,
+        "open",
+        lambda path: verified,
+    )
+    monkeypatch.setattr(
+        pipeline_runner,
+        "_completed_phase",
+        lambda run_dir, phase_name: True,
+    )
+    plan = SimpleNamespace(
+        project_root=root,
+        effective_step4_config=current_config,
+        plan_id="current-plan",
+    )
+
+    result = reuse_completed_run_for_plan(plan, selected)
+
+    assert result["status"] == "already_completed"
+    assert result["explicit_completed_override"] is True
+    assert result["run_id"] == "20260803-R001-test"
+    assert len(verified.verified) == 7
+
+    changed = {
+        **current_config,
+        "execution": {"data_fraction": 0.5},
+    }
+    changed_plan = SimpleNamespace(
+        project_root=root,
+        effective_step4_config=changed,
+        plan_id="changed-plan",
+    )
+    with pytest.raises(ValueError, match="science config"):
+        reuse_completed_run_for_plan(changed_plan, selected)
 
 
 def test_protocol_failure_resume_rejects_any_non_snapshot_config_change(

@@ -86,9 +86,10 @@ def _allowed_run_artifact_roots(
     run_root: Path,
 ) -> tuple[Path, ...]:
     canonical_runs = (repo_root / "runs").resolve()
+    canonical_results = (repo_root / "results").resolve()
     if _is_within(run_root, canonical_runs):
-        return (canonical_runs,)
-    return (run_root.resolve(),)
+        return (canonical_runs, canonical_results)
+    return (run_root.resolve(), canonical_results)
 
 
 def _notebook_source_contract(payload: dict[str, Any]) -> dict[str, Any]:
@@ -194,13 +195,33 @@ def _git_provenance(
         for path in changed_paths
         if _is_notebook_runtime_only_change(repo_root, path)
     ]
+    ignored_tracked_artifact_paths = [
+        path
+        for path in changed_paths
+        if any(
+            _is_within((repo_root / path).resolve(), root)
+            for root in allowed
+        )
+    ]
     tracked_source_changes = [
         path
         for path in changed_paths
         if path not in ignored_notebook_runtime_paths
+        and path not in ignored_tracked_artifact_paths
     ]
-    raw_diff = _git_output(repo_root, "diff", "--binary", "HEAD", binary=True)
-    diff = raw_diff if tracked_source_changes else b""
+    diff = (
+        _git_output(
+            repo_root,
+            "diff",
+            "--binary",
+            "HEAD",
+            "--",
+            *tracked_source_changes,
+            binary=True,
+        )
+        if tracked_source_changes
+        else b""
+    )
     untracked_output = str(
         _git_output(repo_root, "ls-files", "--others", "--exclude-standard")
     )
@@ -228,6 +249,7 @@ def _git_provenance(
         "working_tree_diff_sha256": hashlib.sha256(diff).hexdigest(),
         "tracked_source_changes": tracked_source_changes,
         "ignored_notebook_runtime_paths": ignored_notebook_runtime_paths,
+        "ignored_tracked_artifact_paths": ignored_tracked_artifact_paths,
         "untracked_paths": untracked_paths,
         "untracked_content_sha256": untracked_digest.hexdigest(),
         "allowed_untracked_roots": [
@@ -244,9 +266,9 @@ def inspect_git_provenance(
     """Return the source-aware local Git state used by :class:`RunStore`.
 
     Notebook execution counts, outputs, and transient UI metadata are ignored
-    when the tracked notebook source contract itself is unchanged.  Generated
-    files under ``run_root`` are also ignored when that root is inside the
-    repository's canonical ``runs`` directory.
+    when the tracked notebook source contract itself is unchanged. Generated
+    files under the canonical ``runs`` and ``results`` artifact roots are also
+    excluded from the source-code cleanliness contract.
     """
 
     repository = Path(repo_root).resolve()

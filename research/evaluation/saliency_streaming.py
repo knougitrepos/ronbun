@@ -405,6 +405,7 @@ def stream_join_population_saliency_with_retrieval(
     optional_groups = tuple(
         column
         for column in (
+            "search_mode",
             "protocol_uid",
             "threshold_source_split",
             "evaluation_split",

@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "run_id": "20260803-R001-a4479011",
+  "dataset_id": "lfw",
+  "model_uid": "arcface-7972a704552df378345f",
+  "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+  "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+  "target_layer": "layer4.2.conv2",
+  "extraction_uid": "population-dacf68fb3d7e919a7fd37ada",
+  "scope": {
+    "mode": "real",
+    "data_fraction": 1.0,
+    "seed": 42,
+    "is_full_dataset": true,
+    "is_paper_run": true
+  },
+  "selected_sample_count": 13195,
+  "selected_manifest_sha256": "c868cd5ae74bc79c2226a41f323970cec008d7bce1612ce9627d2002992d7ff8",
+  "aligned_bundle_manifest_sha256": "e9df1fde8f4d0fd7de642336f42920788dcb238d992a4fc2eafbaa745df92421",
+  "landmark_region_manifest_sha256": "54abb48699ebaf48576965d33227d4ab8490513a9f1ea459b03b1837f1591244",
+  "fallback_free": true
+}
