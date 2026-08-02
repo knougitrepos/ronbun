@@ -170,6 +170,107 @@ def build_calibration_protocol(
     )
 
 
+def build_survface_matched_calibration_protocol(
+    manifest: pd.DataFrame,
+    *,
+    gallery_identity_count: int = 3000,
+    seed: int = 42,
+) -> OpenSetProtocol:
+    """Mirror the official 3,000-ID half-gallery regime on training IDs.
+
+    All training identities must have at least two images. Identities are
+    selected by a stable seeded hash. For each selected watch-list identity,
+    ``floor(n / 2)`` deterministically ordered images form the gallery and the
+    remainder form registered probes. Every image from every non-gallery
+    training identity is a non-mated (known-unknown) calibration probe. Test
+    rows are ignored by construction.
+    """
+
+    validate_identity_disjoint_splits(manifest)
+    if gallery_identity_count < 1:
+        raise ValueError("gallery_identity_count must be positive")
+    if "protocol_role" not in manifest.columns:
+        raise ValueError("SurvFace calibration requires protocol_role")
+    training = manifest.loc[
+        manifest["protocol_role"].astype(str).eq("training")
+    ].copy()
+    if training.empty:
+        raise ValueError("SurvFace training rows are required")
+    if set(training["split"].astype(str)) - {"development", "calibration"}:
+        raise ValueError("SurvFace training rows have an unexpected split")
+    sizes = training.groupby("identity_id")["image_id"].nunique()
+    too_small = sizes.loc[sizes < 2]
+    if not too_small.empty:
+        raise ValueError(
+            "half-gallery calibration requires at least two images per "
+            f"identity: {too_small.index.astype(str).tolist()[:10]}"
+        )
+    if gallery_identity_count >= len(sizes):
+        raise ValueError(
+            "gallery_identity_count must reserve at least one non-mated "
+            f"identity: gallery={gallery_identity_count}, identities={len(sizes)}"
+        )
+
+    identities = sorted(
+        sizes.index.astype(str),
+        key=lambda value: _stable_key(
+            value,
+            seed=seed,
+            namespace="survface:training-matched-calibration:gallery-identity",
+        ),
+    )
+    gallery_ids = set(identities[:gallery_identity_count])
+    registered = training.loc[
+        training["identity_id"].astype(str).isin(gallery_ids)
+    ].copy()
+    gallery_parts: list[pd.DataFrame] = []
+    registered_parts: list[pd.DataFrame] = []
+    for identity_id, group in registered.groupby("identity_id", sort=True):
+        ordered = group.assign(
+            _stable_order=group["image_id"].astype(str).map(
+                lambda value: _stable_key(
+                    value,
+                    seed=seed,
+                    namespace=(
+                        "survface:training-matched-calibration:"
+                        f"{identity_id}:half-gallery"
+                    ),
+                )
+            )
+        ).sort_values(["_stable_order", "image_id"], kind="stable")
+        gallery_count = len(ordered) // 2
+        gallery_parts.append(
+            ordered.iloc[:gallery_count].drop(columns="_stable_order")
+        )
+        registered_parts.append(
+            ordered.iloc[gallery_count:].drop(columns="_stable_order")
+        )
+    gallery = pd.concat(gallery_parts, ignore_index=True)
+    registered_probes = pd.concat(registered_parts, ignore_index=True)
+    known_unknown = training.loc[
+        ~training["identity_id"].astype(str).isin(gallery_ids)
+    ].copy()
+    empty_unknown = training.iloc[0:0].copy()
+    if (
+        gallery["identity_id"].nunique() != gallery_identity_count
+        or registered_probes["identity_id"].nunique() != gallery_identity_count
+        or known_unknown.empty
+    ):
+        raise RuntimeError("SurvFace matched calibration construction failed")
+    return OpenSetProtocol(
+        gallery=gallery.sort_values(
+            ["identity_id", "image_id"], kind="stable"
+        ).reset_index(drop=True),
+        registered_probes=registered_probes.sort_values(
+            ["identity_id", "image_id"], kind="stable"
+        ).reset_index(drop=True),
+        known_unknown_probes=known_unknown.sort_values(
+            ["identity_id", "image_id"], kind="stable"
+        ).reset_index(drop=True),
+        unknown_unknown_probes=empty_unknown.reset_index(drop=True),
+    )
+
+
 def build_survface_official_protocol(manifest: pd.DataFrame) -> OpenSetProtocol:
     """Preserve the official SurvFace gallery/mated/unmated roles and order."""
 

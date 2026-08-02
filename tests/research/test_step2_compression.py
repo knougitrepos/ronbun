@@ -377,14 +377,14 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
         },
     )
     rows = [
-        ("d1", "dev-1", "development", 0.0, None, None),
-        ("d2", "dev-2", "development", 0.5, None, None),
-        ("d3", "dev-3", "development", 1.0, None, None),
-        ("d4", "dev-4", "development", 1.5, None, None),
-        ("ca1", "cal-a", "calibration", 0.2, None, None),
-        ("ca2", "cal-a", "calibration", 0.2, None, None),
-        ("cb1", "cal-b", "calibration", 2.2, None, None),
-        ("cb2", "cal-b", "calibration", 2.2, None, None),
+        ("d1", "dev-a", "development", 0.0, "training", None),
+        ("d2", "dev-a", "development", 0.5, "training", None),
+        ("d3", "dev-b", "development", 1.0, "training", None),
+        ("d4", "dev-b", "development", 1.5, "training", None),
+        ("ca1", "cal-a", "calibration", 0.2, "training", None),
+        ("ca2", "cal-a", "calibration", 0.2, "training", None),
+        ("cb1", "cal-b", "calibration", 2.2, "training", None),
+        ("cb2", "cal-b", "calibration", 2.2, "training", None),
         ("g1", "official-a", "test", 0.4, "gallery", 5),
         ("g2", "official-a", "test", 0.4, "gallery", 9),
         ("p1", "official-a", "test", 0.4, "registered_probe", 7),
@@ -460,7 +460,7 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
     )
 
     assert set(result.retrieval_metrics["protocol_uid"]) == {
-        "qmul-survface-v1-official-open-set-identification"
+        "qmul-survface-v1-training-derived-1-watchlist-calibration-v2"
     }
     assert set(result.retrieval_metrics["query_id"]) == {"p1", "u1"}
     assert set(result.retrieval_metrics["threshold_policy"]) == {
@@ -470,6 +470,26 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
     diagnostics = result.calibration_diagnostics["splits"]
     assert diagnostics["calibration"]["template_count"] == 1
     assert diagnostics["calibration"]["source_image_count"] == 1
+    assert result.calibration_diagnostics["threshold_selection"].startswith(
+        "non-mated maximum-score"
+    )
+    calibration_contract = result.calibration_diagnostics[
+        "calibration_contract"
+    ]
+    assert calibration_contract == {
+        "name": "training_1_half_gallery_v2",
+        "seed": 42,
+        "source_identity_count": 4,
+        "gallery_identity_count": 1,
+        "gallery_source_image_count": 1,
+        "gallery_enrollment_policy": "half_floor",
+        "registered_probe_count": 1,
+        "non_mated_identity_count": 3,
+        "non_mated_probe_count": 6,
+        "compressor_fit_source": "watchlist_enrollment_images_only",
+        "compressor_fit_image_count": 1,
+        "official_test_used_for_threshold": False,
+    }
     assert diagnostics["test"]["template_count"] == 1
     assert diagnostics["test"]["source_image_count"] == 2
     audit = result.origin_score_audit

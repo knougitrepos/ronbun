@@ -10,6 +10,7 @@ import yaml
 
 from research.experiments.survface_compression import (
     survface_development_image_paths,
+    survface_watchlist_fit_image_paths,
     validate_survface_training_manifest,
 )
 
@@ -60,6 +61,36 @@ def test_survface_development_paths_exclude_calibration_and_test(tmp_path):
     }
 
 
+def test_survface_watchlist_fit_paths_use_half_gallery(tmp_path):
+    rows = []
+    for identity, split in (
+        ("dev-a", "development"),
+        ("dev-b", "development"),
+        ("cal-a", "calibration"),
+        ("cal-b", "calibration"),
+    ):
+        for index in range(4):
+            rows.append(
+                {
+                    "image_id": f"{identity}-{index}",
+                    "identity_id": identity,
+                    "split": split,
+                    "image_path": f"data/{identity}-{index}.jpg",
+                    "protocol_role": "training",
+                }
+            )
+    manifest = pd.DataFrame(rows)
+
+    paths = survface_watchlist_fit_image_paths(
+        manifest,
+        project_root=tmp_path,
+        gallery_identity_count=2,
+        seed=42,
+    )
+
+    assert len(paths) == 4
+
+
 def test_survface_execution_config_uses_same_dataset_fit_and_full_search():
     root = Path(__file__).resolve().parents[2]
     config = yaml.safe_load(
@@ -69,13 +100,18 @@ def test_survface_execution_config_uses_same_dataset_fit_and_full_search():
     )
 
     compression = config["compression"]
-    assert compression["fit_policy"] == "same_dataset_training_development"
-    assert compression["fit_split"] == "development"
+    assert compression["fit_policy"] == (
+        "training_3000_watchlist_enrollment_only"
+    )
+    assert compression["fit_split"] == "training_3000_half_gallery_v2"
     assert compression["pca"]["dimensions"] == [384, 256, 128, 64, 32]
     assert compression["pq"]["pgvector_searchable"] is False
     assert config["calibration"]["fit_policy"] == (
-        "same_dataset_training_calibration"
+        "training_3000_half_gallery_non_mated_only"
     )
+    assert config["calibration"]["gallery_identity_count"] == 3000
+    assert config["calibration"]["gallery_enrollment_policy"] == "half_floor"
+    assert config["calibration"]["threshold_selection"] == "non_mated_only"
     assert config["search"]["compression_profiles"] == [
         "origin_512",
         "pca_256",

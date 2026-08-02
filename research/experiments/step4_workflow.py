@@ -1209,6 +1209,23 @@ def characterize_step4_compression(
                 execution_context=dict(execution_context),
             )
         if dataset_spec.dataset_id == "survface":
+            expected_survface_calibration = {
+                "survface_calibration_gallery_identities": 3000,
+                "survface_calibration_protocol": (
+                    "training_3000_half_gallery_v2"
+                ),
+                "survface_threshold_selection": "non_mated_only",
+            }
+            mismatches = {
+                key: (config["evaluation"].get(key), expected)
+                for key, expected in expected_survface_calibration.items()
+                if config["evaluation"].get(key) != expected
+            }
+            if mismatches:
+                raise ValueError(
+                    "SurvFace matched calibration contract mismatch: "
+                    f"{mismatches}"
+                )
             compression = characterize_step2_survface_compression(
                 prepared,
                 selected,

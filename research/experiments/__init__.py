@@ -88,6 +88,7 @@ from research.experiments.survface_compression import (
     load_survface_compressor_bundle,
     materialize_survface_compressed_profiles,
     survface_development_image_paths,
+    survface_watchlist_fit_image_paths,
     validate_survface_training_manifest,
 )
 
@@ -158,5 +159,6 @@ __all__ = [
     "load_survface_compressor_bundle",
     "materialize_survface_compressed_profiles",
     "survface_development_image_paths",
+    "survface_watchlist_fit_image_paths",
     "write_vector_frame_csv",
 ]

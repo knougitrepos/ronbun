@@ -6,6 +6,7 @@ from research.calibration.rejection import (
     LogisticRegressionCalibrator,
     PerCompressionThresholdCalibrator,
     ShallowMLPCalibrator,
+    choose_non_mated_fpir_threshold,
     choose_threshold,
 )
 
@@ -47,6 +48,32 @@ def test_threshold_uses_non_mated_fpir_and_mated_top1_correctness():
     )
 
     assert threshold == 0.90
+
+
+def test_non_mated_only_threshold_is_tie_preserving_and_ignores_mated_scores():
+    threshold = choose_non_mated_fpir_threshold(
+        scores=[0.99, 0.10, 0.80, 0.80, 0.70, 0.60],
+        is_mated=[True, True, False, False, False, False],
+        target_fpir=0.50,
+    )
+
+    assert threshold == 0.80
+    changed_mated = choose_non_mated_fpir_threshold(
+        scores=[0.01, 1.00, 0.80, 0.80, 0.70, 0.60],
+        is_mated=[True, True, False, False, False, False],
+        target_fpir=0.50,
+    )
+    assert changed_mated == threshold
+
+
+def test_non_mated_only_threshold_stays_above_a_tied_top_score_when_needed():
+    threshold = choose_non_mated_fpir_threshold(
+        scores=[0.90, 0.90, 0.20],
+        is_mated=[False, False, True],
+        target_fpir=0.40,
+    )
+
+    assert threshold > 0.90
 
 
 def test_threshold_calibrators_fit_on_calibration_rows_and_predict_acceptance():

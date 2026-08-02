@@ -33,6 +33,7 @@ from research.experiments.materialization import (
     materialize_pca_sweep_embeddings,
 )
 from research.protocols import validate_identity_disjoint_splits
+from research.protocols import build_survface_matched_calibration_protocol
 from research.runtime import RunStore
 from research.runtime.hashing import sha256_file
 
@@ -110,20 +111,49 @@ def survface_development_image_paths(
     return paths
 
 
-def _load_development_matrix(
+def survface_watchlist_fit_image_paths(
+    manifest: pd.DataFrame,
+    *,
+    project_root: str | Path,
+    gallery_identity_count: int = 3000,
+    seed: int = 42,
+) -> set[str]:
+    """Return the matched-calibration gallery images used to fit PCA/PQ."""
+
+    validated = validate_survface_training_manifest(manifest)
+    protocol = build_survface_matched_calibration_protocol(
+        validated,
+        gallery_identity_count=int(gallery_identity_count),
+        seed=int(seed),
+    )
+    root = Path(project_root).resolve()
+    paths = {
+        _canonical_path(value, project_root=root)
+        for value in protocol.gallery["image_path"]
+    }
+    if not paths:
+        raise ValueError("SurvFace watch-list fit images must not be empty")
+    return paths
+
+
+def _load_watchlist_fit_matrix(
     engine: Engine,
     *,
     run_uid: str,
     training_manifest: pd.DataFrame,
     project_root: Path,
     batch_size: int,
+    gallery_identity_count: int,
+    seed: int,
     progress: ProgressCallback | None,
 ) -> tuple[np.ndarray, dict[str, int]]:
     if batch_size < 1:
         raise ValueError("batch_size must be positive")
-    required_paths = survface_development_image_paths(
+    required_paths = survface_watchlist_fit_image_paths(
         training_manifest,
         project_root=project_root,
+        gallery_identity_count=gallery_identity_count,
+        seed=seed,
     )
     vectors: list[np.ndarray] = []
     observed_paths: set[str] = set()
@@ -160,7 +190,7 @@ def _load_development_matrix(
             if scanned % int(batch_size) == 0 or scanned == source_count:
                 _emit(
                     progress,
-                    "SurvFace development embedding scan",
+                    "SurvFace watch-list fit embedding scan",
                     processed=scanned,
                     total=source_count,
                     matched=len(vectors),
@@ -227,7 +257,11 @@ def load_survface_compressor_bundle(
         raise FileNotFoundError(summary_path)
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     if (
-        summary.get("fit_source") != "survface_training_development"
+        summary.get("fit_source")
+        not in {
+            "survface_training_development",
+            "survface_training_3000_watchlist_enrollment",
+        }
         or summary.get("official_test_fit") is not False
     ):
         raise ValueError("SurvFace compressor summary has an invalid fit boundary")
@@ -308,10 +342,11 @@ def fit_survface_compressors(
     pca_dimensions: Sequence[int],
     pq_settings: Sequence[tuple[int, int]],
     seed: int = 42,
+    calibration_gallery_identities: int = 3000,
     batch_size: int = 1024,
     progress: ProgressCallback | None = None,
 ) -> SurvFaceCompressorBundle:
-    """Fit all PCA/PQ profiles once from SurvFace training development."""
+    """Fit PCA/PQ from the training-derived 3,000-ID watch-list images."""
 
     requested_pca = tuple(int(value) for value in pca_dimensions)
     requested_pq = tuple((int(m), int(bits)) for m, bits in pq_settings)
@@ -332,6 +367,21 @@ def fit_survface_compressors(
         if "no completed attempt" not in str(exc):
             raise
     else:
+        if existing.summary.get("fit_source") != (
+            "survface_training_3000_watchlist_enrollment"
+        ):
+            raise ValueError(
+                "the completed SurvFace run contains a legacy compressor "
+                "fit; start a new run to use the training-derived matched "
+                "3,000-ID watch-list calibration protocol"
+            )
+        if int(
+            existing.summary.get("calibration_gallery_identity_count", -1)
+        ) != int(calibration_gallery_identities):
+            raise ValueError(
+                "the completed SurvFace compressor fit uses a different "
+                "calibration gallery identity count; start a new run"
+            )
         _emit(
             progress,
             "SurvFace compressor fit reused",
@@ -348,17 +398,19 @@ def fit_survface_compressors(
         raise FileNotFoundError(manifest_path)
 
     with run.phase(SURVFACE_COMPRESSOR_PHASE) as phase:
-        matrix, scan_counts = _load_development_matrix(
+        matrix, scan_counts = _load_watchlist_fit_matrix(
             engine,
             run_uid=run.run_id,
             training_manifest=training_manifest,
             project_root=root,
             batch_size=int(batch_size),
+            gallery_identity_count=int(calibration_gallery_identities),
+            seed=int(seed),
             progress=progress,
         )
         if len(matrix) < max(requested_pca):
             raise ValueError(
-                "SurvFace development embeddings are insufficient for the "
+                "SurvFace watch-list embeddings are insufficient for the "
                 f"largest PCA dimension: {len(matrix)} < {max(requested_pca)}"
             )
         total_models = len(requested_pca) + len(requested_pq)
@@ -430,11 +482,15 @@ def fit_survface_compressors(
             }
 
         summary = {
-            "schema_version": 1,
-            "fit_source": "survface_training_development",
-            "fit_split": "development",
+            "schema_version": 2,
+            "fit_source": "survface_training_3000_watchlist_enrollment",
+            "fit_split": "training_3000_half_gallery_v2",
             "official_test_fit": False,
-            "calibration_fit": False,
+            "calibration_non_mated_fit": False,
+            "calibration_gallery_identity_count": int(
+                calibration_gallery_identities
+            ),
+            "gallery_enrollment_policy": "half_floor",
             "fit_count": int(len(matrix)),
             "source_dimension": 512,
             "seed": int(seed),
@@ -455,7 +511,7 @@ def fit_survface_compressors(
         )
         phase.publish_artifact(summary_source)
         phase.record_counts(
-            development_vectors=len(matrix),
+            watchlist_fit_vectors=len(matrix),
             pca_models=len(pcas),
             pq_models=len(pqs),
         )
@@ -514,10 +570,21 @@ def materialize_survface_compressed_profiles(
         pca_dimensions=pca_dimensions,
         pq_settings=pq_settings,
     )
+    if bundle.summary.get("fit_source") != (
+        "survface_training_3000_watchlist_enrollment"
+    ):
+        raise ValueError(
+            "legacy SurvFace compressor artifacts cannot be materialized "
+            "under the matched 3,000-ID policy; start a new run"
+        )
     root = Path(project_root).resolve()
-    development_paths = survface_development_image_paths(
+    fit_paths = survface_watchlist_fit_image_paths(
         training_manifest,
         project_root=root,
+        gallery_identity_count=int(
+            bundle.summary["calibration_gallery_identity_count"]
+        ),
+        seed=int(bundle.summary["seed"]),
     )
     if PCA_256 not in bundle.pcas:
         raise ValueError("pca_256 is required for the primary DB materializer")
@@ -542,7 +609,7 @@ def materialize_survface_compressed_profiles(
             pca_artifact_sha256=bundle.pca_sha256[PCA_256],
             pq_artifact_path=bundle.pq_paths[pq_profile],
             pq_artifact_sha256=bundle.pq_sha256[pq_profile],
-            development_image_paths=development_paths,
+            development_image_paths=fit_paths,
             measurements_path=primary_measurements,
             batch_size=int(batch_size),
             progress=progress,
@@ -572,15 +639,15 @@ def materialize_survface_compressed_profiles(
                     profile: bundle.pca_sha256[profile]
                     for profile in sweep_profiles
                 },
-                development_image_paths=development_paths,
+                development_image_paths=fit_paths,
                 measurements_path=sweep_measurements,
                 batch_size=int(batch_size),
                 progress=progress,
             )
 
         summary = {
-            "schema_version": 1,
-            "fit_source": "survface_training_development",
+            "schema_version": 2,
+            "fit_source": "survface_training_3000_watchlist_enrollment",
             "official_test_fit": False,
             "compressor_attempt": f"A{bundle.attempt:03d}",
             "primary": primary,

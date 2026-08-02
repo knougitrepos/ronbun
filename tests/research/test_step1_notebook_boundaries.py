@@ -87,7 +87,12 @@ def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
         assert "expected_scope = EXPERIMENT_SCOPE.as_dict()" in source
         assert "MODE/DATA_FRACTION/SEED" in source
         assert "validate_identity_disjoint_splits(" in source
-        assert 'get("fit_split") != "development"' in source
+        expected_fit_split = (
+            'get("fit_split") != "development"'
+            if dataset == "lfw"
+            else 'get("fit_split") != "training_3000_half_gallery_v2"'
+        )
+        assert expected_fit_split in source
         assert 'get("enabled") != [MODEL_NAME]' in source
 
 
@@ -161,7 +166,10 @@ def test_survface_official_test_is_evaluation_only_in_step1_code_path():
         study_source,
         "load_survface_compressor_bundle",
     ) == [("run",)]
-    assert _call_argument_names(study_source, "build_calibration_protocol") == [
+    assert _call_argument_names(
+        study_source,
+        "build_survface_matched_calibration_protocol",
+    ) == [
         ("training_manifest",)
     ]
     assert _call_argument_names(study_source, "build_survface_official_protocol") == [
@@ -172,7 +180,10 @@ def test_survface_official_test_is_evaluation_only_in_step1_code_path():
         ("calibration_comparison",),
         ("calibration_comparison",),
     ]
-    assert 'compared["threshold_source_split"] = "training_calibration"' in study_source
+    assert (
+        'compared["threshold_source_split"] = "training_2319_non_mated"'
+        in study_source
+    )
     assert 'compared["evaluation_split"] = "official_test"' in study_source
     assert '"official_test_role": "evaluation_only"' in study_source
 

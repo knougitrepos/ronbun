@@ -45,5 +45,5 @@ def test_step1_config_has_explicit_scope_and_disables_old_fallback_path():
     assert {"lfw", "survface"}.issubset(config["datasets"])
     survface = config["datasets"]["survface"]
     assert survface["training_manifest_path"].endswith("training_manifest.csv")
-    assert survface["fit_source"] == "same_dataset_training_development"
+    assert survface["fit_source"] == "training_3000_watchlist_enrollment_only"
     assert survface["official_manifest_role"] == "evaluation_only"

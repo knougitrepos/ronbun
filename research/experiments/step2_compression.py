@@ -11,7 +11,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from research.calibration.rejection import choose_threshold
+from research.calibration.rejection import (
+    choose_non_mated_fpir_threshold,
+    choose_threshold,
+)
 from research.compression import (
     ORIGIN_512,
     PQCompressor,
@@ -31,6 +34,7 @@ from research.protocols import (
     build_calibration_protocol,
     build_open_set_protocol,
     build_survface_official_protocol,
+    build_survface_matched_calibration_protocol,
     rebase_survface_protocol_subset_indexes,
     validate_identity_disjoint_splits,
 )
@@ -469,7 +473,16 @@ def _independent_threshold(
     comparison: pd.DataFrame,
     *,
     target_fpir: float,
+    threshold_selection: str = "maximize_dir",
 ) -> float:
+    if threshold_selection == "non_mated_only":
+        return choose_non_mated_fpir_threshold(
+            comparison["origin_top1_score"].to_numpy(dtype=np.float64),
+            comparison["is_mated"].to_numpy(dtype=bool),
+            target_fpir,
+        )
+    if threshold_selection != "maximize_dir":
+        raise ValueError(f"unsupported threshold_selection: {threshold_selection!r}")
     scores = comparison["origin_top1_score"].to_numpy(dtype=np.float64)
     is_mated = comparison["is_mated"].to_numpy(dtype=bool)
     correct = comparison["origin_rank1_correct"].to_numpy(dtype=bool)
@@ -530,10 +543,12 @@ def _build_origin_calibration_audit(
     protocol_uid: str,
     decision_threshold: float,
     target_fpir: float,
+    threshold_selection: str = "maximize_dir",
 ) -> tuple[pd.DataFrame, dict[str, object]]:
     independently_calculated_threshold = _independent_threshold(
         calibration_comparison,
         target_fpir=target_fpir,
+        threshold_selection=threshold_selection,
     )
     thresholds_match = (
         np.isinf(decision_threshold)
@@ -579,7 +594,10 @@ def _build_origin_calibration_audit(
         "score_definition": "maximum cosine similarity over gallery templates",
         "threshold_source_split": "calibration",
         "threshold_selection": (
-            "maximize calibration DIR subject to empirical FPIR <= target"
+            "non-mated maximum-score empirical FPIR only; most permissive "
+            "tie-preserving threshold within target"
+            if threshold_selection == "non_mated_only"
+            else "maximize calibration DIR subject to empirical FPIR <= target"
         ),
         "threshold_comparator": ">=",
         "target_fpir": float(target_fpir),
@@ -987,15 +1005,27 @@ def _threshold(
     score_column: str,
     correct_column: str,
     target_fpir: float,
+    threshold_selection: str = "maximize_dir",
 ) -> float:
-    value = float(
-        choose_threshold(
-            comparison[score_column].to_numpy(dtype=float),
-            comparison["is_mated"].to_numpy(dtype=bool),
-            comparison[correct_column].to_numpy(dtype=bool),
-            target_fpir,
+    if threshold_selection == "non_mated_only":
+        value = float(
+            choose_non_mated_fpir_threshold(
+                comparison[score_column].to_numpy(dtype=float),
+                comparison["is_mated"].to_numpy(dtype=bool),
+                target_fpir,
+            )
         )
-    )
+    elif threshold_selection == "maximize_dir":
+        value = float(
+            choose_threshold(
+                comparison[score_column].to_numpy(dtype=float),
+                comparison["is_mated"].to_numpy(dtype=bool),
+                comparison[correct_column].to_numpy(dtype=bool),
+                target_fpir,
+            )
+        )
+    else:
+        raise ValueError(f"unsupported threshold_selection: {threshold_selection!r}")
     if not np.isfinite(value):
         raise ValueError(
             "threshold calibration was non-finite; verify calibration coverage"
@@ -1131,6 +1161,8 @@ def _characterize_population_with_protocols(
     seed: int,
     target_fpir: float,
     top_k: int,
+    threshold_selection: str = "maximize_dir",
+    calibration_contract: dict[str, object] | None = None,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
     requested_pca = tuple(int(value) for value in pca_dimensions)
@@ -1248,6 +1280,7 @@ def _characterize_population_with_protocols(
                 score_column="origin_top1_score",
                 correct_column="origin_rank1_correct",
                 target_fpir=target_fpir,
+                threshold_selection=threshold_selection,
             )
         else:
             _assert_same_origin_comparison(
@@ -1260,6 +1293,7 @@ def _characterize_population_with_protocols(
             score_column="compressed_top1_score",
             correct_column="compressed_rank1_correct",
             target_fpir=target_fpir,
+            threshold_selection=threshold_selection,
         )
         adc_calibration_threshold: float | None = None
         if family == "pq":
@@ -1290,6 +1324,7 @@ def _characterize_population_with_protocols(
                 score_column="compressed_top1_score",
                 correct_column="compressed_rank1_correct",
                 target_fpir=target_fpir,
+                threshold_selection=threshold_selection,
             )
         evaluation_queries = _compressed_matrix(
             family,
@@ -1405,6 +1440,7 @@ def _characterize_population_with_protocols(
                 score_column="compressed_top1_score",
                 correct_column="compressed_rank1_correct",
                 target_fpir=target_fpir,
+                threshold_selection=threshold_selection,
             )
             reconstructed_evaluation = compressor.transform_profile(
                 evaluation["queries"]
@@ -1537,7 +1573,12 @@ def _characterize_population_with_protocols(
         protocol_uid=protocol_uid,
         decision_threshold=origin_threshold,
         target_fpir=target_fpir,
+        threshold_selection=threshold_selection,
     )
+    if calibration_contract is not None:
+        calibration_diagnostics["calibration_contract"] = dict(
+            calibration_contract
+        )
     return Step2CompressionResult(
         paired_metrics=paired_metrics,
         retrieval_metrics=retrieval_metrics,
@@ -1627,48 +1668,36 @@ def characterize_step2_survface_compression(
     pq_settings: Sequence[tuple[int, int]],
     seed: int = 42,
     target_fpir: float = 0.10,
-    calibration_gallery_identities: int = 200,
+    calibration_gallery_identities: int = 3000,
     top_k: int = 20,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
-    """Fit on SurvFace training development and evaluate the official protocol.
+    """Fit on a matched training watch-list and evaluate the official protocol.
 
     The selected population must contain the identity-disjoint training
     development/calibration rows and the official gallery, registered-probe,
-    and unknown-unknown rows. Official protocol order is preserved by
+    and unknown-unknown rows. Training identities are deterministically
+    repartitioned into a half-gallery watch-list and non-mated probes. PCA/PQ
+    sees only watch-list enrollment images and thresholds use only non-mated
+    maximum scores. Official protocol order is preserved by
     ``build_survface_official_protocol``; the official test set is never used
     to fit PCA/PQ or thresholds.
     """
 
     population = _population_frame(prepared, selected_manifest)
-    development = population.loc[population["split"].eq("development")]
-    if development.empty:
-        raise ValueError("SurvFace development split is required to fit compressors")
-    development_matrix = np.stack(development["origin_embedding"]).astype(
-        np.float32
-    )
-
-    calibration_sizes = (
-        population.loc[population["split"].eq("calibration")]
-        .groupby("identity_id")["image_id"]
-        .nunique()
-    )
-    eligible_calibration = int((calibration_sizes > 1).sum())
-    if eligible_calibration < 2:
-        raise ValueError(
-            "SurvFace calibration requires at least two identities with "
-            "multiple samples"
-        )
-    calibration_gallery_count = min(
-        int(calibration_gallery_identities),
-        eligible_calibration - 1,
-    )
-    calibration_protocol = build_calibration_protocol(
+    calibration_protocol = build_survface_matched_calibration_protocol(
         population,
-        split_name="calibration",
-        gallery_identity_count=calibration_gallery_count,
-        enrollment_count=1,
+        gallery_identity_count=int(calibration_gallery_identities),
         seed=seed,
+    )
+    fit_image_ids = set(calibration_protocol.gallery["image_id"].astype(str))
+    fit_rows = population.loc[
+        population["image_id"].astype(str).isin(fit_image_ids)
+    ]
+    if len(fit_rows) != len(fit_image_ids):
+        raise ValueError("SurvFace watch-list fit rows are incomplete")
+    development_matrix = np.stack(fit_rows["origin_embedding"]).astype(
+        np.float32
     )
 
     required_protocol_columns = {
@@ -1703,11 +1732,47 @@ def characterize_step2_survface_compression(
         development_matrix=development_matrix,
         calibration_protocol=calibration_protocol,
         evaluation_protocol=evaluation_protocol,
-        protocol_uid="qmul-survface-v1-official-open-set-identification",
+        protocol_uid=(
+            "qmul-survface-v1-training-derived-"
+            f"{int(calibration_gallery_identities)}-watchlist-calibration-v2"
+        ),
         pca_dimensions=pca_dimensions,
         pq_settings=pq_settings,
         seed=seed,
         target_fpir=target_fpir,
         top_k=top_k,
+        threshold_selection="non_mated_only",
+        calibration_contract={
+            "name": (
+                f"training_{int(calibration_gallery_identities)}_"
+                "half_gallery_v2"
+            ),
+            "seed": int(seed),
+            "source_identity_count": int(
+                population.loc[
+                    population["protocol_role"].astype(str).eq("training"),
+                    "identity_id",
+                ].nunique()
+            ),
+            "gallery_identity_count": int(
+                calibration_protocol.gallery["identity_id"].nunique()
+            ),
+            "gallery_source_image_count": int(len(calibration_protocol.gallery)),
+            "gallery_enrollment_policy": "half_floor",
+            "registered_probe_count": int(
+                len(calibration_protocol.registered_probes)
+            ),
+            "non_mated_identity_count": int(
+                calibration_protocol.known_unknown_probes[
+                    "identity_id"
+                ].nunique()
+            ),
+            "non_mated_probe_count": int(
+                len(calibration_protocol.known_unknown_probes)
+            ),
+            "compressor_fit_source": "watchlist_enrollment_images_only",
+            "compressor_fit_image_count": int(len(fit_rows)),
+            "official_test_used_for_threshold": False,
+        },
         progress=progress,
     )

@@ -179,6 +179,16 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         assert phrase in source
     assert "DATA_FRACTION =" not in source
     assert "%run" not in source
+    for phrase in (
+        'DATASET_IDS = ("lfw", "survface")',
+        "postprocess_completed_run",
+        "run_cross_dataset_report_notebook",
+        "RUN_SEARCH_SPACE_REFRESH = True",
+        "RUN_SURVFACE_FAITHFULNESS = True",
+        "RUN_FINAL_REPORT = True",
+        "START_NEW_RUN = False",
+    ):
+        assert phrase in source
 
 
 def test_survface_saliency_join_runbook_exposes_long_run_progress() -> None:
@@ -254,7 +264,7 @@ def test_survface_notebooks_preserve_official_protocol_boundaries() -> None:
         "TPIR",
         "FPIR",
         "development",
-        "fit_on_survface_official_test",
+        "official_test_fit",
     ):
         assert phrase in sources
 
@@ -321,7 +331,8 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "origin_decision_threshold",
         "compressed_decision_threshold",
         "profile_storage schema mismatch",
-        "PREFER_SEARCH_SPACE_V2",
+        "PREFER_MATCHED_CALIBRATION_SEARCH_SPACE",
+        "search_space_v3_matched_calibration",
         "step4_search_space_refresh",
         "accept_to_reject_count",
         "reject_to_accept_count",

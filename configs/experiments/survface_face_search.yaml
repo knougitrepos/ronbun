@@ -32,11 +32,11 @@ protocol:
   fpir_targets: [0.1, 0.2, 0.3]
 
 compression:
-  # Fit once from this dataset's identity-disjoint training development split.
-  # Official gallery/probe rows are transform/evaluation-only.
-  fit_policy: same_dataset_training_development
+  # Fit from the 3,000-ID training-derived watch-list enrollment images.
+  # The 2,319 non-mated calibration identities and official test are excluded.
+  fit_policy: training_3000_watchlist_enrollment_only
   training_manifest_path: data/interim/survface/training_manifest.csv
-  fit_split: development
+  fit_split: training_3000_half_gallery_v2
   batch_size: 512
   profiles:
     - origin_512
@@ -68,11 +68,14 @@ search:
   approximate_backend: pgvector_hnsw
 
 calibration:
-  # Thresholds use the identity-disjoint training calibration split. The
-  # official test protocol remains evaluation-only.
-  fit_policy: same_dataset_training_calibration
+  # Mirror the official 3,000-ID half-gallery regime on all 5,319 training IDs.
+  # Thresholds use only per-probe maximum scores from the remaining 2,319 IDs.
+  fit_policy: training_3000_half_gallery_non_mated_only
   source_manifest_path: data/interim/survface/training_manifest.csv
-  source_split: calibration
+  source_split: training_all_identity_repartition
+  gallery_identity_count: 3000
+  gallery_enrollment_policy: half_floor
+  threshold_selection: non_mated_only
   target_fpir: 0.1
   evaluation_split: test
   models:

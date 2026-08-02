@@ -35,7 +35,7 @@ from scripts.generate_step4_compact_summaries import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ARTIFACT_TYPE = "step4_search_space_refresh"
 FAMILY_ARTIFACT_TYPE = "step4_search_space_refresh_family"
 SUPPORTED_FAMILIES = ("pca", "pq")
@@ -204,6 +204,8 @@ def _diagnostic_signature(payload: dict[str, object]) -> dict[str, object]:
     test = dict(splits["test"])
     assessment = dict(payload["calibration_transfer_assessment"])
     return {
+        "protocol_uid": str(payload["protocol_uid"]),
+        "threshold_selection": str(payload["threshold_selection"]),
         "target_fpir": float(payload["target_fpir"]),
         "decision_threshold": float(payload["origin_decision_threshold"]),
         "calibration_non_mated_count": int(calibration["non_mated_count"]),
@@ -310,9 +312,7 @@ def _run_family(
             prepared,
             selected,
             target_fpir=float(evaluation["survface_target_fpir"]),
-            calibration_gallery_identities=int(
-                evaluation["survface_calibration_gallery_identities"]
-            ),
+            calibration_gallery_identities=3000,
             **common,
         )
     else:
@@ -600,7 +600,20 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             family_data["pca"][2]["profile_count"]
         ),
     )
-    legacy_consistency = _legacy_consistency(context, compression, retrieval)
+    legacy_consistency = (
+        {
+            "status": "not_applicable_protocol_changed",
+            "reason": (
+                "SurvFace 3,000-ID half-gallery calibration and watch-list "
+                "compressor fit intentionally replace the legacy 200-ID regime"
+            ),
+        }
+        if (
+            context["dataset_id"] == "survface"
+            and output_root.name == "search_space_v3_matched_calibration"
+        )
+        else _legacy_consistency(context, compression, retrieval)
+    )
     _validate_compact_frames(
         compression.loc[compression["compression_family"].eq("pq")],
         retrieval.loc[retrieval["compression_family"].eq("pq")],
@@ -689,7 +702,16 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
         },
         "limitations": [
             "No row-level derived search-space ledger is retained by this compact refresh.",
-            "SurvFace threshold-dependent claims remain blocked when calibration transfer status is failed_target_fpir.",
+            *(
+                [
+                    "SurvFace threshold-dependent claims remain blocked because the matched calibration still failed target FPIR."
+                ]
+                if (
+                    context["dataset_id"] == "survface"
+                    and signatures[0]["status"] == "failed_target_fpir"
+                )
+                else []
+            ),
             "Latency is a one-shot wall-clock observation and is not a stable systems benchmark.",
         ],
         "output_files": {
@@ -746,7 +768,11 @@ def refresh(
         / "paper"
         / context["dataset_id"]
         / context["run_id"]
-        / "search_space_v2"
+        / (
+            "search_space_v3_matched_calibration"
+            if context["dataset_id"] == "survface"
+            else "search_space_v2"
+        )
     )
     output_root.mkdir(parents=True, exist_ok=True)
     merged_manifest_path = output_root / "summary_manifest.json"

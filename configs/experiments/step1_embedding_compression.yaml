@@ -24,12 +24,12 @@ datasets:
     training_manifest_path: data/interim/survface/training_manifest.csv
     manifest_path: data/interim/survface/official_manifest.csv
     protocol_adapter: survface_official
-    fit_source: same_dataset_training_development
+    fit_source: training_3000_watchlist_enrollment_only
     official_manifest_role: evaluation_only
 
 compression:
   baseline_profile: origin_512
-  fit_split: development
+  fit_split: training_3000_half_gallery_v2
   families:
     pca:
       source_profile: origin_512
@@ -53,6 +53,9 @@ evaluation:
   exact_fallback: false
   certification: false
   compare_frozen_and_recalibrated_thresholds: true
+  survface_calibration_gallery_identities: 3000
+  survface_calibration_protocol: training_3000_half_gallery_v2
+  survface_threshold_selection: non_mated_only
   metrics:
     - angular_error
     - cosine_score_drift

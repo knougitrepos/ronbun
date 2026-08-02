@@ -50,6 +50,36 @@ def choose_threshold(
     return best_threshold
 
 
+def choose_non_mated_fpir_threshold(
+    scores: np.ndarray,
+    is_mated: np.ndarray,
+    target_fpir: float,
+) -> float:
+    """Choose the most permissive tie-preserving non-mated-only threshold."""
+
+    if not 0.0 <= target_fpir <= 1.0:
+        raise ValueError("target_fpir must be between 0 and 1")
+    score_values = np.asarray(scores, dtype=float)
+    mated_values = np.asarray(is_mated, dtype=bool)
+    if score_values.ndim != 1 or mated_values.ndim != 1:
+        raise ValueError("scores and is_mated must be one-dimensional")
+    if len(score_values) != len(mated_values) or len(score_values) == 0:
+        raise ValueError("scores and is_mated must have equal non-zero length")
+    if not np.isfinite(score_values).all():
+        raise ValueError("scores must be finite")
+    non_mated_scores = score_values[~mated_values]
+    if len(non_mated_scores) == 0:
+        raise ValueError("non-mated scores are required")
+
+    unique_scores, counts = np.unique(non_mated_scores, return_counts=True)
+    descending_scores = unique_scores[::-1]
+    accepted_counts = np.cumsum(counts[::-1])
+    feasible = accepted_counts / len(non_mated_scores) <= float(target_fpir) + 1e-15
+    if not feasible.any():
+        return float(np.nextafter(descending_scores[0], np.inf))
+    return float(descending_scores[np.flatnonzero(feasible)[-1]])
+
+
 def _decision_labels(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     if "probe_type" not in frame.columns or "top1_correct" not in frame.columns:
         raise ValueError("probe_type and top1_correct columns are required")

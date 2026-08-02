@@ -5,6 +5,7 @@ from research.protocols.open_set import (
     build_calibration_protocol,
     build_open_set_protocol,
     build_survface_official_protocol,
+    build_survface_matched_calibration_protocol,
     rebase_survface_protocol_subset_indexes,
     validate_identity_disjoint_splits,
 )
@@ -129,6 +130,63 @@ def test_calibration_protocol_is_deterministic_and_does_not_read_test_rows():
             ]
         )["identity_id"]
     )
+
+
+def test_survface_matched_calibration_uses_half_gallery_and_all_non_mated_rows():
+    rows = []
+    for identity, count, split in (
+        ("a", 4, "development"),
+        ("b", 5, "calibration"),
+        ("c", 2, "development"),
+        ("d", 3, "calibration"),
+    ):
+        for index in range(count):
+            rows.append(
+                {
+                    "image_id": f"{identity}{index}",
+                    "identity_id": identity,
+                    "split": split,
+                    "image_path": f"{identity}{index}.jpg",
+                    "protocol_role": "training",
+                }
+            )
+    rows.append(
+        {
+            "image_id": "test0",
+            "identity_id": "test-only",
+            "split": "test",
+            "image_path": "test0.jpg",
+            "protocol_role": "gallery",
+        }
+    )
+    manifest = pd.DataFrame(rows)
+
+    first = build_survface_matched_calibration_protocol(
+        manifest,
+        gallery_identity_count=2,
+        seed=42,
+    )
+    second = build_survface_matched_calibration_protocol(
+        manifest.sample(frac=1.0, random_state=7),
+        gallery_identity_count=2,
+        seed=42,
+    )
+
+    pd.testing.assert_frame_equal(first.gallery, second.gallery)
+    pd.testing.assert_frame_equal(first.registered_probes, second.registered_probes)
+    gallery_sizes = first.gallery.groupby("identity_id").size()
+    selected_sizes = manifest.loc[
+        manifest["identity_id"].isin(gallery_sizes.index)
+    ].groupby("identity_id").size()
+    assert gallery_sizes.to_dict() == (selected_sizes // 2).to_dict()
+    assert len(first.known_unknown_probes) == int(
+        manifest.loc[
+            manifest["protocol_role"].eq("training")
+            & ~manifest["identity_id"].isin(gallery_sizes.index)
+        ].shape[0]
+    )
+    assert "test-only" not in set(first.known_unknown_probes["identity_id"])
+    assert first.unknown_unknown_probes.empty
 
 
 def _survface_manifest() -> pd.DataFrame:

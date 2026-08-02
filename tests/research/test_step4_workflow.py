@@ -383,7 +383,9 @@ def test_compression_phase_persists_origin_calibration_audit(
         },
         "evaluation": {
             "survface_target_fpir": 0.10,
-            "survface_calibration_gallery_identities": 1,
+            "survface_calibration_gallery_identities": 3000,
+            "survface_calibration_protocol": "training_3000_half_gallery_v2",
+            "survface_threshold_selection": "non_mated_only",
             "top_k": 1,
         },
     }
