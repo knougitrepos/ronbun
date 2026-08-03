@@ -42,6 +42,7 @@ from research.evaluation.saliency_streaming import (
     StreamingJoinResult,
     stream_join_population_saliency_with_compression,
     stream_join_population_saliency_with_retrieval,
+    stream_select_population_representative_cases,
 )
 
 __all__ = [
@@ -80,4 +81,5 @@ __all__ = [
     "WEIGHTED_RERANK_STRATEGY",
     "stream_join_population_saliency_with_compression",
     "stream_join_population_saliency_with_retrieval",
+    "stream_select_population_representative_cases",
 ]

@@ -39,3 +39,10 @@
 {"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "04_step2_compression_characterization", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:04:34.602920+00:00"}
 {"attempt": 2, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "05_saliency_compression_join", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:04:34.603920+00:00"}
 {"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "06_representative_case_visualization", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:04:34.605921+00:00"}
+{"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "00_source_and_model_freeze", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:18:19.969421+00:00"}
+{"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "01_origin_embedding_and_target_templates", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:18:20.005589+00:00"}
+{"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "02_population_gradcam_extraction", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:18:20.012253+00:00"}
+{"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "03_saliency_feature_validation", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:18:20.026311+00:00"}
+{"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "04_step2_compression_characterization", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:18:20.049253+00:00"}
+{"attempt": 2, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "05_saliency_compression_join", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:18:20.085383+00:00"}
+{"attempt": 1, "count": 0, "event": "phase_artifacts_verified", "level": "INFO", "phase": "06_representative_case_visualization", "run_id": "20260803-R001-a4479011", "timestamp_utc": "2026-08-02T21:18:20.091915+00:00"}

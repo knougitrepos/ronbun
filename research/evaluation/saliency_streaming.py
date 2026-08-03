@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +21,9 @@ from research.evaluation.saliency_compression import (
     _strict_false,
     _validate_unique,
 )
+from research.explainability.gradcam.cases import (
+    select_population_representative_cases,
+)
 
 
 StreamingProgressCallback = Callable[[str, dict[str, object]], None]
@@ -28,7 +31,7 @@ StreamingProgressCallback = Callable[[str, dict[str, object]], None]
 
 @dataclass(frozen=True)
 class StreamingJoinResult:
-    joined_path: Path
+    joined_path: Path | None
     association_projection_path: Path
     row_count: int
     projected_row_count: int
@@ -185,14 +188,22 @@ def _coerce_projection(
     sensitivity_metrics: Sequence[str],
 ) -> pd.DataFrame:
     projection = joined.loc[:, list(columns)].copy()
+    boolean_metrics = {"agreement_with_origin", "threshold_crossing"}
     numeric_columns = tuple(
-        dict.fromkeys((*saliency_features, *sensitivity_metrics))
+        column
+        for column in dict.fromkeys((*saliency_features, *sensitivity_metrics))
+        if column not in boolean_metrics
     )
     for column in numeric_columns:
         projection[column] = pd.to_numeric(
             projection[column],
             errors="coerce",
         ).astype(np.float64)
+    for column in boolean_metrics.intersection(projection.columns):
+        projection[column] = _strict_boolean(
+            projection[column],
+            name=f"projection.{column}",
+        )
     has_saliency = projection.loc[:, list(saliency_features)].notna().any(axis=1)
     has_metric = projection.loc[:, list(sensitivity_metrics)].notna().any(axis=1)
     return projection.loc[has_saliency & has_metric].reset_index(drop=True)
@@ -231,11 +242,162 @@ def _append_csv_chunk(
     )
 
 
+def _case_source_chunks(
+    path: Path,
+    *,
+    columns: Sequence[str],
+    chunksize: int,
+) -> Iterator[pd.DataFrame]:
+    if path.suffix.lower() == ".parquet":
+        parquet = pq.ParquetFile(path)
+        for batch in parquet.iter_batches(
+            batch_size=chunksize,
+            columns=list(columns),
+        ):
+            yield batch.to_pandas()
+        return
+    yield from pd.read_csv(
+        path,
+        usecols=list(columns),
+        dtype=_csv_dtype_overrides(columns),
+        chunksize=chunksize,
+        low_memory=False,
+    )
+
+
+def stream_select_population_representative_cases(
+    retrieval_path: str | Path,
+    geometry_path: str | Path,
+    *,
+    threshold_policy: str,
+    cases_per_group: int,
+    seed: int,
+    chunksize: int = 100_000,
+) -> pd.DataFrame:
+    """Select exact bounded case candidates without loading the retrieval join."""
+
+    retrieval_source = Path(retrieval_path)
+    geometry_source = Path(geometry_path)
+    if not retrieval_source.is_file():
+        raise FileNotFoundError(retrieval_source)
+    if not geometry_source.is_file():
+        raise FileNotFoundError(geometry_source)
+    if chunksize <= 0:
+        raise ValueError("chunksize must be a positive integer")
+
+    geometry_keys = [*JOIN_KEYS, *PROFILE_KEYS]
+    geometry_columns = [*geometry_keys, "angular_error_rad"]
+    if geometry_source.suffix.lower() == ".parquet":
+        geometry = pd.read_parquet(
+            geometry_source,
+            columns=geometry_columns,
+        )
+    else:
+        geometry = pd.read_csv(
+            geometry_source,
+            usecols=geometry_columns,
+            dtype=_csv_dtype_overrides(geometry_columns),
+            low_memory=False,
+        )
+    _validate_unique(geometry, geometry_keys, name="case_geometry")
+    geometry_lookup = geometry.set_index(geometry_keys)["angular_error_rad"]
+    del geometry
+
+    source_columns = (
+        tuple(pq.ParquetFile(retrieval_source).schema.names)
+        if retrieval_source.suffix.lower() == ".parquet"
+        else _source_columns(retrieval_source)
+    )
+    optional = tuple(
+        column
+        for column in ("search_mode", "is_mated")
+        if column in source_columns
+    )
+    retrieval_columns = tuple(
+        dict.fromkeys(
+            (
+                *JOIN_KEYS,
+                *PROFILE_KEYS,
+                *optional,
+                "threshold_policy",
+                "top1_score_drift",
+                "agreement_with_origin",
+                "threshold_crossing",
+                "origin_fallback_used",
+                "saliency_target_eligible",
+                "heatmap_available",
+            )
+        )
+    )
+    missing = [column for column in retrieval_columns if column not in source_columns]
+    if missing:
+        raise ValueError(f"case retrieval source is missing columns: {missing}")
+
+    candidate_parts: list[pd.DataFrame] = []
+    generated_columns = {
+        "case_id",
+        "case_group",
+        "case_priority_rank",
+        "selection_seed",
+        "cases_per_group",
+    }
+    for chunk in _case_source_chunks(
+        retrieval_source,
+        columns=retrieval_columns,
+        chunksize=int(chunksize),
+    ):
+        chunk = chunk.loc[
+            chunk["threshold_policy"].astype(str) == str(threshold_policy)
+        ].copy()
+        if chunk.empty:
+            continue
+        chunk = chunk.join(
+            geometry_lookup,
+            on=geometry_keys,
+            how="left",
+            validate="many_to_one",
+        )
+        if chunk["angular_error_rad"].isna().all():
+            continue
+        chunk["retrieval_metrics_available"] = True
+        try:
+            local = select_population_representative_cases(
+                chunk,
+                cases_per_group=int(cases_per_group),
+                seed=int(seed),
+            )
+        except ValueError as error:
+            if str(error).startswith("no joined rows have"):
+                continue
+            raise
+        candidate_parts.append(
+            local.drop(
+                columns=[
+                    column
+                    for column in generated_columns
+                    if column in local
+                ]
+            )
+        )
+    if not candidate_parts:
+        raise ValueError("no representative-case candidates were found")
+    candidates = pd.concat(candidate_parts, ignore_index=True)
+    candidate_keys = [*geometry_keys]
+    if "search_mode" in candidates:
+        candidate_keys.append("search_mode")
+    candidates = candidates.drop_duplicates(candidate_keys, keep="first")
+    return select_population_representative_cases(
+        candidates,
+        cases_per_group=int(cases_per_group),
+        seed=int(seed),
+    )
+
+
 def stream_join_population_saliency_with_compression(
     saliency_features: pd.DataFrame,
     embedding_distortion_path: str | Path,
     *,
-    joined_output_path: str | Path,
+    joined_output_path: str | Path | None,
     association_projection_path: str | Path,
     chunksize: int = 100_000,
     expected_rows: int | None = None,
@@ -246,11 +408,13 @@ def stream_join_population_saliency_with_compression(
     if isinstance(chunksize, bool) or int(chunksize) != chunksize or chunksize <= 0:
         raise ValueError("chunksize must be a positive integer")
     source_path = Path(embedding_distortion_path)
-    joined_path = Path(joined_output_path)
+    joined_path = None if joined_output_path is None else Path(joined_output_path)
     projection_path = Path(association_projection_path)
     if not source_path.is_file():
         raise FileNotFoundError(source_path)
     for output in (joined_path, projection_path):
+        if output is None:
+            continue
         if output.exists():
             raise FileExistsError(output)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -309,11 +473,12 @@ def stream_join_population_saliency_with_compression(
                 source_name="compression",
             )
             chunk_count += 1
-            _append_csv_chunk(
-                joined_path,
-                joined,
-                first=chunk_count == 1,
-            )
+            if joined_path is not None:
+                _append_csv_chunk(
+                    joined_path,
+                    joined,
+                    first=chunk_count == 1,
+                )
             projection = _coerce_projection(
                 joined,
                 columns=projection_columns,
@@ -364,7 +529,7 @@ def stream_join_population_saliency_with_retrieval(
     saliency_features: pd.DataFrame,
     retrieval_sensitivity_path: str | Path,
     *,
-    joined_output_path: str | Path,
+    joined_output_path: str | Path | None,
     association_projection_path: str | Path,
     chunksize: int = 100_000,
     expected_rows: int | None = None,
@@ -375,11 +540,13 @@ def stream_join_population_saliency_with_retrieval(
     if isinstance(chunksize, bool) or int(chunksize) != chunksize or chunksize <= 0:
         raise ValueError("chunksize must be a positive integer")
     source_path = Path(retrieval_sensitivity_path)
-    joined_path = Path(joined_output_path)
+    joined_path = None if joined_output_path is None else Path(joined_output_path)
     projection_path = Path(association_projection_path)
     if not source_path.is_file():
         raise FileNotFoundError(source_path)
     for output in (joined_path, projection_path):
+        if output is None:
+            continue
         if output.exists():
             raise FileExistsError(output)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -426,6 +593,9 @@ def stream_join_population_saliency_with_retrieval(
                 *optional_groups,
                 "threshold_policy",
                 "is_mated",
+                "origin_fallback_used",
+                "saliency_target_eligible",
+                "heatmap_available",
                 "identity_id",
                 *DEFAULT_SALIENCY_FEATURES,
                 *DEFAULT_RETRIEVAL_METRICS,
@@ -476,11 +646,12 @@ def stream_join_population_saliency_with_retrieval(
             )
             joined["retrieval_metrics_available"] = True
             chunk_count += 1
-            _append_csv_chunk(
-                joined_path,
-                joined,
-                first=chunk_count == 1,
-            )
+            if joined_path is not None:
+                _append_csv_chunk(
+                    joined_path,
+                    joined,
+                    first=chunk_count == 1,
+                )
             projection = _coerce_projection(
                 joined,
                 columns=projection_columns,

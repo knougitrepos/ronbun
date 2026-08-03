@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+from collections.abc import Mapping
 from uuid import uuid4
 
 import numpy as np
@@ -327,15 +328,48 @@ def write_population_saliency_artifact(
     *,
     shard_size: int = 2048,
     heatmap_dtype: str = "float16",
+    persistence: Mapping[str, object] | None = None,
     overwrite: bool = False,
 ) -> Path:
-    """Write full-population features and native-resolution heatmap shards."""
+    """Write scalar features and only the explicitly retained array payloads."""
 
     output = Path(destination).resolve()
     rows_per_shard = _positive_integer(shard_size, name="shard_size")
     if heatmap_dtype not in {"float16", "float32"}:
         raise ValueError("heatmap_dtype must be 'float16' or 'float32'")
     map_dtype = np.float16 if heatmap_dtype == "float16" else np.float32
+    policy = dict(persistence or {})
+    persist_scalar_features = bool(policy.get("persist_scalar_features", True))
+    if not persist_scalar_features:
+        raise ValueError(
+            "population saliency scalar features are required by downstream analysis"
+        )
+    persist_normalized_heatmap = bool(
+        policy.get("persist_normalized_heatmap", True)
+    )
+    persist_raw_cam = bool(policy.get("persist_raw_cam", True))
+    persist_relu_cam = bool(policy.get("persist_relu_cam", True))
+    persist_channel_weights = bool(policy.get("persist_channel_weights", True))
+    persist_pass_b_embeddings = bool(
+        policy.get("persist_pass_b_embeddings", True)
+    )
+    persisted_array_names = ["sample_id"]
+    if persist_normalized_heatmap:
+        persisted_array_names.append("normalized_heatmap")
+    if persist_raw_cam:
+        persisted_array_names.append("raw_cam")
+    if persist_relu_cam:
+        persisted_array_names.append("relu_cam")
+    if persist_channel_weights:
+        persisted_array_names.append("channel_weights")
+    if persist_pass_b_embeddings:
+        persisted_array_names.extend(
+            (
+                "pass_b_raw_embedding",
+                "pass_b_raw_norm",
+                "pass_b_normalized_embedding",
+            )
+        )
     temporary = _new_atomic_directory(output, overwrite=overwrite)
     try:
         feature_path = temporary / "saliency_features.csv"
@@ -352,37 +386,36 @@ def write_population_saliency_artifact(
             stop = min(start + rows_per_shard, row_count)
             shard_path = shard_dir / f"part-{shard_index:05d}.npz"
             arrays: dict[str, np.ndarray] = {
-                "sample_id": result.heatmap_sample_ids[start:stop].astype(str),
-                "normalized_heatmap": result.normalized_heatmaps[start:stop].astype(
-                    map_dtype,
-                    copy=False,
-                ),
-                "raw_cam": result.raw_cams[start:stop].astype(
-                    map_dtype,
-                    copy=False,
-                ),
-                "relu_cam": result.relu_cams[start:stop].astype(
-                    map_dtype,
-                    copy=False,
-                ),
-                "channel_weights": result.channel_weights[start:stop].astype(
-                    np.float32,
-                    copy=False,
-                ),
-                "pass_b_raw_embedding": result.pass_b_raw_embeddings[start:stop].astype(
-                    np.float32, copy=False
-                ),
-                "pass_b_raw_norm": result.pass_b_raw_norms[start:stop].astype(
-                    np.float32,
-                    copy=False,
-                ),
-                "pass_b_normalized_embedding": (
-                    result.pass_b_normalized_embeddings[start:stop].astype(
-                        np.float32,
-                        copy=False,
-                    )
-                ),
+                "sample_id": result.heatmap_sample_ids[start:stop].astype(str)
             }
+            if persist_normalized_heatmap:
+                arrays["normalized_heatmap"] = result.normalized_heatmaps[
+                    start:stop
+                ].astype(map_dtype, copy=False)
+            if persist_raw_cam:
+                arrays["raw_cam"] = result.raw_cams[start:stop].astype(
+                    map_dtype, copy=False
+                )
+            if persist_relu_cam:
+                arrays["relu_cam"] = result.relu_cams[start:stop].astype(
+                    map_dtype, copy=False
+                )
+            if persist_channel_weights:
+                arrays["channel_weights"] = result.channel_weights[
+                    start:stop
+                ].astype(np.float32, copy=False)
+            if persist_pass_b_embeddings:
+                arrays["pass_b_raw_embedding"] = result.pass_b_raw_embeddings[
+                    start:stop
+                ].astype(np.float32, copy=False)
+                arrays["pass_b_raw_norm"] = result.pass_b_raw_norms[
+                    start:stop
+                ].astype(np.float32, copy=False)
+                arrays["pass_b_normalized_embedding"] = (
+                    result.pass_b_normalized_embeddings[start:stop].astype(
+                        np.float32, copy=False
+                    )
+                )
             if result.activations is not None:
                 arrays["activation"] = result.activations[start:stop].astype(
                     np.float32,
@@ -419,6 +452,7 @@ def write_population_saliency_artifact(
             "sample_feature_row_count": int(len(result.features)),
             "heatmap_row_count": row_count,
             "heatmap_dtype": heatmap_dtype,
+            "persisted_array_names": persisted_array_names,
             "intermediate_tensors_persisted": (
                 result.activations is not None and result.gradients is not None
             ),

@@ -15,6 +15,10 @@ from research.evaluation.saliency_compression import (
 from research.evaluation.saliency_streaming import (
     stream_join_population_saliency_with_compression,
     stream_join_population_saliency_with_retrieval,
+    stream_select_population_representative_cases,
+)
+from research.explainability.gradcam.cases import (
+    select_population_representative_cases,
 )
 
 
@@ -170,6 +174,88 @@ def test_streaming_retrieval_join_matches_in_memory_join(tmp_path: Path) -> None
     assert len(projection) == len(expected)
     assert set(DEFAULT_RETRIEVAL_METRICS).issubset(projection)
     assert set(projection["is_mated"]) == {False, True}
+
+
+def test_results_only_streaming_skips_full_joins_and_keeps_case_candidates(
+    tmp_path: Path,
+) -> None:
+    geometry_source = tmp_path / "geometry.csv"
+    retrieval_source = tmp_path / "retrieval.csv"
+    geometry_projection = tmp_path / "geometry_projection.parquet"
+    retrieval_projection = tmp_path / "retrieval_projection.parquet"
+    geometry = _geometry()
+    retrieval = _retrieval()
+    geometry.to_csv(geometry_source, index=False)
+    retrieval.to_csv(retrieval_source, index=False)
+
+    geometry_result = stream_join_population_saliency_with_compression(
+        _saliency(),
+        geometry_source,
+        joined_output_path=None,
+        association_projection_path=geometry_projection,
+        chunksize=2,
+        expected_rows=len(geometry),
+    )
+    retrieval_result = stream_join_population_saliency_with_retrieval(
+        _saliency(),
+        retrieval_source,
+        joined_output_path=None,
+        association_projection_path=retrieval_projection,
+        chunksize=2,
+        expected_rows=len(retrieval),
+    )
+    cases = stream_select_population_representative_cases(
+        retrieval_projection,
+        geometry_projection,
+        threshold_policy="frozen_origin",
+        cases_per_group=1,
+        seed=42,
+        chunksize=2,
+    )
+
+    assert geometry_result.joined_path is None
+    assert retrieval_result.joined_path is None
+    assert not (tmp_path / "geometry_join.csv").exists()
+    assert not (tmp_path / "retrieval_join.csv").exists()
+    assert not cases.empty
+    assert set(cases["case_group"]).issubset(
+        {"stable", "high_error", "rank_flip", "threshold_crossing"}
+    )
+    expected = join_population_saliency_with_retrieval(
+        _saliency(),
+        retrieval.loc[retrieval["threshold_policy"].eq("frozen_origin")],
+    )
+    expected = expected.merge(
+        geometry.loc[
+            geometry["compression_profile"].eq("pca_128"),
+            [
+                "extraction_uid",
+                "dataset_id",
+                "sample_id",
+                "model_uid",
+                "compression_family",
+                "compression_profile",
+                "angular_error_rad",
+            ],
+        ],
+        on=[
+            "extraction_uid",
+            "dataset_id",
+            "sample_id",
+            "model_uid",
+            "compression_family",
+            "compression_profile",
+        ],
+        validate="many_to_one",
+    )
+    expected = select_population_representative_cases(
+        expected,
+        cases_per_group=1,
+        seed=42,
+    )
+    assert cases[["case_id", "case_group"]].to_dict("records") == expected[
+        ["case_id", "case_group"]
+    ].to_dict("records")
 
 
 def test_streaming_retrieval_join_keeps_search_modes_separate(

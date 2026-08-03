@@ -52,6 +52,7 @@ from research.runtime.hashing import canonical_sha256, sha256_file
 SUPPORTED_COMMON_DATASETS = ("lfw", "survface")
 SUPPORTED_RUN_TIERS = ("quick", "full")
 SUPPORTED_MODEL_NAMES = ("arc", "ada", "mag")
+SUPPORTED_ARTIFACT_STORAGE_MODES = ("results_only", "full")
 MODEL_NAME_TO_FAMILY: Mapping[str, str] = {
     "arc": "arcface",
     "ada": "adaface",
@@ -91,6 +92,9 @@ SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID = (
 )
 RETRIEVAL_SEARCH_MODE_JOIN_CORRECTION_ID = (
     "retrieval_search_mode_join_grain_v1"
+)
+REPRESENTATIVE_CASE_STREAMING_CORRECTION_ID = (
+    "representative_case_streaming_memory_v1"
 )
 
 
@@ -607,6 +611,7 @@ def _effective_step4_config(
     model_checkpoint_path: str | Path | None,
     contract_id: str,
     contract_sha256: str,
+    artifact_storage_mode: str,
 ) -> dict[str, Any]:
     config = deepcopy(dict(base_config))
     execution = config.get("execution")
@@ -652,6 +657,32 @@ def _effective_step4_config(
         config["models"]["model_uid"] = str(model_uid)
     if resolved_checkpoint_path is not None:
         profile["checkpoint_path"] = str(resolved_checkpoint_path)
+    storage_mode = str(artifact_storage_mode).strip().lower()
+    if storage_mode not in SUPPORTED_ARTIFACT_STORAGE_MODES:
+        raise ValueError(
+            "artifact_storage_mode must be one of "
+            f"{SUPPORTED_ARTIFACT_STORAGE_MODES}"
+        )
+    workflow = config.setdefault("workflow", {})
+    workflow["artifact_storage_mode"] = storage_mode
+    workflow["persist_large_join_artifacts"] = (
+        storage_mode == "full"
+    )
+    gradcam = config.setdefault("gradcam", {})
+    persistence = gradcam.setdefault("persistence", {})
+    if storage_mode == "results_only":
+        persistence.update(
+            {
+                "persist_normalized_heatmap": True,
+                "persist_raw_cam": False,
+                "persist_relu_cam": False,
+                "persist_channel_weights": False,
+                "persist_pass_b_embeddings": False,
+                "persist_scalar_features": True,
+                "persist_full_activations": False,
+                "persist_full_gradients": False,
+            }
+        )
     execution.update(
         {
             "model_name": selected_model_name,
@@ -680,6 +711,7 @@ def _effective_step4_config(
         "evaluation_contract_id": contract_id,
         "evaluation_contract_sha256": contract_sha256,
         "comparison_contract_coverage": "partial",
+        "artifact_storage_mode": storage_mode,
     }
     return config
 
@@ -710,6 +742,7 @@ def build_common_experiment_plan(
     model_uid: str | None = None,
     model_checkpoint_path: str | Path | None = None,
     quick_data_fractions: Mapping[str, float] | None = None,
+    artifact_storage_mode: str = "full",
     step4_config_path: str | Path = DEFAULT_STEP4_CONFIG_PATH,
     evaluation_contract_path: str | Path = (DEFAULT_EVALUATION_CONTRACT_PATH),
 ) -> CommonExperimentPlan:
@@ -766,6 +799,7 @@ def build_common_experiment_plan(
         model_checkpoint_path=model_checkpoint_path,
         contract_id=contract_id,
         contract_sha256=contract_sha256,
+        artifact_storage_mode=artifact_storage_mode,
     )
     effective_config["orchestration"]["source_snapshot"] = (
         _source_snapshot(source_provenance)
@@ -1007,11 +1041,12 @@ def reuse_completed_run_for_plan(
     ):
         raise ValueError("completed run override is missing the Step 4 config")
     frozen_step4 = config["step4"]
-    if _config_without_source_snapshot(frozen_step4) != (
-        _config_without_source_snapshot(plan.effective_step4_config)
+    if _config_without_storage_policy(frozen_step4) != (
+        _config_without_storage_policy(plan.effective_step4_config)
     ):
         raise ValueError(
-            "completed run override differs from the selected science config"
+            "completed run override differs from the selected science config "
+            "outside source snapshot and artifact storage policy"
         )
     run = RunStore.open(selected)
     reused_stages: list[dict[str, object]] = []
@@ -1200,6 +1235,76 @@ def _is_known_retrieval_search_mode_join_failure(
     return "search_mode" in pd.read_csv(retrieval_path, nrows=0).columns
 
 
+def _config_without_storage_policy(
+    config: Mapping[str, object],
+) -> dict[str, object]:
+    comparable = _config_without_source_snapshot(config)
+    orchestration = comparable.get("orchestration")
+    if isinstance(orchestration, dict):
+        orchestration.pop("artifact_storage_mode", None)
+    workflow = comparable.get("workflow")
+    if isinstance(workflow, dict):
+        for key in (
+            "artifact_storage_mode",
+            "persist_large_join_artifacts",
+            "representative_case_candidates_path",
+        ):
+            workflow.pop(key, None)
+    gradcam = comparable.get("gradcam")
+    if isinstance(gradcam, dict):
+        gradcam.pop("persistence", None)
+    return comparable
+
+
+def _is_known_representative_case_memory_failure(
+    run: RunStore,
+    plan: CommonExperimentPlan,
+) -> bool:
+    existing_config = run.config.get("step4")
+    if not isinstance(existing_config, Mapping):
+        return False
+    if _config_without_storage_policy(existing_config) != (
+        _config_without_storage_policy(plan.effective_step4_config)
+    ):
+        return False
+    required_completed = (
+        "00_source_and_model_freeze",
+        "01_origin_embedding_and_target_templates",
+        "02_population_gradcam_extraction",
+        "03_saliency_feature_validation",
+        "04_step2_compression_characterization",
+        "05_saliency_compression_join",
+    )
+    if not all(
+        _completed_phase(run.run_dir, phase_name)
+        for phase_name in required_completed
+    ):
+        return False
+    latest = _latest_phase_attempt_manifest(
+        run,
+        "06_representative_case_visualization",
+    )
+    if latest is not None:
+        if latest.get("status") != "failed":
+            return False
+        failure = latest.get("failure")
+        if not isinstance(failure, Mapping):
+            return False
+        message = str(failure.get("message", "")).lower()
+        if "out of memory" not in message:
+            return False
+    # The legacy finalizer loaded both CSVs before opening the phase context.
+    # An OOM at that point therefore leaves no phase-06 attempt manifest.
+    workflow_root = run.run_dir / "artifacts" / "step2_workflow"
+    return all(
+        (workflow_root / name).is_file()
+        for name in (
+            "saliency_geometry_join.csv",
+            "saliency_retrieval_join.csv",
+        )
+    )
+
+
 def _recorded_step4_config_path(run: RunStore) -> Path:
     manifest = json.loads(run.manifest_path.read_text(encoding="utf-8"))
     candidates = [
@@ -1246,7 +1351,17 @@ def _resolve_execution_run(
         run,
         plan,
     )
-    if not quick_protocol_failure and not retrieval_join_failure:
+    representative_case_failure = _is_known_representative_case_memory_failure(
+        run,
+        plan,
+    )
+    if not any(
+        (
+            quick_protocol_failure,
+            retrieval_join_failure,
+            representative_case_failure,
+        )
+    ):
         raise RuntimeError(
             "a different incomplete dataset run is active. Complete or "
             "selectively clean that run before executing this plan: "
@@ -1255,18 +1370,24 @@ def _resolve_execution_run(
 
     frozen_config_path = _recorded_step4_config_path(run)
     existing_orchestration = existing_config.get("orchestration", {})
-    correction_id = (
-        SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID
-        if quick_protocol_failure
-        else RETRIEVAL_SEARCH_MODE_JOIN_CORRECTION_ID
-    )
-    reason = (
-        "resume the known SurvFace Quick protocol_index gap failure "
-        "without rewriting completed phase artifacts"
-        if quick_protocol_failure
-        else "resume the known retrieval search-mode join-grain failure "
-        "without rewriting completed phases 00-04"
-    )
+    if quick_protocol_failure:
+        correction_id = SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID
+        reason = (
+            "resume the known SurvFace Quick protocol_index gap failure "
+            "without rewriting completed phase artifacts"
+        )
+    elif retrieval_join_failure:
+        correction_id = RETRIEVAL_SEARCH_MODE_JOIN_CORRECTION_ID
+        reason = (
+            "resume the known retrieval search-mode join-grain failure "
+            "without rewriting completed phases 00-04"
+        )
+    else:
+        correction_id = REPRESENTATIVE_CASE_STREAMING_CORRECTION_ID
+        reason = (
+            "resume the known representative-case full-CSV memory failure "
+            "with bounded streaming selection and without rewriting phases 00-05"
+        )
     correction_context = {
         "correction_id": correction_id,
         "reason": reason,

@@ -253,10 +253,62 @@ def test_notebook_quick_fraction_override_is_recorded(
         "survface": 0.03,
     }
     assert (
-        plan.effective_step4_config["orchestration"]["quick_fraction_override"] is True
+        plan.effective_step4_config["orchestration"]["quick_fraction_override"]
+        is True
     )
     assert full_plan.data_fraction == 1.0
     assert full_plan.effective_step4_config["execution"]["data_fraction"] == 1.0
+
+
+def test_results_only_plan_disables_duplicate_join_and_raw_cam_storage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path, contract_path = _write_plan_inputs(tmp_path)
+    source = pd.DataFrame(
+        {
+            "image_id": ["image-1"],
+            "identity_id": ["identity-1"],
+            "split": ["test"],
+        }
+    )
+    monkeypatch.setattr(
+        pipeline_runner,
+        "resolve_step4_dataset_spec",
+        lambda *args, **kwargs: SimpleNamespace(
+            dataset_id="lfw",
+            manifest_paths=(),
+        ),
+    )
+    monkeypatch.setattr(
+        pipeline_runner,
+        "load_step4_source_manifest",
+        lambda spec: source,
+    )
+    monkeypatch.setattr(
+        pipeline_runner,
+        "select_step4_source_manifest",
+        lambda frame, **kwargs: frame.copy(),
+    )
+
+    plan = build_common_experiment_plan(
+        project_root=tmp_path,
+        dataset_id="lfw",
+        run_tier="quick",
+        artifact_storage_mode="results_only",
+        step4_config_path=config_path,
+        evaluation_contract_path=contract_path,
+    )
+
+    config = plan.effective_step4_config
+    assert config["workflow"]["artifact_storage_mode"] == "results_only"
+    assert config["workflow"]["persist_large_join_artifacts"] is False
+    persistence = config["gradcam"]["persistence"]
+    assert persistence["persist_normalized_heatmap"] is True
+    assert persistence["persist_raw_cam"] is False
+    assert persistence["persist_relu_cam"] is False
+    assert persistence["persist_channel_weights"] is False
+    assert persistence["persist_pass_b_embeddings"] is False
 
 
 def test_prepare_common_model_checkpoint_uses_alias_profile_and_weight(
@@ -713,6 +765,97 @@ def test_known_retrieval_search_mode_join_failure_resumes_completed_phases(
     )
     assert context["frozen_source_snapshot"] == frozen_snapshot
     assert context["resume_source_snapshot"] == resume_snapshot
+    assert run.events[-1][0] == "source_correction_resume_authorized"
+
+
+def test_known_representative_case_memory_failure_resumes_phase06_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frozen_snapshot = {"commit": "a" * 40, "branch": "step6", "dirty": False}
+    resume_snapshot = {**frozen_snapshot, "commit": "b" * 40}
+    frozen_config: dict[str, object] = {
+        "execution": {"data_fraction": 1.0},
+        "workflow": {"persist_large_join_artifacts": True},
+        "gradcam": {"persistence": {"persist_raw_cam": True}},
+        "orchestration": {
+            "dataset_id": "survface",
+            "run_tier": "full",
+            "artifact_storage_mode": "full",
+            "source_snapshot": frozen_snapshot,
+        },
+    }
+    current_config: dict[str, object] = {
+        **frozen_config,
+        "workflow": {
+            "artifact_storage_mode": "results_only",
+            "persist_large_join_artifacts": False,
+            "representative_case_candidates_path": (
+                "representative_case_candidates.csv"
+            ),
+        },
+        "gradcam": {"persistence": {"persist_raw_cam": False}},
+        "orchestration": {
+            **frozen_config["orchestration"],
+            "artifact_storage_mode": "results_only",
+            "source_snapshot": resume_snapshot,
+        },
+    }
+    frozen_config_path = tmp_path / "frozen.yaml"
+    frozen_config_path.write_text(
+        yaml.safe_dump(frozen_config, sort_keys=False),
+        encoding="utf-8",
+    )
+    current_config_path = tmp_path / "current.yaml"
+    current_config_path.write_text(
+        yaml.safe_dump(current_config, sort_keys=False),
+        encoding="utf-8",
+    )
+    run = _SyntheticResumeRun(
+        tmp_path / "active-run",
+        frozen_config=frozen_config,
+        frozen_config_path=frozen_config_path,
+    )
+    for phase_name in (
+        "00_source_and_model_freeze",
+        "01_origin_embedding_and_target_templates",
+        "02_population_gradcam_extraction",
+        "03_saliency_feature_validation",
+        "04_step2_compression_characterization",
+        "05_saliency_compression_join",
+    ):
+        _write_phase_attempt(run.run_dir, phase_name, status="completed")
+    _write_phase_attempt(
+        run.run_dir,
+        "06_representative_case_visualization",
+        status="failed",
+        message="Error tokenizing data. C error: out of memory",
+    )
+    workflow = run.run_dir / "artifacts" / "step2_workflow"
+    workflow.mkdir(parents=True)
+    for name in ("saliency_geometry_join.csv", "saliency_retrieval_join.csv"):
+        (workflow / name).write_text("sample_id\n", encoding="utf-8")
+    plan = SimpleNamespace(
+        dataset_id="survface",
+        run_tier="full",
+        effective_step4_config=current_config,
+        plan_id="resume-representative-plan",
+    )
+    monkeypatch.setattr(
+        pipeline_runner,
+        "_active_dataset_run",
+        lambda selected_plan: run,
+    )
+
+    resolved_run, resolved_path, context = pipeline_runner._resolve_execution_run(
+        plan,
+        current_config_path=current_config_path,
+    )
+
+    assert resolved_run is run
+    assert resolved_path == frozen_config_path.resolve()
+    assert context is not None
+    assert context["correction_id"] == "representative_case_streaming_memory_v1"
     assert run.events[-1][0] == "source_correction_resume_authorized"
 
 

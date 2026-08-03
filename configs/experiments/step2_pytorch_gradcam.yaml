@@ -61,6 +61,8 @@ workflow:
   calibration_diagnostics_path: origin_calibration_diagnostics.json
   geometry_joined_metrics_path: saliency_geometry_join.csv
   retrieval_joined_metrics_path: saliency_retrieval_join.csv
+  representative_case_candidates_path: representative_case_candidates.csv
+  persist_large_join_artifacts: true
   geometry_association_path: saliency_geometry_associations.csv
   retrieval_association_path: saliency_retrieval_associations.csv
   representative_cases_path: representative_cases.csv
@@ -362,6 +364,7 @@ gradcam:
     persist_raw_cam: true
     persist_relu_cam: true
     persist_channel_weights: true
+    persist_pass_b_embeddings: true
     persist_scalar_features: true
     persist_full_activations: false
     persist_full_gradients: false

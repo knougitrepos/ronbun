@@ -387,3 +387,42 @@ def test_population_artifacts_support_verified_ordered_subsets(
     saliency_shard.write_bytes(saliency_shard.read_bytes() + b"tampered")
     with pytest.raises(ValueError, match="hash mismatch"):
         read_population_heatmaps(saliency_path)
+
+
+def test_results_only_saliency_artifact_omits_raw_duplicate_arrays(
+    tmp_path: Path,
+    population_pipeline,
+) -> None:
+    _faces, _prepared, result = population_pipeline
+    saliency_path = tmp_path / "saliency-results-only"
+    write_population_saliency_artifact(
+        result,
+        saliency_path,
+        shard_size=2,
+        persistence={
+            "persist_normalized_heatmap": True,
+            "persist_raw_cam": False,
+            "persist_relu_cam": False,
+            "persist_channel_weights": False,
+            "persist_pass_b_embeddings": False,
+            "persist_scalar_features": True,
+        },
+    )
+
+    manifest = json.loads(
+        (saliency_path / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["persisted_array_names"] == [
+        "sample_id",
+        "normalized_heatmap",
+    ]
+    for entry in manifest["heatmap_shards"]:
+        with np.load(saliency_path / entry["path"], allow_pickle=False) as shard:
+            assert set(shard.files) == {"sample_id", "normalized_heatmap"}
+    restored_ids, restored_heatmaps = read_population_heatmaps(saliency_path)
+    assert restored_ids.tolist() == result.heatmap_sample_ids.tolist()
+    np.testing.assert_allclose(
+        restored_heatmaps,
+        result.normalized_heatmaps,
+        atol=5e-4,
+    )

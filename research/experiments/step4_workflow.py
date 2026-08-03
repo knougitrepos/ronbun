@@ -27,6 +27,7 @@ from research.evaluation import (
     saliency_retrieval_associations,
     stream_join_population_saliency_with_compression,
     stream_join_population_saliency_with_retrieval,
+    stream_select_population_representative_cases,
 )
 from research.experiments.scope import (
     ExperimentScope,
@@ -52,7 +53,6 @@ from research.explainability.gradcam import (
     read_population_heatmaps,
     read_population_saliency_features,
     read_prepared_population_artifact,
-    select_population_representative_cases,
     write_population_saliency_artifact,
     write_prepared_population_artifact,
 )
@@ -1014,6 +1014,7 @@ def extract_step4_population_gradcam(
             saliency_dir,
             shard_size=int(config["gradcam"]["extraction"]["shard_size"]),
             heatmap_dtype="float16",
+            persistence=config["gradcam"].get("persistence", {}),
             overwrite=overwrite,
         )
         phase.record_counts(
@@ -1405,8 +1406,27 @@ def analyze_step4_saliency_compression(
             "retrieval_association_path",
         )
     }
+    candidate_path = workflow_root / config["workflow"].get(
+        "representative_case_candidates_path",
+        "representative_case_candidates.csv",
+    )
+    persist_large_joins = bool(
+        config["workflow"].get("persist_large_join_artifacts", True)
+    )
+    checked_output_paths = [
+        output_paths["geometry_association_path"],
+        output_paths["retrieval_association_path"],
+        candidate_path,
+    ]
+    if persist_large_joins:
+        checked_output_paths.extend(
+            (
+                output_paths["geometry_joined_metrics_path"],
+                output_paths["retrieval_joined_metrics_path"],
+            )
+        )
     if not overwrite:
-        existing = [path for path in output_paths.values() if path.exists()]
+        existing = [path for path in checked_output_paths if path.exists()]
         if existing:
             raise FileExistsError(
                 "Step 4 join outputs already exist and overwrite=false: "
@@ -1469,12 +1489,17 @@ def analyze_step4_saliency_compression(
             staged_retrieval_association = (
                 staging / "saliency_retrieval_associations.csv"
             )
+            staged_case_candidates = (
+                staging / "representative_case_candidates.csv"
+            )
 
             geometry_stream = (
                 stream_join_population_saliency_with_compression(
                     features,
                     paired_path,
-                    joined_output_path=staged_geometry_join,
+                    joined_output_path=(
+                        staged_geometry_join if persist_large_joins else None
+                    ),
                     association_projection_path=staged_geometry_projection,
                     chunksize=STEP4_JOIN_CHUNK_ROWS,
                     expected_rows=expected_geometry_rows,
@@ -1507,7 +1532,9 @@ def analyze_step4_saliency_compression(
             retrieval_stream = stream_join_population_saliency_with_retrieval(
                 features,
                 retrieval_path,
-                joined_output_path=staged_retrieval_join,
+                joined_output_path=(
+                    staged_retrieval_join if persist_large_joins else None
+                ),
                 association_projection_path=staged_retrieval_projection,
                 chunksize=STEP4_JOIN_CHUNK_ROWS,
                 expected_rows=expected_retrieval_rows,
@@ -1535,18 +1562,53 @@ def analyze_step4_saliency_compression(
             retrieval_association_rows = int(len(retrieval_associations))
             del retrieval_projection, retrieval_associations, features
             gc.collect()
+            case_config = config.get("gradcam", {}).get(
+                "representative_case_visualization",
+                {
+                    "threshold_policy": "frozen_origin",
+                    "samples_per_stratum": 8,
+                },
+            )
+            case_candidates = stream_select_population_representative_cases(
+                retrieval_stream.association_projection_path,
+                geometry_stream.association_projection_path,
+                threshold_policy=str(case_config["threshold_policy"]),
+                cases_per_group=int(case_config["samples_per_stratum"]),
+                seed=int(execution["seed"]),
+                chunksize=STEP4_JOIN_CHUNK_ROWS,
+            )
+            _write_csv(
+                staged_case_candidates,
+                case_candidates,
+                overwrite=False,
+            )
+            representative_candidate_rows = int(len(case_candidates))
 
             staged_outputs = {
-                "geometry_joined_metrics_path": staged_geometry_join,
-                "retrieval_joined_metrics_path": staged_retrieval_join,
                 "geometry_association_path": staged_geometry_association,
                 "retrieval_association_path": staged_retrieval_association,
+                "representative_case_candidates_path": staged_case_candidates,
             }
+            if persist_large_joins:
+                staged_outputs.update(
+                    {
+                        "geometry_joined_metrics_path": staged_geometry_join,
+                        "retrieval_joined_metrics_path": staged_retrieval_join,
+                    }
+                )
             if not overwrite:
                 appeared = [
-                    output_paths[key]
+                    (
+                        candidate_path
+                        if key == "representative_case_candidates_path"
+                        else output_paths[key]
+                    )
                     for key in staged_outputs
-                    if output_paths[key].exists()
+                    if (
+                        candidate_path
+                        if key == "representative_case_candidates_path"
+                        else output_paths[key]
+                    ).exists()
                 ]
                 if appeared:
                     raise FileExistsError(
@@ -1554,7 +1616,11 @@ def analyze_step4_saliency_compression(
                         + ", ".join(str(path) for path in appeared)
                     )
             for key, staged_path in staged_outputs.items():
-                destination = output_paths[key]
+                destination = (
+                    candidate_path
+                    if key == "representative_case_candidates_path"
+                    else output_paths[key]
+                )
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(staged_path, destination)
 
@@ -1565,6 +1631,7 @@ def analyze_step4_saliency_compression(
             retrieval_projection_rows=retrieval_stream.projected_row_count,
             geometry_association_rows=geometry_association_rows,
             retrieval_association_rows=retrieval_association_rows,
+            representative_candidate_rows=representative_candidate_rows,
             geometry_join_chunks=geometry_stream.chunk_count,
             retrieval_join_chunks=retrieval_stream.chunk_count,
         )
@@ -1581,6 +1648,8 @@ def analyze_step4_saliency_compression(
         "retrieval_join_rows": int(retrieval_stream.row_count),
         "geometry_association_rows": geometry_association_rows,
         "retrieval_association_rows": retrieval_association_rows,
+        "representative_candidate_rows": representative_candidate_rows,
+        "persisted_large_join_artifacts": persist_large_joins,
         "association_algorithm_version": WEIGHTED_RERANK_ALGORITHM_VERSION,
         "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
         "next_stage": "06_representative_case_visualization",
@@ -1619,68 +1688,44 @@ def finalize_step4_representative_cases(
     validation_path = (
         workflow_root / config["workflow"]["saliency_validation_path"]
     )
-    for path in (joined_path, geometry_path, selected_path, validation_path):
+    candidate_path = workflow_root / config["workflow"].get(
+        "representative_case_candidates_path",
+        "representative_case_candidates.csv",
+    )
+    for path in (selected_path, validation_path):
         if not path.is_file():
             raise FileNotFoundError(
                 "all preceding Step 4 stages must complete before finalization: "
                 f"{path}"
             )
-    joined = pd.read_csv(joined_path, low_memory=False)
-    geometry = pd.read_csv(geometry_path, low_memory=False)
-    geometry_keys = [
-        "extraction_uid",
-        "dataset_id",
-        "sample_id",
-        "model_uid",
-        "compression_family",
-        "compression_profile",
-    ]
-    geometry_columns = [*geometry_keys, "angular_error_rad"]
-    missing_geometry = [
-        column for column in geometry_columns if column not in geometry
-    ]
-    if missing_geometry:
-        raise ValueError(
-            f"geometry join is missing case-selection columns: {missing_geometry}"
-        )
-    if geometry.duplicated(geometry_keys).any():
-        raise ValueError("geometry join is not unique per sample/profile")
-    if "angular_error_rad" in joined:
-        raise ValueError(
-            "retrieval join must not contain duplicated geometry measurements"
-        )
-    joined = joined.merge(
-        geometry[geometry_columns],
-        on=geometry_keys,
-        how="left",
-        validate="many_to_one",
-    )
-    if joined["angular_error_rad"].isna().all():
-        raise ValueError("retrieval cases have no matching geometry measurements")
     threshold_policy = str(
         config["gradcam"]["representative_case_visualization"][
             "threshold_policy"
         ]
     )
-    if "threshold_policy" not in joined:
-        raise ValueError("retrieval join is missing threshold_policy")
-    joined = joined.loc[
-        joined["threshold_policy"].astype(str) == threshold_policy
-    ].copy()
-    if joined.empty:
-        raise ValueError(
-            f"retrieval join has no rows for policy {threshold_policy!r}"
-        )
     cases_per_group = int(
         config["gradcam"]["representative_case_visualization"][
             "samples_per_stratum"
         ]
     )
-    cases = select_population_representative_cases(
-        joined,
-        cases_per_group=cases_per_group,
-        seed=int(execution["seed"]),
-    )
+    if candidate_path.is_file():
+        cases = pd.read_csv(candidate_path, low_memory=False)
+    else:
+        for path in (joined_path, geometry_path):
+            if not path.is_file():
+                raise FileNotFoundError(
+                    "phase 05 must provide compact case candidates or legacy "
+                    f"joined metrics: {path}"
+                )
+        cases = stream_select_population_representative_cases(
+            joined_path,
+            geometry_path,
+            threshold_policy=threshold_policy,
+            cases_per_group=cases_per_group,
+            seed=int(execution["seed"]),
+            chunksize=STEP4_JOIN_CHUNK_ROWS,
+        )
+        _write_csv(candidate_path, cases, overwrite=False)
     heatmap_ids, heatmaps = read_population_heatmaps(saliency_dir)
     heatmap_index = {
         str(sample_id): index
@@ -1739,14 +1784,9 @@ def finalize_step4_representative_cases(
         workflow_root / config["workflow"]["prepared_population_dir"]
     )
     validation = json.loads(validation_path.read_text(encoding="utf-8"))
-    paired = pd.read_csv(
-        workflow_root / config["workflow"]["paired_metrics_path"]
-    )
-    retrieval = pd.read_csv(
-        workflow_root / config["workflow"]["retrieval_metrics_path"]
-    )
-    origin_score_audit = pd.read_csv(
-        workflow_root / config["workflow"]["origin_score_audit_path"]
+    phase04_counts = _latest_completed_phase_counts(
+        run,
+        "04_step2_compression_characterization",
     )
     calibration_diagnostics = json.loads(
         (
@@ -1771,9 +1811,11 @@ def finalize_step4_representative_cases(
         "saliency_selection_sha256": validation[
             "saliency_selection_sha256"
         ],
-        "paired_rows": int(len(paired)),
-        "retrieval_rows": int(len(retrieval)),
-        "origin_score_audit_rows": int(len(origin_score_audit)),
+        "paired_rows": int(phase04_counts["paired_rows"]),
+        "retrieval_rows": int(phase04_counts["retrieval_rows"]),
+        "origin_score_audit_rows": int(
+            phase04_counts["origin_score_audit_rows"]
+        ),
         "calibration_origin_fpir": float(
             calibration_diagnostics["splits"]["calibration"]["origin_fpir"]
         ),
