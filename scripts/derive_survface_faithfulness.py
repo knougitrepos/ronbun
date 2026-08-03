@@ -323,7 +323,7 @@ def derive_survface_faithfulness(
         seed=int(seed),
     )
 
-    provenance = inspect_git_provenance(PROJECT_ROOT)
+    provenance = inspect_git_provenance(PROJECT_ROOT, run_root=source)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(
         tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent)

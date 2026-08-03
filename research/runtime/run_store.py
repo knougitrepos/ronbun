@@ -26,6 +26,7 @@ KST = ZoneInfo("Asia/Seoul")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _WRITE_LOCK = threading.Lock()
 ACTIVE_RUN_POINTER = "active_run.json"
+_GIT_DIFF_COMMAND_CHAR_LIMIT = 24_000
 
 
 def _iso_utc(now: datetime | None = None) -> str:
@@ -71,6 +72,42 @@ def _git_output(repo_root: Path, *args: str, binary: bool = False):
     if result.returncode != 0:
         return b"" if binary else ""
     return result.stdout
+
+
+def _git_binary_diff_for_paths(
+    repo_root: Path,
+    relative_paths: list[str],
+    *,
+    command_char_limit: int = _GIT_DIFF_COMMAND_CHAR_LIMIT,
+) -> bytes:
+    """Return a stable binary diff without exceeding Windows command limits.
+
+    ``subprocess`` ultimately passes a single command-line string to
+    ``CreateProcess`` on Windows. A dirty tree containing hundreds of tracked
+    artifacts can therefore fail with WinError 206 when every path is supplied
+    to one ``git diff`` invocation. The sorted path list is split into
+    contiguous batches so concatenation preserves Git's path ordering.
+    """
+
+    if not relative_paths:
+        return b""
+    prefix = ["diff", "--binary", "HEAD", "--"]
+    batches: list[list[str]] = []
+    current: list[str] = []
+    for relative_path in relative_paths:
+        candidate = [*current, relative_path]
+        command = ["git", *prefix, *candidate]
+        if current and len(subprocess.list2cmdline(command)) > command_char_limit:
+            batches.append(current)
+            current = [relative_path]
+        else:
+            current = candidate
+    if current:
+        batches.append(current)
+    return b"".join(
+        _git_output(repo_root, *prefix, *batch, binary=True)
+        for batch in batches
+    )
 
 
 def _is_within(path: Path, root: Path) -> bool:
@@ -209,19 +246,7 @@ def _git_provenance(
         if path not in ignored_notebook_runtime_paths
         and path not in ignored_tracked_artifact_paths
     ]
-    diff = (
-        _git_output(
-            repo_root,
-            "diff",
-            "--binary",
-            "HEAD",
-            "--",
-            *tracked_source_changes,
-            binary=True,
-        )
-        if tracked_source_changes
-        else b""
-    )
+    diff = _git_binary_diff_for_paths(repo_root, tracked_source_changes)
     untracked_output = str(
         _git_output(repo_root, "ls-files", "--others", "--exclude-standard")
     )

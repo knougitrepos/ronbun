@@ -660,6 +660,7 @@
     "platform": "Windows-10-10.0.26200-SP0",
     "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
   },
+  "finished_at_utc": "2026-08-03T13:05:33.538610+00:00",
   "git": {
     "allowed_untracked_roots": [
       "runs",
@@ -721,5 +722,5 @@
   "run_name": "step4_survface_arcface-7972a704552df378345f",
   "sequence": 1,
   "started_at_utc": "2026-08-02T21:18:44.049352+00:00",
-  "status": "running"
+  "status": "completed"
 }

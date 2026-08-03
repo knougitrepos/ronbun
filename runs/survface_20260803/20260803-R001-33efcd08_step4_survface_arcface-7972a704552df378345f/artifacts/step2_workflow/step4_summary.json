@@ -1,0 +1,19 @@
+{
+  "run_id": "20260803-R001-33efcd08",
+  "dataset_id": "survface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "selected_samples": 463341,
+  "saliency_selected_samples": 182159,
+  "saliency_selection_sha256": "4e5287e7e114d40f17f8e84a5dc1659e0879691332a6d71b562510fb1ca8fe65",
+  "paired_rows": 4633410,
+  "retrieval_rows": 6375565,
+  "origin_score_audit_rows": 342155,
+  "calibration_origin_fpir": 0.09999489561533358,
+  "test_origin_fpir": 0.09269238351843333,
+  "origin_calibration_transfer_status": "target_met",
+  "geometry_association_rows": 570,
+  "retrieval_association_rows": 3990,
+  "representative_cases": 480,
+  "threshold_policy": "frozen_origin",
+  "regenerated_gradcam": false
+}

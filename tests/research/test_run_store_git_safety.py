@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from research.runtime.run_store import RunStore
+from research.runtime.run_store import RunStore, _git_binary_diff_for_paths
 
 
 KST = ZoneInfo("Asia/Seoul")
@@ -223,3 +223,32 @@ def test_paper_run_still_rejects_notebook_source_changes(tmp_path):
             now=datetime(2026, 7, 29, 22, 30, tzinfo=KST),
             allow_dirty=False,
         )
+
+
+def test_binary_diff_batches_pathspecs_without_changing_payload(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.invalid")
+    _git(repo, "config", "user.name", "RunStore Test")
+    relative_paths = [f"source-{index:02d}-with-a-long-name.txt" for index in range(8)]
+    for relative_path in relative_paths:
+        (repo / relative_path).write_text("clean\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "initial")
+    for relative_path in relative_paths:
+        (repo / relative_path).write_text("dirty\n", encoding="utf-8")
+
+    expected = subprocess.run(
+        ["git", "diff", "--binary", "HEAD", "--", *relative_paths],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    ).stdout
+    actual = _git_binary_diff_for_paths(
+        repo,
+        relative_paths,
+        command_char_limit=110,
+    )
+
+    assert actual == expected

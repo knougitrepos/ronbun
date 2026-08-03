@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "artifact_type": "step4_search_space_refresh_family",
+  "generated_at_utc": "2026-08-03T13:59:00.590336+00:00",
+  "family": "pq",
+  "dataset_id": "survface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "source_run_id": "20260803-R001-33efcd08",
+  "source_origin_embedding_artifact_uid": "origin-embedding-4a96b07230aa31c5098535d1",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 463341,
+    "paired_rows": 2316705,
+    "retrieval_rows": 2732385
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 15
+  },
+  "origin_calibration_signature": {
+    "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+    "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+    "target_fpir": 0.1,
+    "decision_threshold": 0.7789576053619385,
+    "calibration_non_mated_count": 97955,
+    "calibration_false_accept_count": 9795,
+    "calibration_fpir": 0.09999489561533358,
+    "test_non_mated_count": 121736,
+    "test_false_accept_count": 11284,
+    "test_fpir": 0.09269238351843333,
+    "status": "target_met"
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 1994,
+      "sha256": "56f6d2b24ac29d828a025f550f73d5ba1f6e28f0c14ccf6239a0e006fd71ea51"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 15094,
+      "sha256": "cfb30beeb21837e54602191615a12cf8f67cb75d7e5dc751031d665c4f78ad14"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 4936,
+      "sha256": "6180c15e1037434c624545240433a9d900c309b9c579f5ee80697eebc54dc463"
+    }
+  }
+}

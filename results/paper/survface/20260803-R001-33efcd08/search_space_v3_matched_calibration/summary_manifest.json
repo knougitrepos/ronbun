@@ -1,0 +1,125 @@
+{
+  "schema_version": 2,
+  "artifact_type": "step4_search_space_refresh",
+  "generated_at_utc": "2026-08-03T13:59:04.343121+00:00",
+  "dataset_id": "survface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "run_id": "20260803-R001-33efcd08",
+  "source_run_id": "20260803-R001-33efcd08",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": true,
+  "derived_evaluation_paper_eligible": true,
+  "claim_status": "validation_required",
+  "origin_calibration_signature": {
+    "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+    "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+    "target_fpir": 0.1,
+    "decision_threshold": 0.7789576053619385,
+    "calibration_non_mated_count": 97955,
+    "calibration_false_accept_count": 9795,
+    "calibration_fpir": 0.09999489561533358,
+    "test_non_mated_count": 121736,
+    "test_false_accept_count": 11284,
+    "test_fpir": 0.09269238351843333,
+    "status": "target_met"
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_applicable_protocol_changed",
+    "reason": "SurvFace 3,000-ID half-gallery calibration and watch-list compressor fit intentionally replace the legacy 200-ID regime"
+  },
+  "evaluator_git": {
+    "commit": "99568decb6ec39c2db5ecdc0d99ee4b7727966b4",
+    "branch": "step6",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [
+      "runs/survface_20260803/20260803-R001-33efcd08_step4_survface_arcface-7972a704552df378345f/logs/events.jsonl",
+      "runs/survface_20260803/20260803-R001-33efcd08_step4_survface_arcface-7972a704552df378345f/run_manifest.json"
+    ],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/survface_20260803/20260803-R001-33efcd08_step4_survface_arcface-7972a704552df378345f/run_manifest.json",
+      "bytes": 26547,
+      "sha256": "05139e688acbd199e41b55a26e41d61abc73fc1eb3e9383c896ca7530c43e659"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/survface_20260803/20260803-R001-33efcd08_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 937,
+      "sha256": "feebcb7feec9af1fa96b5b88dbbe5436e5dd3a63bc71b63fbc579c4f004db1d5"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/survface_20260803/20260803-R001-33efcd08_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58675,
+      "sha256": "b95615b8551c895567c976ef7fa4dac8702e0c68745678e74ba87b491fd03d75"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/survface_20260803/20260803-R001-33efcd08_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/survface/20260803-R001-33efcd08/search_space_v3_matched_calibration/pca/family_manifest.json",
+      "bytes": 1824,
+      "sha256": "b47575b8d15adbdfb1b5b836338609f176b413945661ef61f34bbee5fee98251"
+    },
+    "pq": {
+      "path": "results/paper/survface/20260803-R001-33efcd08/search_space_v3_matched_calibration/pq/family_manifest.json",
+      "bytes": 1823,
+      "sha256": "5a6ae02c2ae169b46cb4fae081d601ce55bc68e93637473f3129bd6b72f51650"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 35
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/survface/20260803-R001-33efcd08/search_space_v3_matched_calibration/compression_summary.csv",
+      "bytes": 3518,
+      "sha256": "8b98027923a8e82f27eb4e5d1a6dae5c914c19c163379133236fdaca59a0247a"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/survface/20260803-R001-33efcd08/search_space_v3_matched_calibration/retrieval_summary.csv",
+      "bytes": 32227,
+      "sha256": "98b6c782577a497efcc816f883951944f1a87340f02f7a37d0f99b43efbf49c3"
+    }
+  }
+}
