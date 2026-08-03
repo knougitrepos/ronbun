@@ -1,0 +1,57 @@
+{
+  "artifact_type": "cross_dataset_compact_summary",
+  "datasets": [
+    "survface"
+  ],
+  "generated_at_utc": "2026-08-03T14:35:32.106392+00:00",
+  "join_contract": {
+    "grain": "one row per dataset, model, run, compression profile, search mode, and threshold policy",
+    "rows": 35,
+    "validation": "compression one-to-retrieval many"
+  },
+  "model_name": "arcface",
+  "output_files": {
+    "compression_summary_all.csv": {
+      "bytes": 39032,
+      "path": "results/paper/common/arcface/survface-20260803-R001-33efcd08/compression_summary_all.csv",
+      "sha256": "95f4bf54b5d9ae717aefd101b3b334378afaea9df0cd7df0b457563c2c080b56"
+    },
+    "dir_fpir_storage_latency.csv": {
+      "bytes": 11643,
+      "path": "results/paper/common/arcface/survface-20260803-R001-33efcd08/dir_fpir_storage_latency.csv",
+      "sha256": "672bea446a9c7d7dd53af7b97ba08704ecdd70a295473ba88be91bdd9ea20272"
+    },
+    "retrieval_summary_all.csv": {
+      "bytes": 34124,
+      "path": "results/paper/common/arcface/survface-20260803-R001-33efcd08/retrieval_summary_all.csv",
+      "sha256": "1efdde03f2ad1a1d43cc1f215476db223a22632a388c070246b91718eae81431"
+    },
+    "storage_distortion.png": {
+      "bytes": 65442,
+      "path": "results/paper/common/arcface/survface-20260803-R001-33efcd08/storage_distortion.png",
+      "sha256": "4383994a8ceee44a36f901934a4c9f392f0becb4852c73b5a72e10f6f3e26f04"
+    },
+    "storage_open_set.png": {
+      "bytes": 236139,
+      "path": "results/paper/common/arcface/survface-20260803-R001-33efcd08/storage_open_set.png",
+      "sha256": "a70543dbf8edf38d394b801b9fcca4592b760d42ce6fbbfe479d805ddae51007"
+    }
+  },
+  "schema_version": 4,
+  "selected_runs": {
+    "survface": {
+      "model_uid": "arcface-7972a704552df378345f",
+      "run_id": "20260803-R001-33efcd08",
+      "summary_artifact_type": "step4_search_space_refresh",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/survface/20260803-R001-33efcd08/search_space_v3_matched_calibration/summary_manifest.json",
+        "sha256": "5f91667c0ec835d86ad3349de392e35a9bf03a4d267b61686164b9bac166749a"
+      }
+    }
+  },
+  "survface_faithfulness": {
+    "included": false
+  },
+  "survface_threshold_claim_status": "not_flagged"
+}

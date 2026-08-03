@@ -1,7 +1,7 @@
 {
   "artifact_type": "survface_gradcam_faithfulness_cross_model",
   "schema_version": 1,
-  "created_at_utc": "2026-08-02T14:44:23.759916+00:00",
+  "created_at_utc": "2026-08-03T14:40:41.596159+00:00",
   "dataset_id": "survface",
   "model_families": [
     "arcface",
@@ -34,14 +34,14 @@
     {
       "model_family": "arcface",
       "model_uid": "arcface-7972a704552df378345f",
-      "source_run_id": "20260729-R001-cccb59d5",
+      "source_run_id": "20260803-R001-33efcd08",
       "manifest": {
-        "path": "C:\\ronbun\\results\\paper\\survface\\20260729-R001-cccb59d5\\faithfulness_v1\\manifest.json",
-        "bytes": 10076,
-        "sha256": "39f4aa06f3bfca5f32c2bc909793202cfe37acc927af8f7571cb338b9339572f"
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260803-R001-33efcd08\\faithfulness_v1\\manifest.json",
+        "bytes": 4696,
+        "sha256": "ef023b32b942632a097f7c7e5aa2053a87afab65011561288444dc1402d0fa3b"
       },
       "summary": {
-        "path": "C:\\ronbun\\results\\paper\\survface\\20260729-R001-cccb59d5\\faithfulness_v1\\faithfulness_summary.csv",
+        "path": "C:\\ronbun\\results\\paper\\survface\\20260803-R001-33efcd08\\faithfulness_v1\\faithfulness_summary.csv",
         "bytes": 2672,
         "sha256": "70bcdd1ff4bbe4022b4381c816ffb63f8563ab81e68922df6bce2a0d3b190765"
       }
@@ -81,12 +81,12 @@
     {
       "path": "faithfulness_cross_model_long.csv",
       "bytes": 10432,
-      "sha256": "9a644510cbb2bb62943a4d98d198887cf8d5bb272792e6325357a6f3e7beb4d5"
+      "sha256": "68e4862cc1116025b8a9688cdff57ee458ba0386a5d9c9c8921872fc24107add"
     },
     {
       "path": "faithfulness_cross_model_primary.csv",
       "bytes": 2175,
-      "sha256": "874f4e12f6a944ae49fa760de1998d328adb4c3939663677184cd61f2dc51907"
+      "sha256": "b10381b04ecd798682b303c36ce31b170833e74cb71f04253da7a7e9fe15940b"
     }
   ],
   "interpretation_boundary": "High-saliency occlusion must exceed both low-saliency and random controls with a positive identity-cluster bootstrap CI to pass the strong faithfulness criterion."

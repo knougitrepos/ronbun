@@ -232,6 +232,10 @@ def derive_survface_faithfulness(
     existing = _verify_existing_output(output)
     if existing is not None:
         return existing
+    provenance = inspect_git_provenance(
+        PROJECT_ROOT,
+        run_root=context["run_dir"],
+    )
 
     candidates = _read_candidates(context)
     selected = select_stratified_faithfulness_sample(
@@ -323,7 +327,6 @@ def derive_survface_faithfulness(
         seed=int(seed),
     )
 
-    provenance = inspect_git_provenance(PROJECT_ROOT, run_root=source)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(
         tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent)
