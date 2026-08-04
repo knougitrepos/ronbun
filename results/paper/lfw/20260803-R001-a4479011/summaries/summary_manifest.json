@@ -1,0 +1,82 @@
+{
+  "artifact_type": "step4_compact_summaries",
+  "dataset_id": "lfw",
+  "generated_at_utc": "2026-08-04T14:24:27.689160+00:00",
+  "generator": {
+    "path": "scripts/generate_step4_compact_summaries.py",
+    "sha256": "07c5d574d40fa424d5cab0beebd593c75bb3802af50017af071e2cc2f9f003ab"
+  },
+  "model_uid": "arcface-7972a704552df378345f",
+  "output_files": {
+    "compression_summary.csv": {
+      "bytes": 3447,
+      "path": "results/paper/lfw/20260803-R001-a4479011/summaries/compression_summary.csv",
+      "rows": 10,
+      "sha256": "c726e688c835f1f3f6767c638d40fa721ba1aea9054f87fba3f39162e7176927"
+    },
+    "retrieval_summary.csv": {
+      "bytes": 28894,
+      "path": "results/paper/lfw/20260803-R001-a4479011/summaries/retrieval_summary.csv",
+      "rows": 35,
+      "sha256": "02c60de3d123e19df8bb6ffcb09a7f08e8fd229174c67c7e767550e50ac55e68"
+    }
+  },
+  "run_id": "20260803-R001-a4479011",
+  "schema_version": 2,
+  "source_files": {
+    "freeze_manifest.json": {
+      "bytes": 931,
+      "path": "runs/lfw_20260803/20260803-R001-a4479011_step4_lfw_arcface-7972a704552df378345f/artifacts/step2_workflow/freeze_manifest.json",
+      "sha256": "d6241ac6e26b0a7496458d3cf0e05e8e0c5301d8be7f1a198c866f28a29b2cc6"
+    },
+    "paired_embedding_metrics.csv": {
+      "bytes": 37758069,
+      "path": "runs/lfw_20260803/20260803-R001-a4479011_step4_lfw_arcface-7972a704552df378345f/artifacts/step2_workflow/paired_embedding_metrics.csv",
+      "sha256": "a6883b4d0973319343ee9b014cb88942d46e3f8a0eceedb6f42e742625c581e1"
+    },
+    "retrieval_metrics.csv": {
+      "bytes": 252308359,
+      "path": "runs/lfw_20260803/20260803-R001-a4479011_step4_lfw_arcface-7972a704552df378345f/artifacts/step2_workflow/retrieval_metrics.csv",
+      "sha256": "0f85c7110ab70320d3302d7449a79d45f481c08ab53d8106fd61a7c6ba895449"
+    },
+    "run_manifest.json": {
+      "bytes": 26095,
+      "path": "runs/lfw_20260803/20260803-R001-a4479011_step4_lfw_arcface-7972a704552df378345f/run_manifest.json",
+      "sha256": "c1a5e8186d9e57641997690165e68fdbb86ad8216a7b6d20b187e614b5db5947"
+    },
+    "step4_summary.json": {
+      "bytes": 691,
+      "path": "runs/lfw_20260803/20260803-R001-a4479011_step4_lfw_arcface-7972a704552df378345f/artifacts/step2_workflow/step4_summary.json",
+      "sha256": "44d30f75220f1655fa8961358bb963150a748e6a638d88b75bf0ae860a681b21"
+    }
+  },
+  "source_ledgers_preserved_immutable": true,
+  "source_run_git": {
+    "allowed_untracked_roots": [
+      "runs"
+    ],
+    "branch": "step6",
+    "commit": "e85a07582d77f7df404b9ad819e84d4d4afa8ab9",
+    "dirty": false,
+    "dirty_run_explicitly_allowed": false,
+    "ignored_notebook_runtime_paths": [],
+    "tracked_source_changes": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked_paths": [],
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "source_run_status": "completed",
+  "summary_contract": {
+    "compression_grain": "one row per compression family and profile",
+    "origin_and_compressed_operating_points": "reported separately",
+    "rates": "fractions in [0,1] with explicit numerator and denominator columns",
+    "retrieval_grain": "one row per compression family, profile, search mode, and threshold policy",
+    "score_space_policy": "cross-space score drift is undefined for PQ ADC; frozen-origin threshold is inapplicable outside cosine score space"
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "paired_rows": 131950,
+    "retrieval_rows": 75740,
+    "retrieval_summary_rows": 35
+  }
+}
