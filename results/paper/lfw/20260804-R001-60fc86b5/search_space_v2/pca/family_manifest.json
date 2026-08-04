@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "artifact_type": "step4_search_space_refresh_family",
+  "generated_at_utc": "2026-08-03T20:37:31.532280+00:00",
+  "family": "pca",
+  "dataset_id": "lfw",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "source_run_id": "20260804-R001-60fc86b5",
+  "source_origin_embedding_artifact_uid": "origin-embedding-f9ef3c43b6f4f4e850cb8067",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 13195,
+    "paired_rows": 65975,
+    "retrieval_rows": 43280
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 20
+  },
+  "origin_calibration_signature": {
+    "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+    "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+    "target_fpir": 0.01,
+    "decision_threshold": 0.4274006187915802,
+    "calibration_non_mated_count": 2910,
+    "calibration_false_accept_count": 0,
+    "calibration_fpir": 0.0,
+    "test_non_mated_count": 1688,
+    "test_false_accept_count": 1,
+    "test_fpir": 0.0005924170616113745,
+    "status": "target_met"
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 1911,
+      "sha256": "4f9b02a2253a980d9a7c6ce4e16ca7ed234b791f7c65f6b658384f4cd37966c6"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 17339,
+      "sha256": "8a4dc3a8575c1c5a6e5a55271717819fd2490802b49e22cae0b65646a353bb5e"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 4237,
+      "sha256": "211a41f3b5a5257e98cae94270231c0325fb6689ce749fbe34c4f9bcfa502551"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "origin_score_audit_rows": 342155,
+      "paired_rows": 4633410,
+      "retrieval_rows": 6375565
+    }
+  },
+  "finished_at_utc": "2026-08-03T17:49:22.254468+00:00",
+  "phase": "04_step2_compression_characterization",
+  "started_at_utc": "2026-08-03T16:40:40.774134+00:00",
+  "status": "completed"
+}

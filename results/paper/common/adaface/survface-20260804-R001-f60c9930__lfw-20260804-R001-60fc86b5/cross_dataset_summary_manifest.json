@@ -1,0 +1,68 @@
+{
+  "artifact_type": "cross_dataset_compact_summary",
+  "datasets": [
+    "survface",
+    "lfw"
+  ],
+  "generated_at_utc": "2026-08-03T20:38:06.881670+00:00",
+  "join_contract": {
+    "grain": "one row per dataset, model, run, compression profile, search mode, and threshold policy",
+    "rows": 70,
+    "validation": "compression one-to-retrieval many"
+  },
+  "model_name": "adaface",
+  "output_files": {
+    "compression_summary_all.csv": {
+      "bytes": 72796,
+      "path": "results/paper/common/adaface/survface-20260804-R001-f60c9930__lfw-20260804-R001-60fc86b5/compression_summary_all.csv",
+      "sha256": "8c05554df4332e2c19c3e400ddb5f7c0187d4afc28f06e9dbd91fe7312bf210c"
+    },
+    "dir_fpir_storage_latency.csv": {
+      "bytes": 21839,
+      "path": "results/paper/common/adaface/survface-20260804-R001-f60c9930__lfw-20260804-R001-60fc86b5/dir_fpir_storage_latency.csv",
+      "sha256": "5266e3f6a8592141102e3ce37ba56baee78071a62b6c16f8f4bd976eb2e2eed6"
+    },
+    "retrieval_summary_all.csv": {
+      "bytes": 63356,
+      "path": "results/paper/common/adaface/survface-20260804-R001-f60c9930__lfw-20260804-R001-60fc86b5/retrieval_summary_all.csv",
+      "sha256": "2450de4142efbd16975fdfacee36608bfa54fac00a62c9f79034c1bb68ac93b6"
+    },
+    "storage_distortion.png": {
+      "bytes": 123527,
+      "path": "results/paper/common/adaface/survface-20260804-R001-f60c9930__lfw-20260804-R001-60fc86b5/storage_distortion.png",
+      "sha256": "c07238efc7296ffa5c0f99f7415f6e2881166ae552a6d7c8dafc1fc2c2c105d8"
+    },
+    "storage_open_set.png": {
+      "bytes": 434305,
+      "path": "results/paper/common/adaface/survface-20260804-R001-f60c9930__lfw-20260804-R001-60fc86b5/storage_open_set.png",
+      "sha256": "57925b8ffad5c05cf215bc8fac280143f6509fe49fdd96ed1cd652c1b3aeaaef"
+    }
+  },
+  "schema_version": 4,
+  "selected_runs": {
+    "lfw": {
+      "model_uid": "adaface-4df25b75e065b0b9ed43",
+      "run_id": "20260804-R001-60fc86b5",
+      "summary_artifact_type": "step4_search_space_refresh",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/lfw/20260804-R001-60fc86b5/search_space_v2/summary_manifest.json",
+        "sha256": "0c4807b6135b14c36aace008ddb7763470756c6dae50f0a910369bc2ff5685a3"
+      }
+    },
+    "survface": {
+      "model_uid": "adaface-4df25b75e065b0b9ed43",
+      "run_id": "20260804-R001-f60c9930",
+      "summary_artifact_type": "step4_search_space_refresh",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/survface/20260804-R001-f60c9930/search_space_v3_matched_calibration/summary_manifest.json",
+        "sha256": "866833bb629a237f00f9d9827f82cd18103482d70cc25bf40d130c6b5475950c"
+      }
+    }
+  },
+  "survface_faithfulness": {
+    "included": false
+  },
+  "survface_threshold_claim_status": "not_flagged"
+}
