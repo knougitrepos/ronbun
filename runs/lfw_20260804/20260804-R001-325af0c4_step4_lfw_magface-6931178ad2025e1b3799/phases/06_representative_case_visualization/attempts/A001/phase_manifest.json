@@ -1,0 +1,13 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "cases": 407,
+      "figures": 407
+    }
+  },
+  "finished_at_utc": "2026-08-04T08:50:08.585149+00:00",
+  "phase": "06_representative_case_visualization",
+  "started_at_utc": "2026-08-04T08:49:31.238513+00:00",
+  "status": "completed"
+}

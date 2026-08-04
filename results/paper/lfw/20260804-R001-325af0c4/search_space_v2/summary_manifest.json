@@ -1,0 +1,123 @@
+{
+  "schema_version": 2,
+  "artifact_type": "step4_search_space_refresh",
+  "generated_at_utc": "2026-08-04T09:43:05.999695+00:00",
+  "dataset_id": "lfw",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "run_id": "20260804-R001-325af0c4",
+  "source_run_id": "20260804-R001-325af0c4",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": true,
+  "derived_evaluation_paper_eligible": true,
+  "claim_status": "validation_required",
+  "origin_calibration_signature": {
+    "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+    "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+    "target_fpir": 0.01,
+    "decision_threshold": 0.4329013526439667,
+    "calibration_non_mated_count": 2910,
+    "calibration_false_accept_count": 0,
+    "calibration_fpir": 0.0,
+    "test_non_mated_count": 1688,
+    "test_false_accept_count": 1,
+    "test_fpir": 0.0005924170616113745,
+    "status": "target_met"
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_available"
+  },
+  "evaluator_git": {
+    "commit": "6c977210a2c1e3e02eaa20c23f8baa1586cfe4af",
+    "branch": "step6",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [
+      "runs/lfw_20260804/active_run.json"
+    ],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/lfw_20260804/20260804-R001-325af0c4_step4_lfw_magface-6931178ad2025e1b3799/run_manifest.json",
+      "bytes": 26444,
+      "sha256": "02310875332ca322551503a709c6865fc3784d54b51593c1da2ed3b4eab947a9"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/lfw_20260804/20260804-R001-325af0c4_step4_lfw_magface-6931178ad2025e1b3799/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 931,
+      "sha256": "ed2136ca06e6cbc85da5272ca0b9368f5cbb0fa61b5c25916a9d5bb790919d37"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/lfw_20260804/20260804-R001-325af0c4_step4_lfw_magface-6931178ad2025e1b3799/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 2581,
+      "sha256": "18fad40bf7cc80d778879759b6af3a967d889fa507e39ec4a73288860b41902c"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/lfw_20260804/20260804-R001-325af0c4_step4_lfw_magface-6931178ad2025e1b3799/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 3343034,
+      "sha256": "c868cd5ae74bc79c2226a41f323970cec008d7bce1612ce9627d2002992d7ff8"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/lfw/20260804-R001-325af0c4/search_space_v2/pca/family_manifest.json",
+      "bytes": 1722,
+      "sha256": "38f74ed3ea10002491b30c7e8f8c777800041b9a9a7aac3fee9ce8e39e89184d"
+    },
+    "pq": {
+      "path": "results/paper/lfw/20260804-R001-325af0c4/search_space_v2/pq/family_manifest.json",
+      "bytes": 1721,
+      "sha256": "a4519eab8d0cc4c55864a505d046ff1c2b035b618962a75c23bae7cec071392e"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 35
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/lfw/20260804-R001-325af0c4/search_space_v2/compression_summary.csv",
+      "bytes": 3446,
+      "sha256": "b28f2704b135a0fcbc4bf31b6059ac2fe51b48beba8a982c099b9367ad7de569"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/lfw/20260804-R001-325af0c4/search_space_v2/retrieval_summary.csv",
+      "bytes": 29021,
+      "sha256": "87bcde614ab85ff04257c119dd90cfd2bd437ee09b01b2f73998814ca9fb6191"
+    }
+  }
+}

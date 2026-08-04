@@ -1,0 +1,118 @@
+{
+  "artifact_type": "survface_gradcam_faithfulness",
+  "schema_version": 1,
+  "created_at_utc": "2026-08-04T09:42:26.358430+00:00",
+  "dataset_id": "survface",
+  "source_run_id": "20260804-R001-4d8260d6",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "checkpoint_sha256": "cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58",
+  "origin_embedding_artifact_uid": "origin-embedding-333884cb3652dc2b639064ae",
+  "saliency_spec_uid": "saliency-c5d0c6dd5ba35679030e4276",
+  "saliency_target_name": "origin_top1_gallery_cosine",
+  "claim_status": "exploratory_dirty_evaluator",
+  "paper_eligible": false,
+  "threshold_independent": true,
+  "source_full_paper_run": true,
+  "sampling": {
+    "candidate_count": 182148,
+    "selected_count": 2048,
+    "maximum_samples": 2048,
+    "seed": 42,
+    "unit": "sample_id",
+    "strata": [
+      "protocol_role",
+      "raw_embedding_norm_within_role_quartile",
+      "gradcam_target_score_within_role_quartile"
+    ],
+    "selected_sample_sha256": "2d9e259637200e181f046e7750f420aa27e46a9c7e2b7da2bf6ad02e53b046a1",
+    "stratum_count": 32
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "strategies": [
+      "high_saliency",
+      "low_saliency",
+      "random"
+    ],
+    "random_repeats": 5,
+    "random_seed_unit": "sample_id",
+    "fill_value": "model_preprocessing_channel_mean"
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "bootstrap_repeats": 1000,
+    "confidence_level": 0.95,
+    "grouping": [
+      "all",
+      "protocol_role"
+    ]
+  },
+  "validation": {
+    "maximum_stored_target_score_abs_difference": 2.0265579223632812e-06,
+    "source_completed": true,
+    "source_fallback_free": true,
+    "source_artifacts_immutable": true
+  },
+  "evaluator_git": {
+    "commit": "6c977210a2c1e3e02eaa20c23f8baa1586cfe4af",
+    "branch": "step6",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [
+      "runs/lfw_20260804/active_run.json"
+    ],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "sources": [
+    {
+      "path": "runs/survface_20260804/20260804-R001-4d8260d6_step4_survface_magface-6931178ad2025e1b3799/run_manifest.json",
+      "bytes": 26722,
+      "sha256": "e501c77fa13515f85e1ab9efbd6b8c3c502906de98b6eccc86977e3c45b121fc"
+    },
+    {
+      "path": "runs/survface_20260804/20260804-R001-4d8260d6_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 937,
+      "sha256": "f790e613694a8739ddc36422d962ad4ffdda767bb085572c38a5863c91a6db55"
+    },
+    {
+      "path": "runs/survface_20260804/20260804-R001-4d8260d6_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    },
+    {
+      "path": "runs/survface_20260804/20260804-R001-4d8260d6_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58679,
+      "sha256": "e65a334b8a1d2f3d6044c8ae4e691fd17599da944d2c734360c1762de824e14f"
+    },
+    {
+      "path": "runs/survface_20260804/20260804-R001-4d8260d6_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/saliency_population/manifest.json",
+      "bytes": 25256,
+      "sha256": "7dbffa4ba81d694ac8eabb560c8870e54d8363b955fffdf7abe628daf4273b95"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 735226,
+      "sha256": "786f6e30950b227e823adb822189cfd6aaa5d4c206d0ab5aaccc4a563456debe"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 2659,
+      "sha256": "93006e13404434bbf3262bc4e44bf5d626768141fec11dd3646249bda727a354"
+    }
+  ],
+  "limitations": [
+    "This is a deterministic stratified subset, not all 182159 valid probe heatmaps.",
+    "The source run is clean and full, but the derived evaluator is running from a dirty Step 6 worktree.",
+    "Each artifact validates one model; matched-condition cross-model interpretation requires combining ArcFace, AdaFace, and MagFace artifacts.",
+    "No FPIR threshold or threshold-crossing metric is used because SurvFace calibration transfer failed."
+  ]
+}
