@@ -57,6 +57,7 @@ class Step2CompressionResult:
     calibration_diagnostics: dict[str, object]
     summary: pd.DataFrame
     fitted_codecs: tuple[tuple[str, str, Any], ...]
+    calibration_diagnostics_by_target: dict[str, dict[str, object]]
 
 
 @dataclass(frozen=True)
@@ -1072,6 +1073,22 @@ def _storage_metadata(family: str, profile_result: Any) -> dict[str, object]:
     }
 
 
+def _normalize_target_fpirs(
+    primary_target_fpir: float,
+    target_fpirs: Sequence[float] | None,
+) -> tuple[float, ...]:
+    primary = float(primary_target_fpir)
+    requested = (
+        (primary,)
+        if target_fpirs is None
+        else (primary, *(float(value) for value in target_fpirs))
+    )
+    normalized = tuple(dict.fromkeys(requested))
+    if any(not 0.0 <= value <= 1.0 for value in normalized):
+        raise ValueError("target FPIR values must be between 0 and 1")
+    return normalized
+
+
 def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
     paired_summary = (
         paired.groupby(
@@ -1096,16 +1113,20 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
     records = []
+    retrieval_group_columns = [
+        "compression_family",
+        "compression_profile",
+        "search_mode",
+        "threshold_policy",
+    ]
+    if "target_fpir" in retrieval:
+        retrieval_group_columns.append("target_fpir")
     for keys, group in retrieval.groupby(
-        [
-            "compression_family",
-            "compression_profile",
-            "search_mode",
-            "threshold_policy",
-        ],
+        retrieval_group_columns,
         sort=True,
     ):
-        family, profile, search_mode, policy = keys
+        family, profile, search_mode, policy = keys[:4]
+        operating_target = float(keys[4]) if len(keys) == 5 else np.nan
         mated = group["is_mated"].astype(bool)
         accepted = group["compressed_accepted"].astype(bool)
         correct = group["compressed_rank1_correct"].astype(bool)
@@ -1115,6 +1136,7 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 "compression_profile": profile,
                 "search_mode": search_mode,
                 "threshold_policy": policy,
+                "target_fpir": operating_target,
                 "query_count": int(len(group)),
                 "dir_rank1": (
                     float((accepted & correct & mated).sum() / mated.sum())
@@ -1182,11 +1204,13 @@ def _characterize_population_with_protocols(
     pq_settings: Sequence[tuple[int, int]],
     seed: int,
     target_fpir: float,
+    target_fpirs: Sequence[float] | None = None,
     top_k: int,
     threshold_selection: str = "maximize_dir",
     calibration_contract: dict[str, object] | None = None,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
+    operating_targets = _normalize_target_fpirs(target_fpir, target_fpirs)
     requested_pca = tuple(int(value) for value in pca_dimensions)
     requested_pq = tuple((int(m), int(bits)) for m, bits in pq_settings)
     if not requested_pca and not requested_pq:
@@ -1249,7 +1273,7 @@ def _characterize_population_with_protocols(
     retrieval_frames = []
     origin_calibration_reference: pd.DataFrame | None = None
     origin_evaluation_reference: pd.DataFrame | None = None
-    origin_threshold: float | None = None
+    origin_thresholds: dict[float, float] | None = None
     progress_offset = 0
     for family, profile, compressor in compressors:
         full_result = compressor.transform_profile(full_matrix)
@@ -1298,27 +1322,33 @@ def _characterize_population_with_protocols(
         )
         if origin_calibration_reference is None:
             origin_calibration_reference = calibration_comparison.copy()
-            origin_threshold = _threshold(
-                calibration_comparison,
-                score_column="origin_top1_score",
-                correct_column="origin_rank1_correct",
-                target_fpir=target_fpir,
-                threshold_selection=threshold_selection,
-            )
+            origin_thresholds = {
+                target: _threshold(
+                    calibration_comparison,
+                    score_column="origin_top1_score",
+                    correct_column="origin_rank1_correct",
+                    target_fpir=target,
+                    threshold_selection=threshold_selection,
+                )
+                for target in operating_targets
+            }
         else:
             _assert_same_origin_comparison(
                 origin_calibration_reference,
                 calibration_comparison,
                 split_name="calibration",
             )
-        compressed_threshold = _threshold(
-            calibration_comparison,
-            score_column="compressed_top1_score",
-            correct_column="compressed_rank1_correct",
-            target_fpir=target_fpir,
-            threshold_selection=threshold_selection,
-        )
-        adc_calibration_threshold: float | None = None
+        compressed_thresholds = {
+            target: _threshold(
+                calibration_comparison,
+                score_column="compressed_top1_score",
+                correct_column="compressed_rank1_correct",
+                target_fpir=target,
+                threshold_selection=threshold_selection,
+            )
+            for target in operating_targets
+        }
+        adc_calibration_thresholds: dict[float, float] | None = None
         if family == "pq":
             calibration_gallery_codes = compressor.encode(calibration["gallery"])
             (
@@ -1342,13 +1372,16 @@ def _characterize_population_with_protocols(
                 gallery_identity_ids=calibration["gallery_identity_ids"],
                 compression_profile=profile,
             )
-            adc_calibration_threshold = _threshold(
-                adc_calibration_comparison,
-                score_column="compressed_top1_score",
-                correct_column="compressed_rank1_correct",
-                target_fpir=target_fpir,
-                threshold_selection=threshold_selection,
-            )
+            adc_calibration_thresholds = {
+                target: _threshold(
+                    adc_calibration_comparison,
+                    score_column="compressed_top1_score",
+                    correct_column="compressed_rank1_correct",
+                    target_fpir=target,
+                    threshold_selection=threshold_selection,
+                )
+                for target in operating_targets
+            }
         evaluation_queries = _compressed_matrix(
             family,
             compressor,
@@ -1398,27 +1431,33 @@ def _characterize_population_with_protocols(
                 evaluation_comparison,
                 split_name="test",
             )
-        if origin_threshold is None:
+        if origin_thresholds is None:
             raise RuntimeError("origin calibration threshold was not initialized")
-        for threshold_policy, operating_threshold in (
-            ("frozen_origin", origin_threshold),
-            ("recalibrated_compressed", compressed_threshold),
-        ):
-            compared = apply_retrieval_thresholds(
-                evaluation_comparison,
-                origin_threshold=origin_threshold,
-                compressed_threshold=operating_threshold,
-            )
-            compared.insert(0, "dataset", prepared.dataset_id)
-            compared.insert(1, "model_uid", prepared.model_uid)
-            compared["protocol_uid"] = str(protocol_uid)
-            compared["threshold_policy"] = threshold_policy
-            compared["threshold_source_split"] = "calibration"
-            compared["evaluation_split"] = "test"
-            for column, value in storage.items():
-                compared[column] = value
-            compared["gallery_template_count"] = len(evaluation["gallery"])
-            retrieval_frames.append(compared)
+        for operating_target in operating_targets:
+            origin_threshold = origin_thresholds[operating_target]
+            for threshold_policy, operating_threshold in (
+                ("frozen_origin", origin_threshold),
+                (
+                    "recalibrated_compressed",
+                    compressed_thresholds[operating_target],
+                ),
+            ):
+                compared = apply_retrieval_thresholds(
+                    evaluation_comparison,
+                    origin_threshold=origin_threshold,
+                    compressed_threshold=operating_threshold,
+                )
+                compared.insert(0, "dataset", prepared.dataset_id)
+                compared.insert(1, "model_uid", prepared.model_uid)
+                compared["protocol_uid"] = str(protocol_uid)
+                compared["target_fpir"] = float(operating_target)
+                compared["threshold_policy"] = threshold_policy
+                compared["threshold_source_split"] = "calibration"
+                compared["evaluation_split"] = "test"
+                for column, value in storage.items():
+                    compared[column] = value
+                compared["gallery_template_count"] = len(evaluation["gallery"])
+                retrieval_frames.append(compared)
         progress_offset += work_per_cosine_mode
 
         if family == "pca":
@@ -1458,13 +1497,16 @@ def _characterize_population_with_protocols(
                 reconstructed_calibration_comparison,
                 split_name="calibration",
             )
-            reconstructed_threshold = _threshold(
-                reconstructed_calibration_comparison,
-                score_column="compressed_top1_score",
-                correct_column="compressed_rank1_correct",
-                target_fpir=target_fpir,
-                threshold_selection=threshold_selection,
-            )
+            reconstructed_thresholds = {
+                target: _threshold(
+                    reconstructed_calibration_comparison,
+                    score_column="compressed_top1_score",
+                    correct_column="compressed_rank1_correct",
+                    target_fpir=target,
+                    threshold_selection=threshold_selection,
+                )
+                for target in operating_targets
+            }
             reconstructed_evaluation = compressor.transform_profile(
                 evaluation["queries"]
             ).reconstructed_vectors
@@ -1503,30 +1545,44 @@ def _characterize_population_with_protocols(
                 reconstructed_evaluation_comparison,
                 split_name="test",
             )
-            for threshold_policy, operating_threshold in (
-                ("frozen_origin", origin_threshold),
-                ("recalibrated_compressed", reconstructed_threshold),
-            ):
-                reconstructed_compared = apply_retrieval_thresholds(
-                    reconstructed_evaluation_comparison,
-                    origin_threshold=origin_threshold,
-                    compressed_threshold=operating_threshold,
-                )
-                reconstructed_compared.insert(0, "dataset", prepared.dataset_id)
-                reconstructed_compared.insert(1, "model_uid", prepared.model_uid)
-                reconstructed_compared["protocol_uid"] = str(protocol_uid)
-                reconstructed_compared["threshold_policy"] = threshold_policy
-                reconstructed_compared["threshold_source_split"] = "calibration"
-                reconstructed_compared["evaluation_split"] = "test"
-                for column, value in storage.items():
-                    reconstructed_compared[column] = value
-                reconstructed_compared["gallery_template_count"] = len(
-                    evaluation["gallery"]
-                )
-                retrieval_frames.append(reconstructed_compared)
+            for operating_target in operating_targets:
+                origin_threshold = origin_thresholds[operating_target]
+                for threshold_policy, operating_threshold in (
+                    ("frozen_origin", origin_threshold),
+                    (
+                        "recalibrated_compressed",
+                        reconstructed_thresholds[operating_target],
+                    ),
+                ):
+                    reconstructed_compared = apply_retrieval_thresholds(
+                        reconstructed_evaluation_comparison,
+                        origin_threshold=origin_threshold,
+                        compressed_threshold=operating_threshold,
+                    )
+                    reconstructed_compared.insert(
+                        0, "dataset", prepared.dataset_id
+                    )
+                    reconstructed_compared.insert(
+                        1, "model_uid", prepared.model_uid
+                    )
+                    reconstructed_compared["protocol_uid"] = str(protocol_uid)
+                    reconstructed_compared["target_fpir"] = float(
+                        operating_target
+                    )
+                    reconstructed_compared["threshold_policy"] = threshold_policy
+                    reconstructed_compared[
+                        "threshold_source_split"
+                    ] = "calibration"
+                    reconstructed_compared["evaluation_split"] = "test"
+                    for column, value in storage.items():
+                        reconstructed_compared[column] = value
+                    reconstructed_compared["gallery_template_count"] = len(
+                        evaluation["gallery"]
+                    )
+                    retrieval_frames.append(reconstructed_compared)
             progress_offset += work_per_cosine_mode
         if family == "pq":
-            if adc_calibration_threshold is None:
+            if adc_calibration_thresholds is None:
                 raise RuntimeError("PQ ADC calibration threshold was not initialized")
             gallery_encode_started = perf_counter()
             evaluation_gallery_codes = compressor.encode(evaluation["gallery"])
@@ -1556,21 +1612,27 @@ def _characterize_population_with_protocols(
                 compression_profile=profile,
                 search_metrics=adc_search_metrics,
             )
-            adc_compared = apply_retrieval_thresholds(
-                adc_evaluation_comparison,
-                origin_threshold=origin_threshold,
-                compressed_threshold=adc_calibration_threshold,
-            )
-            adc_compared.insert(0, "dataset", prepared.dataset_id)
-            adc_compared.insert(1, "model_uid", prepared.model_uid)
-            adc_compared["protocol_uid"] = str(protocol_uid)
-            adc_compared["threshold_policy"] = "recalibrated_compressed"
-            adc_compared["threshold_source_split"] = "calibration"
-            adc_compared["evaluation_split"] = "test"
-            for column, value in storage.items():
-                adc_compared[column] = value
-            adc_compared["gallery_template_count"] = len(evaluation["gallery"])
-            retrieval_frames.append(adc_compared)
+            for operating_target in operating_targets:
+                adc_compared = apply_retrieval_thresholds(
+                    adc_evaluation_comparison,
+                    origin_threshold=origin_thresholds[operating_target],
+                    compressed_threshold=adc_calibration_thresholds[
+                        operating_target
+                    ],
+                )
+                adc_compared.insert(0, "dataset", prepared.dataset_id)
+                adc_compared.insert(1, "model_uid", prepared.model_uid)
+                adc_compared["protocol_uid"] = str(protocol_uid)
+                adc_compared["target_fpir"] = float(operating_target)
+                adc_compared["threshold_policy"] = "recalibrated_compressed"
+                adc_compared["threshold_source_split"] = "calibration"
+                adc_compared["evaluation_split"] = "test"
+                for column, value in storage.items():
+                    adc_compared[column] = value
+                adc_compared["gallery_template_count"] = len(
+                    evaluation["gallery"]
+                )
+                retrieval_frames.append(adc_compared)
 
     paired_metrics = pd.concat(paired_frames, ignore_index=True)
     retrieval_metrics = pd.concat(retrieval_frames, ignore_index=True)
@@ -1581,27 +1643,32 @@ def _characterize_population_with_protocols(
     if (
         origin_calibration_reference is None
         or origin_evaluation_reference is None
-        or origin_threshold is None
+        or origin_thresholds is None
     ):
         raise RuntimeError("origin calibration diagnostics were not initialized")
-    origin_score_audit, calibration_diagnostics = _build_origin_calibration_audit(
-        origin_calibration_reference,
-        origin_evaluation_reference,
-        calibration,
-        evaluation,
-        calibration_protocol,
-        evaluation_protocol,
-        dataset_id=prepared.dataset_id,
-        model_uid=prepared.model_uid,
-        protocol_uid=protocol_uid,
-        decision_threshold=origin_threshold,
-        target_fpir=target_fpir,
-        threshold_selection=threshold_selection,
-    )
-    if calibration_contract is not None:
-        calibration_diagnostics["calibration_contract"] = dict(
-            calibration_contract
+    audit_frames: list[pd.DataFrame] = []
+    diagnostics_by_target: dict[str, dict[str, object]] = {}
+    for operating_target in operating_targets:
+        audit, diagnostics = _build_origin_calibration_audit(
+            origin_calibration_reference,
+            origin_evaluation_reference,
+            calibration,
+            evaluation,
+            calibration_protocol,
+            evaluation_protocol,
+            dataset_id=prepared.dataset_id,
+            model_uid=prepared.model_uid,
+            protocol_uid=protocol_uid,
+            decision_threshold=origin_thresholds[operating_target],
+            target_fpir=operating_target,
+            threshold_selection=threshold_selection,
         )
+        if calibration_contract is not None:
+            diagnostics["calibration_contract"] = dict(calibration_contract)
+        audit_frames.append(audit)
+        diagnostics_by_target[f"{operating_target:.12g}"] = diagnostics
+    origin_score_audit = pd.concat(audit_frames, ignore_index=True)
+    calibration_diagnostics = diagnostics_by_target[f"{float(target_fpir):.12g}"]
     return Step2CompressionResult(
         paired_metrics=paired_metrics,
         retrieval_metrics=retrieval_metrics,
@@ -1609,6 +1676,7 @@ def _characterize_population_with_protocols(
         calibration_diagnostics=calibration_diagnostics,
         summary=_summarize(paired_metrics, retrieval_metrics),
         fitted_codecs=tuple(compressors),
+        calibration_diagnostics_by_target=diagnostics_by_target,
     )
 
 
@@ -1622,6 +1690,7 @@ def characterize_step2_compression(
     pq_settings: Sequence[tuple[int, int]],
     seed: int = 42,
     target_fpir: float = 0.01,
+    target_fpirs: Sequence[float] | None = None,
     enrollment_count: int = 5,
     calibration_gallery_identities: int = 20,
     top_k: int = 20,
@@ -1679,6 +1748,7 @@ def characterize_step2_compression(
         pq_settings=pq_settings,
         seed=seed,
         target_fpir=target_fpir,
+        target_fpirs=target_fpirs,
         top_k=top_k,
         progress=progress,
     )
@@ -1692,6 +1762,7 @@ def characterize_step2_survface_compression(
     pq_settings: Sequence[tuple[int, int]],
     seed: int = 42,
     target_fpir: float = 0.10,
+    target_fpirs: Sequence[float] | None = None,
     calibration_gallery_identities: int = 3000,
     top_k: int = 20,
     progress: ProgressCallback | None = None,
@@ -1764,6 +1835,7 @@ def characterize_step2_survface_compression(
         pq_settings=pq_settings,
         seed=seed,
         target_fpir=target_fpir,
+        target_fpirs=target_fpirs,
         top_k=top_k,
         threshold_selection="non_mated_only",
         calibration_contract={

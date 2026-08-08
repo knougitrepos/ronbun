@@ -486,6 +486,9 @@ evaluation:
   compare_frozen_and_recalibrated_thresholds: true
   target_fpir: 0.01
   survface_target_fpir: 0.10
+  # v4 compact postprocessing reports both operating points from one set of
+  # search scores. The scalars above remain the source-run primary targets.
+  reported_target_fpirs: [0.10, 0.01]
   survface_calibration_gallery_identities: 3000
   survface_calibration_protocol: training_3000_half_gallery_v2
   survface_threshold_selection: non_mated_only

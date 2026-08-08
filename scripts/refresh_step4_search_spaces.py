@@ -35,10 +35,11 @@ from scripts.generate_step4_compact_summaries import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = 2
-ARTIFACT_TYPE = "step4_search_space_refresh"
-FAMILY_ARTIFACT_TYPE = "step4_search_space_refresh_family"
+SCHEMA_VERSION = 4
+ARTIFACT_TYPE = "step4_search_space_multi_fpir_v4"
+FAMILY_ARTIFACT_TYPE = "step4_search_space_multi_fpir_family_v4"
 SUPPORTED_FAMILIES = ("pca", "pq")
+DEFAULT_TARGET_FPIRS = (0.10, 0.01)
 _PROGRESS_STATE: dict[str, tuple[int, int]] = {}
 
 
@@ -226,13 +227,18 @@ def _validate_compact_frames(
     *,
     family: str,
     expected_profiles: int,
+    target_fpirs: tuple[float, ...],
 ) -> None:
     if len(compression) != expected_profiles:
         raise ValueError(
             f"{family} compression summary row mismatch: "
             f"{len(compression)} != {expected_profiles}"
         )
-    expected_retrieval_rows = expected_profiles * (4 if family == "pca" else 3)
+    expected_retrieval_rows = (
+        expected_profiles
+        * (4 if family == "pca" else 3)
+        * len(target_fpirs)
+    )
     if len(retrieval) != expected_retrieval_rows:
         raise ValueError(
             f"{family} retrieval summary row mismatch: "
@@ -242,6 +248,14 @@ def _validate_compact_frames(
         raise ValueError("compression family escaped the requested family")
     if not retrieval["compression_family"].eq(family).all():
         raise ValueError("retrieval family escaped the requested family")
+    observed_targets = set(
+        pd.to_numeric(retrieval["target_fpir"], errors="raise").astype(float)
+    )
+    if observed_targets != set(target_fpirs):
+        raise ValueError(
+            f"{family} target FPIR coverage mismatch: "
+            f"{sorted(observed_targets)} != {sorted(target_fpirs)}"
+        )
     crossing = retrieval["threshold_crossing_count"].astype(int)
     directional = (
         retrieval["accept_to_reject_count"].astype(int)
@@ -271,6 +285,7 @@ def _run_family(
     *,
     family: str,
     output_root: Path,
+    target_fpirs: tuple[float, ...],
 ) -> dict[str, object]:
     family_dir = output_root / family
     if family_dir.exists():
@@ -282,6 +297,10 @@ def _run_family(
         existing = _read_json(manifest_path)
         if existing.get("artifact_type") != FAMILY_ARTIFACT_TYPE:
             raise ValueError(f"unexpected family artifact: {manifest_path}")
+        if tuple(float(value) for value in existing.get("target_fpirs", [])) != (
+            target_fpirs
+        ):
+            raise ValueError("existing family artifact uses different FPIR targets")
         return {"family": family, "status": "already_completed"}
 
     step4 = context["step4"]
@@ -306,6 +325,7 @@ def _run_family(
         "seed": int(execution["seed"]),
         "top_k": int(evaluation["top_k"]),
         "progress": _progress,
+        "target_fpirs": target_fpirs,
     }
     if context["dataset_id"] == "survface":
         result = characterize_step2_survface_compression(
@@ -358,6 +378,7 @@ def _run_family(
         retrieval_summary,
         family=family,
         expected_profiles=expected_profiles,
+        target_fpirs=target_fpirs,
     )
 
     temporary = Path(
@@ -371,7 +392,15 @@ def _run_family(
     diagnostics_path = temporary / "origin_calibration_diagnostics.json"
     _write_csv(compression_path, compression_summary)
     _write_csv(retrieval_path, retrieval_summary)
-    _write_json(diagnostics_path, dict(result.calibration_diagnostics))
+    _write_json(
+        diagnostics_path,
+        {
+            "schema_version": 1,
+            "artifact_type": "origin_open_set_multi_fpir_diagnostics",
+            "target_fpirs": list(target_fpirs),
+            "diagnostics_by_target": result.calibration_diagnostics_by_target,
+        },
+    )
     family_manifest_path = temporary / "family_manifest.json"
     family_manifest = {
         "schema_version": SCHEMA_VERSION,
@@ -381,6 +410,7 @@ def _run_family(
         "dataset_id": context["dataset_id"],
         "model_uid": context["model_uid"],
         "source_run_id": context["run_id"],
+        "target_fpirs": list(target_fpirs),
         "source_origin_embedding_artifact_uid": prepared.origin_embedding_artifact_uid,
         "profile_count": expected_profiles,
         "source_row_counts": {
@@ -392,9 +422,10 @@ def _run_family(
             "compression": int(len(compression_summary)),
             "retrieval": int(len(retrieval_summary)),
         },
-        "origin_calibration_signature": _diagnostic_signature(
-            dict(result.calibration_diagnostics)
-        ),
+        "origin_calibration_signatures": {
+            target: _diagnostic_signature(dict(payload))
+            for target, payload in result.calibration_diagnostics_by_target.items()
+        },
         "outputs": {
             "compression_summary.csv": _named_file_entry(
                 compression_path, name="compression_summary.csv"
@@ -451,6 +482,23 @@ def _legacy_consistency(
         return {"status": "not_available"}
     legacy_compression = pd.read_csv(legacy_compression_path)
     legacy_retrieval = pd.read_csv(legacy_retrieval_path)
+    if "target_fpir" in retrieval:
+        source_evaluation = context["step4"]["evaluation"]
+        primary_target = float(
+            source_evaluation[
+                "survface_target_fpir"
+                if context["dataset_id"] == "survface"
+                else "target_fpir"
+            ]
+        )
+        retrieval = retrieval.loc[
+            np.isclose(
+                pd.to_numeric(retrieval["target_fpir"], errors="raise"),
+                primary_target,
+                rtol=0.0,
+                atol=1e-12,
+            )
+        ].copy()
     if "search_mode" not in legacy_retrieval:
         legacy_retrieval["search_mode"] = legacy_retrieval[
             "compression_family"
@@ -571,6 +619,7 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             "compression_profile",
             "search_mode",
             "threshold_policy",
+            "target_fpir",
         ]
     )
     if compression.duplicated(
@@ -583,15 +632,19 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             "compression_profile",
             "search_mode",
             "threshold_policy",
+            "target_fpir",
         ]
     ).any():
         raise ValueError("merged retrieval summary has duplicate keys")
-    signatures = [
-        dict(family_data[family][2]["origin_calibration_signature"])
+    signatures_by_target = [
+        dict(family_data[family][2]["origin_calibration_signatures"])
         for family in SUPPORTED_FAMILIES
     ]
-    if signatures[0] != signatures[1]:
+    if signatures_by_target[0] != signatures_by_target[1]:
         raise ValueError("PCA and PQ origin calibration signatures differ")
+    target_fpirs = tuple(
+        float(value) for value in family_data["pca"][2]["target_fpirs"]
+    )
     _validate_compact_frames(
         compression.loc[compression["compression_family"].eq("pca")],
         retrieval.loc[retrieval["compression_family"].eq("pca")],
@@ -599,6 +652,7 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
         expected_profiles=int(
             family_data["pca"][2]["profile_count"]
         ),
+        target_fpirs=target_fpirs,
     )
     legacy_consistency = (
         {
@@ -610,7 +664,10 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
         }
         if (
             context["dataset_id"] == "survface"
-            and output_root.name == "search_space_v3_matched_calibration"
+            and output_root.name in {
+                "search_space_v3_matched_calibration",
+                "search_space_v4_multi_fpir",
+            }
         )
         else _legacy_consistency(context, compression, retrieval)
     )
@@ -621,6 +678,7 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
         expected_profiles=int(
             family_data["pq"][2]["profile_count"]
         ),
+        target_fpirs=target_fpirs,
     )
 
     compression_path = output_root / "compression_summary.csv"
@@ -635,6 +693,11 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
         and not bool(context["run_manifest"].get("git", {}).get("dirty", True))
     )
     evaluator_git_clean = not bool(git.get("dirty", True))
+    failed_transfer_targets = [
+        target
+        for target, signature in signatures_by_target[0].items()
+        if str(signature["status"]) == "failed_target_fpir"
+    ]
     manifest_path = output_root / "summary_manifest.json"
     manifest = {
         "schema_version": SCHEMA_VERSION,
@@ -657,7 +720,9 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             if evaluator_git_clean
             else "exploratory_dirty_evaluator"
         ),
-        "origin_calibration_signature": signatures[0],
+        "producer_script": "scripts/refresh_step4_search_spaces.py",
+        "target_fpirs": list(target_fpirs),
+        "origin_calibration_signatures": signatures_by_target[0],
         "legacy_shared_mode_consistency": legacy_consistency,
         "evaluator_git": git,
         "runtime": {
@@ -691,7 +756,9 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
         },
         "summary_contract": {
             "compression_grain": "family x profile",
-            "retrieval_grain": "family x profile x search_mode x threshold_policy",
+            "retrieval_grain": (
+                "family x profile x search_mode x threshold_policy x target_fpir"
+            ),
             "search_modes": sorted(retrieval["search_mode"].astype(str).unique()),
             "pq_adc_frozen_origin": "not_applicable",
             "threshold_crossing_directions": [
@@ -704,12 +771,12 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             "No row-level derived search-space ledger is retained by this compact refresh.",
             *(
                 [
-                    "SurvFace threshold-dependent claims remain blocked because the matched calibration still failed target FPIR."
+                    "SurvFace threshold-dependent claims remain blocked for "
+                    "targets whose held-out realized FPIR exceeds the calibrated "
+                    f"target: {failed_transfer_targets}."
                 ]
-                if (
-                    context["dataset_id"] == "survface"
-                    and signatures[0]["status"] == "failed_target_fpir"
-                )
+                if context["dataset_id"] == "survface"
+                and failed_transfer_targets
                 else []
             ),
             "Latency is a one-shot wall-clock observation and is not a stable systems benchmark.",
@@ -754,7 +821,13 @@ def refresh(
     *,
     output_dir: Path | None,
     families: tuple[str, ...],
+    target_fpirs: tuple[float, ...] = DEFAULT_TARGET_FPIRS,
 ) -> dict[str, object]:
+    normalized_targets = tuple(dict.fromkeys(float(value) for value in target_fpirs))
+    if not normalized_targets or any(
+        not 0.0 <= value <= 1.0 for value in normalized_targets
+    ):
+        raise ValueError("target_fpirs must contain values between 0 and 1")
     context = _source_context(run_dir)
     context["evaluator_git"] = inspect_git_provenance(
         PROJECT_ROOT,
@@ -768,16 +841,16 @@ def refresh(
         / "paper"
         / context["dataset_id"]
         / context["run_id"]
-        / (
-            "search_space_v3_matched_calibration"
-            if context["dataset_id"] == "survface"
-            else "search_space_v2"
-        )
+        / "search_space_v4_multi_fpir"
     )
     output_root.mkdir(parents=True, exist_ok=True)
     merged_manifest_path = output_root / "summary_manifest.json"
     if merged_manifest_path.is_file():
         existing = _verified_merged_manifest(output_root)
+        if tuple(float(value) for value in existing.get("target_fpirs", [])) != (
+            normalized_targets
+        ):
+            raise ValueError("existing merged artifact uses different FPIR targets")
         return {
             "output_dir": str(output_root),
             "families": [
@@ -792,6 +865,7 @@ def refresh(
             context,
             family=family,
             output_root=output_root,
+            target_fpirs=normalized_targets,
         )
         for family in families
     ]
@@ -820,6 +894,15 @@ def _parse_args() -> argparse.Namespace:
         choices=SUPPORTED_FAMILIES,
         default=list(SUPPORTED_FAMILIES),
     )
+    parser.add_argument(
+        "--target-fpir",
+        action="append",
+        type=float,
+        dest="target_fpirs",
+        help=(
+            "Repeat for each calibrated operating point. Defaults to 0.10 and 0.01."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -830,6 +913,11 @@ def main() -> None:
         args.run_dir,
         output_dir=args.output_dir,
         families=families,
+        target_fpirs=(
+            tuple(args.target_fpirs)
+            if args.target_fpirs
+            else DEFAULT_TARGET_FPIRS
+        ),
     )
     print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
 

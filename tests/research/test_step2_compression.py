@@ -255,6 +255,58 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
     ].eq(136.0).all()
 
 
+def test_step2_runner_reuses_search_scores_for_multiple_fpir_targets(
+    monkeypatch,
+) -> None:
+    call_counts = {"cosine": 0, "adc": 0}
+    original_cosine = module.compare_cosine_retrieval
+    original_adc = module.compare_pq_adc_retrieval
+
+    def counted_cosine(*args, **kwargs):
+        call_counts["cosine"] += 1
+        return original_cosine(*args, **kwargs)
+
+    def counted_adc(*args, **kwargs):
+        call_counts["adc"] += 1
+        return original_adc(*args, **kwargs)
+
+    monkeypatch.setattr(module, "compare_cosine_retrieval", counted_cosine)
+    monkeypatch.setattr(module, "compare_pq_adc_retrieval", counted_adc)
+    monkeypatch.setattr(module, "PQCompressor", _FakePQ)
+    monkeypatch.setattr(
+        module,
+        "fit_pca_family",
+        lambda development_vectors, dimensions, random_state: {
+            "pca_2": _FakePCA()
+        },
+    )
+    prepared, selected = _prepared()
+
+    result = module.characterize_step2_compression(
+        prepared,
+        selected,
+        gallery_identities=["test-gallery"],
+        unknown_unknown_identities=["test-unknown-unknown"],
+        pca_dimensions=[2],
+        pq_settings=[(8, 1)],
+        seed=42,
+        target_fpir=1.0,
+        target_fpirs=(0.5,),
+        enrollment_count=1,
+        calibration_gallery_identities=1,
+        top_k=1,
+    )
+
+    assert set(result.retrieval_metrics["target_fpir"]) == {1.0, 0.5}
+    assert len(result.summary) == 14
+    assert set(result.summary["target_fpir"]) == {1.0, 0.5}
+    assert set(result.calibration_diagnostics_by_target) == {"1", "0.5"}
+    assert call_counts == {"cosine": 6, "adc": 2}
+    assert not result.origin_score_audit.duplicated(
+        ["target_fpir", "evaluation_split", "query_id"]
+    ).any()
+
+
 def test_step2_runner_rejects_manifest_order_mismatch() -> None:
     prepared, selected = _prepared()
     selected = selected.iloc[::-1].reset_index(drop=True)

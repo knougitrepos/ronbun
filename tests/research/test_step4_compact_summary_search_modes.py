@@ -132,3 +132,20 @@ def test_dataframe_summary_splits_threshold_crossing_directions() -> None:
     assert result["reject_to_accept_count"] == 1
     assert result["accept_to_reject_rate"] == 0.5
     assert result["reject_to_accept_rate"] == 0.5
+
+
+def test_retrieval_summary_keeps_fpir_targets_separate() -> None:
+    base = _retrieval_rows(include_search_schema=True).iloc[:2].copy()
+    first = base.assign(target_fpir=0.10)
+    second = base.assign(target_fpir=0.01)
+    rows = pd.concat([first, second], ignore_index=True)
+
+    summary, row_count = summarize_retrieval(
+        None,
+        chunksize=len(rows),
+        source_frame=rows,
+    )
+
+    assert row_count == 4
+    assert len(summary) == 2
+    assert set(summary["target_fpir"]) == {0.10, 0.01}

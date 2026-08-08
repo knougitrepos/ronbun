@@ -341,6 +341,7 @@ def summarize_retrieval(
         "compression_profile",
         "search_mode",
         "threshold_policy",
+        "target_fpir",
         *RETRIEVAL_BOOLEAN_COLUMNS,
         *RETRIEVAL_NUMERIC_COLUMNS,
         *RETRIEVAL_FIXED_COLUMNS,
@@ -375,7 +376,16 @@ def summarize_retrieval(
             "retrieval metrics are missing required columns: "
             f"{missing_source_columns}"
         )
-    accumulators: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    has_target_fpir = "target_fpir" in source_columns
+    group_columns = [
+        "compression_family",
+        "compression_profile",
+        "search_mode",
+        "threshold_policy",
+    ]
+    if has_target_fpir:
+        group_columns.append("target_fpir")
+    accumulators: dict[tuple[str, ...], dict[str, Any]] = {}
     row_count = 0
 
     chunks = (
@@ -423,12 +433,7 @@ def summarize_retrieval(
                 "codebook_bytes_source"
             ]
         for key, group in chunk.groupby(
-            [
-                "compression_family",
-                "compression_profile",
-                "search_mode",
-                "threshold_policy",
-            ],
+            group_columns,
             sort=False,
         ):
             normalized_key = tuple(str(value) for value in key)
@@ -504,9 +509,9 @@ def summarize_retrieval(
             )
 
     records: list[dict[str, Any]] = []
-    for (family, profile, search_mode, policy), acc in sorted(
-        accumulators.items()
-    ):
+    for key, acc in sorted(accumulators.items()):
+        family, profile, search_mode, policy = key[:4]
+        target_fpir = float(key[4]) if len(key) == 5 else np.nan
         fixed = {
             column: _one(
                 acc["fixed"][column],
@@ -586,6 +591,7 @@ def summarize_retrieval(
                     amortized_storage_bytes
                 ),
                 "threshold_policy": policy,
+                "target_fpir": target_fpir,
                 "threshold_source_split": fixed["threshold_source_split"],
                 "evaluation_split": fixed["evaluation_split"],
                 "top_k": fixed["top_k"],

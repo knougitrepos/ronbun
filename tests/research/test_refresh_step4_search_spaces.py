@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from scripts import refresh_step4_search_spaces as module
+
+
+def _compact_retrieval(*, family: str) -> pd.DataFrame:
+    modes_and_policies = (
+        (
+            (
+                "pca_direct_cosine",
+                "frozen_origin",
+            ),
+            (
+                "pca_direct_cosine",
+                "recalibrated_compressed",
+            ),
+            (
+                "pca_reconstruction_cosine",
+                "frozen_origin",
+            ),
+            (
+                "pca_reconstruction_cosine",
+                "recalibrated_compressed",
+            ),
+        )
+        if family == "pca"
+        else (
+            ("pq_reconstruction_cosine", "frozen_origin"),
+            ("pq_reconstruction_cosine", "recalibrated_compressed"),
+            ("pq_adc_exhaustive", "recalibrated_compressed"),
+        )
+    )
+    rows = []
+    for target in (0.10, 0.01):
+        for search_mode, threshold_policy in modes_and_policies:
+            is_adc = search_mode == "pq_adc_exhaustive"
+            rows.append(
+                {
+                    "compression_family": family,
+                    "compression_profile": f"{family}_test",
+                    "search_mode": search_mode,
+                    "threshold_policy": threshold_policy,
+                    "target_fpir": target,
+                    "threshold_crossing_count": 0,
+                    "accept_to_reject_count": 0,
+                    "reject_to_accept_count": 0,
+                    "score_spaces_comparable": not is_adc,
+                }
+            )
+    return pd.DataFrame.from_records(rows)
+
+
+@pytest.mark.parametrize("family", ["pca", "pq"])
+def test_v4_compact_validation_requires_both_fpir_targets(family: str) -> None:
+    compression = pd.DataFrame(
+        {
+            "compression_family": [family],
+            "compression_profile": [f"{family}_test"],
+        }
+    )
+    retrieval = _compact_retrieval(family=family)
+
+    module._validate_compact_frames(
+        compression,
+        retrieval,
+        family=family,
+        expected_profiles=1,
+        target_fpirs=(0.10, 0.01),
+    )
+
+    with pytest.raises(ValueError, match="row mismatch|coverage mismatch"):
+        module._validate_compact_frames(
+            compression,
+            retrieval.loc[retrieval["target_fpir"].eq(0.10)],
+            family=family,
+            expected_profiles=1,
+            target_fpirs=(0.10, 0.01),
+        )
+
+
+def test_refresh_passes_explicit_targets_to_each_family(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, tuple[float, ...]]] = []
+    monkeypatch.setattr(
+        module,
+        "_source_context",
+        lambda run_dir: {
+            "dataset_id": "lfw",
+            "run_id": "R001",
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "inspect_git_provenance",
+        lambda *args, **kwargs: {"dirty": False},
+    )
+    monkeypatch.setattr(module, "PROJECT_ROOT", tmp_path)
+
+    def fake_run_family(context, *, family, output_root, target_fpirs):
+        observed.append((family, target_fpirs))
+        return {"family": family, "status": "completed"}
+
+    monkeypatch.setattr(module, "_run_family", fake_run_family)
+
+    result = module.refresh(
+        tmp_path / "source-run",
+        output_dir=tmp_path / "derived",
+        families=("pca",),
+        target_fpirs=(0.10, 0.01),
+    )
+
+    assert observed == [("pca", (0.10, 0.01))]
+    assert result["output_dir"] == str((tmp_path / "derived").resolve())

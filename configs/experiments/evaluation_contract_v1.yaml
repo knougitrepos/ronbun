@@ -42,6 +42,8 @@ calibration:
   enrollment_identity_counts: [100, 500, 1000]
   identity_disjoint: true
   test_split_selection_forbidden: true
+  paper_operating_points: [0.10, 0.01]
+  reuse_search_scores_across_operating_points: true
 
 thresholds:
   policies:
