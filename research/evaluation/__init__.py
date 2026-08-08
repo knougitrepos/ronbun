@@ -47,6 +47,7 @@ from research.evaluation.saliency_streaming import (
 from research.evaluation.rfw_verification import (
     RFWVerificationResult,
     evaluate_rfw_10fold,
+    evaluate_rfw_pair_scores,
 )
 
 __all__ = [
@@ -71,6 +72,7 @@ __all__ = [
     "compare_pq_adc_retrieval",
     "expected_calibration_error",
     "evaluate_rfw_10fold",
+    "evaluate_rfw_pair_scores",
     "join_population_saliency_with_compression",
     "join_population_saliency_with_retrieval",
     "open_set_identification_metrics",

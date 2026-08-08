@@ -165,6 +165,8 @@ def test_pq_profile_is_direct_origin_family_not_pgvector_searchable():
     assert pq.metadata["code_bits"] == 32
     assert pq.metadata["code_bytes"] == 4
     assert pq.metadata["codebook_bytes"] == 512 * (2**2) * 4
+    assert pq.metadata["codec_parameter_bytes"] == pq.metadata["codebook_bytes"]
+    assert pq.metadata["random_state"] == 42
     assert pq.metadata["codebook_bytes_source"] in {
         "faiss_centroids",
         "float32_formula",
@@ -192,7 +194,12 @@ def test_pq_adc_matches_brute_force_distance_to_decoded_codes() -> None:
     development = rng.normal(size=(512, 16)).astype(np.float32)
     gallery = rng.normal(size=(41, 16)).astype(np.float32)
     queries = rng.normal(size=(7, 16)).astype(np.float32)
-    compressor = PQCompressor(source_dim=16, m=4, nbits=4).fit(development)
+    compressor = PQCompressor(
+        source_dim=16,
+        m=4,
+        nbits=4,
+        random_state=17,
+    ).fit(development)
     gallery_codes = compressor.encode(gallery)
 
     distances, indices, metrics = compressor.search_adc_with_metrics(
@@ -213,6 +220,7 @@ def test_pq_adc_matches_brute_force_distance_to_decoded_codes() -> None:
         axis=1,
     )
     assert compressor.index is not None
+    assert compressor.index.pq.cp.seed == 17
     assert compressor.index.ntotal == 0
     np.testing.assert_array_equal(indices, brute_indices)
     np.testing.assert_allclose(distances, expected_distances, rtol=1e-5, atol=1e-5)

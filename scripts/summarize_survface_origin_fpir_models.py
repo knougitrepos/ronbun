@@ -51,7 +51,7 @@ def _sha256_file(path: Path) -> str:
 
 def _model_family(model_uid: str) -> str:
     family = str(model_uid).split("-", 1)[0].strip().lower()
-    if family not in {"arcface", "adaface", "magface"}:
+    if family not in {"arcface", "adaface", "magface", "edgeface"}:
         raise ValueError(f"unsupported model family in UID: {model_uid!r}")
     return family
 

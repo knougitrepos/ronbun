@@ -1309,6 +1309,55 @@ def characterize_step4_compression(
             workflow_root
             / config["workflow"]["calibration_diagnostics_path"]
         )
+        codec_entries: list[dict[str, object]] = []
+        for family, profile, compressor in compression.fitted_codecs:
+            attempt_suffix = f"A{phase.attempt:03d}"
+            extension = ".joblib" if family == "pca" else ".faiss"
+            source_codec_path = phase.attempt_dir / (
+                f"{profile}_{attempt_suffix}{extension}"
+            )
+            compressor.save(source_codec_path)
+            published_codec_path = phase.publish_artifact(source_codec_path)
+            codec_entries.append(
+                {
+                    "family": family,
+                    "profile_name": profile,
+                    "artifact": str(
+                        published_codec_path.relative_to(run.run_dir)
+                    ).replace("\\", "/"),
+                    "artifact_sha256": sha256_file(published_codec_path),
+                    "artifact_byte_count": int(
+                        published_codec_path.stat().st_size
+                    ),
+                    "fit_count": int(compressor.fit_count or 0),
+                    "fit_seed": int(execution["seed"]),
+                    "fit_source_dataset": dataset_spec.dataset_id,
+                    "fit_source_run_id": run.run_id,
+                    "fit_on_rfw": False,
+                }
+            )
+        frozen_codec_manifest_path = (
+            workflow_root
+            / config["workflow"].get(
+                "frozen_codec_manifest_path",
+                "frozen_codec_manifest.json",
+            )
+        )
+        frozen_codec_manifest = {
+            "schema_version": 1,
+            "status": "completed",
+            "artifact_type": "frozen_compression_codec_bundle",
+            "fit_source_dataset": dataset_spec.dataset_id,
+            "fit_source_run_id": run.run_id,
+            "model_uid": prepared.model_uid,
+            "extraction_uid": prepared.extraction_uid,
+            "origin_embedding_artifact_uid": (
+                prepared.origin_embedding_artifact_uid
+            ),
+            "fit_seed": int(execution["seed"]),
+            "fit_on_rfw": False,
+            "codecs": codec_entries,
+        }
         _write_csv(paired_path, paired, overwrite=overwrite)
         _write_csv(retrieval_path, retrieval, overwrite=overwrite)
         _write_csv(
@@ -1321,10 +1370,16 @@ def characterize_step4_compression(
             calibration_diagnostics,
             overwrite=overwrite,
         )
+        _write_json(
+            frozen_codec_manifest_path,
+            frozen_codec_manifest,
+            overwrite=overwrite,
+        )
         phase.record_counts(
             paired_rows=len(paired),
             retrieval_rows=len(retrieval),
             origin_score_audit_rows=len(origin_score_audit),
+            frozen_codec_count=len(codec_entries),
         )
     return {
         "run_id": run.run_id,
@@ -1332,6 +1387,11 @@ def characterize_step4_compression(
         "paired_rows": int(len(paired)),
         "retrieval_rows": int(len(retrieval)),
         "origin_score_audit_rows": int(len(origin_score_audit)),
+        "frozen_codec_count": int(len(codec_entries)),
+        "frozen_codec_manifest_path": str(frozen_codec_manifest_path),
+        "frozen_codec_manifest_sha256": sha256_file(
+            frozen_codec_manifest_path
+        ),
         "calibration_origin_fpir": float(
             calibration_diagnostics["splits"]["calibration"]["origin_fpir"]
         ),
@@ -1794,6 +1854,18 @@ def finalize_step4_representative_cases(
             / config["workflow"]["calibration_diagnostics_path"]
         ).read_text(encoding="utf-8")
     )
+    frozen_codec_manifest_path = (
+        workflow_root
+        / config["workflow"].get(
+            "frozen_codec_manifest_path",
+            "frozen_codec_manifest.json",
+        )
+    )
+    if not frozen_codec_manifest_path.is_file():
+        raise FileNotFoundError(
+            "compression phase did not publish its frozen codec manifest: "
+            f"{frozen_codec_manifest_path}"
+        )
     geometry_associations = pd.read_csv(
         workflow_root / config["workflow"]["geometry_association_path"]
     )
@@ -1815,6 +1887,10 @@ def finalize_step4_representative_cases(
         "retrieval_rows": int(phase04_counts["retrieval_rows"]),
         "origin_score_audit_rows": int(
             phase04_counts["origin_score_audit_rows"]
+        ),
+        "frozen_codec_count": int(phase04_counts["frozen_codec_count"]),
+        "frozen_codec_manifest_sha256": sha256_file(
+            frozen_codec_manifest_path
         ),
         "calibration_origin_fpir": float(
             calibration_diagnostics["splits"]["calibration"]["origin_fpir"]

@@ -68,6 +68,8 @@ EXPECTED_NOTEBOOKS = {
         "04_representative_case_visualization.ipynb",
     },
     "rfw/00_data_preparation": {"00_data_preparation.ipynb"},
+    "rfw/01_embeddings": {"00_rfw_origin_embedding_extraction.ipynb"},
+    "rfw/02_compression": {"00_rfw_frozen_codec_verification.ipynb"},
     "balancedface/00_data_preparation": {"00_data_preparation.ipynb"},
     "common/model_preparation": {
         "00_checkpoint_registration.ipynb",
@@ -278,6 +280,37 @@ def test_survface_notebooks_preserve_official_protocol_boundaries() -> None:
         "official_test_fit",
     ):
         assert phrase in sources
+
+
+def test_rfw_notebooks_preserve_frozen_codec_verification_boundary() -> None:
+    origin = _source(
+        NOTEBOOK_ROOT
+        / "rfw"
+        / "01_embeddings"
+        / "00_rfw_origin_embedding_extraction.ipynb"
+    )
+    evaluation = _source(
+        NOTEBOOK_ROOT
+        / "rfw"
+        / "02_compression"
+        / "00_rfw_frozen_codec_verification.ipynb"
+    )
+    for phrase in (
+        "extract_rfw_origin_embeddings",
+        "EXPECTED_ARCHIVE_SHA256",
+        'ARTIFACT_STORAGE_MODE = "results_only"',
+        "HORIZONTAL_FLIP_TTA = False",
+    ):
+        assert phrase in origin
+    for phrase in (
+        "FrozenCodecSpec",
+        "evaluate_rfw_frozen_codecs",
+        "CODEC_CONFIGS",
+        'ARTIFACT_STORAGE_MODE = "results_only"',
+        "fit_on_rfw=false",
+        "DIR@FPIR",
+    ):
+        assert phrase in evaluation
 
 
 def test_step1_characterization_and_report_remain_fallback_free() -> None:

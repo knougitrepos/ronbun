@@ -249,6 +249,10 @@ class PCACompressor:
         reconstructed = self.inverse_transform(retrieval)
         reconstruction_error = np.mean((source - reconstructed) ** 2, axis=1)
         model = self._require_fit()
+        # A deployable PCA search profile needs the fitted projection and mean,
+        # not only the per-template coordinates.  Count those required arrays
+        # symmetrically with the PQ codebook in total-storage comparisons.
+        codec_parameter_bytes = int(model.components_.nbytes + model.mean_.nbytes)
         return CompressionResult(
             profile_name=f"pca_{self.n_components}",
             vectors=retrieval,
@@ -269,6 +273,8 @@ class PCACompressor:
                 "storage_bytes_per_vector": int(
                     self.n_components * np.dtype(np.float32).itemsize
                 ),
+                "codec_parameter_bytes": codec_parameter_bytes,
+                "codec_parameter_bytes_source": "pca_components_and_mean",
                 "fit_count": self.fit_count,
                 "explained_variance_ratio_sum": float(np.sum(model.explained_variance_ratio_)),
                 "retrieval_space": f"pca_{self.n_components}",
@@ -338,11 +344,13 @@ class PQCompressor:
         nbits: int = 8,
         *,
         source_profile: str | None = None,
+        random_state: int = 42,
     ):
         self.source_dim = int(source_dim)
         self.m = int(m)
         self.nbits = int(nbits)
         self.source_profile = str(source_profile) if source_profile is not None else None
+        self.random_state = int(random_state)
         self.index = None
         self.fit_count: int | None = None
 
@@ -357,6 +365,9 @@ class PQCompressor:
         if self.source_dim % self.m != 0:
             raise ValueError("PQ source_dim must be divisible by m")
         index = faiss.IndexPQ(self.source_dim, self.m, self.nbits)
+        # Faiss owns PQ centroid initialization.  Setting its clustering seed is
+        # required; recording only the outer experiment seed is insufficient.
+        index.pq.cp.seed = self.random_state
         try:
             index.train(np.ascontiguousarray(matrix))
         except Exception as exc:
@@ -517,6 +528,9 @@ class PQCompressor:
                 "code_bytes": code_bytes,
                 "codebook_bytes": codebook_bytes,
                 "codebook_bytes_source": codebook_bytes_source,
+                "codec_parameter_bytes": codebook_bytes,
+                "codec_parameter_bytes_source": codebook_bytes_source,
+                "random_state": self.random_state,
                 "source_dim": self.source_dim,
                 "fit_count": self.fit_count,
             },
@@ -546,7 +560,12 @@ class PQCompressor:
         except ImportError as exc:
             raise RuntimeError("Faiss is required for the PQ baseline") from exc
         index = faiss.read_index(str(path))
-        compressor = cls(index.d, index.pq.M, index.pq.nbits)
+        compressor = cls(
+            index.d,
+            index.pq.M,
+            index.pq.nbits,
+            random_state=int(index.pq.cp.seed),
+        )
         compressor.index = index
         return compressor
 
@@ -618,6 +637,7 @@ def fit_pq_origin_profile(
     m: int = 16,
     nbits: int = 8,
     source_profile: str = ORIGIN_512,
+    random_state: int = 42,
 ) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
     if str(source_profile) != ORIGIN_512:
@@ -634,6 +654,7 @@ def fit_pq_origin_profile(
         m=m,
         nbits=nbits,
         source_profile=source_profile,
+        random_state=random_state,
     ).fit(matrix)
     return compressor.transform_profile(matrix)
 
@@ -643,11 +664,17 @@ def fit_pq_auxiliary_profile(
     *,
     m: int = 16,
     nbits: int = 8,
+    random_state: int = 42,
 ) -> CompressionResult:
     """Dimension-generic compatibility wrapper for historical experiments."""
 
     matrix = _as_float_matrix(vectors)
-    compressor = PQCompressor(source_dim=matrix.shape[1], m=m, nbits=nbits).fit(matrix)
+    compressor = PQCompressor(
+        source_dim=matrix.shape[1],
+        m=m,
+        nbits=nbits,
+        random_state=random_state,
+    ).fit(matrix)
     return compressor.transform_profile(matrix)
 
 

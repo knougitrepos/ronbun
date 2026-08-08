@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 COMPRESSION_METRICS = (
     "reconstruction_mse",
     "angular_error_rad",
@@ -26,6 +26,8 @@ COMPRESSION_FIXED_COLUMNS = (
     "storage_bytes_per_embedding",
     "codebook_bytes",
     "codebook_bytes_source",
+    "codec_parameter_bytes",
+    "codec_parameter_bytes_source",
     "extraction_uid",
     "dataset_id",
     "origin_embedding_artifact_uid",
@@ -38,6 +40,8 @@ RETRIEVAL_FIXED_COLUMNS = (
     "storage_bytes_per_embedding",
     "codebook_bytes",
     "codebook_bytes_source",
+    "codec_parameter_bytes",
+    "codec_parameter_bytes_source",
     "extraction_uid",
     "dataset_id",
     "origin_embedding_artifact_uid",
@@ -57,6 +61,8 @@ RETRIEVAL_FIXED_COLUMNS = (
     "gallery_template_count",
 )
 OPTIONAL_RETRIEVAL_FIXED_COLUMNS = (
+    "codec_parameter_bytes",
+    "codec_parameter_bytes_source",
     "origin_score_space",
     "compressed_score_space",
     "score_spaces_comparable",
@@ -170,7 +176,7 @@ def summarize_compression(
     chunksize: int,
     source_frame: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, int]:
-    usecols = (
+    requested_usecols = (
         "compression_family",
         "compression_profile",
         "origin_fallback_used",
@@ -179,6 +185,14 @@ def summarize_compression(
     )
     if (source_path is None) == (source_frame is None):
         raise ValueError("provide exactly one of source_path or source_frame")
+    source_columns = set(
+        source_frame.columns
+        if source_frame is not None
+        else pd.read_csv(source_path, nrows=0).columns
+    )
+    usecols = tuple(
+        column for column in requested_usecols if column in source_columns
+    )
     accumulators: dict[tuple[str, str], dict[str, Any]] = {}
     row_count = 0
     chunks = (
@@ -188,6 +202,12 @@ def summarize_compression(
     )
     for chunk in chunks:
         row_count += int(len(chunk))
+        if "codec_parameter_bytes" not in chunk:
+            chunk["codec_parameter_bytes"] = chunk["codebook_bytes"]
+        if "codec_parameter_bytes_source" not in chunk:
+            chunk["codec_parameter_bytes_source"] = chunk[
+                "codebook_bytes_source"
+            ]
         for key, group in chunk.groupby(
             ["compression_family", "compression_profile"], sort=False
         ):
@@ -270,6 +290,10 @@ def summarize_compression(
                 "storage_bytes_per_embedding": fixed["storage_bytes_per_embedding"],
                 "codebook_bytes": fixed["codebook_bytes"],
                 "codebook_bytes_source": fixed["codebook_bytes_source"],
+                "codec_parameter_bytes": fixed["codec_parameter_bytes"],
+                "codec_parameter_bytes_source": fixed[
+                    "codec_parameter_bytes_source"
+                ],
             }
         )
     return pd.DataFrame.from_records(records), row_count
@@ -392,6 +416,12 @@ def summarize_retrieval(
                 chunk[latency_column] = np.nan
         if "gallery_template_count" not in chunk:
             chunk["gallery_template_count"] = np.nan
+        if "codec_parameter_bytes" not in chunk:
+            chunk["codec_parameter_bytes"] = chunk["codebook_bytes"]
+        if "codec_parameter_bytes_source" not in chunk:
+            chunk["codec_parameter_bytes_source"] = chunk[
+                "codebook_bytes_source"
+            ]
         for key, group in chunk.groupby(
             [
                 "compression_family",
@@ -492,13 +522,13 @@ def summarize_retrieval(
         )
         compressed_gallery_storage_bytes = (
             int(gallery_template_count) * int(fixed["storage_bytes_per_embedding"])
-            + int(fixed["codebook_bytes"])
+            + int(fixed["codec_parameter_bytes"])
             if has_gallery_count
             else np.nan
         )
         amortized_storage_bytes = (
             float(fixed["storage_bytes_per_embedding"])
-            + float(fixed["codebook_bytes"]) / int(gallery_template_count)
+            + float(fixed["codec_parameter_bytes"]) / int(gallery_template_count)
             if has_gallery_count
             else np.nan
         )
@@ -640,6 +670,10 @@ def summarize_retrieval(
                 "storage_bytes_per_embedding": fixed["storage_bytes_per_embedding"],
                 "codebook_bytes": fixed["codebook_bytes"],
                 "codebook_bytes_source": fixed["codebook_bytes_source"],
+                "codec_parameter_bytes": fixed["codec_parameter_bytes"],
+                "codec_parameter_bytes_source": fixed[
+                    "codec_parameter_bytes_source"
+                ],
             }
         )
     return pd.DataFrame.from_records(records), row_count

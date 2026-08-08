@@ -34,6 +34,12 @@ from research.datasets.rfw import (
     select_rfw_protocol_scope,
     write_rfw_verification_bundle,
 )
+from research.datasets.rfw_aligned_bin import (
+    RFWAlignedBinSummary,
+    RFWAlignedPairBatch,
+    inspect_rfw_aligned_bin_archive,
+    iter_rfw_aligned_pair_batches,
+)
 from research.datasets.sources import (
     DatasetIntegrityError,
     DatasetSourceInventory,
@@ -56,6 +62,8 @@ __all__ = [
     "IdentityOverlapAudit",
     "ManifestBundle",
     "RFWCheckpointEligibility",
+    "RFWAlignedBinSummary",
+    "RFWAlignedPairBatch",
     "RFWVerificationBundle",
     "RFW_GROUPS",
     "SourceArtifact",
@@ -71,6 +79,7 @@ __all__ = [
     "check_rfw_checkpoint_eligibility",
     "inspect_balancedface_sources",
     "inspect_rfw_sources",
+    "inspect_rfw_aligned_bin_archive",
     "inspect_tar_archive",
     "require_no_source_identity_overlap",
     "require_rfw_checkpoint_eligibility",
@@ -78,6 +87,7 @@ __all__ = [
     "safe_extract_tar_archive",
     "select_balancedface_index_scope",
     "select_rfw_protocol_scope",
+    "iter_rfw_aligned_pair_batches",
     "sha256_file",
     "validate_dataset_operation",
     "write_balancedface_index_bundle",

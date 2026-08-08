@@ -97,12 +97,22 @@ def summarize_models(
                 },
             }
         )
-    if len(frames) != 3 or {frame["model_family"].iat[0] for frame in frames} != {
+    model_families = {frame["model_family"].iat[0] for frame in frames}
+    baseline_families = {
         "arcface",
         "adaface",
         "magface",
-    }:
-        raise ValueError("exactly one ArcFace, AdaFace, and MagFace artifact is required")
+    }
+    allowed_families = baseline_families | {"edgeface"}
+    if (
+        not baseline_families.issubset(model_families)
+        or not model_families <= allowed_families
+        or len(frames) != len(model_families)
+    ):
+        raise ValueError(
+            "exactly one artifact per family is required for the ArcFace, "
+            "AdaFace, MagFace baseline trio and optional EdgeFace"
+        )
     canonical_contract = contracts[0]
     if any(contract != canonical_contract for contract in contracts[1:]):
         raise ValueError("faithfulness artifacts do not share one evaluation contract")
@@ -153,7 +163,7 @@ def summarize_models(
         "schema_version": SCHEMA_VERSION,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "dataset_id": "survface",
-        "model_families": ["arcface", "adaface", "magface"],
+        "model_families": sorted(model_families),
         "evaluation_contract": canonical_contract,
         "claim_status": "exploratory_dirty_evaluator",
         "paper_eligible": False,

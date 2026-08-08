@@ -21,9 +21,11 @@ class _FakePQ:
         nbits: int,
         *,
         source_profile: str,
+        random_state: int = 42,
     ):
         self.m = m
         self.nbits = nbits
+        self.random_state = random_state
 
     def fit(self, development_vectors: np.ndarray):
         return self

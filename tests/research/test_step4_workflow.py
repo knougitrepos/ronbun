@@ -139,15 +139,25 @@ def test_survface_quick_selection_records_source_and_local_protocol_indexes():
 
 
 class _FakePhase:
-    def __init__(self) -> None:
+    def __init__(self, run_dir: Path) -> None:
         self.details: dict[str, object] = {}
         self.events: list[tuple[str, dict[str, object]]] = []
+        self.attempt = 1
+        self.attempt_dir = run_dir / "attempt"
+        self.attempt_dir.mkdir(parents=True, exist_ok=True)
+        self.artifact_dir = run_dir / "artifacts" / "phase"
+        self.artifact_dir.mkdir(parents=True, exist_ok=True)
 
     def record(self, event: str, **details: object) -> None:
         self.events.append((event, details))
 
     def record_counts(self, **counts: int) -> None:
         self.details["counts"] = counts
+
+    def publish_artifact(self, source: Path) -> Path:
+        destination = self.artifact_dir / source.name
+        destination.write_bytes(source.read_bytes())
+        return destination
 
 
 class _FakeRun:
@@ -159,7 +169,7 @@ class _FakeRun:
     @contextmanager
     def phase(self, name: str) -> Iterator[_FakePhase]:
         assert name == "05_saliency_compression_join"
-        phase = _FakePhase()
+        phase = _FakePhase(self.run_dir)
         self.last_phase = phase
         yield phase
 
@@ -173,7 +183,7 @@ class _FakeCompressionRun:
     @contextmanager
     def phase(self, name: str) -> Iterator[_FakePhase]:
         assert name == "04_step2_compression_characterization"
-        phase = _FakePhase()
+        phase = _FakePhase(self.run_dir)
         self.last_phase = phase
         yield phase
 
@@ -419,6 +429,10 @@ def test_compression_phase_persists_origin_calibration_audit(
             "test": {"origin_fpir": 0.50},
         },
     }
+    fake_codec = SimpleNamespace(
+        fit_count=4,
+        save=lambda path: Path(path).write_bytes(b"frozen-pca-codec"),
+    )
     monkeypatch.setattr(step4_workflow, "load_step4_config", lambda path: config)
     monkeypatch.setattr(
         step4_workflow,
@@ -442,6 +456,7 @@ def test_compression_phase_persists_origin_calibration_audit(
             retrieval_metrics=retrieval,
             origin_score_audit=origin_audit,
             calibration_diagnostics=diagnostics,
+            fitted_codecs=(("pca", "pca_2", fake_codec),),
         ),
     )
 
@@ -456,6 +471,7 @@ def test_compression_phase_persists_origin_calibration_audit(
     assert result["calibration_origin_fpir"] == pytest.approx(0.10)
     assert result["test_origin_fpir"] == pytest.approx(0.50)
     assert result["origin_calibration_transfer_status"] == "failed_target_fpir"
+    assert result["frozen_codec_count"] == 1
     assert (workflow_root / "origin_score_audit.csv").is_file()
     payload = json.loads(
         (workflow_root / "calibration_diagnostics.json").read_text(
@@ -468,6 +484,14 @@ def test_compression_phase_persists_origin_calibration_audit(
         "model_uid": "model-a",
         "origin_embedding_artifact_uid": "origin-a",
     }
+    codec_manifest = json.loads(
+        (workflow_root / "frozen_codec_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert codec_manifest["fit_source_run_id"] == run.run_id
+    assert codec_manifest["codecs"][0]["profile_name"] == "pca_2"
+    assert codec_manifest["codecs"][0]["fit_seed"] == 42
     assert run.last_phase is not None
     assert run.last_phase.details["counts"]["origin_score_audit_rows"] == 2
 

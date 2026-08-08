@@ -59,6 +59,7 @@ workflow:
   retrieval_metrics_path: retrieval_metrics.csv
   origin_score_audit_path: origin_open_set_score_audit.csv
   calibration_diagnostics_path: origin_calibration_diagnostics.json
+  frozen_codec_manifest_path: frozen_codec_manifest.json
   geometry_joined_metrics_path: saliency_geometry_join.csv
   retrieval_joined_metrics_path: saliency_retrieval_join.csv
   representative_case_candidates_path: representative_case_candidates.csv

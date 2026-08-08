@@ -425,7 +425,7 @@ def derive_survface_faithfulness(
             "limitations": [
                 "This is a deterministic stratified subset, not all 182159 valid probe heatmaps.",
                 "The source run is clean and full, but the derived evaluator is running from a dirty Step 6 worktree.",
-                "Each artifact validates one model; matched-condition cross-model interpretation requires combining ArcFace, AdaFace, and MagFace artifacts.",
+                "Each artifact validates one model; matched-condition cross-model interpretation requires the ArcFace, AdaFace, and MagFace baseline trio and may add EdgeFace.",
                 "No FPIR threshold or threshold-crossing metric is used because SurvFace calibration transfer failed.",
             ],
         }

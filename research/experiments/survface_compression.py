@@ -439,6 +439,7 @@ def fit_survface_compressors(
                 m=m,
                 nbits=nbits,
                 source_profile=ORIGIN_512,
+                random_state=int(seed),
             ).fit(matrix)
             completed_models += 1
             _emit(

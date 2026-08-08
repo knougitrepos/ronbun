@@ -14,6 +14,8 @@ REPORT_MODEL_NAMES = {
     "adaface": "adaface",
     "mag": "magface",
     "magface": "magface",
+    "edge": "edgeface",
+    "edgeface": "edgeface",
 }
 
 
@@ -119,12 +121,19 @@ def verify_cross_model_faithfulness(
     manifest = _read_json(manifest_path)
     if manifest.get("artifact_type") != "survface_gradcam_faithfulness_cross_model":
         raise ValueError(f"unexpected faithfulness artifact: {manifest_path}")
-    if set(manifest.get("model_families", [])) != {
+    model_families = set(manifest.get("model_families", []))
+    baseline_families = {
         "arcface",
         "adaface",
         "magface",
-    }:
-        raise ValueError("cross-model faithfulness does not contain all three models")
+    }
+    if not baseline_families.issubset(model_families) or not model_families <= (
+        baseline_families | {"edgeface"}
+    ):
+        raise ValueError(
+            "cross-model faithfulness must contain the baseline trio and may "
+            "add EdgeFace"
+        )
     if manifest.get("threshold_independent") is not True:
         raise ValueError("cross-model faithfulness must be threshold-independent")
     for entry in manifest.get("outputs", []):

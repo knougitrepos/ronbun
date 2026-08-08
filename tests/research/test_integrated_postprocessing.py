@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.run_integrated_postprocessing import (
+    REPORT_MODEL_NAMES,
     build_report_parameter_source,
     postprocess_completed_run,
 )
@@ -91,3 +92,8 @@ def test_report_parameter_source_rejects_dataset_key_mismatch(tmp_path: Path):
             write_outputs=False,
             overwrite_outputs=False,
         )
+
+
+def test_edgeface_is_a_supported_report_model_alias() -> None:
+    assert REPORT_MODEL_NAMES["edge"] == "edgeface"
+    assert REPORT_MODEL_NAMES["edgeface"] == "edgeface"

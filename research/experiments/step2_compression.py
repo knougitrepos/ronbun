@@ -56,6 +56,7 @@ class Step2CompressionResult:
     origin_score_audit: pd.DataFrame
     calibration_diagnostics: dict[str, object]
     summary: pd.DataFrame
+    fitted_codecs: tuple[tuple[str, str, Any], ...]
 
 
 @dataclass(frozen=True)
@@ -1038,16 +1039,36 @@ def _storage_metadata(family: str, profile_result: Any) -> dict[str, object]:
         storage_bytes = int(profile_result.metadata["storage_bytes_per_vector"])
         codebook_bytes = 0
         codebook_source = "not_applicable"
+        codec_parameter_bytes = int(
+            profile_result.metadata.get("codec_parameter_bytes", 0)
+        )
+        codec_parameter_source = str(
+            profile_result.metadata.get(
+                "codec_parameter_bytes_source",
+                "not_recorded",
+            )
+        )
     else:
         storage_bytes = int(profile_result.metadata["code_bytes"])
         codebook_bytes = int(profile_result.metadata["codebook_bytes"])
         codebook_source = str(profile_result.metadata["codebook_bytes_source"])
-    if storage_bytes <= 0 or codebook_bytes < 0:
+        codec_parameter_bytes = int(
+            profile_result.metadata.get("codec_parameter_bytes", codebook_bytes)
+        )
+        codec_parameter_source = str(
+            profile_result.metadata.get(
+                "codec_parameter_bytes_source",
+                codebook_source,
+            )
+        )
+    if storage_bytes <= 0 or codebook_bytes < 0 or codec_parameter_bytes < 0:
         raise ValueError("compression storage metadata must be non-negative")
     return {
         "storage_bytes_per_embedding": storage_bytes,
         "codebook_bytes": codebook_bytes,
         "codebook_bytes_source": codebook_source,
+        "codec_parameter_bytes": codec_parameter_bytes,
+        "codec_parameter_bytes_source": codec_parameter_source,
     }
 
 
@@ -1070,6 +1091,7 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 "first",
             ),
             codebook_bytes=("codebook_bytes", "first"),
+            codec_parameter_bytes=("codec_parameter_bytes", "first"),
         )
         .reset_index()
     )
@@ -1123,10 +1145,10 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                     group["gallery_template_count"].iloc[0]
                 )
                 * int(group["storage_bytes_per_embedding"].iloc[0])
-                + int(group["codebook_bytes"].iloc[0]),
+                + int(group["codec_parameter_bytes"].iloc[0]),
                 "amortized_storage_bytes_per_gallery_template": float(
                     int(group["storage_bytes_per_embedding"].iloc[0])
-                    + int(group["codebook_bytes"].iloc[0])
+                    + int(group["codec_parameter_bytes"].iloc[0])
                     / int(group["gallery_template_count"].iloc[0])
                 ),
                 "compressed_search_latency_ms_total": float(
@@ -1201,6 +1223,7 @@ def _characterize_population_with_protocols(
             m=m,
             nbits=nbits,
             source_profile=ORIGIN_512,
+            random_state=int(seed),
         ).fit(development_values)
         compressors.append(("pq", pq_profile_name(m, nbits), compressor))
         _emit(
@@ -1585,6 +1608,7 @@ def _characterize_population_with_protocols(
         origin_score_audit=origin_score_audit,
         calibration_diagnostics=calibration_diagnostics,
         summary=_summarize(paired_metrics, retrieval_metrics),
+        fitted_codecs=tuple(compressors),
     )
 
 

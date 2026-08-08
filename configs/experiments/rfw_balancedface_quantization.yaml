@@ -51,11 +51,17 @@ datasets:
     dataset_id: rfw-v1
     enabled_for_protocol_manifest: true
     enabled_for_headline_evaluation: false
-    blocked_reason: selected_step2_checkpoints_are_ms1mv2
+    blocked_reason: checkpoint_identity_overlap_not_yet_audited
     role: evaluation_test_only
     task: official_10fold_pair_verification
     jpg_archive_path: data/raw/RFW/images/test.tar.gz
     aligned_bin_archive_path: data/raw/RFW/bin_for_mxnet/RFW_test.tar.gz
+    aligned_bin_archive_sha256: 8259e53ab1b542a9747335f34b2ae48e22a675bce472e391d6b94bc900fde572
+    aligned_bin_materialization: streaming_pair_occurrences
+    expected_group_count: 4
+    expected_pairs_per_group: 6000
+    expected_occurrences_per_group: 12000
+    horizontal_flip_tta: false
     compressor_fit: false
     official_order_required: true
     checkpoint_overlap_policy: fail_closed
@@ -80,6 +86,15 @@ compression:
   fit_in_this_workflow: false
   application_mode: frozen_codec_transfer_only
   frozen_codec_sources: [lfw, survface]
+  require_codec_artifact_sha256: true
+  require_fit_manifest_sha256: true
+  require_fit_source_run_id: true
+  codec_fit_seed_recorded_in_faiss: true
+  storage_accounting:
+    per_template_payload: true
+    pca_projection_and_mean: true
+    pq_codebook: true
+    use_actual_codec_artifact_bytes_for_rfw_transfer: true
   baseline_profile: origin_512
   exact_fallback: false
   families:
@@ -118,6 +133,13 @@ evaluation:
     - eer
     - tar_at_far
     - group_gap
+    - fold_bootstrap_95ci
+  search_spaces:
+    pca: [direct_cosine, reconstruction_cosine]
+    pq: [reconstruction_cosine, symmetric_adc_negative_squared_l2]
+  notebooks:
+    origin_embedding: notebooks/rfw/01_embeddings/00_rfw_origin_embedding_extraction.ipynb
+    frozen_codec_evaluation: notebooks/rfw/02_compression/00_rfw_frozen_codec_verification.ipynb
   forbidden_official_metrics:
     - dir_at_fpir
     - open_set_rank
