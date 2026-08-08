@@ -44,6 +44,10 @@ from research.evaluation.saliency_streaming import (
     stream_join_population_saliency_with_retrieval,
     stream_select_population_representative_cases,
 )
+from research.evaluation.rfw_verification import (
+    RFWVerificationResult,
+    evaluate_rfw_10fold,
+)
 
 __all__ = [
     "FAITHFULNESS_METRICS",
@@ -57,6 +61,7 @@ __all__ = [
     "PAIRED_EMBEDDING_COLUMNS",
     "PROFILE_KEYS",
     "RETRIEVAL_COMPARISON_COLUMNS",
+    "RFWVerificationResult",
     "annotate_compression_lineage",
     "apply_retrieval_thresholds",
     "auroc",
@@ -65,6 +70,7 @@ __all__ = [
     "compare_cosine_retrieval",
     "compare_pq_adc_retrieval",
     "expected_calibration_error",
+    "evaluate_rfw_10fold",
     "join_population_saliency_with_compression",
     "join_population_saliency_with_retrieval",
     "open_set_identification_metrics",

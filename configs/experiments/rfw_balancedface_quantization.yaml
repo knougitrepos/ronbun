@@ -1,5 +1,5 @@
 run:
-  name: rfw_balancedface_quantization_diagnostic
+  name: rfw_frozen_codec_verification_diagnostic
   root: runs/step2/rfw_balancedface
   promotion_root: results/step2/rfw_balancedface
 
@@ -21,15 +21,18 @@ study_boundary:
   exact_origin_fallback: false
   comparison_unit: pretrained_checkpoint
   balancedface_final_evaluation: false
+  balancedface_status: deferred_by_step7_scope
   rfw_open_set_claim: false
+  rfw_role: supplementary_1to1_verification_only
 
 datasets:
   balancedface:
     dataset_id: bupt-balancedface-equalizedface
-    enabled_for_source_index: true
+    status: deferred_by_step7_scope
+    enabled_for_source_index: false
     enabled_for_embedding_extraction: false
     blocked_reason: recordio_decoder_not_implemented
-    role: development_and_calibration_only
+    role: deferred_not_used
     representation: mxnet_recordio_aligned
     jpg_archive_alternative:
       path: data/raw/RFW-balancedface/images/Equalizedface.tar.gz
@@ -72,8 +75,11 @@ checkpoint_eligibility:
   evidence_required: true
 
 compression:
-  fit_dataset: balancedface
-  fit_split: development
+  fit_dataset: null
+  fit_split: null
+  fit_in_this_workflow: false
+  application_mode: frozen_codec_transfer_only
+  frozen_codec_sources: [lfw, survface]
   baseline_profile: origin_512
   exact_fallback: false
   families:
@@ -92,13 +98,9 @@ compression:
 
 thresholds:
   primary:
-    source_dataset: balancedface
-    source_split: calibration
-    apply_frozen_to_rfw: true
-  secondary_diagnostic:
     source: rfw_9fold
     evaluation: heldout_fold
-    report_separately_from_external_calibration: true
+    report_as: protocol_internal_diagnostic
   fit_on_all_rfw_pairs: false
 
 evaluation:

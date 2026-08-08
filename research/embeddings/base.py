@@ -10,7 +10,7 @@ import numpy as np
 
 from research.runtime.hashing import canonical_sha256, sha256_file
 
-FRModelFamily = Literal["arcface", "adaface", "magface"]
+FRModelFamily = Literal["arcface", "adaface", "magface", "edgeface"]
 ColorOrder = Literal["rgb", "bgr"]
 
 
@@ -188,7 +188,7 @@ class ModelSpec:
     """Checkpoint-level FR model identity used by Step 2.
 
     The fields describe a selected checkpoint, not a controlled causal
-    comparison of the ArcFace/AdaFace/MagFace loss functions.
+    comparison of the ArcFace/AdaFace/MagFace/EdgeFace training recipes.
     """
 
     family: FRModelFamily
@@ -202,8 +202,10 @@ class ModelSpec:
     module_factory: str | None = None
 
     def __post_init__(self) -> None:
-        if self.family not in {"arcface", "adaface", "magface"}:
-            raise ValueError("family must be arcface, adaface, or magface")
+        if self.family not in {"arcface", "adaface", "magface", "edgeface"}:
+            raise ValueError(
+                "family must be arcface, adaface, magface, or edgeface"
+            )
         for value, name in (
             (self.architecture, "architecture"),
             (self.training_dataset, "training_dataset"),

@@ -8,6 +8,8 @@ The layer names and tensor flow follow the upstream implementations used by:
   https://github.com/mk-minchul/AdaFace
 - MagFace (Apache-2.0):
   https://github.com/IrvingMeng/MagFace
+- EdgeFace (CC BY-NC-SA 4.0):
+  https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface
 
 Only the inference backbone is implemented here. Training heads and losses are
 outside the Step 2 research scope. AdaFace returns the pre-normalization 512D
@@ -357,3 +359,80 @@ def build_adaface_backbone(
     architecture: str, *, embedding_dim: int = 512
 ) -> AdaFaceBackbone:
     return AdaFaceBackbone(architecture, embedding_dim=embedding_dim)
+
+
+class EdgeFaceLoRaLinear(nn.Module):
+    """Low-rank linear layer matching the official EdgeFace checkpoint keys."""
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        *,
+        rank_ratio: float,
+    ) -> None:
+        super().__init__()
+        rank = int(rank_ratio * min(in_features, out_features))
+        if rank <= 0:
+            raise ValueError("EdgeFace low-rank projection must have positive rank")
+        self.linear1 = nn.Linear(in_features, rank, bias=False)
+        self.linear2 = nn.Linear(rank, out_features, bias=True)
+
+    def forward(self, inputs: Any) -> Any:
+        return self.linear2(self.linear1(inputs))
+
+
+def _replace_edgeface_linear_layers(
+    module: nn.Module,
+    *,
+    rank_ratio: float,
+) -> None:
+    """Apply the official recursive EdgeFace gamma replacement in-place."""
+
+    for name, child in tuple(module.named_children()):
+        if isinstance(child, nn.Linear):
+            setattr(
+                module,
+                name,
+                EdgeFaceLoRaLinear(
+                    child.in_features,
+                    child.out_features,
+                    rank_ratio=rank_ratio,
+                ),
+            )
+        else:
+            _replace_edgeface_linear_layers(child, rank_ratio=rank_ratio)
+
+
+class EdgeFaceBackbone(nn.Module):
+    """Official EdgeFace-XS gamma=0.6 inference topology.
+
+    The ``model`` wrapper name and ``linear1``/``linear2`` member names are
+    intentionally identical to the upstream release so the downloaded state
+    dict must load strictly without key rewriting.
+    """
+
+    def __init__(self, *, embedding_dim: int = 512) -> None:
+        super().__init__()
+        try:
+            import timm
+        except ImportError as exc:
+            raise ImportError(
+                "EdgeFace requires timm==0.9.16 from requirements-step2.txt"
+            ) from exc
+        self.model = timm.create_model("edgenext_x_small")
+        self.model.reset_classifier(embedding_dim)
+        _replace_edgeface_linear_layers(self.model, rank_ratio=0.6)
+
+    def forward(self, inputs: Any) -> Any:
+        return self.model(inputs)
+
+
+def build_edgeface_backbone(
+    architecture: str, *, embedding_dim: int = 512
+) -> EdgeFaceBackbone:
+    if architecture != "edgeface_xs_gamma_06":
+        raise ValueError(
+            f"unsupported official EdgeFace architecture: {architecture!r}"
+        )
+    return EdgeFaceBackbone(embedding_dim=embedding_dim)

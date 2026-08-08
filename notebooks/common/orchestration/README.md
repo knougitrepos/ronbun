@@ -26,16 +26,17 @@ identity-aware, role-preserving 방식으로 선택되며 논문 최종 수치�
 
 ## 모델과 가중치 선택
 
-`MODEL_NAME`은 `arc`, `ada`, `mag` 중 하나다. 노트북의
+`MODEL_NAME`은 `arc`, `ada`, `mag`, `edge` 중 하나다. 노트북의
 `MODEL_PROFILE_BY_NAME`과 `MODEL_WEIGHT_PATHS`에서 선택할 profile과 로컬
 가중치 경로를 함께 설정한다. 한 plan은 한 dataset·tier·checkpoint만
-담으므로 세 모델 비교는 별칭을 바꾸어 독립 run으로 각각 실행한다.
+담으므로 네 모델 비교는 별칭을 바꾸어 독립 run으로 각각 실행한다.
 
 | 별칭 | 기본 profile | 기본 가중치 |
 |---|---|---|
 | `arc` | `arcface_ms1mv3_r100` | `models/arcface/ms1mv3_r100_backbone.pth` |
 | `ada` | `adaface_ms1mv3_r100` | `models/adaface/adaface_ir101_ms1mv3.ckpt` |
-| `mag` | `magface_ms1mv2_iresnet100` | `models/magface/magface_epoch_00025.pth` |
+| `mag` | `magface_ms1mv2_iresnet100` | `models/magface/magface_ms1mv2.pth` |
+| `edge` | `edgeface_webface12m_xs_gamma_06` | `models/edgeface/edgeface_xs_gamma_06.pt` |
 
 profile과 checkpoint는 같은 family, architecture, training dataset이어야 한다.
 선택한 checkpoint의 SHA-256과 전처리 계약은 `model_uid`로 등록되고 effective

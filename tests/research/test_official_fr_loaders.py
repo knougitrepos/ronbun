@@ -15,12 +15,14 @@ from research.embeddings.base import (  # noqa: E402
 from research.embeddings.pytorch.official_backbones import (  # noqa: E402
     build_adaface_backbone,
     build_arcface_backbone,
+    build_edgeface_backbone,
     build_magface_backbone,
 )
 from research.embeddings.pytorch.official_loaders import (  # noqa: E402
     CheckpointCompatibilityError,
     load_adaface_checkpoint,
     load_arcface_checkpoint,
+    load_edgeface_checkpoint,
     load_magface_checkpoint,
 )
 from research.embeddings.registry import create_pytorch_adapter_from_spec  # noqa: E402
@@ -109,6 +111,18 @@ def _spec(
             (255.0, 255.0, 255.0),
             "magface",
         ),
+        (
+            "edgeface",
+            "edgeface_xs_gamma_06",
+            build_edgeface_backbone,
+            load_edgeface_checkpoint,
+            "research.embeddings.pytorch.official_loaders:load_edgeface_checkpoint",
+            "model.stages.3.blocks.2.convs.2",
+            "rgb",
+            (127.5, 127.5, 127.5),
+            (127.5, 127.5, 127.5),
+            "edgeface",
+        ),
     ],
 )
 def test_official_loader_strictly_restores_checkpoint_and_runs_adapter(
@@ -136,7 +150,7 @@ def test_official_loader_strictly_restores_checkpoint_and_runs_adapter(
                 "head.synthetic_weight": torch.ones(1),
             }
         }
-    else:
+    elif wrapper == "magface":
         payload = {
             "state_dict": {
                 **{
@@ -146,6 +160,8 @@ def test_official_loader_strictly_restores_checkpoint_and_runs_adapter(
                 "module.loss.synthetic_weight": torch.ones(1),
             }
         }
+    else:
+        payload = state_dict
     checkpoint = tmp_path / f"{family}.pt"
     torch.save(payload, checkpoint)
     spec = _spec(

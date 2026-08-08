@@ -15,4 +15,5 @@
 
 torch
 torchvision
+timm
 onnxruntime-gpu

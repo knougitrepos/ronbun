@@ -51,22 +51,25 @@ from research.runtime.hashing import canonical_sha256, sha256_file
 
 SUPPORTED_COMMON_DATASETS = ("lfw", "survface")
 SUPPORTED_RUN_TIERS = ("quick", "full")
-SUPPORTED_MODEL_NAMES = ("arc", "ada", "mag")
+SUPPORTED_MODEL_NAMES = ("arc", "ada", "mag", "edge")
 SUPPORTED_ARTIFACT_STORAGE_MODES = ("results_only", "full")
 MODEL_NAME_TO_FAMILY: Mapping[str, str] = {
     "arc": "arcface",
     "ada": "adaface",
     "mag": "magface",
+    "edge": "edgeface",
 }
 DEFAULT_MODEL_PROFILES: Mapping[str, str] = {
     "arc": "arcface_ms1mv3_r100",
     "ada": "adaface_ms1mv3_r100",
     "mag": "magface_ms1mv2_iresnet100",
+    "edge": "edgeface_webface12m_xs_gamma_06",
 }
 DEFAULT_MODEL_WEIGHT_PATHS: Mapping[str, str] = {
     "arc": "models/arcface/ms1mv3_r100_backbone.pth",
     "ada": "models/adaface/adaface_ir101_ms1mv3.ckpt",
-    "mag": "models/magface/magface_epoch_00025.pth",
+    "mag": "models/magface/magface_ms1mv2.pth",
+    "edge": "models/edgeface/edgeface_xs_gamma_06.pt",
 }
 QUICK_DATA_FRACTIONS: Mapping[str, float] = {
     "lfw": 0.10,
@@ -354,7 +357,7 @@ def prepare_common_model_checkpoint(
 ) -> CommonModelPreparation:
     """Register and optionally smoke-test one explicitly selected checkpoint.
 
-    The short notebook aliases ``arc``, ``ada`` and ``mag`` select a profile,
+    The short notebook aliases ``arc``, ``ada``, ``mag`` and ``edge`` select a profile,
     while the checkpoint path remains an explicit user-controlled input.  The
     resulting model UID pins the exact checkpoint hash and preprocessing
     contract for the experiment plan.
@@ -403,6 +406,17 @@ def prepare_common_model_checkpoint(
         selected_checkpoint,
         source_url=source_url,
     )
+    expected_checkpoint_sha256 = str(
+        profile.get("expected_checkpoint_sha256") or ""
+    ).strip().lower()
+    if (
+        expected_checkpoint_sha256
+        and checkpoint.sha256 != expected_checkpoint_sha256
+    ):
+        raise ValueError(
+            f"checkpoint SHA-256 mismatch for profile {profile_id!r}: "
+            f"expected={expected_checkpoint_sha256}, actual={checkpoint.sha256}"
+        )
     preprocessing = PreprocessingSpec(
         input_height=int(profile["preprocessing"]["input_size"][0]),
         input_width=int(profile["preprocessing"]["input_size"][1]),

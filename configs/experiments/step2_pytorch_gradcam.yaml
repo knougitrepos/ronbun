@@ -83,6 +83,7 @@ models:
     - arcface_ms1mv3_r100
     - adaface_ms1mv3_r100
     - magface_ms1mv2_iresnet100
+    - edgeface_webface12m_xs_gamma_06
 
   bridge_profiles:
     - adaface_ms1mv2_r100
@@ -168,6 +169,31 @@ models:
         mean: [0.0, 0.0, 0.0]
         std: [255.0, 255.0, 255.0]
 
+    edgeface_webface12m_xs_gamma_06:
+      family: edgeface
+      role: external_model_generalization
+      status: implementation_ready_checkpoint_available_local
+      framework: pytorch
+      architecture: edgeface_xs_gamma_06
+      architecture_display_name: EdgeFace-XS gamma=0.6
+      training_dataset: webface12m
+      embedding_dim: 512
+      checkpoint_path: models/edgeface/edgeface_xs_gamma_06.pt
+      expected_checkpoint_sha256: 5ae7504cd9aee0a5d52c2115fd2eb66b0985dd1730f40134b5854e0cb658ce16
+      checkpoint_source_url: https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface/-/raw/master/checkpoints/edgeface_xs_gamma_06.pt
+      implementation_repository: https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface
+      checkpoint_source_page: https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface/-/tree/master/checkpoints?ref_type=heads
+      loader_factory: research.embeddings.pytorch.official_loaders:load_edgeface_checkpoint
+      target_layer: model.stages.3.blocks.2.convs.2
+      run_compression: true
+      run_gradcam: true
+      preprocessing:
+        input_size: [112, 112]
+        model_color_order: rgb
+        input_range: [-1.0, 1.0]
+        mean: [127.5, 127.5, 127.5]
+        std: [127.5, 127.5, 127.5]
+
     adaface_ms1mv2_r100:
       family: adaface
       role: bridge
@@ -222,13 +248,12 @@ models:
 
 datasets:
   quantitative: [lfw, survface]
-  # RFW remains conditional because all currently declared profiles use
-  # MS1M-derived training data (MS1MV2 or MS1MV3). RFW is derived from
-  # MS-Celeb-1M and shares identity overlap. Without explicit identity-
-  # disjoint evidence, fail-closed is the correct default for all MS1M
-  # family checkpoints.
+  # RFW is an additional 1:1 verification diagnostic, not an open-set test.
+  # MS1M checkpoints have known overlap risk, while EdgeFace/WebFace12M lacks
+  # verified non-overlap evidence. Therefore RFW is reportable only as a
+  # supplementary diagnostic and is never promoted to the headline set.
   conditional_quantitative: [rfw]
-  additional_development_sources: [balancedface]
+  additional_development_sources: []
   saliency_population_initial: [lfw, survface]
   lfw:
     manifest_path: data/interim/lfw/face_manifest.csv
@@ -252,20 +277,23 @@ datasets:
     protocol_adapter: survface_official
     official_manifest_role: evaluation_only
   balancedface:
-    status: source_index_only
+    status: deferred_by_step7_scope
     source_config_path: configs/datasets/rfw_balancedface.yaml
     experiment_config_path: configs/experiments/rfw_balancedface_quantization.yaml
-    role: development_and_calibration_only
+    role: deferred_not_used
     final_evaluation: false
     train_face_recognition_models: false
   rfw:
-    status: blocked_checkpoint_overlap
+    status: additional_verification_diagnostic
     source_config_path: configs/datasets/rfw_balancedface.yaml
     experiment_config_path: configs/experiments/rfw_balancedface_quantization.yaml
     role: evaluation_test_only
     task: official_10fold_pair_verification
     official_open_set_protocol: false
     checkpoint_overlap_policy: fail_closed
+    headline_evaluation: false
+    compression_fit: false
+    compression_application: frozen_codec_transfer_only
 
 compression:
   baseline_profile: origin_512

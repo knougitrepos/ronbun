@@ -161,9 +161,11 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         "arcface_ms1mv3_r100",
         "adaface_ms1mv3_r100",
         "magface_ms1mv2_iresnet100",
+        "edgeface_webface12m_xs_gamma_06",
         "models/arcface/ms1mv3_r100_backbone.pth",
         "models/adaface/adaface_ir101_ms1mv3.ckpt",
-        "models/magface/magface_epoch_00025.pth",
+        "models/magface/magface_ms1mv2.pth",
+        "models/edgeface/edgeface_xs_gamma_06.pt",
         "FULL_DATA_FRACTION",
         "prepare_common_model_checkpoint",
         "run_smoke_validation=True",
@@ -182,7 +184,7 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     assert "DATA_FRACTION =" not in source
     assert "%run" not in source
     for phrase in (
-        'DATASET_IDS = ("lfw", "survface")',
+        'DATASET_IDS = ("survface","lfw")',
         "postprocess_completed_run",
         "reuse_completed_run_for_plan",
         "COMPLETED_RUN_OVERRIDES = {",

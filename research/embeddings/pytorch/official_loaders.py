@@ -207,3 +207,21 @@ def load_magface_checkpoint(spec: ModelSpec) -> Any:
         ),
         select_prefixes=("module.features.", "features.module."),
     )
+
+
+def load_edgeface_checkpoint(spec: ModelSpec) -> Any:
+    if spec.family != "edgeface":
+        raise ValueError("EdgeFace loader requires family='edgeface'")
+    from research.embeddings.pytorch.official_backbones import (
+        build_edgeface_backbone,
+    )
+
+    model = build_edgeface_backbone(
+        spec.architecture, embedding_dim=spec.embedding_dim
+    )
+    return _load_exact(
+        model,
+        spec,
+        nested_keys=("state_dict", "model"),
+        prefixes=("module.",),
+    )

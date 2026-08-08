@@ -13,3 +13,7 @@ class AdaFacePyTorchAdapter(PyTorchFaceEmbeddingAdapter):
 
 class MagFacePyTorchAdapter(PyTorchFaceEmbeddingAdapter):
     family = "magface"
+
+
+class EdgeFacePyTorchAdapter(PyTorchFaceEmbeddingAdapter):
+    family = "edgeface"

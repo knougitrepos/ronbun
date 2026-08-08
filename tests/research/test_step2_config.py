@@ -54,11 +54,17 @@ def test_step2_config_is_full_execution_profile_with_fail_closed_guards() -> Non
         "arcface_ms1mv3_r100",
         "adaface_ms1mv3_r100",
         "magface_ms1mv2_iresnet100",
+        "edgeface_webface12m_xs_gamma_06",
     ]
     assert models["bridge_profiles"] == ["adaface_ms1mv2_r100"]
     assert models["blocked_profiles"] == ["arcface_ms1mv2_r100"]
     assert models["allow_unverified_metadata"] is False
-    for name in [*models["selected_profiles"], *models["bridge_profiles"]]:
+    for name in [
+        "arcface_ms1mv3_r100",
+        "adaface_ms1mv3_r100",
+        "magface_ms1mv2_iresnet100",
+        *models["bridge_profiles"],
+    ]:
         candidate = models["profiles"][name]
         assert candidate["status"] == "implementation_ready_checkpoint_required"
         assert candidate["framework"] == "pytorch"
@@ -71,6 +77,26 @@ def test_step2_config_is_full_execution_profile_with_fail_closed_guards() -> Non
         assert candidate["implementation_repository"].startswith("https://github.com/")
         assert candidate["checkpoint_source_page"].startswith("https://github.com/")
         assert None not in candidate["preprocessing"].values()
+
+    edgeface = models["profiles"]["edgeface_webface12m_xs_gamma_06"]
+    assert edgeface["family"] == "edgeface"
+    assert edgeface["training_dataset"] == "webface12m"
+    assert edgeface["architecture"] == "edgeface_xs_gamma_06"
+    assert edgeface["checkpoint_path"] == (
+        "models/edgeface/edgeface_xs_gamma_06.pt"
+    )
+    assert edgeface["expected_checkpoint_sha256"] == (
+        "5ae7504cd9aee0a5d52c2115fd2eb66b0985dd1730f40134b5854e0cb658ce16"
+    )
+    assert edgeface["loader_factory"].endswith(":load_edgeface_checkpoint")
+    assert edgeface["target_layer"] == "model.stages.3.blocks.2.convs.2"
+    assert edgeface["preprocessing"] == {
+        "input_size": [112, 112],
+        "model_color_order": "rgb",
+        "input_range": [-1.0, 1.0],
+        "mean": [127.5, 127.5, 127.5],
+        "std": [127.5, 127.5, 127.5],
+    }
 
     assert models["profiles"]["arcface_ms1mv3_r100"]["preprocessing"] == {
         "input_size": [112, 112],

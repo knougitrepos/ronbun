@@ -165,11 +165,13 @@ def test_contract_constants_match_user_confirmed_values() -> None:
         "arc": "arcface_ms1mv3_r100",
         "ada": "adaface_ms1mv3_r100",
         "mag": "magface_ms1mv2_iresnet100",
+        "edge": "edgeface_webface12m_xs_gamma_06",
     }
     assert dict(DEFAULT_MODEL_WEIGHT_PATHS) == {
         "arc": "models/arcface/ms1mv3_r100_backbone.pth",
         "ada": "models/adaface/adaface_ir101_ms1mv3.ckpt",
-        "mag": "models/magface/magface_epoch_00025.pth",
+        "mag": "models/magface/magface_ms1mv2.pth",
+        "edge": "models/edgeface/edgeface_xs_gamma_06.pt",
     }
     assert contract["comparison"]["main_profiles"] == [
         "origin_512",
@@ -183,6 +185,30 @@ def test_contract_constants_match_user_confirmed_values() -> None:
         500,
         1000,
     ]
+
+
+def test_model_preparation_rejects_profile_checkpoint_hash_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = yaml.safe_load(
+        (PROJECT_ROOT / "configs/experiments/step2_pytorch_gradcam.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    profile = config["models"]["profiles"]["edgeface_webface12m_xs_gamma_06"]
+    profile["expected_checkpoint_sha256"] = "0" * 64
+    monkeypatch.setattr(pipeline_runner, "load_step4_config", lambda path: config)
+    checkpoint = tmp_path / "edgeface.pt"
+    checkpoint.write_bytes(b"wrong-checkpoint")
+
+    with pytest.raises(ValueError, match="checkpoint SHA-256 mismatch"):
+        prepare_common_model_checkpoint(
+            project_root=PROJECT_ROOT,
+            model_name="edge",
+            checkpoint_path=checkpoint,
+            run_smoke_validation=False,
+        )
 
 
 def test_contract_rejects_unconfirmed_quick_fraction(tmp_path: Path) -> None:

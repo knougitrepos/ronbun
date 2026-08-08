@@ -359,7 +359,9 @@ def test_missing_torch_does_not_break_existing_package_import(tmp_path, monkeypa
         create_pytorch_adapter(_spec(tmp_path), module=object())
 
 
-@pytest.mark.parametrize("family", ["arcface", "adaface", "magface"])
+@pytest.mark.parametrize(
+    "family", ["arcface", "adaface", "magface", "edgeface"]
+)
 def test_injected_module_returns_raw_norm_and_normalized_embeddings(
     tmp_path,
     monkeypatch,

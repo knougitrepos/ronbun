@@ -31,7 +31,8 @@ _DEFAULT_FILENAMES: dict[str, str] = {
     "arcface_ms1mv3_r100": "ms1mv3_r100_backbone.pth",
     "adaface_ms1mv3_r100": "adaface_ir101_ms1mv3.ckpt",
     "adaface_ms1mv2_r100": "adaface_ir101_ms1mv2.ckpt",
-    "magface_ms1mv2_iresnet100": "magface_epoch_00025.pth",
+    "magface_ms1mv2_iresnet100": "magface_ms1mv2.pth",
+    "edgeface_webface12m_xs_gamma_06": "edgeface_xs_gamma_06.pt",
 }
 
 # Profile → expected family subfolder
@@ -40,6 +41,7 @@ _FAMILY_DIR: dict[str, str] = {
     "adaface_ms1mv3_r100": "adaface",
     "adaface_ms1mv2_r100": "adaface",
     "magface_ms1mv2_iresnet100": "magface",
+    "edgeface_webface12m_xs_gamma_06": "edgeface",
 }
 
 

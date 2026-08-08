@@ -18,6 +18,7 @@ def test_step2_requirements_select_the_validated_cuda_118_stack() -> None:
     assert "\nonnxruntime\n" not in f"\n{step2}\n"
     assert "torch==2.7.1+cu118" in lock
     assert "torchvision==0.22.1+cu118" in lock
+    assert "timm==0.9.16" in lock
     assert "onnxruntime-gpu==1.16.3" in lock
     assert "numpy==1.26.4" in lock
     assert "opencv-python==4.11.0.86" in lock
