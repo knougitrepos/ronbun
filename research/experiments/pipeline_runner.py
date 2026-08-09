@@ -95,9 +95,7 @@ CALIBRATION_IDENTITY_COUNTS = (100, 500, 1000)
 SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID = (
     "survface_quick_protocol_index_rebase_v1"
 )
-RETRIEVAL_SEARCH_MODE_JOIN_CORRECTION_ID = (
-    "retrieval_search_mode_join_grain_v1"
-)
+RETRIEVAL_JOIN_GRAIN_CORRECTION_ID = "retrieval_multi_fpir_join_grain_v2"
 REPRESENTATIVE_CASE_STREAMING_CORRECTION_ID = (
     "representative_case_streaming_memory_v1"
 )
@@ -1355,7 +1353,7 @@ def _is_known_survface_quick_protocol_index_failure(
     )
 
 
-def _is_known_retrieval_search_mode_join_failure(
+def _is_known_retrieval_join_grain_failure(
     run: RunStore,
     plan: CommonExperimentPlan,
 ) -> bool:
@@ -1401,7 +1399,8 @@ def _is_known_retrieval_search_mode_join_failure(
     )
     if not retrieval_path.is_file():
         return False
-    return "search_mode" in pd.read_csv(retrieval_path, nrows=0).columns
+    columns = pd.read_csv(retrieval_path, nrows=0).columns
+    return "search_mode" in columns or "target_fpir" in columns
 
 
 def _config_without_storage_policy(
@@ -1505,6 +1504,7 @@ def _resolve_execution_run(
     plan: CommonExperimentPlan,
     *,
     current_config_path: Path,
+    start_new_run: bool = False,
 ) -> tuple[RunStore | None, Path, dict[str, object] | None]:
     run = _active_dataset_run(plan)
     if run is None:
@@ -1512,17 +1512,21 @@ def _resolve_execution_run(
     existing_config = run.config.get("step4")
     if existing_config == plan.effective_step4_config:
         return run, current_config_path, None
-    quick_protocol_failure = _is_known_survface_quick_protocol_index_failure(
+    retrieval_join_failure = _is_known_retrieval_join_grain_failure(
         run,
         plan,
     )
-    retrieval_join_failure = _is_known_retrieval_search_mode_join_failure(
-        run,
-        plan,
+    if start_new_run and not retrieval_join_failure:
+        return None, current_config_path, None
+    quick_protocol_failure = (
+        False
+        if retrieval_join_failure
+        else _is_known_survface_quick_protocol_index_failure(run, plan)
     )
-    representative_case_failure = _is_known_representative_case_memory_failure(
-        run,
-        plan,
+    representative_case_failure = (
+        False
+        if retrieval_join_failure
+        else _is_known_representative_case_memory_failure(run, plan)
     )
     if not any(
         (
@@ -1546,9 +1550,9 @@ def _resolve_execution_run(
             "without rewriting completed phase artifacts"
         )
     elif retrieval_join_failure:
-        correction_id = RETRIEVAL_SEARCH_MODE_JOIN_CORRECTION_ID
+        correction_id = RETRIEVAL_JOIN_GRAIN_CORRECTION_ID
         reason = (
-            "resume the known retrieval search-mode join-grain failure "
+            "resume the known retrieval search-mode/target-FPIR join-grain failure "
             "without rewriting completed phases 00-04"
         )
     else:
@@ -1647,6 +1651,7 @@ def run_common_step4_experiment(
     run, config_path, execution_context = _resolve_execution_run(
         plan,
         current_config_path=current_config_path,
+        start_new_run=start_new_run,
     )
     if run is None:
         completed = _completed_matching_runs(plan)
@@ -1694,6 +1699,7 @@ def run_common_step4_experiment(
             dataset_id=plan.dataset_id,
             execution_acknowledged=True,
             execution_source="common_orchestration_notebook",
+            start_new_run=start_new_run,
         )
         run = _active_matching_run(plan)
         if run is None:
@@ -1721,6 +1727,7 @@ def run_common_step4_experiment(
                 dataset_id=plan.dataset_id,
                 execution_acknowledged=True,
                 execution_source="common_orchestration_notebook",
+                start_new_run=False,
             )
             stage_results.append(
                 {

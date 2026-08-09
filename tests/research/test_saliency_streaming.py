@@ -293,6 +293,37 @@ def test_streaming_retrieval_join_keeps_search_modes_separate(
     assert set(projection["search_mode"]) == expected_modes
 
 
+def test_streaming_retrieval_join_keeps_target_fpirs_separate(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "retrieval_target_fpirs.csv"
+    joined_path = tmp_path / "retrieval_join.csv"
+    projection_path = tmp_path / "retrieval_projection.parquet"
+    retrieval = pd.concat(
+        [
+            _retrieval().assign(target_fpir=0.10),
+            _retrieval().assign(target_fpir=0.01),
+        ],
+        ignore_index=True,
+    )
+    retrieval.to_csv(source, index=False)
+
+    result = stream_join_population_saliency_with_retrieval(
+        _saliency(),
+        source,
+        joined_output_path=joined_path,
+        association_projection_path=projection_path,
+        chunksize=5,
+        expected_rows=len(retrieval),
+    )
+
+    joined = pd.read_csv(joined_path)
+    projection = pd.read_parquet(projection_path)
+    assert result.row_count == len(retrieval)
+    assert set(joined["target_fpir"]) == {0.10, 0.01}
+    assert set(projection["target_fpir"]) == {0.10, 0.01}
+
+
 def test_streaming_join_detects_duplicate_keys_across_chunks(
     tmp_path: Path,
 ) -> None:

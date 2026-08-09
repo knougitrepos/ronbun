@@ -227,7 +227,12 @@ def join_population_saliency_with_compression(
         )
         retrieval_extra_keys = [
             column
-            for column in ("search_mode", "threshold_policy", "protocol_uid")
+            for column in (
+                "search_mode",
+                "threshold_policy",
+                "protocol_uid",
+                "target_fpir",
+            )
             if column in retrieval
         ]
         retrieval_keys = (*JOIN_KEYS, *PROFILE_KEYS, *retrieval_extra_keys)
@@ -370,6 +375,7 @@ def join_population_saliency_with_retrieval(
             "protocol_uid",
             "threshold_source_split",
             "evaluation_split",
+            "target_fpir",
             "threshold_policy",
         )
         if column in retrieval
@@ -1071,6 +1077,7 @@ def saliency_retrieval_associations(
             "protocol_uid",
             "threshold_source_split",
             "evaluation_split",
+            "target_fpir",
         )
         if column in normalized
     )

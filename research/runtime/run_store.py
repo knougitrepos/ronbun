@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import traceback
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -27,6 +28,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _WRITE_LOCK = threading.Lock()
 ACTIVE_RUN_POINTER = "active_run.json"
 _GIT_DIFF_COMMAND_CHAR_LIMIT = 24_000
+_ATOMIC_REPLACE_ATTEMPTS = 8
+_ATOMIC_REPLACE_INITIAL_DELAY_SECONDS = 0.05
 
 
 def _iso_utc(now: datetime | None = None) -> str:
@@ -48,7 +51,16 @@ def _atomic_write_json(path: Path, payload: Any) -> None:
         json.dumps(redact(payload), ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )
-    os.replace(temporary, path)
+    for attempt in range(_ATOMIC_REPLACE_ATTEMPTS):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if attempt + 1 == _ATOMIC_REPLACE_ATTEMPTS:
+                raise
+            time.sleep(
+                _ATOMIC_REPLACE_INITIAL_DELAY_SECONDS * (2**attempt)
+            )
 
 
 def _git_output(repo_root: Path, *args: str, binary: bool = False):

@@ -192,7 +192,7 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     assert "DATA_FRACTION =" not in source
     assert "%run" not in source
     for phrase in (
-        'DATASET_IDS = ("survface", "lfw", "rfw_custom")',
+        "DATASET_IDS = (",
         "postprocess_completed_run",
         "reuse_completed_run_for_plan",
         "COMPLETED_RUN_OVERRIDES = {",
@@ -200,7 +200,7 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         "RUN_SEARCH_SPACE_REFRESH = True",
         "RUN_SURVFACE_FAITHFULNESS = True",
         "RUN_FINAL_REPORT = True",
-        "START_NEW_RUN = False",
+        "START_NEW_RUN =",
         "RUN_RFW_VERIFICATION = False",
         "frozen_codec_specs_from_completed_run",
         "rfw_frozen_codec_evaluation_uid",

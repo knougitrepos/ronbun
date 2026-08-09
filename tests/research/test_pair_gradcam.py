@@ -219,6 +219,41 @@ def test_select_gradcam_cases_separates_search_modes():
     assert selected["case_id"].is_unique
 
 
+def test_select_gradcam_cases_separates_target_fpirs():
+    paired = pd.DataFrame(
+        {
+            "sample_id": list("abcd"),
+            "compression_family": ["pca"] * 4,
+            "compression_profile": ["pca_128"] * 4,
+            "angular_error_rad": [0.01, 0.9, 0.4, 0.6],
+            "origin_fallback_used": [False] * 4,
+        }
+    )
+    retrieval = pd.DataFrame(
+        {
+            "query_id": list("abcd"),
+            "compression_family": ["pca"] * 4,
+            "compression_profile": ["pca_128"] * 4,
+            "top1_score_drift": [0.01, -0.4, -0.2, -0.3],
+            "agreement_with_origin": [True, True, False, False],
+            "threshold_crossing": [False, False, False, True],
+            "origin_fallback_used": [False] * 4,
+        }
+    )
+    target_010 = retrieval.assign(target_fpir=0.10)
+    target_001 = retrieval.assign(target_fpir=0.01)
+
+    selected = select_gradcam_cases(
+        paired,
+        pd.concat([target_010, target_001], ignore_index=True),
+        cases_per_group=1,
+        seed=17,
+    )
+
+    assert set(selected["target_fpir"]) == {0.10, 0.01}
+    assert selected["case_id"].is_unique
+
+
 def test_population_case_selection_runs_only_on_joined_retrieval_rows():
     joined = pd.DataFrame(
         {
@@ -252,6 +287,40 @@ def test_population_case_selection_runs_only_on_joined_retrieval_rows():
         "threshold_crossing",
     }
     assert "sample-4" not in set(selected["sample_id"])
+
+
+def test_population_case_selection_separates_target_fpirs():
+    base = pd.DataFrame(
+        {
+            "extraction_uid": ["extract"] * 4,
+            "dataset_id": ["lfw"] * 4,
+            "sample_id": [f"sample-{index}" for index in range(4)],
+            "model_uid": ["edgeface-a"] * 4,
+            "compression_family": ["pca"] * 4,
+            "compression_profile": ["pca_64"] * 4,
+            "angular_error_rad": [0.01, 0.8, 0.5, 0.4],
+            "top1_score_drift": [0.0, -0.3, -0.2, 0.1],
+            "agreement_with_origin": [True, True, False, True],
+            "threshold_crossing": [False, False, False, True],
+            "origin_fallback_used": [False] * 4,
+            "saliency_target_eligible": [True] * 4,
+            "heatmap_available": [True] * 4,
+            "retrieval_metrics_available": [True] * 4,
+        }
+    )
+    joined = pd.concat(
+        [base.assign(target_fpir=0.10), base.assign(target_fpir=0.01)],
+        ignore_index=True,
+    )
+
+    selected = select_population_representative_cases(
+        joined,
+        cases_per_group=1,
+        seed=13,
+    )
+
+    assert set(selected["target_fpir"]) == {0.10, 0.01}
+    assert selected["case_id"].is_unique
 
 
 def test_saliency_metrics_and_occlusion_faithfulness():

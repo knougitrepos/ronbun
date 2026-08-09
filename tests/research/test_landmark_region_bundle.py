@@ -207,7 +207,7 @@ def test_low_coverage_is_recorded_in_landmark_bundle(tmp_path):
     manifest = json.loads(
         (output / "bundle_manifest.json").read_text(encoding="utf-8")
     )
-    assert manifest["materializer_version"] == "1.3.0"
+    assert manifest["materializer_version"] == "1.4.0"
     assert manifest["quality_control"]["low_face_coverage_count"] == 1
     expected_five = _CompactLandmarkModel().get(None, None)[
         list(INSIGHTFACE_106_TO_5_INDICES)
@@ -218,6 +218,50 @@ def test_low_coverage_is_recorded_in_landmark_bundle(tmp_path):
         manifest["landmark_anchor_policy"]
         == "insightface_106_derived_five"
     )
+
+
+def test_rfw_aligned_bin_bundle_uses_predicted_five_point_anchor(tmp_path):
+    aligned = tmp_path / "aligned"
+    aligned.mkdir()
+    np.save(
+        aligned / "aligned_faces.npy",
+        np.zeros((1, 112, 112, 3), dtype=np.uint8),
+        allow_pickle=False,
+    )
+    pd.DataFrame(
+        {
+            "sample_id": ["rfw-sample"],
+            "identity_id": ["rfw-identity"],
+            "split": ["test"],
+            "aligned_face_index": [0],
+        }
+    ).to_csv(aligned / "aligned_index.csv", index=False)
+    (aligned / "bundle_manifest.json").write_text(
+        json.dumps(
+            {
+                "dataset_id": "rfw_custom",
+                "preprocessing": {"mode": "rfw_official_aligned_bin"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (aligned / "_SUCCESS").write_text("complete\n", encoding="utf-8")
+
+    output = tmp_path / "landmark-regions"
+    materialize_landmark_region_bundle(
+        aligned,
+        output_dir=output,
+        dataset_id="rfw_custom",
+        landmark_model=_InjectedLandmarkModel(),
+    )
+
+    manifest = json.loads(
+        (output / "bundle_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["source_preprocessing_mode"] == "rfw_official_aligned_bin"
+    assert manifest["landmark_anchor_policy"] == "insightface_106_derived_five"
+    expected_five = _dense_landmarks()[list(INSIGHTFACE_106_TO_5_INDICES)]
+    assert np.allclose(np.load(output / "aligned_landmarks_5.npy")[0], expected_five)
 
 
 def test_missing_semantic_region_is_recorded_without_fabricating_attention(
