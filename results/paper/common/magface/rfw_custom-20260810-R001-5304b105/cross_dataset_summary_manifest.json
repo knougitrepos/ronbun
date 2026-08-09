@@ -1,0 +1,92 @@
+{
+  "artifact_type": "cross_dataset_compact_summary",
+  "causal_loss_claim": false,
+  "comparison_unit": "pretrained_checkpoint",
+  "confidence_interval_contract": {
+    "compressed_minus_origin": "paired nonparametric bootstrap percentile 95%; 2000 repeats; seed 42",
+    "does_not_cover": [
+      "identity_cluster",
+      "checkpoint_training_uncertainty"
+    ],
+    "rates": "two-sided Wilson score 95%",
+    "unit": "probe"
+  },
+  "cross_model_open_set_matrix": {
+    "included": false
+  },
+  "datasets": [
+    "rfw_custom"
+  ],
+  "deferred_work": [
+    "faiss_ivf_pq",
+    "pgvector_ivfflat",
+    "ann_parameter_sweep",
+    "balancedface",
+    "uncertainty_defer_high_low_risk_queries"
+  ],
+  "generated_at_utc": "2026-08-09T23:16:05.937526+00:00",
+  "join_contract": {
+    "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
+    "rows": 70,
+    "validation": "compression one-to-retrieval many"
+  },
+  "model_name": "magface",
+  "output_files": {
+    "compression_summary_all.csv": {
+      "bytes": 103236,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/compression_summary_all.csv",
+      "sha256": "5aea9697da802ffbbea4e9f3d70d3ee45dcf5200d826e38a4690690423c7350c"
+    },
+    "dir_fpir_storage_latency.csv": {
+      "bytes": 42157,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/dir_fpir_storage_latency.csv",
+      "sha256": "e8326a405fd289f48667a7c5145671913da0f846aeb959a436f347f9a8010baa"
+    },
+    "lfw_survface_fpir_appendix.csv": {
+      "bytes": 820,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/lfw_survface_fpir_appendix.csv",
+      "sha256": "56dd14a7ef709888c3c29d21fe8961c7638eab82933baebce285368c34a2d4da"
+    },
+    "retrieval_summary_all.csv": {
+      "bytes": 91845,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/retrieval_summary_all.csv",
+      "sha256": "fe77cb8f1f623e625e5d19a654d368d345929b79c75eadfa5d83cd6ea3749b71"
+    },
+    "storage_distortion.png": {
+      "bytes": 64508,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/storage_distortion.png",
+      "sha256": "313a402f65d64201e3d759cf5144ffed4a4451bda47584413baf8d00b619f13c"
+    },
+    "storage_open_set.png": {
+      "bytes": 274112,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/storage_open_set.png",
+      "sha256": "6cb280eb6be84eb7ddca0f70df9de399255bbbda34f95b6117ce5c7f8cf999e4"
+    }
+  },
+  "rfw_custom_boundary": {
+    "checkpoint_overlap_status": "UNKNOWN",
+    "official_result_eligible": false,
+    "protocol": "custom_1_to_n_open_set_identification",
+    "strict_unseen_identity_evidence": false
+  },
+  "rfw_verification": {
+    "included": false
+  },
+  "schema_version": 7,
+  "selected_runs": {
+    "rfw_custom": {
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "run_id": "20260810-R001-5304b105",
+      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/rfw_custom/20260810-R001-5304b105/search_space_v4_multi_fpir/summary_manifest.json",
+        "sha256": "317ec9a913af088738cfca5dca884b5ad1bd0627f2cb0ff9f397ed0c42526aaa"
+      }
+    }
+  },
+  "survface_faithfulness": {
+    "included": false
+  },
+  "survface_threshold_claim_status": "not_flagged"
+}
