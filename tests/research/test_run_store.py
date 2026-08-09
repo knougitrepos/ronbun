@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from research.runtime import run_store
 from research.runtime.hashing import canonical_sha256
 from research.runtime.redaction import redact
 from research.runtime.run_store import (
@@ -16,6 +17,36 @@ from research.runtime.run_store import (
 
 
 KST = ZoneInfo("Asia/Seoul")
+
+
+def test_atomic_json_write_retries_transient_windows_replace_lock(
+    tmp_path,
+    monkeypatch,
+):
+    destination = tmp_path / "manifest.json"
+    destination.write_text('{"status":"running"}', encoding="utf-8")
+    real_replace = run_store.os.replace
+    attempts = 0
+    delays = []
+
+    def flaky_replace(source, target):
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError(5, "transient Windows file lock")
+        return real_replace(source, target)
+
+    monkeypatch.setattr(run_store.os, "replace", flaky_replace)
+    monkeypatch.setattr(run_store.time, "sleep", delays.append)
+
+    run_store._atomic_write_json(destination, {"status": "completed"})
+
+    assert attempts == 3
+    assert delays == [0.05, 0.10]
+    assert json.loads(destination.read_text(encoding="utf-8")) == {
+        "status": "completed"
+    }
+    assert not list(tmp_path.glob(".manifest.json.*.tmp"))
 
 
 def _manifest(run):

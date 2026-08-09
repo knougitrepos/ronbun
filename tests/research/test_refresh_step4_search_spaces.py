@@ -127,6 +127,37 @@ def test_v4_compact_validation_requires_both_fpir_targets(family: str) -> None:
         )
 
 
+def test_v4_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift():
+    compression = pd.DataFrame(
+        {
+            "compression_family": ["pca"],
+            "compression_profile": ["pca_test"],
+        }
+    )
+    retrieval = _compact_retrieval(family="pca")
+    csv_roundtrip = retrieval.copy()
+    csv_roundtrip.loc[0, "compressed_minus_origin_dir_rank1"] += 1.5e-12
+
+    module._validate_compact_frames(
+        compression,
+        csv_roundtrip,
+        family="pca",
+        expected_profiles=1,
+        target_fpirs=(0.10, 0.01),
+    )
+
+    drifted = csv_roundtrip.copy()
+    drifted.loc[0, "compressed_minus_origin_dir_rank1"] += 1e-6
+    with pytest.raises(ValueError, match="dir_rank1 compressed-minus-origin"):
+        module._validate_compact_frames(
+            compression,
+            drifted,
+            family="pca",
+            expected_profiles=1,
+            target_fpirs=(0.10, 0.01),
+        )
+
+
 def test_refresh_passes_explicit_targets_to_each_family(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

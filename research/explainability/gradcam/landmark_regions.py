@@ -26,11 +26,19 @@ def _emit(progress: ProgressCallback | None, message: str, **details: object) ->
 
 LANDMARK_MODEL_FILENAME = "2d106det.onnx"
 LANDMARK_TOPOLOGY_ID = "insightface-2d106-semantic-v1"
-LANDMARK_MATERIALIZER_VERSION = "1.3.0"
+LANDMARK_MATERIALIZER_VERSION = "1.4.0"
 FACE_COVERAGE_REVIEW_THRESHOLD = 0.20
 FACE_COVERAGE_HARD_MAX = 0.95
 INSIGHTFACE_106_TO_5_INDICES = (38, 88, 86, 52, 61)
 DEFAULT_PROVIDERS = ("CUDAExecutionProvider", "CPUExecutionProvider")
+DETECT_AND_ALIGN_MODE = "detect_and_align"
+OFFICIAL_FACE_CROP_RESIZE_MODE = "official_face_crop_resize"
+RFW_OFFICIAL_ALIGNED_BIN_MODE = "rfw_official_aligned_bin"
+SUPPORTED_ALIGNED_PREPROCESSING_MODES = (
+    DETECT_AND_ALIGN_MODE,
+    OFFICIAL_FACE_CROP_RESIZE_MODE,
+    RFW_OFFICIAL_ALIGNED_BIN_MODE,
+)
 ARC_FACE_112_LANDMARKS = np.asarray(
     [
         [38.2946, 51.6963],
@@ -511,17 +519,14 @@ def materialize_landmark_region_bundle(
             "detect_and_align",
         )
     )
-    if preprocessing_mode not in {
-        "detect_and_align",
-        "official_face_crop_resize",
-    }:
+    if preprocessing_mode not in SUPPORTED_ALIGNED_PREPROCESSING_MODES:
         raise ValueError(
             "aligned-crop bundle preprocessing mode is unsupported: "
             f"{preprocessing_mode}"
         )
     landmark_anchor_policy = (
         "arcface_alignment_template"
-        if preprocessing_mode == "detect_and_align"
+        if preprocessing_mode == DETECT_AND_ALIGN_MODE
         else "insightface_106_derived_five"
     )
     faces = np.load(faces_path, mmap_mode="r", allow_pickle=False)
@@ -629,7 +634,7 @@ def materialize_landmark_region_bundle(
                 )
             aligned_five = (
                 model_input_five
-                if preprocessing_mode == "detect_and_align"
+                if preprocessing_mode == DETECT_AND_ALIGN_MODE
                 else predicted[list(INSIGHTFACE_106_TO_5_INDICES)].copy()
             )
             five_output[row] = aligned_five

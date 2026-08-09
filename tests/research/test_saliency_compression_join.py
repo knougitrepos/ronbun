@@ -175,6 +175,25 @@ def test_retrieval_join_and_associations_keep_search_modes_separate():
     }
 
 
+def test_retrieval_join_and_associations_keep_target_fpirs_separate():
+    target_010 = _retrieval_frame().assign(target_fpir=0.10)
+    target_001 = _retrieval_frame().assign(target_fpir=0.01)
+    joined = join_population_saliency_with_retrieval(
+        _saliency_frame(),
+        pd.concat([target_010, target_001], ignore_index=True),
+    )
+
+    assert len(joined) == 16
+    assert set(joined["target_fpir"]) == {0.10, 0.01}
+    associations = saliency_retrieval_associations(
+        joined,
+        saliency_features=("saliency_entropy",),
+        sensitivity_metrics=("top1_score_drift",),
+        bootstrap_repeats=0,
+    )
+    assert set(associations["target_fpir"]) == {0.10, 0.01}
+
+
 def test_combined_join_rejects_multi_policy_geometry_duplication():
     with pytest.raises(ValueError, match="would duplicate geometry metrics"):
         join_population_saliency_with_compression(

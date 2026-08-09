@@ -679,8 +679,14 @@ def freeze_step4_source_and_model(
     dataset_id: str,
     execution_acknowledged: bool = False,
     execution_source: str = "dataset_notebook",
+    start_new_run: bool = False,
 ) -> dict[str, object]:
-    """Freeze one dataset's inputs and create its incomplete Step 4 run."""
+    """Freeze one dataset's inputs and create its incomplete Step 4 run.
+
+    ``start_new_run=True`` is an explicit request for an independent run.  It
+    preserves the previous incomplete directory and replaces only the active
+    pointer after the new run has been created successfully.
+    """
 
     _require_execution_acknowledgement(execution_acknowledged)
     source_label = str(execution_source).strip()
@@ -750,7 +756,10 @@ def freeze_step4_source_and_model(
         overwrite=overwrite,
         execution_source=source_label,
     )
-    run = RunStore.create_or_reuse_active(
+    create_run = (
+        RunStore.create if start_new_run else RunStore.create_or_reuse_active
+    )
+    run = create_run(
         experiment_name=f"step4_{dataset_spec.dataset_id}_{model_spec.model_uid}",
         config=run_config,
         root=run_root,

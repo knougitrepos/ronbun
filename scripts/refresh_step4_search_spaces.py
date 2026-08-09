@@ -41,6 +41,10 @@ ARTIFACT_TYPE = "step4_search_space_multi_fpir_v4"
 FAMILY_ARTIFACT_TYPE = "step4_search_space_multi_fpir_family_v4"
 SUPPORTED_FAMILIES = ("pca", "pq")
 DEFAULT_TARGET_FPIRS = (0.10, 0.01)
+# Compact CSVs use ``%.12g``. Origin, compressed, and their independently
+# rounded delta can differ from recomputation by at most about 1.5e-12 for
+# rates in [0, 1]; keep the check strict enough to reject scientific drift.
+COMPACT_RATE_DELTA_ROUNDTRIP_ATOL = 2e-12
 REQUIRED_OPEN_SET_CONFIDENCE_COLUMNS = (
     "origin_dir_rank1_count",
     "origin_dir_rank1_denominator",
@@ -337,7 +341,7 @@ def _validate_compact_frames(
             delta,
             compressed - origin,
             rtol=0.0,
-            atol=1e-12,
+            atol=COMPACT_RATE_DELTA_ROUNDTRIP_ATOL,
         ):
             raise ValueError(f"{metric} compressed-minus-origin delta drifted")
         for source, rate in (("origin", origin), ("compressed", compressed)):

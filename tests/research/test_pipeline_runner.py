@@ -720,7 +720,7 @@ def test_known_survface_quick_protocol_failure_resumes_with_frozen_config(
     assert run.events[-1][0] == "source_correction_resume_authorized"
 
 
-def test_known_retrieval_search_mode_join_failure_resumes_completed_phases(
+def test_known_multi_fpir_join_failure_resumes_completed_phases_even_when_new_requested(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -792,10 +792,7 @@ def test_known_retrieval_search_mode_join_failure_resumes_completed_phases(
     pd.DataFrame(
         {
             "query_id": ["sample-1", "sample-1"],
-            "search_mode": [
-                "pca_direct_cosine",
-                "pca_reconstruction_cosine",
-            ],
+            "target_fpir": [0.10, 0.01],
         }
     ).to_csv(retrieval_path, index=False)
     plan = SimpleNamespace(
@@ -814,6 +811,7 @@ def test_known_retrieval_search_mode_join_failure_resumes_completed_phases(
         pipeline_runner._resolve_execution_run(
             plan,
             current_config_path=current_config_path,
+            start_new_run=True,
         )
     )
 
@@ -821,7 +819,7 @@ def test_known_retrieval_search_mode_join_failure_resumes_completed_phases(
     assert resolved_path == frozen_config_path.resolve()
     assert context is not None
     assert context["correction_id"] == (
-        "retrieval_search_mode_join_grain_v1"
+        "retrieval_multi_fpir_join_grain_v2"
     )
     assert context["frozen_source_snapshot"] == frozen_snapshot
     assert context["resume_source_snapshot"] == resume_snapshot
@@ -1040,3 +1038,60 @@ def test_protocol_failure_resume_rejects_any_non_snapshot_config_change(
             plan,
             current_config_path=tmp_path / "current.yaml",
         )
+
+
+def test_start_new_run_explicitly_ignores_a_different_incomplete_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    active = SimpleNamespace(
+        run_dir=tmp_path / "previous-incomplete-run",
+        config={"step4": {"target_layer": "legacy-3x3"}},
+    )
+    plan = SimpleNamespace(
+        effective_step4_config={"target_layer": "revised-7x7"},
+    )
+    current = tmp_path / "current.yaml"
+    monkeypatch.setattr(
+        pipeline_runner,
+        "_active_dataset_run",
+        lambda selected_plan: active,
+    )
+
+    run, config_path, correction = pipeline_runner._resolve_execution_run(
+        plan,
+        current_config_path=current,
+        start_new_run=True,
+    )
+
+    assert run is None
+    assert config_path == current
+    assert correction is None
+
+
+def test_start_new_run_resumes_an_already_matching_incomplete_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_config = {"target_layer": "revised-7x7"}
+    active = SimpleNamespace(
+        run_dir=tmp_path / "matching-incomplete-run",
+        config={"step4": current_config},
+    )
+    plan = SimpleNamespace(effective_step4_config=current_config)
+    current = tmp_path / "current.yaml"
+    monkeypatch.setattr(
+        pipeline_runner,
+        "_active_dataset_run",
+        lambda selected_plan: active,
+    )
+
+    run, config_path, correction = pipeline_runner._resolve_execution_run(
+        plan,
+        current_config_path=current,
+        start_new_run=True,
+    )
+
+    assert run is active
+    assert config_path == current
+    assert correction is None

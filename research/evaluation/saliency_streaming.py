@@ -310,7 +310,7 @@ def stream_select_population_representative_cases(
     )
     optional = tuple(
         column
-        for column in ("search_mode", "is_mated")
+        for column in ("search_mode", "target_fpir", "is_mated")
         if column in source_columns
     )
     retrieval_columns = tuple(
@@ -385,6 +385,8 @@ def stream_select_population_representative_cases(
     candidate_keys = [*geometry_keys]
     if "search_mode" in candidates:
         candidate_keys.append("search_mode")
+    if "target_fpir" in candidates:
+        candidate_keys.append("target_fpir")
     candidates = candidates.drop_duplicates(candidate_keys, keep="first")
     return select_population_representative_cases(
         candidates,
@@ -576,6 +578,7 @@ def stream_join_population_saliency_with_retrieval(
             "protocol_uid",
             "threshold_source_split",
             "evaluation_split",
+            "target_fpir",
         )
         if column in normalized_columns
     )
