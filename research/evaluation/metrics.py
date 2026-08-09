@@ -1,8 +1,137 @@
 from __future__ import annotations
 
+from statistics import NormalDist
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, roc_auc_score
+
+
+PAIRED_BOOTSTRAP_RESAMPLES = 2_000
+PAIRED_BOOTSTRAP_RANDOM_SEED = 42
+
+
+def _validated_binomial_counts(successes: int, total: int) -> tuple[int, int]:
+    if isinstance(successes, (bool, np.bool_)) or isinstance(
+        total, (bool, np.bool_)
+    ):
+        raise ValueError("binomial counts must be integers")
+    try:
+        successes_value = int(successes)
+        total_value = int(total)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("binomial counts must be integers") from exc
+    if successes_value != successes or total_value != total:
+        raise ValueError("binomial counts must be integers")
+    if total_value <= 0 or not 0 <= successes_value <= total_value:
+        raise ValueError("binomial counts are invalid")
+    return successes_value, total_value
+
+
+def _validated_confidence_level(confidence_level: float) -> float:
+    level = float(confidence_level)
+    if not np.isfinite(level) or not 0.0 < level < 1.0:
+        raise ValueError("confidence_level must be between 0 and 1")
+    return level
+
+
+def wilson_score_interval(
+    successes: int,
+    total: int,
+    *,
+    confidence_level: float = 0.95,
+) -> tuple[float, float]:
+    """Return a two-sided Wilson score interval for a binomial rate."""
+
+    successes_value, total_value = _validated_binomial_counts(successes, total)
+    level = _validated_confidence_level(confidence_level)
+    z = NormalDist().inv_cdf(0.5 + level / 2.0)
+    proportion = successes_value / total_value
+    denominator = 1.0 + z * z / total_value
+    center = (
+        proportion + z * z / (2.0 * total_value)
+    ) / denominator
+    margin = (
+        z
+        * np.sqrt(
+            proportion * (1.0 - proportion) / total_value
+            + z * z / (4.0 * total_value * total_value)
+        )
+        / denominator
+    )
+    return (
+        float(max(0.0, center - margin)),
+        float(min(1.0, center + margin)),
+    )
+
+
+def paired_binary_rate_difference_bootstrap_interval(
+    reference_successes: int,
+    candidate_successes: int,
+    both_successes: int,
+    total: int,
+    *,
+    confidence_level: float = 0.95,
+    resamples: int = PAIRED_BOOTSTRAP_RESAMPLES,
+    random_seed: int = PAIRED_BOOTSTRAP_RANDOM_SEED,
+) -> tuple[float, float]:
+    """Return a deterministic paired-bootstrap CI for candidate minus reference.
+
+    The four joint binary-outcome cell counts are sufficient to reproduce a
+    query-level non-parametric bootstrap. Keeping those counts lets streaming
+    compact-summary generation preserve the paired origin/compressed design
+    without retaining a row-level ledger in memory.
+    """
+
+    reference_value, total_value = _validated_binomial_counts(
+        reference_successes,
+        total,
+    )
+    candidate_value, candidate_total = _validated_binomial_counts(
+        candidate_successes,
+        total,
+    )
+    both_value, both_total = _validated_binomial_counts(both_successes, total)
+    if candidate_total != total_value or both_total != total_value:
+        raise RuntimeError("paired binary totals drifted")
+    if both_value > min(reference_value, candidate_value):
+        raise ValueError("both_successes exceeds a marginal success count")
+    neither_value = (
+        total_value - reference_value - candidate_value + both_value
+    )
+    if neither_value < 0:
+        raise ValueError("paired binary joint counts are inconsistent")
+    if isinstance(resamples, (bool, np.bool_)):
+        raise ValueError("resamples must be a positive integer")
+    try:
+        resample_count = int(resamples)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("resamples must be a positive integer") from exc
+    if resample_count != resamples or resample_count <= 0:
+        raise ValueError("resamples must be a positive integer")
+    level = _validated_confidence_level(confidence_level)
+    reference_only = reference_value - both_value
+    candidate_only = candidate_value - both_value
+    probabilities = np.asarray(
+        [neither_value, reference_only, candidate_only, both_value],
+        dtype=np.float64,
+    ) / total_value
+    rng = np.random.default_rng(int(random_seed))
+    joint_samples = rng.multinomial(
+        total_value,
+        probabilities,
+        size=resample_count,
+    )
+    differences = (
+        joint_samples[:, 2].astype(np.float64)
+        - joint_samples[:, 1].astype(np.float64)
+    ) / total_value
+    alpha = 1.0 - level
+    lower, upper = np.quantile(
+        differences,
+        [alpha / 2.0, 1.0 - alpha / 2.0],
+    )
+    return float(max(-1.0, lower)), float(min(1.0, upper))
 
 
 def rank_at_k(results: pd.DataFrame, *, k: int) -> float:

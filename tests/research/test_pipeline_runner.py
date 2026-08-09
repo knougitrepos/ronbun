@@ -54,6 +54,9 @@ def _write_plan_inputs(tmp_path: Path) -> tuple[Path, Path]:
                         }
                     }
                 },
+                "evaluation": {
+                    "reported_target_fpirs": [0.10, 0.01],
+                },
             },
             sort_keys=False,
         ),
@@ -72,8 +75,10 @@ def _write_plan_inputs(tmp_path: Path) -> tuple[Path, Path]:
     [
         ("lfw", "quick", 0.10, 10),
         ("survface", "quick", 0.02, 2),
+        ("rfw_custom", "quick", 0.10, 10),
         ("lfw", "full", 1.00, 100),
         ("survface", "full", 1.00, 100),
+        ("rfw_custom", "full", 1.00, 100),
     ],
 )
 def test_common_plan_uses_only_confirmed_quick_full_fractions(
@@ -129,6 +134,7 @@ def test_common_plan_uses_only_confirmed_quick_full_fractions(
     assert plan.quick_data_fractions == {
         "lfw": 0.10,
         "survface": 0.02,
+        "rfw_custom": 0.10,
     }
     assert plan.quick_fraction_override is False
     assert plan.selected_source_rows == expected_selected
@@ -159,7 +165,11 @@ def test_common_plan_uses_only_confirmed_quick_full_fractions(
 def test_contract_constants_match_user_confirmed_values() -> None:
     contract = load_evaluation_contract(CONTRACT_PATH)
 
-    assert dict(QUICK_DATA_FRACTIONS) == {"lfw": 0.10, "survface": 0.02}
+    assert dict(QUICK_DATA_FRACTIONS) == {
+        "lfw": 0.10,
+        "survface": 0.02,
+        "rfw_custom": 0.10,
+    }
     assert FULL_DATA_FRACTION == 1.0
     assert dict(DEFAULT_MODEL_PROFILES) == {
         "arc": "arcface_ms1mv3_r100",
@@ -185,6 +195,21 @@ def test_contract_constants_match_user_confirmed_values() -> None:
         500,
         1000,
     ]
+    assert contract["calibration"]["paper_operating_points"] == [0.10, 0.01]
+    assert contract["calibration"][
+        "reuse_search_scores_across_operating_points"
+    ] is True
+    assert contract["calibration"]["appendix_datasets"] == ["lfw", "survface"]
+    assert contract["evaluation"]["confidence_intervals"] == {
+        "binomial_rates": "wilson_95",
+        "compressed_minus_origin": "paired_query_bootstrap_95",
+        "bootstrap_seed": 42,
+        "bootstrap_repeats": 2000,
+    }
+    assert contract["rfw"]["edgeface_training_identity_overlap_status"] == (
+        "UNKNOWN"
+    )
+    assert contract["rfw"]["strict_unseen_identity_evidence_allowed"] is False
 
 
 def test_model_preparation_rejects_profile_checkpoint_hash_mismatch(
@@ -259,7 +284,11 @@ def test_notebook_quick_fraction_override_is_recorded(
         project_root=tmp_path,
         dataset_id="survface",
         run_tier="quick",
-        quick_data_fractions={"lfw": 0.25, "survface": 0.03},
+        quick_data_fractions={
+            "lfw": 0.25,
+            "survface": 0.03,
+            "rfw_custom": 0.15,
+        },
         step4_config_path=config_path,
         evaluation_contract_path=contract_path,
     )
@@ -267,7 +296,11 @@ def test_notebook_quick_fraction_override_is_recorded(
         project_root=tmp_path,
         dataset_id="survface",
         run_tier="full",
-        quick_data_fractions={"lfw": 0.25, "survface": 0.03},
+        quick_data_fractions={
+            "lfw": 0.25,
+            "survface": 0.03,
+            "rfw_custom": 0.15,
+        },
         step4_config_path=config_path,
         evaluation_contract_path=contract_path,
     )
@@ -277,6 +310,7 @@ def test_notebook_quick_fraction_override_is_recorded(
     assert plan.effective_step4_config["orchestration"]["quick_data_fractions"] == {
         "lfw": 0.25,
         "survface": 0.03,
+        "rfw_custom": 0.15,
     }
     assert (
         plan.effective_step4_config["orchestration"]["quick_fraction_override"]

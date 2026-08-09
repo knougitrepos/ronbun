@@ -138,6 +138,40 @@ def test_survface_quick_selection_records_source_and_local_protocol_indexes():
         assert frame["protocol_index"].tolist() == list(range(len(frame)))
 
 
+def test_rfw_custom_quick_selection_uses_role_and_group_preserving_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = pd.DataFrame({"image_id": ["rfw-1"]})
+    selected = pd.DataFrame({"image_id": ["rfw-selected"]})
+    observed: dict[str, object] = {}
+
+    def fake_select(frame, *, data_fraction, seed):
+        observed.update(
+            frame=frame,
+            data_fraction=data_fraction,
+            seed=seed,
+        )
+        return selected
+
+    monkeypatch.setattr(
+        step4_workflow,
+        "select_rfw_custom_protocol_fraction",
+        fake_select,
+    )
+    result = select_step4_source_manifest(
+        source,
+        dataset_id="rfw_custom",
+        scope=ExperimentScope(mode="real", data_fraction=0.10, seed=42),
+    )
+
+    assert observed == {
+        "frame": source,
+        "data_fraction": 0.10,
+        "seed": 42,
+    }
+    pd.testing.assert_frame_equal(result, selected)
+
+
 class _FakePhase:
     def __init__(self, run_dir: Path) -> None:
         self.details: dict[str, object] = {}

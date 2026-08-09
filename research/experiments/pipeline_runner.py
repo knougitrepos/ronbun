@@ -49,7 +49,7 @@ from research.runtime import (
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 
-SUPPORTED_COMMON_DATASETS = ("lfw", "survface")
+SUPPORTED_COMMON_DATASETS = ("lfw", "survface", "rfw_custom")
 SUPPORTED_RUN_TIERS = ("quick", "full")
 SUPPORTED_MODEL_NAMES = ("arc", "ada", "mag", "edge")
 SUPPORTED_ARTIFACT_STORAGE_MODES = ("results_only", "full")
@@ -74,6 +74,7 @@ DEFAULT_MODEL_WEIGHT_PATHS: Mapping[str, str] = {
 QUICK_DATA_FRACTIONS: Mapping[str, float] = {
     "lfw": 0.10,
     "survface": 0.02,
+    "rfw_custom": 0.10,
 }
 FULL_DATA_FRACTION = 1.00
 DEFAULT_STEP4_CONFIG_PATH = Path("configs/experiments/step2_pytorch_gradcam.yaml")
@@ -591,6 +592,22 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
     )
     if actual_counts != CALIBRATION_IDENTITY_COUNTS:
         raise ValueError(f"calibration counts must be {CALIBRATION_IDENTITY_COUNTS}")
+    paper_operating_points = _numeric_tuple(
+        calibration.get("paper_operating_points"),
+        label="paper_operating_points",
+    )
+    if paper_operating_points != (0.10, 0.01):
+        raise ValueError("paper operating points must be FPIR 0.10 and 0.01")
+    if calibration.get("reuse_search_scores_across_operating_points") is not True:
+        raise ValueError("multi-FPIR evaluation must reuse search scores")
+    if tuple(calibration.get("appendix_datasets", ())) != ("lfw", "survface"):
+        raise ValueError("the common FPIR appendix must cover LFW and SurvFace")
+    appendix_targets = _numeric_tuple(
+        calibration.get("appendix_operating_points"),
+        label="appendix_operating_points",
+    )
+    if appendix_targets != paper_operating_points:
+        raise ValueError("appendix operating points must match paper points")
 
     evaluation = contract.get("evaluation")
     if not isinstance(evaluation, Mapping):
@@ -607,6 +624,41 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
         raise ValueError(f"formal FPIR targets must be {FORMAL_FPIR_TARGETS}")
     if exploratory != EXPLORATORY_FPIR_TARGETS:
         raise ValueError(f"exploratory FPIR targets must be {EXPLORATORY_FPIR_TARGETS}")
+    if evaluation.get("report_realized_fpir") is not True:
+        raise ValueError("realized FPIR reporting must remain enabled")
+    if evaluation.get("report_denominator_and_error_count") is not True:
+        raise ValueError("FPIR denominator and false-accept reporting is required")
+    if evaluation.get("report_confidence_interval") is not True:
+        raise ValueError("open-set confidence intervals are required")
+    confidence = evaluation.get("confidence_intervals")
+    if not isinstance(confidence, Mapping):
+        raise ValueError("confidence_intervals must be a mapping")
+    expected_confidence = {
+        "binomial_rates": "wilson_95",
+        "compressed_minus_origin": "paired_query_bootstrap_95",
+        "bootstrap_seed": 42,
+        "bootstrap_repeats": 2000,
+    }
+    if dict(confidence) != expected_confidence:
+        raise ValueError(
+            "confidence interval contract differs from Wilson/paired bootstrap v1"
+        )
+
+    rfw = contract.get("rfw")
+    if not isinstance(rfw, Mapping):
+        raise ValueError("RFW evaluation boundary must be a mapping")
+    custom = rfw.get("custom")
+    official = rfw.get("official")
+    if not isinstance(custom, Mapping) or not isinstance(official, Mapping):
+        raise ValueError("RFW custom and official contracts are required")
+    if custom.get("official_protocol_claim") is not False:
+        raise ValueError("RFW-Custom must not claim official protocol status")
+    if official.get("open_set_metrics_forbidden") is not True:
+        raise ValueError("RFW-Official must forbid open-set metrics")
+    if rfw.get("edgeface_training_identity_overlap_status") != "UNKNOWN":
+        raise ValueError("EdgeFace-RFW overlap status must remain UNKNOWN")
+    if rfw.get("strict_unseen_identity_evidence_allowed") is not False:
+        raise ValueError("RFW cannot be strict unseen-identity evidence")
 
 
 def _effective_step4_config(
@@ -792,6 +844,22 @@ def build_common_experiment_plan(
     )
     base_config = load_step4_config(base_path)
     contract = load_evaluation_contract(contract_path)
+    configured_targets = tuple(
+        float(value)
+        for value in base_config.get("evaluation", {}).get(
+            "reported_target_fpirs",
+            (),
+        )
+    )
+    paper_targets = tuple(
+        float(value)
+        for value in contract["calibration"]["paper_operating_points"]
+    )
+    if configured_targets != paper_targets:
+        raise ValueError(
+            "Step 4 reported_target_fpirs differ from evaluation contract: "
+            f"{configured_targets} != {paper_targets}"
+        )
     contract_id = str(contract["contract_id"])
     contract_sha256 = sha256_file(contract_path)
     source_provenance = inspect_git_provenance(
@@ -959,12 +1027,26 @@ def inspect_common_experiment_plan(
         "search_space_clean_full_rerun": "validation_required",
         "survface_gradcam_faithfulness_controls": "implemented",
         "survface_gradcam_faithfulness_three_models": "implemented",
+        "rfw_custom_open_set_protocol": "implemented_unvalidated_full_run",
+        "three_open_set_dataset_comparison": "validation_required",
+        "edgeface_rfw_identity_overlap": "unknown",
+        "checkpoint_level_generalization_only": "implemented",
+        "multi_fpir_score_reuse": "implemented",
+        "probe_level_wilson_and_paired_delta_ci": "implemented",
+        "lfw_survface_fpir_appendix": "implemented",
+        "cross_dataset_calibration_transfer": "implemented_unvalidated_artifacts",
+        "rfw_official_tar_far_eer": "implemented_unvalidated_full_run",
         "gradcam_faithfulness_clean_promotion": "validation_required",
         "repeated_latency_benchmark": "validation_required",
-        "ivf_pq_system_ablation": "proposed",
-        "official_and_db_baseline_matrix": "proposed",
+        "ivf_pq_system_ablation": "deferred_step7",
+        "pgvector_ivfflat": "deferred_step7",
+        "ann_parameter_sweep": "deferred_step7",
+        "balancedface": "deferred_step7",
+        "uncertainty_defer": "deferred_step7",
+        "risk_stratified_query_experiments": "deferred_step7",
+        "official_and_db_baseline_matrix": "deferred_step7",
         "calibration_100_500_1000": "proposed",
-        "full_fpir_contract": "proposed",
+        "full_fpir_contract": "implemented",
         "gradcam_promotion_gates": "proposed",
     }
     return {

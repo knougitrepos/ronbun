@@ -46,6 +46,41 @@ def _compact_retrieval(*, family: str) -> pd.DataFrame:
                     "search_mode": search_mode,
                     "threshold_policy": threshold_policy,
                     "target_fpir": target,
+                    "origin_dir_rank1_count": 8,
+                    "origin_dir_rank1_denominator": 10,
+                    "origin_dir_rank1": 0.8,
+                    "origin_dir_rank1_wilson95_low": 0.5,
+                    "origin_dir_rank1_wilson95_high": 0.95,
+                    "compressed_dir_rank1_count": 7,
+                    "compressed_dir_rank1_denominator": 10,
+                    "compressed_dir_rank1": 0.7,
+                    "compressed_dir_rank1_wilson95_low": 0.4,
+                    "compressed_dir_rank1_wilson95_high": 0.9,
+                    "compressed_minus_origin_dir_rank1": -0.1,
+                    "compressed_minus_origin_dir_rank1_paired_bootstrap95_low": -0.5,
+                    "compressed_minus_origin_dir_rank1_paired_bootstrap95_high": 0.2,
+                    "origin_false_accept_count": 1,
+                    "origin_fpir_denominator": 10,
+                    "origin_fpir": 0.1,
+                    "origin_realized_fpir": 0.1,
+                    "origin_fpir_wilson95_low": 0.0,
+                    "origin_fpir_wilson95_high": 0.4,
+                    "compressed_false_accept_count": 2,
+                    "compressed_fpir_denominator": 10,
+                    "compressed_fpir": 0.2,
+                    "compressed_realized_fpir": 0.2,
+                    "compressed_fpir_wilson95_low": 0.0,
+                    "compressed_fpir_wilson95_high": 0.5,
+                    "compressed_minus_origin_fpir": 0.1,
+                    "compressed_minus_origin_fpir_paired_bootstrap95_low": -0.2,
+                    "compressed_minus_origin_fpir_paired_bootstrap95_high": 0.5,
+                    "confidence_interval_unit": "probe",
+                    "rate_confidence_interval_method": "wilson_score",
+                    "difference_confidence_interval_method": (
+                        "paired_nonparametric_bootstrap_percentile"
+                    ),
+                    "difference_confidence_interval_resamples": 2_000,
+                    "difference_confidence_interval_random_seed": 42,
                     "threshold_crossing_count": 0,
                     "accept_to_reject_count": 0,
                     "reject_to_accept_count": 0,
@@ -72,6 +107,15 @@ def test_v4_compact_validation_requires_both_fpir_targets(family: str) -> None:
         expected_profiles=1,
         target_fpirs=(0.10, 0.01),
     )
+
+    with pytest.raises(ValueError, match="missing confidence fields"):
+        module._validate_compact_frames(
+            compression,
+            retrieval.drop(columns="compressed_fpir_wilson95_high"),
+            family=family,
+            expected_profiles=1,
+            target_fpirs=(0.10, 0.01),
+        )
 
     with pytest.raises(ValueError, match="row mismatch|coverage mismatch"):
         module._validate_compact_frames(

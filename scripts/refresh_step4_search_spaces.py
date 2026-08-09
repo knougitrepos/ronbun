@@ -23,6 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from research.evaluation import annotate_compression_lineage  # noqa: E402
 from research.experiments import (  # noqa: E402
     characterize_step2_compression,
+    characterize_step2_rfw_custom_compression,
     characterize_step2_survface_compression,
 )
 from research.explainability.gradcam import (  # noqa: E402
@@ -40,6 +41,41 @@ ARTIFACT_TYPE = "step4_search_space_multi_fpir_v4"
 FAMILY_ARTIFACT_TYPE = "step4_search_space_multi_fpir_family_v4"
 SUPPORTED_FAMILIES = ("pca", "pq")
 DEFAULT_TARGET_FPIRS = (0.10, 0.01)
+REQUIRED_OPEN_SET_CONFIDENCE_COLUMNS = (
+    "origin_dir_rank1_count",
+    "origin_dir_rank1_denominator",
+    "origin_dir_rank1",
+    "origin_dir_rank1_wilson95_low",
+    "origin_dir_rank1_wilson95_high",
+    "compressed_dir_rank1_count",
+    "compressed_dir_rank1_denominator",
+    "compressed_dir_rank1",
+    "compressed_dir_rank1_wilson95_low",
+    "compressed_dir_rank1_wilson95_high",
+    "compressed_minus_origin_dir_rank1",
+    "compressed_minus_origin_dir_rank1_paired_bootstrap95_low",
+    "compressed_minus_origin_dir_rank1_paired_bootstrap95_high",
+    "origin_false_accept_count",
+    "origin_fpir_denominator",
+    "origin_fpir",
+    "origin_realized_fpir",
+    "origin_fpir_wilson95_low",
+    "origin_fpir_wilson95_high",
+    "compressed_false_accept_count",
+    "compressed_fpir_denominator",
+    "compressed_fpir",
+    "compressed_realized_fpir",
+    "compressed_fpir_wilson95_low",
+    "compressed_fpir_wilson95_high",
+    "compressed_minus_origin_fpir",
+    "compressed_minus_origin_fpir_paired_bootstrap95_low",
+    "compressed_minus_origin_fpir_paired_bootstrap95_high",
+    "confidence_interval_unit",
+    "rate_confidence_interval_method",
+    "difference_confidence_interval_method",
+    "difference_confidence_interval_resamples",
+    "difference_confidence_interval_random_seed",
+)
 _PROGRESS_STATE: dict[str, tuple[int, int]] = {}
 
 
@@ -115,7 +151,7 @@ def _source_context(run_dir: Path) -> dict[str, Any]:
     if not isinstance(step4, dict):
         raise ValueError("source run manifest is missing the frozen Step 4 config")
     dataset_id = str(config.get("dataset_id", "")).strip()
-    if dataset_id not in {"lfw", "survface"}:
+    if dataset_id not in {"lfw", "survface", "rfw_custom"}:
         raise ValueError(f"unsupported source dataset: {dataset_id!r}")
     workflow = step4["workflow"]
     workflow_root = source / str(workflow["artifact_subdir"])
@@ -256,6 +292,79 @@ def _validate_compact_frames(
             f"{family} target FPIR coverage mismatch: "
             f"{sorted(observed_targets)} != {sorted(target_fpirs)}"
         )
+    missing_confidence = sorted(
+        set(REQUIRED_OPEN_SET_CONFIDENCE_COLUMNS).difference(retrieval.columns)
+    )
+    if missing_confidence:
+        raise ValueError(
+            f"{family} retrieval summary is missing confidence fields: "
+            f"{missing_confidence}"
+        )
+    if retrieval["confidence_interval_unit"].ne("probe").any():
+        raise ValueError("open-set confidence intervals must use probe units")
+    if retrieval["rate_confidence_interval_method"].ne(
+        "wilson_score"
+    ).any():
+        raise ValueError("open-set rate intervals must use Wilson score")
+    if retrieval["difference_confidence_interval_method"].ne(
+        "paired_nonparametric_bootstrap_percentile"
+    ).any():
+        raise ValueError("origin deltas must use the paired bootstrap contract")
+    if (
+        pd.to_numeric(
+            retrieval["difference_confidence_interval_resamples"],
+            errors="raise",
+        )
+        <= 0
+    ).any():
+        raise ValueError("paired-bootstrap resamples must be positive")
+    for source in ("origin", "compressed"):
+        realized = pd.to_numeric(
+            retrieval[f"{source}_realized_fpir"], errors="raise"
+        )
+        fpir = pd.to_numeric(retrieval[f"{source}_fpir"], errors="raise")
+        if not np.allclose(realized, fpir, rtol=0.0, atol=1e-12):
+            raise ValueError(f"{source} realized FPIR alias drifted")
+    for metric in ("dir_rank1", "fpir"):
+        origin = pd.to_numeric(retrieval[f"origin_{metric}"], errors="raise")
+        compressed = pd.to_numeric(
+            retrieval[f"compressed_{metric}"], errors="raise"
+        )
+        delta = pd.to_numeric(
+            retrieval[f"compressed_minus_origin_{metric}"], errors="raise"
+        )
+        if not np.allclose(
+            delta,
+            compressed - origin,
+            rtol=0.0,
+            atol=1e-12,
+        ):
+            raise ValueError(f"{metric} compressed-minus-origin delta drifted")
+        for source, rate in (("origin", origin), ("compressed", compressed)):
+            low = pd.to_numeric(
+                retrieval[f"{source}_{metric}_wilson95_low"],
+                errors="raise",
+            )
+            high = pd.to_numeric(
+                retrieval[f"{source}_{metric}_wilson95_high"],
+                errors="raise",
+            )
+            if ((low > rate) | (rate > high)).any():
+                raise ValueError(f"{source} {metric} escaped its Wilson interval")
+        delta_low = pd.to_numeric(
+            retrieval[
+                f"compressed_minus_origin_{metric}_paired_bootstrap95_low"
+            ],
+            errors="raise",
+        )
+        delta_high = pd.to_numeric(
+            retrieval[
+                f"compressed_minus_origin_{metric}_paired_bootstrap95_high"
+            ],
+            errors="raise",
+        )
+        if (delta_low > delta_high).any():
+            raise ValueError(f"{metric} paired-bootstrap interval is inverted")
     crossing = retrieval["threshold_crossing_count"].astype(int)
     directional = (
         retrieval["accept_to_reject_count"].astype(int)
@@ -333,6 +442,16 @@ def _run_family(
             selected,
             target_fpir=float(evaluation["survface_target_fpir"]),
             calibration_gallery_identities=3000,
+            **common,
+        )
+    elif context["dataset_id"] == "rfw_custom":
+        result = characterize_step2_rfw_custom_compression(
+            prepared,
+            selected,
+            target_fpir=float(evaluation["rfw_custom_target_fpir"]),
+            calibration_gallery_identities=int(
+                evaluation["rfw_custom_calibration_gallery_identities"]
+            ),
             **common,
         )
     else:
@@ -488,6 +607,8 @@ def _legacy_consistency(
             source_evaluation[
                 "survface_target_fpir"
                 if context["dataset_id"] == "survface"
+                else "rfw_custom_target_fpir"
+                if context["dataset_id"] == "rfw_custom"
                 else "target_fpir"
             ]
         )
@@ -765,10 +886,18 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
                 "accept_to_reject",
                 "reject_to_accept",
             ],
+            "rate_confidence_intervals": (
+                "probe-level two-sided 95% Wilson score intervals"
+            ),
+            "origin_difference_confidence_intervals": (
+                "compressed minus origin probe-level paired nonparametric "
+                "bootstrap percentile intervals"
+            ),
             "latency": "single observation; repeated benchmark still required",
         },
         "limitations": [
             "No row-level derived search-space ledger is retained by this compact refresh.",
+            "Confidence intervals resample probes and do not represent identity-cluster or checkpoint-training uncertainty.",
             *(
                 [
                     "SurvFace threshold-dependent claims remain blocked for "
@@ -777,6 +906,14 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
                 ]
                 if context["dataset_id"] == "survface"
                 and failed_transfer_targets
+                else []
+            ),
+            *(
+                [
+                    "RFW-Custom uses a non-official 1:N identity split and must not be reported as RFW Official.",
+                    "Checkpoint training identity overlap with RFW is UNKNOWN; this is not strict unseen-identity evidence.",
+                ]
+                if context["dataset_id"] == "rfw_custom"
                 else []
             ),
             "Latency is a one-shot wall-clock observation and is not a stable systems benchmark.",

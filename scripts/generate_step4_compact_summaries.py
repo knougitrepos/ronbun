@@ -6,13 +6,25 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-SCHEMA_VERSION = 3
+from research.evaluation.metrics import (  # noqa: E402
+    PAIRED_BOOTSTRAP_RANDOM_SEED,
+    PAIRED_BOOTSTRAP_RESAMPLES,
+    paired_binary_rate_difference_bootstrap_interval,
+    wilson_score_interval,
+)
+
+
+SCHEMA_VERSION = 4
 COMPRESSION_METRICS = (
     "reconstruction_mse",
     "angular_error_rad",
@@ -170,6 +182,28 @@ def _rate(numerator: int, denominator: int) -> float:
     return float(numerator / denominator) if denominator else float("nan")
 
 
+def _wilson_or_nan(successes: int, total: int) -> tuple[float, float]:
+    if not total:
+        return float("nan"), float("nan")
+    return wilson_score_interval(successes, total)
+
+
+def _paired_difference_or_nan(
+    reference_successes: int,
+    candidate_successes: int,
+    both_successes: int,
+    total: int,
+) -> tuple[float, float]:
+    if not total:
+        return float("nan"), float("nan")
+    return paired_binary_rate_difference_bootstrap_interval(
+        reference_successes,
+        candidate_successes,
+        both_successes,
+        total,
+    )
+
+
 def summarize_compression(
     source_path: Path | None,
     *,
@@ -312,8 +346,10 @@ def _new_retrieval_accumulator() -> dict[str, Any]:
         "compressed_accepted_count": 0,
         "origin_dir_rank1_count": 0,
         "compressed_dir_rank1_count": 0,
+        "both_dir_rank1_count": 0,
         "origin_false_accept_count": 0,
         "compressed_false_accept_count": 0,
+        "both_false_accept_count": 0,
         "agreement_with_origin_count": 0,
         "threshold_crossing_count": 0,
         "accept_to_reject_count": 0,
@@ -463,15 +499,23 @@ def summarize_retrieval(
             )
             acc["origin_accepted_count"] += int(origin_accepted.sum())
             acc["compressed_accepted_count"] += int(compressed_accepted.sum())
-            acc["origin_dir_rank1_count"] += int(
-                (origin_accepted & origin_rank1 & mated).sum()
+            origin_dir = origin_accepted & origin_rank1 & mated
+            compressed_dir = compressed_accepted & compressed_rank1 & mated
+            origin_false_accept = origin_accepted & non_mated
+            compressed_false_accept = compressed_accepted & non_mated
+            acc["origin_dir_rank1_count"] += int(origin_dir.sum())
+            acc["compressed_dir_rank1_count"] += int(compressed_dir.sum())
+            acc["both_dir_rank1_count"] += int(
+                (origin_dir & compressed_dir).sum()
             )
-            acc["compressed_dir_rank1_count"] += int(
-                (compressed_accepted & compressed_rank1 & mated).sum()
+            acc["origin_false_accept_count"] += int(
+                origin_false_accept.sum()
             )
-            acc["origin_false_accept_count"] += int((origin_accepted & non_mated).sum())
             acc["compressed_false_accept_count"] += int(
-                (compressed_accepted & non_mated).sum()
+                compressed_false_accept.sum()
+            )
+            acc["both_false_accept_count"] += int(
+                (origin_false_accept & compressed_false_accept).sum()
             )
             acc["agreement_with_origin_count"] += int(
                 boolean["agreement_with_origin"].sum()
@@ -536,6 +580,46 @@ def summarize_retrieval(
             + float(fixed["codec_parameter_bytes"]) / int(gallery_template_count)
             if has_gallery_count
             else np.nan
+        )
+        origin_dir_ci = _wilson_or_nan(
+            acc["origin_dir_rank1_count"],
+            acc["mated_count"],
+        )
+        compressed_dir_ci = _wilson_or_nan(
+            acc["compressed_dir_rank1_count"],
+            acc["mated_count"],
+        )
+        dir_delta_ci = _paired_difference_or_nan(
+            acc["origin_dir_rank1_count"],
+            acc["compressed_dir_rank1_count"],
+            acc["both_dir_rank1_count"],
+            acc["mated_count"],
+        )
+        origin_fpir_ci = _wilson_or_nan(
+            acc["origin_false_accept_count"],
+            acc["non_mated_count"],
+        )
+        compressed_fpir_ci = _wilson_or_nan(
+            acc["compressed_false_accept_count"],
+            acc["non_mated_count"],
+        )
+        fpir_delta_ci = _paired_difference_or_nan(
+            acc["origin_false_accept_count"],
+            acc["compressed_false_accept_count"],
+            acc["both_false_accept_count"],
+            acc["non_mated_count"],
+        )
+        origin_dir_rate = _rate(
+            acc["origin_dir_rank1_count"], acc["mated_count"]
+        )
+        compressed_dir_rate = _rate(
+            acc["compressed_dir_rank1_count"], acc["mated_count"]
+        )
+        origin_fpir = _rate(
+            acc["origin_false_accept_count"], acc["non_mated_count"]
+        )
+        compressed_fpir = _rate(
+            acc["compressed_false_accept_count"], acc["non_mated_count"]
         )
         records.append(
             {
@@ -620,20 +704,55 @@ def summarize_retrieval(
                 "origin_accepted_count": acc["origin_accepted_count"],
                 "compressed_accepted_count": acc["compressed_accepted_count"],
                 "origin_dir_rank1_count": acc["origin_dir_rank1_count"],
-                "origin_dir_rank1": _rate(
-                    acc["origin_dir_rank1_count"], acc["mated_count"]
-                ),
+                "origin_dir_rank1_denominator": acc["mated_count"],
+                "origin_dir_rank1": origin_dir_rate,
+                "origin_dir_rank1_wilson95_low": origin_dir_ci[0],
+                "origin_dir_rank1_wilson95_high": origin_dir_ci[1],
                 "compressed_dir_rank1_count": acc["compressed_dir_rank1_count"],
-                "compressed_dir_rank1": _rate(
-                    acc["compressed_dir_rank1_count"], acc["mated_count"]
+                "compressed_dir_rank1_denominator": acc["mated_count"],
+                "compressed_dir_rank1": compressed_dir_rate,
+                "compressed_dir_rank1_wilson95_low": compressed_dir_ci[0],
+                "compressed_dir_rank1_wilson95_high": compressed_dir_ci[1],
+                "both_dir_rank1_count": acc["both_dir_rank1_count"],
+                "compressed_minus_origin_dir_rank1": (
+                    compressed_dir_rate - origin_dir_rate
+                ),
+                "compressed_minus_origin_dir_rank1_paired_bootstrap95_low": (
+                    dir_delta_ci[0]
+                ),
+                "compressed_minus_origin_dir_rank1_paired_bootstrap95_high": (
+                    dir_delta_ci[1]
                 ),
                 "origin_false_accept_count": acc["origin_false_accept_count"],
-                "origin_fpir": _rate(
-                    acc["origin_false_accept_count"], acc["non_mated_count"]
-                ),
+                "origin_fpir_denominator": acc["non_mated_count"],
+                "origin_fpir": origin_fpir,
+                "origin_realized_fpir": origin_fpir,
+                "origin_fpir_wilson95_low": origin_fpir_ci[0],
+                "origin_fpir_wilson95_high": origin_fpir_ci[1],
                 "compressed_false_accept_count": acc["compressed_false_accept_count"],
-                "compressed_fpir": _rate(
-                    acc["compressed_false_accept_count"], acc["non_mated_count"]
+                "compressed_fpir_denominator": acc["non_mated_count"],
+                "compressed_fpir": compressed_fpir,
+                "compressed_realized_fpir": compressed_fpir,
+                "compressed_fpir_wilson95_low": compressed_fpir_ci[0],
+                "compressed_fpir_wilson95_high": compressed_fpir_ci[1],
+                "both_false_accept_count": acc["both_false_accept_count"],
+                "compressed_minus_origin_fpir": compressed_fpir - origin_fpir,
+                "compressed_minus_origin_fpir_paired_bootstrap95_low": (
+                    fpir_delta_ci[0]
+                ),
+                "compressed_minus_origin_fpir_paired_bootstrap95_high": (
+                    fpir_delta_ci[1]
+                ),
+                "confidence_interval_unit": "probe",
+                "rate_confidence_interval_method": "wilson_score",
+                "difference_confidence_interval_method": (
+                    "paired_nonparametric_bootstrap_percentile"
+                ),
+                "difference_confidence_interval_resamples": (
+                    PAIRED_BOOTSTRAP_RESAMPLES
+                ),
+                "difference_confidence_interval_random_seed": (
+                    PAIRED_BOOTSTRAP_RANDOM_SEED
                 ),
                 "agreement_with_origin_count": acc["agreement_with_origin_count"],
                 "agreement_with_origin_rate": _rate(
@@ -823,8 +942,8 @@ def generate(
         "summary_contract": {
             "compression_grain": "one row per compression family and profile",
             "retrieval_grain": (
-                "one row per compression family, profile, search mode, and "
-                "threshold policy"
+                "one row per compression family, profile, search mode, "
+                "threshold policy, and target FPIR when present"
             ),
             "score_space_policy": (
                 "cross-space score drift is undefined for PQ ADC; frozen-origin "
@@ -832,6 +951,14 @@ def generate(
             ),
             "rates": "fractions in [0,1] with explicit numerator and denominator columns",
             "origin_and_compressed_operating_points": "reported separately",
+            "rate_confidence_intervals": (
+                "query-level two-sided 95% Wilson score intervals"
+            ),
+            "difference_confidence_intervals": (
+                "compressed minus origin query-level paired nonparametric "
+                f"bootstrap percentile intervals; resamples={PAIRED_BOOTSTRAP_RESAMPLES}; "
+                f"seed={PAIRED_BOOTSTRAP_RANDOM_SEED}"
+            ),
         },
         "output_files": {
             name: {

@@ -36,13 +36,18 @@ from research.experiments.scope import (
 )
 from research.experiments.step2_compression import (
     characterize_step2_compression,
+    characterize_step2_rfw_custom_compression,
     characterize_step2_survface_compression,
 )
+from research.datasets.rfw_custom import select_rfw_custom_protocol_fraction
 from research.experiments.step4_datasets import (
     Step4DatasetSpec,
     load_step4_source_manifest,
     resolve_step4_dataset_spec,
     select_step4_saliency_sample_mask,
+)
+from research.experiments.rfw_custom_pipeline import (
+    materialize_rfw_custom_aligned_bundle,
 )
 from research.explainability.gradcam import (
     build_origin_top1_gallery_templates,
@@ -237,6 +242,12 @@ def select_step4_source_manifest(
 ) -> pd.DataFrame:
     if scope.is_full_dataset:
         return source.copy().reset_index(drop=True)
+    if dataset_id == "rfw_custom":
+        return select_rfw_custom_protocol_fraction(
+            source,
+            data_fraction=scope.data_fraction,
+            seed=scope.seed,
+        ).reset_index(drop=True)
     if dataset_id == "survface":
         official_roles = {
             "gallery",
@@ -561,17 +572,41 @@ def materialize_step4_aligned_crops(
             require_full_coverage=spec.require_full_coverage,
         )
     else:
-        materialize_aligned_crops(
-            source,
-            project_root=root,
-            output_dir=spec.aligned_bundle_dir,
-            dataset_id=spec.dataset_id,
-            providers=tuple(config["aligned_crops"]["providers"]),
-            overwrite=bool(config["execution"]["overwrite"]),
-            preprocessing_mode=spec.preprocessing_mode,
-            require_full_coverage=spec.require_full_coverage,
-            progress=progress,
-        )
+        if spec.dataset_id == "rfw_custom":
+            if (
+                len(spec.manifest_paths) != 1
+                or spec.aligned_bin_archive_path is None
+                or spec.source_archive_sha256 is None
+                or spec.aligned_bin_archive_sha256 is None
+            ):
+                raise ValueError("RFW custom aligned source contract is incomplete")
+            materialize_rfw_custom_aligned_bundle(
+                source,
+                project_root=root,
+                jpg_archive_path=spec.manifest_paths[0],
+                aligned_bin_archive_path=spec.aligned_bin_archive_path,
+                output_dir=spec.aligned_bundle_dir,
+                expected_jpg_archive_sha256=spec.source_archive_sha256,
+                expected_aligned_bin_archive_sha256=(
+                    spec.aligned_bin_archive_sha256
+                ),
+                dataset_id=spec.dataset_id,
+                preprocessing_mode=spec.preprocessing_mode,
+                overwrite=bool(config["execution"]["overwrite"]),
+                progress=progress,
+            )
+        else:
+            materialize_aligned_crops(
+                source,
+                project_root=root,
+                output_dir=spec.aligned_bundle_dir,
+                dataset_id=spec.dataset_id,
+                providers=tuple(config["aligned_crops"]["providers"]),
+                overwrite=bool(config["execution"]["overwrite"]),
+                preprocessing_mode=spec.preprocessing_mode,
+                require_full_coverage=spec.require_full_coverage,
+                progress=progress,
+            )
         validate_aligned_crop_bundle(
             spec.aligned_bundle_dir,
             dataset_id=spec.dataset_id,
@@ -1202,6 +1237,17 @@ def characterize_step4_compression(
         (int(item["m"]), int(item["nbits"]))
         for item in config["compression"]["families"]["pq"]["settings"]
     )
+    configured_targets = config["evaluation"].get("reported_target_fpirs")
+    if configured_targets is None:
+        primary_target_key = (
+            "survface_target_fpir"
+            if dataset_spec.dataset_id == "survface"
+            else "rfw_custom_target_fpir"
+            if dataset_spec.dataset_id == "rfw_custom"
+            else "target_fpir"
+        )
+        configured_targets = (config["evaluation"][primary_target_key],)
+    reported_target_fpirs = tuple(float(value) for value in configured_targets)
     with run.phase("04_step2_compression_characterization") as phase:
         if execution_context is not None:
             phase.details["execution_context"] = dict(execution_context)
@@ -1236,9 +1282,29 @@ def characterize_step4_compression(
                 target_fpir=float(
                     config["evaluation"]["survface_target_fpir"]
                 ),
+                target_fpirs=reported_target_fpirs,
                 calibration_gallery_identities=int(
                     config["evaluation"][
                         "survface_calibration_gallery_identities"
+                    ]
+                ),
+                top_k=int(config["evaluation"]["top_k"]),
+                progress=progress,
+            )
+        elif dataset_spec.dataset_id == "rfw_custom":
+            compression = characterize_step2_rfw_custom_compression(
+                prepared,
+                selected,
+                pca_dimensions=pca_dimensions,
+                pq_settings=pq_settings,
+                seed=int(execution["seed"]),
+                target_fpir=float(
+                    config["evaluation"]["rfw_custom_target_fpir"]
+                ),
+                target_fpirs=reported_target_fpirs,
+                calibration_gallery_identities=int(
+                    config["evaluation"][
+                        "rfw_custom_calibration_gallery_identities"
                     ]
                 ),
                 top_k=int(config["evaluation"]["top_k"]),
@@ -1265,6 +1331,7 @@ def characterize_step4_compression(
                 pq_settings=pq_settings,
                 seed=int(execution["seed"]),
                 target_fpir=float(config["evaluation"]["target_fpir"]),
+                target_fpirs=reported_target_fpirs,
                 enrollment_count=int(
                     config["evaluation"]["lfw_enrollment_count"]
                 ),
@@ -1290,6 +1357,23 @@ def characterize_step4_compression(
             compression.retrieval_metrics,
             **lineage,
         )
+        demographic_summary = getattr(
+            compression,
+            "demographic_summary",
+            pd.DataFrame(),
+        ).copy()
+        if not demographic_summary.empty:
+            for column, value in lineage.items():
+                if column in demographic_summary.columns:
+                    observed = set(
+                        demographic_summary[column].dropna().astype(str)
+                    )
+                    if observed and observed != {str(value)}:
+                        raise ValueError(
+                            "demographic summary lineage mismatch for "
+                            f"{column}: {sorted(observed)}"
+                        )
+                demographic_summary[column] = value
         origin_score_audit = annotate_compression_lineage(
             compression.origin_score_audit,
             **lineage,
@@ -1308,6 +1392,10 @@ def characterize_step4_compression(
         calibration_diagnostics_path = (
             workflow_root
             / config["workflow"]["calibration_diagnostics_path"]
+        )
+        demographic_summary_path = workflow_root / config["workflow"].get(
+            "rfw_custom_demographic_summary_path",
+            "rfw_custom_demographic_summary.csv",
         )
         codec_entries: list[dict[str, object]] = []
         for family, profile, compressor in compression.fitted_codecs:
@@ -1360,6 +1448,12 @@ def characterize_step4_compression(
         }
         _write_csv(paired_path, paired, overwrite=overwrite)
         _write_csv(retrieval_path, retrieval, overwrite=overwrite)
+        if not demographic_summary.empty:
+            _write_csv(
+                demographic_summary_path,
+                demographic_summary,
+                overwrite=overwrite,
+            )
         _write_csv(
             origin_score_audit_path,
             origin_score_audit,
@@ -1378,6 +1472,7 @@ def characterize_step4_compression(
         phase.record_counts(
             paired_rows=len(paired),
             retrieval_rows=len(retrieval),
+            demographic_summary_rows=len(demographic_summary),
             origin_score_audit_rows=len(origin_score_audit),
             frozen_codec_count=len(codec_entries),
         )
@@ -1386,6 +1481,7 @@ def characterize_step4_compression(
         "dataset_id": dataset_spec.dataset_id,
         "paired_rows": int(len(paired)),
         "retrieval_rows": int(len(retrieval)),
+        "demographic_summary_rows": int(len(demographic_summary)),
         "origin_score_audit_rows": int(len(origin_score_audit)),
         "frozen_codec_count": int(len(codec_entries)),
         "frozen_codec_manifest_path": str(frozen_codec_manifest_path),

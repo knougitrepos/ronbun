@@ -130,10 +130,12 @@ evaluation:
     - cosine_score_drift
     - threshold_crossing
     - verification_accuracy
-    - eer
-    - tar_at_far
+    - tar_far_at_other_9_fold_accuracy_threshold
+    - empirical_eer_from_heldout_fold_scores
     - group_gap
     - fold_bootstrap_95ci
+  planned_metrics_not_yet_implemented:
+    - tar_at_configured_far
   search_spaces:
     pca: [direct_cosine, reconstruction_cosine]
     pq: [reconstruction_cosine, symmetric_adc_negative_squared_l2]

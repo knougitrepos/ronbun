@@ -22,13 +22,20 @@ from research.compression import (
     pq_profile_name,
 )
 from research.evaluation import (
+    PAIRED_BOOTSTRAP_RANDOM_SEED,
+    PAIRED_BOOTSTRAP_RESAMPLES,
     apply_retrieval_thresholds,
     compare_cosine_retrieval,
     compare_pq_adc_retrieval,
     origin_cosine_retrieval,
+    paired_binary_rate_difference_bootstrap_interval,
     paired_embedding_metrics,
+    wilson_score_interval,
 )
 from research.explainability.gradcam.extraction import PreparedPopulationInputs
+from research.datasets.rfw_custom import (
+    adapt_rfw_custom_manifest_to_open_set_protocol,
+)
 from research.protocols import (
     OpenSetProtocol,
     build_calibration_protocol,
@@ -58,6 +65,7 @@ class Step2CompressionResult:
     summary: pd.DataFrame
     fitted_codecs: tuple[tuple[str, str, Any], ...]
     calibration_diagnostics_by_target: dict[str, dict[str, object]]
+    demographic_summary: pd.DataFrame
 
 
 @dataclass(frozen=True)
@@ -268,21 +276,9 @@ def _distribution_summary(values: np.ndarray, *, name: str) -> dict[str, object]
 
 
 def _wilson_interval_95(successes: int, total: int) -> tuple[float, float]:
-    if total <= 0 or successes < 0 or successes > total:
-        raise ValueError("Wilson interval counts are invalid")
-    z = 1.959963984540054
-    proportion = successes / total
-    denominator = 1.0 + z * z / total
-    center = (proportion + z * z / (2.0 * total)) / denominator
-    margin = (
-        z
-        * np.sqrt(
-            proportion * (1.0 - proportion) / total
-            + z * z / (4.0 * total * total)
-        )
-        / denominator
-    )
-    return float(center - margin), float(center + margin)
+    """Compatibility wrapper for calibration-validation callers."""
+
+    return wilson_score_interval(successes, total, confidence_level=0.95)
 
 
 def _template_count_summary(protocol: OpenSetProtocol) -> dict[str, object]:
@@ -1127,9 +1123,82 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
     ):
         family, profile, search_mode, policy = keys[:4]
         operating_target = float(keys[4]) if len(keys) == 5 else np.nan
-        mated = group["is_mated"].astype(bool)
-        accepted = group["compressed_accepted"].astype(bool)
-        correct = group["compressed_rank1_correct"].astype(bool)
+        mated = group["is_mated"].astype(bool).to_numpy()
+        non_mated = ~mated
+        origin_accepted = group["origin_accepted"].astype(bool).to_numpy()
+        compressed_accepted = group["compressed_accepted"].astype(bool).to_numpy()
+        origin_correct = group["origin_rank1_correct"].astype(bool).to_numpy()
+        compressed_correct = group["compressed_rank1_correct"].astype(
+            bool
+        ).to_numpy()
+        origin_dir = origin_accepted & origin_correct & mated
+        compressed_dir = compressed_accepted & compressed_correct & mated
+        origin_false_accept = origin_accepted & non_mated
+        compressed_false_accept = compressed_accepted & non_mated
+        mated_count = int(mated.sum())
+        non_mated_count = int(non_mated.sum())
+        origin_dir_count = int(origin_dir.sum())
+        compressed_dir_count = int(compressed_dir.sum())
+        both_dir_count = int((origin_dir & compressed_dir).sum())
+        origin_false_accept_count = int(origin_false_accept.sum())
+        compressed_false_accept_count = int(compressed_false_accept.sum())
+        both_false_accept_count = int(
+            (origin_false_accept & compressed_false_accept).sum()
+        )
+        if mated_count:
+            origin_dir_ci = wilson_score_interval(
+                origin_dir_count,
+                mated_count,
+            )
+            compressed_dir_ci = wilson_score_interval(
+                compressed_dir_count,
+                mated_count,
+            )
+            dir_delta_ci = paired_binary_rate_difference_bootstrap_interval(
+                origin_dir_count,
+                compressed_dir_count,
+                both_dir_count,
+                mated_count,
+            )
+        else:
+            origin_dir_ci = (np.nan, np.nan)
+            compressed_dir_ci = (np.nan, np.nan)
+            dir_delta_ci = (np.nan, np.nan)
+        if non_mated_count:
+            origin_fpir_ci = wilson_score_interval(
+                origin_false_accept_count,
+                non_mated_count,
+            )
+            compressed_fpir_ci = wilson_score_interval(
+                compressed_false_accept_count,
+                non_mated_count,
+            )
+            fpir_delta_ci = paired_binary_rate_difference_bootstrap_interval(
+                origin_false_accept_count,
+                compressed_false_accept_count,
+                both_false_accept_count,
+                non_mated_count,
+            )
+        else:
+            origin_fpir_ci = (np.nan, np.nan)
+            compressed_fpir_ci = (np.nan, np.nan)
+            fpir_delta_ci = (np.nan, np.nan)
+        origin_dir_rate = (
+            float(origin_dir_count / mated_count) if mated_count else np.nan
+        )
+        compressed_dir_rate = (
+            float(compressed_dir_count / mated_count) if mated_count else np.nan
+        )
+        origin_fpir = (
+            float(origin_false_accept_count / non_mated_count)
+            if non_mated_count
+            else np.nan
+        )
+        compressed_fpir = (
+            float(compressed_false_accept_count / non_mated_count)
+            if non_mated_count
+            else np.nan
+        )
         records.append(
             {
                 "compression_family": family,
@@ -1138,15 +1207,60 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 "threshold_policy": policy,
                 "target_fpir": operating_target,
                 "query_count": int(len(group)),
-                "dir_rank1": (
-                    float((accepted & correct & mated).sum() / mated.sum())
-                    if mated.any()
-                    else np.nan
+                "mated_count": mated_count,
+                "non_mated_count": non_mated_count,
+                "origin_dir_rank1_count": origin_dir_count,
+                "compressed_dir_rank1_count": compressed_dir_count,
+                "both_dir_rank1_count": both_dir_count,
+                "origin_dir_rank1_denominator": mated_count,
+                "compressed_dir_rank1_denominator": mated_count,
+                "origin_dir_rank1": origin_dir_rate,
+                "compressed_dir_rank1": compressed_dir_rate,
+                "dir_rank1": compressed_dir_rate,
+                "origin_dir_rank1_wilson95_low": origin_dir_ci[0],
+                "origin_dir_rank1_wilson95_high": origin_dir_ci[1],
+                "compressed_dir_rank1_wilson95_low": compressed_dir_ci[0],
+                "compressed_dir_rank1_wilson95_high": compressed_dir_ci[1],
+                "compressed_minus_origin_dir_rank1": (
+                    compressed_dir_rate - origin_dir_rate
                 ),
-                "fpir": (
-                    float((accepted & ~mated).sum() / (~mated).sum())
-                    if (~mated).any()
-                    else np.nan
+                "compressed_minus_origin_dir_rank1_paired_bootstrap95_low": (
+                    dir_delta_ci[0]
+                ),
+                "compressed_minus_origin_dir_rank1_paired_bootstrap95_high": (
+                    dir_delta_ci[1]
+                ),
+                "origin_false_accept_count": origin_false_accept_count,
+                "compressed_false_accept_count": compressed_false_accept_count,
+                "both_false_accept_count": both_false_accept_count,
+                "origin_fpir_denominator": non_mated_count,
+                "compressed_fpir_denominator": non_mated_count,
+                "origin_fpir": origin_fpir,
+                "origin_realized_fpir": origin_fpir,
+                "compressed_fpir": compressed_fpir,
+                "compressed_realized_fpir": compressed_fpir,
+                "fpir": compressed_fpir,
+                "origin_fpir_wilson95_low": origin_fpir_ci[0],
+                "origin_fpir_wilson95_high": origin_fpir_ci[1],
+                "compressed_fpir_wilson95_low": compressed_fpir_ci[0],
+                "compressed_fpir_wilson95_high": compressed_fpir_ci[1],
+                "compressed_minus_origin_fpir": compressed_fpir - origin_fpir,
+                "compressed_minus_origin_fpir_paired_bootstrap95_low": (
+                    fpir_delta_ci[0]
+                ),
+                "compressed_minus_origin_fpir_paired_bootstrap95_high": (
+                    fpir_delta_ci[1]
+                ),
+                "confidence_interval_unit": "probe",
+                "rate_confidence_interval_method": "wilson_score",
+                "difference_confidence_interval_method": (
+                    "paired_nonparametric_bootstrap_percentile"
+                ),
+                "difference_confidence_interval_resamples": (
+                    PAIRED_BOOTSTRAP_RESAMPLES
+                ),
+                "difference_confidence_interval_random_seed": (
+                    PAIRED_BOOTSTRAP_RANDOM_SEED
                 ),
                 "agreement_with_origin": float(
                     group["agreement_with_origin"].mean()
@@ -1190,6 +1304,56 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
         how="left",
         validate="many_to_one",
     )
+
+
+def _annotate_rfw_custom_query_boundaries(
+    frame: pd.DataFrame,
+    population: pd.DataFrame,
+) -> pd.DataFrame:
+    """Retain RFW demographic and checkpoint-overlap boundaries per probe."""
+
+    if "rfw_group" not in population.columns:
+        return frame
+    lookup = population.loc[:, ["image_id", "rfw_group"]].copy()
+    conflicts = lookup.groupby("image_id")["rfw_group"].nunique(dropna=False)
+    if (conflicts != 1).any():
+        raise ValueError("RFW custom image_id must map to exactly one rfw_group")
+    group_by_image = (
+        lookup.drop_duplicates("image_id").set_index("image_id")["rfw_group"]
+    )
+    annotated = frame.copy()
+    annotated["rfw_group"] = annotated["query_id"].astype(str).map(
+        group_by_image
+    )
+    if annotated["rfw_group"].isna().any():
+        missing = annotated.loc[
+            annotated["rfw_group"].isna(), "query_id"
+        ].astype(str)
+        raise ValueError(
+            "RFW custom retrieval query is missing demographic lineage: "
+            f"{missing.iloc[0]!r}"
+        )
+    annotated["checkpoint_training_identity_overlap_status"] = "UNKNOWN"
+    annotated["strict_unseen_identity_evidence"] = False
+    return annotated
+
+
+def _summarize_rfw_custom_demographics(
+    paired: pd.DataFrame,
+    retrieval: pd.DataFrame,
+) -> pd.DataFrame:
+    if "rfw_group" not in retrieval.columns:
+        return pd.DataFrame()
+    summaries: list[pd.DataFrame] = []
+    for group_name, group in retrieval.groupby("rfw_group", sort=True):
+        summary = _summarize(paired, group)
+        summary.insert(0, "rfw_group", str(group_name))
+        summary["checkpoint_training_identity_overlap_status"] = "UNKNOWN"
+        summary["strict_unseen_identity_evidence"] = False
+        summaries.append(summary)
+    if not summaries:
+        raise ValueError("RFW custom demographic summary has no groups")
+    return pd.concat(summaries, ignore_index=True)
 
 
 def _characterize_population_with_protocols(
@@ -1457,7 +1621,9 @@ def _characterize_population_with_protocols(
                 for column, value in storage.items():
                     compared[column] = value
                 compared["gallery_template_count"] = len(evaluation["gallery"])
-                retrieval_frames.append(compared)
+                retrieval_frames.append(
+                    _annotate_rfw_custom_query_boundaries(compared, population)
+                )
         progress_offset += work_per_cosine_mode
 
         if family == "pca":
@@ -1579,7 +1745,12 @@ def _characterize_population_with_protocols(
                     reconstructed_compared["gallery_template_count"] = len(
                         evaluation["gallery"]
                     )
-                    retrieval_frames.append(reconstructed_compared)
+                    retrieval_frames.append(
+                        _annotate_rfw_custom_query_boundaries(
+                            reconstructed_compared,
+                            population,
+                        )
+                    )
             progress_offset += work_per_cosine_mode
         if family == "pq":
             if adc_calibration_thresholds is None:
@@ -1632,7 +1803,12 @@ def _characterize_population_with_protocols(
                 adc_compared["gallery_template_count"] = len(
                     evaluation["gallery"]
                 )
-                retrieval_frames.append(adc_compared)
+                retrieval_frames.append(
+                    _annotate_rfw_custom_query_boundaries(
+                        adc_compared,
+                        population,
+                    )
+                )
 
     paired_metrics = pd.concat(paired_frames, ignore_index=True)
     retrieval_metrics = pd.concat(retrieval_frames, ignore_index=True)
@@ -1677,6 +1853,10 @@ def _characterize_population_with_protocols(
         summary=_summarize(paired_metrics, retrieval_metrics),
         fitted_codecs=tuple(compressors),
         calibration_diagnostics_by_target=diagnostics_by_target,
+        demographic_summary=_summarize_rfw_custom_demographics(
+            paired_metrics,
+            retrieval_metrics,
+        ),
     )
 
 
@@ -1869,6 +2049,110 @@ def characterize_step2_survface_compression(
             "compressor_fit_source": "watchlist_enrollment_images_only",
             "compressor_fit_image_count": int(len(fit_rows)),
             "official_test_used_for_threshold": False,
+        },
+        progress=progress,
+    )
+
+
+def characterize_step2_rfw_custom_compression(
+    prepared: PreparedPopulationInputs,
+    selected_manifest: pd.DataFrame,
+    *,
+    pca_dimensions: Sequence[int],
+    pq_settings: Sequence[tuple[int, int]],
+    seed: int = 42,
+    target_fpir: float = 0.10,
+    target_fpirs: Sequence[float] | None = None,
+    calibration_gallery_identities: int = 80,
+    top_k: int = 20,
+    progress: ProgressCallback | None = None,
+) -> Step2CompressionResult:
+    """Evaluate the identity-disjoint RFW-Custom 1:N open-set protocol.
+
+    PCA/PQ fitting uses only ``development_pool`` rows. Threshold calibration
+    uses only ``calibration_pool`` rows, while the persisted custom gallery and
+    probe roles define the test protocol without resampling. RFW Official
+    pairs/folds are never consumed by this path. The EdgeFace/RFW training
+    identity-overlap status remains ``UNKNOWN`` and this result is therefore
+    checkpoint-level same-dataset evidence, not strict unseen-identity proof.
+    """
+
+    population = _population_frame(prepared, selected_manifest)
+    evaluation_protocol = adapt_rfw_custom_manifest_to_open_set_protocol(
+        population
+    )
+    protocol_uids = set(population["protocol_uid"].astype(str))
+    if len(protocol_uids) != 1:
+        raise ValueError("RFW custom population must contain one protocol_uid")
+    protocol_uid = next(iter(protocol_uids))
+
+    development = population.loc[
+        population["protocol_role"].astype(str).eq("development_pool")
+    ]
+    if development.empty or set(development["split"].astype(str)) != {
+        "development"
+    }:
+        raise ValueError("RFW custom development_pool is required")
+    development_matrix = np.stack(development["origin_embedding"]).astype(
+        np.float32
+    )
+
+    calibration = population.loc[
+        population["protocol_role"].astype(str).eq("calibration_pool")
+    ]
+    if calibration.empty or set(calibration["split"].astype(str)) != {
+        "calibration"
+    }:
+        raise ValueError("RFW custom calibration_pool is required")
+    calibration_sizes = calibration.groupby("identity_id")["image_id"].nunique()
+    eligible_calibration = int((calibration_sizes > 1).sum())
+    requested_gallery_count = int(calibration_gallery_identities)
+    if requested_gallery_count < 1 or requested_gallery_count >= eligible_calibration:
+        raise ValueError(
+            "RFW custom calibration_gallery_identities must be positive and "
+            "reserve at least one non-mated identity: "
+            f"requested={requested_gallery_count}, eligible={eligible_calibration}"
+        )
+    calibration_protocol = build_calibration_protocol(
+        population,
+        split_name="calibration",
+        gallery_identity_count=requested_gallery_count,
+        enrollment_count=1,
+        seed=seed,
+    )
+    group_counts = {
+        str(group): int(count)
+        for group, count in population.groupby("rfw_group")["identity_id"]
+        .nunique()
+        .to_dict()
+        .items()
+    }
+    return _characterize_population_with_protocols(
+        prepared,
+        population,
+        development_matrix=development_matrix,
+        calibration_protocol=calibration_protocol,
+        evaluation_protocol=evaluation_protocol,
+        protocol_uid=protocol_uid,
+        pca_dimensions=pca_dimensions,
+        pq_settings=pq_settings,
+        seed=seed,
+        target_fpir=target_fpir,
+        target_fpirs=target_fpirs,
+        top_k=top_k,
+        threshold_selection="non_mated_only",
+        calibration_contract={
+            "name": "rfw_custom_identity_disjoint_calibration_v1",
+            "seed": int(seed),
+            "gallery_identity_count": requested_gallery_count,
+            "enrollment_count": 1,
+            "compressor_fit_source": "development_pool_only",
+            "compressor_fit_image_count": int(len(development)),
+            "threshold_source": "calibration_pool_non_mated_only",
+            "official_pairs_or_folds_used": False,
+            "checkpoint_overlap_status": "UNKNOWN",
+            "strict_unseen_identity_evidence": False,
+            "evaluation_identity_counts_by_group": group_counts,
         },
         progress=progress,
     )

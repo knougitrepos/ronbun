@@ -34,6 +34,18 @@ class RFWVerificationResult:
     summary: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class EmpiricalEER:
+    """Discrete empirical EER estimate for one held-out score population."""
+
+    eer: float
+    threshold: float
+    far: float
+    frr: float
+    absolute_far_frr_gap: float
+    method: str = "heldout_scores_minimum_absolute_far_frr_v1"
+
+
 def _validate_pair_structure(
     pairs: pd.DataFrame,
     *,
@@ -101,6 +113,46 @@ def _validate_inputs(
 
 def _accuracy(scores: np.ndarray, labels: np.ndarray, threshold: float) -> float:
     return float(np.mean((scores >= threshold) == labels))
+
+
+def empirical_equal_error_rate(
+    scores: Sequence[float],
+    labels: Sequence[bool],
+) -> EmpiricalEER:
+    """Estimate EER from held-out scores without using calibration folds.
+
+    Candidate thresholds preserve observed-score ties and include reject-all and
+    accept-all sentinels. The selected point minimizes ``abs(FAR - FRR)``; EER
+    is the mean of FAR and FRR at that empirical operating point.
+    """
+
+    values = np.asarray(scores, dtype=np.float64)
+    genuine = np.asarray(labels, dtype=bool)
+    if values.ndim != 1 or genuine.ndim != 1 or len(values) != len(genuine):
+        raise ValueError("EER scores and labels must be aligned 1D vectors")
+    if len(values) == 0 or not np.isfinite(values).all():
+        raise ValueError("EER scores must be finite and non-empty")
+    impostor = ~genuine
+    if not genuine.any() or not impostor.any():
+        raise ValueError("EER requires genuine and impostor scores")
+    unique = np.unique(values)[::-1]
+    thresholds = np.r_[
+        np.nextafter(unique[0], np.inf),
+        unique,
+        np.nextafter(unique[-1], -np.inf),
+    ]
+    accepted = values[:, None] >= thresholds[None, :]
+    fars = np.mean(accepted[impostor], axis=0)
+    frrs = np.mean(~accepted[genuine], axis=0)
+    gaps = np.abs(fars - frrs)
+    index = int(np.argmin(gaps))
+    return EmpiricalEER(
+        eer=float((fars[index] + frrs[index]) / 2.0),
+        threshold=float(thresholds[index]),
+        far=float(fars[index]),
+        frr=float(frrs[index]),
+        absolute_far_frr_gap=float(gaps[index]),
+    )
 
 
 def _select_threshold(
@@ -175,6 +227,7 @@ def _evaluate_scored_pairs(
                 raise ValueError(
                     "each RFW held-out fold must contain genuine and impostor pairs"
                 )
+            eer = empirical_equal_error_rate(test_scores, test_labels)
             fold_rows.append(
                 {
                     "rfw_group": str(group),
@@ -185,6 +238,13 @@ def _evaluate_scored_pairs(
                     "accuracy": _accuracy(test_scores, test_labels, threshold),
                     "tar": float(np.mean(accepted[genuine])),
                     "far": float(np.mean(accepted[impostor])),
+                    "eer": eer.eer,
+                    "eer_threshold": eer.threshold,
+                    "eer_far": eer.far,
+                    "eer_frr": eer.frr,
+                    "eer_absolute_far_frr_gap": eer.absolute_far_frr_gap,
+                    "eer_threshold_source": "heldout_fold_scores_and_labels",
+                    "eer_method": eer.method,
                 }
             )
 
@@ -198,8 +258,10 @@ def _evaluate_scored_pairs(
         row: dict[str, Any] = {
             "rfw_group": str(group),
             "fold_count": int(len(values)),
+            "eer_threshold_source": "heldout_fold_scores_and_labels",
+            "eer_method": "heldout_scores_minimum_absolute_far_frr_v1",
         }
-        for metric in ("accuracy", "tar", "far"):
+        for metric in ("accuracy", "tar", "far", "eer"):
             metric_values = values[metric].to_numpy(dtype=np.float64)
             low, high = _bootstrap_mean_ci(
                 metric_values,
@@ -213,9 +275,13 @@ def _evaluate_scored_pairs(
         group_rows.append(row)
     group_summary = pd.DataFrame.from_records(group_rows)
     group_accuracies = group_summary["mean_accuracy"].to_numpy(dtype=np.float64)
+    group_eers = group_summary["mean_eer"].to_numpy(dtype=np.float64)
     summary = {
         "protocol": "rfw_official_groupwise_10fold_verification",
         "threshold_policy": "other_9_folds_when_strict_official",
+        "eer_threshold_policy": "heldout_scores_minimum_absolute_far_frr_v1",
+        "eer_threshold_source": "heldout_fold_scores_and_labels",
+        "eer_uses_internal_9fold_threshold": False,
         "score_space": str(score_space),
         "open_set_protocol": False,
         "codec_fit_on_rfw": False,
@@ -226,9 +292,11 @@ def _evaluate_scored_pairs(
             len(set(scored["left_image_id"]).union(scored["right_image_id"]))
         ),
         "macro_group_accuracy": float(np.mean(group_accuracies)),
+        "macro_group_eer": float(np.mean(group_eers)),
         "group_accuracy_gap": float(
             np.max(group_accuracies) - np.min(group_accuracies)
         ),
+        "group_eer_gap": float(np.max(group_eers) - np.min(group_eers)),
     }
     return RFWVerificationResult(
         pair_scores=scored,

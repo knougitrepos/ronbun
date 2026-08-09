@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from research.datasets.rfw import RFW_GROUPS
+from research.datasets.rfw_custom import build_rfw_custom_open_set_bundle
 from research.experiments import step2_compression as module
 from research.explainability.gradcam.extraction import PreparedPopulationInputs
 from research.explainability.gradcam.templates import (
@@ -253,6 +255,41 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
     assert pq_summary[
         "amortized_storage_bytes_per_gallery_template"
     ].eq(136.0).all()
+    for metric in ("dir_rank1", "fpir"):
+        assert (
+            result.summary[f"origin_{metric}_wilson95_low"]
+            <= result.summary[f"origin_{metric}"]
+        ).all()
+        assert (
+            result.summary[f"origin_{metric}"]
+            <= result.summary[f"origin_{metric}_wilson95_high"]
+        ).all()
+        assert (
+            result.summary[f"compressed_{metric}_wilson95_low"]
+            <= result.summary[f"compressed_{metric}"]
+        ).all()
+        assert (
+            result.summary[f"compressed_{metric}"]
+            <= result.summary[f"compressed_{metric}_wilson95_high"]
+        ).all()
+        assert np.allclose(
+            result.summary[f"compressed_minus_origin_{metric}"],
+            result.summary[f"compressed_{metric}"]
+            - result.summary[f"origin_{metric}"],
+        )
+    assert result.summary["origin_fpir_denominator"].equals(
+        result.summary["non_mated_count"]
+    )
+    assert result.summary["compressed_fpir_denominator"].equals(
+        result.summary["non_mated_count"]
+    )
+    assert result.summary["origin_realized_fpir"].equals(
+        result.summary["origin_fpir"]
+    )
+    assert result.summary["compressed_realized_fpir"].equals(
+        result.summary["compressed_fpir"]
+    )
+    assert result.summary["confidence_interval_unit"].eq("probe").all()
 
 
 def test_step2_runner_reuses_search_scores_for_multiple_fpir_targets(
@@ -577,3 +614,126 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
     }
     assert sweep.condition_summary["matched_test_fpir"].notna().all()
     assert sweep.diagnostics["test_threshold_recalibration"] is False
+
+
+def test_rfw_custom_runner_uses_persisted_open_set_roles_and_multi_fpir(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        module,
+        "fit_pca_family",
+        lambda development_vectors, dimensions, random_state: {
+            "pca_2": _FakePCA()
+        },
+    )
+    source_rows: list[dict[str, object]] = []
+    for group in RFW_GROUPS:
+        for identity_index in range(12):
+            source_identity = f"{group.lower()}-person-{identity_index:02d}"
+            for face_index in range(1, 4):
+                image_id = (
+                    f"rfw:{group.lower()}:{source_identity}_{face_index:04d}"
+                )
+                source_rows.append(
+                    {
+                        "image_id": image_id,
+                        "identity_id": f"rfw:{group.lower()}:{source_identity}",
+                        "source_identity_id": source_identity,
+                        "split": "test",
+                        "image_path": f"{image_id}.jpg",
+                        "dataset": "rfw-v1",
+                        "dataset_role": "evaluation_test_only",
+                        "protocol_role": "verification_image",
+                        "rfw_group": group,
+                        "group_label_source": "dataset_provided",
+                        "source_label": identity_index,
+                        "face_index": face_index,
+                        "protocol_index": identity_index * 3 + face_index - 1,
+                        "source_archive_path": "rfw-test.tar.gz",
+                        "archive_member": f"{group}/{source_identity}/{face_index}.jpg",
+                    }
+                )
+    bundle = build_rfw_custom_open_set_bundle(
+        pd.DataFrame.from_records(source_rows),
+        source_archive_sha256="a" * 64,
+        gallery_identity_count_per_group=2,
+        enrollment_count=1,
+        seed=17,
+        development_fraction=0.25,
+        calibration_fraction=0.25,
+        unknown_unknown_fraction=0.50,
+    )
+    manifest = bundle.manifest.copy()
+    sample_ids = manifest["image_id"].astype(str).to_numpy()
+    identity_ids = manifest["identity_id"].astype(str).to_numpy()
+    splits = manifest["split"].astype(str).to_numpy()
+    vectors = np.zeros((len(manifest), 512), dtype=np.float32)
+    for index in range(len(manifest)):
+        angle = (index % 31) / 31.0
+        vectors[index, 0] = np.cos(angle)
+        vectors[index, 1] = np.sin(angle)
+    prepared = PreparedPopulationInputs(
+        extraction_uid="extract-rfw-custom-test",
+        dataset_id="rfw_custom",
+        sample_ids=sample_ids,
+        identity_ids=identity_ids,
+        scope_ids=splits,
+        raw_embeddings=vectors * 2.0,
+        raw_norms=np.linalg.norm(vectors * 2.0, axis=1),
+        normalized_embeddings=vectors,
+        loo_templates=build_leave_one_out_identity_templates(
+            sample_ids,
+            identity_ids,
+            vectors,
+            model_uid="edgeface-test",
+            scope_ids=splits,
+        ),
+        model_uid="edgeface-test",
+        checkpoint_sha256="a" * 64,
+        preprocess_hash="b" * 64,
+        origin_embedding_artifact_uid="origin-rfw-custom-test",
+    )
+    selected = manifest.rename(columns={"image_id": "sample_id"})
+
+    result = module.characterize_step2_rfw_custom_compression(
+        prepared,
+        selected,
+        pca_dimensions=[2],
+        pq_settings=[],
+        seed=42,
+        target_fpir=1.0,
+        target_fpirs=(0.5,),
+        calibration_gallery_identities=4,
+        top_k=2,
+    )
+
+    expected_queries = set(bundle.protocol.registered_probes["image_id"])
+    expected_queries.update(bundle.protocol.known_unknown_probes["image_id"])
+    expected_queries.update(bundle.protocol.unknown_unknown_probes["image_id"])
+    assert set(result.retrieval_metrics["query_id"]) == expected_queries
+    assert set(result.retrieval_metrics["target_fpir"]) == {1.0, 0.5}
+    assert set(result.retrieval_metrics["threshold_policy"]) == {
+        "frozen_origin",
+        "recalibrated_compressed",
+    }
+    assert set(result.retrieval_metrics["protocol_uid"]) == {
+        bundle.summary["protocol_uid"]
+    }
+    assert set(result.retrieval_metrics["rfw_group"]) == set(RFW_GROUPS)
+    assert set(
+        result.retrieval_metrics[
+            "checkpoint_training_identity_overlap_status"
+        ]
+    ) == {"UNKNOWN"}
+    assert not result.retrieval_metrics[
+        "strict_unseen_identity_evidence"
+    ].astype(bool).any()
+    assert set(result.demographic_summary["rfw_group"]) == set(RFW_GROUPS)
+    assert set(result.demographic_summary["target_fpir"]) == {1.0, 0.5}
+    assert not result.demographic_summary[
+        "strict_unseen_identity_evidence"
+    ].astype(bool).any()
+    contract = result.calibration_diagnostics["calibration_contract"]
+    assert contract["official_pairs_or_folds_used"] is False
+    assert contract["checkpoint_overlap_status"] == "UNKNOWN"
+    assert contract["strict_unseen_identity_evidence"] is False

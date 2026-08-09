@@ -1,15 +1,21 @@
 # 공통 실험 오케스트레이션
 
-`00_batch_experiment_runner.ipynb`는 LFW와 SurvFace의 데이터셋별 legacy
+4개 checkpoint × 3개 open-set dataset은 checkpoint별 batch run으로 생성한다. 12개 완료
+run이 준비되면 `CROSS_MODEL_RUN_MATRIX`에 각 run directory를 명시하여 공통 보고서의
+통합 표를 만든다. 자동 latest 선택은 하지 않으며 일부 model/dataset만 채운 matrix는
+fail-closed로 거부한다.
+
+`00_batch_experiment_runner.ipynb`는 LFW, SurvFace, RFW-Custom의 데이터셋별
+실행을 공통화하되 기존 LFW/SurvFace legacy
 노트북을 대체하거나 삭제하지 않는다. 검증된 `research/` Python 단계 함수를
 공통 설정으로 순차 호출하는 선택적 상위 실행기다.
 
 ## 실행 등급과 데이터 비율
 
-| 등급 | LFW | SurvFace | 용도 |
-|---|---:|---:|---|
-| `quick` | 10% | 2% | 실제 데이터·모델 기반 흐름 및 경향 확인 |
-| `full` | 100% | 100% | 전체 protocol 실행 |
+| 등급 | LFW | SurvFace | RFW-Custom | 용도 |
+|---|---:|---:|---:|---|
+| `quick` | 10% | 2% | 10% | 실제 데이터·모델 기반 흐름 및 경향 확인 |
+| `full` | 100% | 100% | 100% | 전체 protocol 실행 |
 
 quick 비율은 노트북 첫 변수 셀의 다음 사전에서 명시적으로 설정한다.
 
@@ -17,6 +23,7 @@ quick 비율은 노트북 첫 변수 셀의 다음 사전에서 명시적으로 
 QUICK_DATA_FRACTIONS = {
     "lfw": 0.10,
     "survface": 0.02,
+    "rfw_custom": 0.10,
 }
 ```
 
@@ -90,15 +97,30 @@ ADC가 구현되어 있다. 다만 이전 완료 run에는 새 검색 공간 행
 새 clean-source full run이 필요하다. 다음 항목은 여전히 검증 전이므로 현재
 full 실행의 완료만으로 논문 최종 비교가 되지 않는다.
 
-- 선택 profile IVF-PQ 시스템 실험
-- official/DB baseline 전체 행렬
+- Faiss IVF-PQ 및 PostgreSQL/pgvector IVFFlat
+- ANN parameter sweep
+- BalancedFace
+- uncertainty/defer 및 고위험/저위험 query 실험
 - calibration 100/500/1,000명
 - 전체 FPIR target 행렬
 - 동일 commit과 동일 model UID의 LFW/SurvFace full 재실행
 - warm-up/repeat 기반 latency benchmark
 
-세부 단계의 디버깅이나 수동 복구는 기존 `notebooks/lfw` 또는
-`notebooks/survface` 순차 노트북을 사용한다.
+RFW-Custom은 공식 RFW pair benchmark를 재명명한 것이 아니다. 동일 원천 영상을
+identity-disjoint development/calibration/test와 1:N gallery/probe로 구성한 별도
+custom protocol이며, official RFW는 계속 1:1 verification으로만 보고한다.
+
+세부 단계의 디버깅이나 수동 복구는 기존 `notebooks/lfw`,
+`notebooks/survface`, `notebooks/rfw` 순차 노트북을 사용한다.
+
+## Cross-dataset calibration transfer
+
+`cross_dataset_calibration_transfer.ipynb`는 calibration source와 평가 target을
+독립적으로 선택한다. `DATASET_IDS`는 target 목록이며 source→target 방향별 결과를
+평균내지 않는다. codec source, calibration source, physical dataset, score-space,
+protocol과 overlap 상태가 manifest에서 모두 일치해야 한다. RFW official pair에
+외부 calibration을 적용한 결과는 official 내부 9-fold benchmark가 아니라 별도
+external-calibration diagnostic으로 기록한다.
 
 ## SurvFace Grad-CAM faithfulness 파생 평가
 

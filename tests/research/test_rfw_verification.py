@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from research.evaluation.rfw_verification import evaluate_rfw_10fold
+from research.evaluation.rfw_verification import (
+    empirical_equal_error_rate,
+    evaluate_rfw_10fold,
+)
 
 
 def _fixture() -> tuple[pd.DataFrame, list[str], np.ndarray]:
@@ -62,6 +65,17 @@ def test_rfw_10fold_diagnostic_uses_other_folds_and_reports_no_open_set_claim():
     assert result.fold_metrics["train_pair_count"].eq(2).all()
     assert result.fold_metrics["test_pair_count"].eq(2).all()
     assert result.summary["macro_group_accuracy"] == pytest.approx(1.0)
+    assert result.summary["macro_group_eer"] == pytest.approx(0.0)
+    assert result.summary["group_eer_gap"] == pytest.approx(0.0)
+    assert result.summary["eer_threshold_source"] == (
+        "heldout_fold_scores_and_labels"
+    )
+    assert result.summary["eer_uses_internal_9fold_threshold"] is False
+    assert result.fold_metrics["eer"].eq(0.0).all()
+    assert result.fold_metrics["eer_threshold_source"].eq(
+        "heldout_fold_scores_and_labels"
+    ).all()
+    assert result.group_summary["mean_eer"].eq(0.0).all()
     assert result.summary["group_accuracy_gap"] == pytest.approx(0.0)
     assert result.summary["open_set_protocol"] is False
     assert result.summary["codec_fit_on_rfw"] is False
@@ -76,3 +90,17 @@ def test_rfw_evaluation_rejects_missing_pair_embedding():
             embeddings=embeddings[:-1],
             strict_official=False,
         )
+
+
+def test_empirical_eer_uses_heldout_scores_and_preserves_ties():
+    result = empirical_equal_error_rate(
+        scores=[0.9, 0.7, 0.7, 0.2],
+        labels=[True, True, False, False],
+    )
+
+    assert result.threshold == pytest.approx(0.9)
+    assert result.far == pytest.approx(0.0)
+    assert result.frr == pytest.approx(0.5)
+    assert result.eer == pytest.approx(0.25)
+    assert result.absolute_far_frr_gap == pytest.approx(0.5)
+    assert result.method == "heldout_scores_minimum_absolute_far_frr_v1"

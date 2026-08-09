@@ -77,15 +77,25 @@ def test_experiment_config_uses_rfw_as_frozen_codec_diagnostic_only():
     assert config["thresholds"]["fit_on_all_rfw_pairs"] is False
     assert config["compression"]["exact_fallback"] is False
     assert "dir_at_fpir" in config["evaluation"]["forbidden_official_metrics"]
+    assert "empirical_eer_from_heldout_fold_scores" in config["evaluation"][
+        "metrics"
+    ]
+    assert "eer" not in config["evaluation"][
+        "planned_metrics_not_yet_implemented"
+    ]
 
 
-def test_step2_does_not_silently_promote_rfw_into_current_quantitative_set():
+def test_step2_separates_rfw_custom_open_set_from_rfw_official_verification():
     config = _load(STEP2_CONFIG)
     datasets = config["datasets"]
 
-    assert datasets["quantitative"] == ["lfw", "survface"]
+    assert datasets["quantitative"] == ["lfw", "survface", "rfw_custom"]
     assert datasets["conditional_quantitative"] == ["rfw"]
     assert datasets["additional_development_sources"] == []
+    assert datasets["rfw_custom"]["official_protocol_claim"] is False
+    assert datasets["rfw_custom"]["protocol_adapter"] == (
+        "rfw_custom_identity_disjoint_v1"
+    )
     assert datasets["rfw"]["status"] == "additional_verification_diagnostic"
     assert datasets["rfw"]["official_open_set_protocol"] is False
     assert datasets["rfw"]["headline_evaluation"] is False

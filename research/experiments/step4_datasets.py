@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -12,9 +14,11 @@ from research.protocols import (
     build_survface_official_protocol,
     validate_identity_disjoint_splits,
 )
+from research.datasets.rfw import build_rfw_verification_bundle
+from research.datasets.rfw_custom import build_rfw_custom_open_set_bundle
 
 
-SUPPORTED_STEP4_DATASETS = ("lfw", "survface")
+SUPPORTED_STEP4_DATASETS = ("lfw", "survface", "rfw_custom")
 SURVFACE_OFFICIAL_ROLES = {
     "gallery",
     "registered_probe",
@@ -24,6 +28,7 @@ SURVFACE_OFFICIAL_ROLES = {
 
 @dataclass(frozen=True)
 class Step4DatasetSpec:
+    project_root: Path
     dataset_id: str
     protocol_adapter: str
     manifest_paths: tuple[Path, ...]
@@ -31,6 +36,10 @@ class Step4DatasetSpec:
     landmark_region_bundle_dir: Path
     preprocessing_mode: str
     require_full_coverage: bool
+    source_archive_sha256: str | None = None
+    aligned_bin_archive_path: Path | None = None
+    aligned_bin_archive_sha256: str | None = None
+    protocol_options: dict[str, Any] | None = None
 
 
 def resolve_step4_dataset_spec(
@@ -57,6 +66,14 @@ def resolve_step4_dataset_spec(
     for path in manifest_paths:
         if not path.is_file():
             raise FileNotFoundError(path)
+    aligned_bin_path: Path | None = None
+    if selected == "rfw_custom":
+        aligned_bin_value = dataset.get("aligned_bin_archive_path")
+        if aligned_bin_value is None:
+            raise ValueError("RFW custom aligned_bin_archive_path is required")
+        aligned_bin_path = (root / str(aligned_bin_value)).resolve()
+        if not aligned_bin_path.is_file():
+            raise FileNotFoundError(aligned_bin_path)
     aligned_value = dataset.get(
         "aligned_bundle_dir",
         f"data/interim/step4/{selected}/aligned_112",
@@ -66,6 +83,7 @@ def resolve_step4_dataset_spec(
         f"data/interim/step4/{selected}/landmark_regions_106",
     )
     return Step4DatasetSpec(
+        project_root=root,
         dataset_id=selected,
         protocol_adapter=str(dataset["protocol_adapter"]),
         manifest_paths=manifest_paths,
@@ -77,12 +95,82 @@ def resolve_step4_dataset_spec(
         require_full_coverage=bool(
             dataset.get("require_full_coverage", False)
         ),
+        source_archive_sha256=(
+            str(dataset["source_archive_sha256"]).lower()
+            if dataset.get("source_archive_sha256") is not None
+            else None
+        ),
+        aligned_bin_archive_path=(
+            aligned_bin_path
+            if aligned_bin_path is not None
+            else None
+        ),
+        aligned_bin_archive_sha256=(
+            str(dataset["aligned_bin_archive_sha256"]).lower()
+            if dataset.get("aligned_bin_archive_sha256") is not None
+            else None
+        ),
+        protocol_options=(
+            dict(dataset["protocol"])
+            if isinstance(dataset.get("protocol"), dict)
+            else None
+        ),
     )
 
 
+@lru_cache(maxsize=4)
+def _load_rfw_custom_manifest_cached(
+    source_archive_path: str,
+    project_root: str,
+    source_archive_sha256: str,
+    protocol_options_json: str,
+) -> pd.DataFrame:
+    options = json.loads(protocol_options_json)
+    official = build_rfw_verification_bundle(
+        source_archive_path,
+        project_root,
+        strict_official=True,
+    )
+    actual_sha = str(official.summary["source_archive_sha256"]).lower()
+    if actual_sha != str(source_archive_sha256).lower():
+        raise ValueError(
+            "RFW custom source archive SHA-256 mismatch: "
+            f"{actual_sha} != {str(source_archive_sha256).lower()}"
+        )
+    bundle = build_rfw_custom_open_set_bundle(
+        official.manifest,
+        source_archive_sha256=actual_sha,
+        gallery_identity_count_per_group=options[
+            "gallery_identity_count_per_group"
+        ],
+        enrollment_count=int(options.get("enrollment_count", 1)),
+        seed=int(options.get("seed", 42)),
+        development_fraction=float(options.get("development_fraction", 0.40)),
+        calibration_fraction=float(options.get("calibration_fraction", 0.20)),
+        unknown_unknown_fraction=float(
+            options.get("unknown_unknown_fraction", 0.50)
+        ),
+    )
+    return bundle.manifest
+
+
 def load_step4_source_manifest(spec: Step4DatasetSpec) -> pd.DataFrame:
-    parts = [pd.read_csv(path) for path in spec.manifest_paths]
-    manifest = pd.concat(parts, ignore_index=True, sort=False)
+    if spec.dataset_id == "rfw_custom":
+        if len(spec.manifest_paths) != 1:
+            raise ValueError("RFW custom requires exactly one source archive")
+        if not spec.source_archive_sha256 or not spec.protocol_options:
+            raise ValueError(
+                "RFW custom requires source_archive_sha256 and protocol options"
+            )
+        manifest = _load_rfw_custom_manifest_cached(
+            str(spec.manifest_paths[0]),
+            str(spec.project_root),
+            spec.source_archive_sha256,
+            json.dumps(spec.protocol_options, sort_keys=True, separators=(",", ":")),
+        ).copy()
+    else:
+        parts = [pd.read_csv(path) for path in spec.manifest_paths]
+        manifest = pd.concat(parts, ignore_index=True, sort=False)
     if "image_id" not in manifest and "sample_id" in manifest:
         manifest = manifest.rename(columns={"sample_id": "image_id"})
     required = {"image_id", "identity_id", "split", "image_path"}
@@ -121,6 +209,21 @@ def load_step4_source_manifest(spec: Step4DatasetSpec) -> pd.DataFrame:
             raise ValueError(
                 "SurvFace training rows must contain development and calibration"
             )
+    elif spec.dataset_id == "rfw_custom":
+        required_roles = {
+            "development_pool",
+            "calibration_pool",
+            "gallery",
+            "registered_probe",
+            "known_unknown_probe",
+            "unknown_unknown_probe",
+        }
+        if set(manifest["protocol_role"].astype(str)) != required_roles:
+            raise ValueError("RFW custom protocol roles are incomplete")
+        if manifest["official_result_eligible"].astype(bool).any():
+            raise ValueError("RFW custom rows must not claim official eligibility")
+        if set(manifest["checkpoint_overlap_status"].astype(str)) != {"UNKNOWN"}:
+            raise ValueError("RFW custom checkpoint overlap must remain UNKNOWN")
     return manifest.reset_index(drop=True)
 
 
@@ -135,7 +238,9 @@ def select_step4_saliency_sample_mask(
     """Select a deterministic, role-balanced saliency subset.
 
     Compression and open-set evaluation still use the full selected dataset.
-    Only the expensive backward Grad-CAM pass is capped for SurvFace.
+    Only the expensive backward Grad-CAM pass is capped. SurvFace preserves
+    protocol roles; RFW-Custom preserves demographic-group × protocol-role
+    strata.
     """
 
     eligibility = np.asarray(eligible)
@@ -157,10 +262,23 @@ def select_step4_saliency_sample_mask(
         return eligibility.astype(bool, copy=True)
 
     rows = manifest.reset_index(drop=True)
-    if str(dataset_id).lower() == "survface":
+    selected_dataset = str(dataset_id).lower()
+    if selected_dataset == "survface":
         if "protocol_role" not in rows:
             raise ValueError("SurvFace manifest must contain protocol_role")
         strata = rows["protocol_role"].astype(str)
+    elif selected_dataset == "rfw_custom":
+        required = {"rfw_group", "protocol_role"}
+        missing = sorted(required.difference(rows.columns))
+        if missing:
+            raise ValueError(
+                f"RFW custom manifest is missing saliency strata: {missing}"
+            )
+        strata = (
+            rows["rfw_group"].astype(str)
+            + "|"
+            + rows["protocol_role"].astype(str)
+        )
     else:
         strata = rows["split"].astype(str)
     candidates: dict[str, list[tuple[str, int]]] = {}

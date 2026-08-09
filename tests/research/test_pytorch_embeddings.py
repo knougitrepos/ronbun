@@ -158,6 +158,12 @@ def test_model_spec_manifest_round_trip_revalidates_checkpoint(tmp_path):
     assert loaded == spec
     assert write_model_spec(path, spec) == path
 
+    path.write_text(
+        json.dumps(spec.to_manifest(), ensure_ascii=False, indent=4) + "\n",
+        encoding="utf-8",
+    )
+    assert write_model_spec(path, spec) == path
+
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["preprocessing"]["channel_std"] = [64.0, 64.0, 64.0]
     path.write_text(json.dumps(payload), encoding="utf-8")

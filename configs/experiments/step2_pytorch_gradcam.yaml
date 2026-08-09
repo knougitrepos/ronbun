@@ -57,6 +57,7 @@ workflow:
   saliency_validation_path: saliency_validation.json
   paired_metrics_path: paired_embedding_metrics.csv
   retrieval_metrics_path: retrieval_metrics.csv
+  rfw_custom_demographic_summary_path: rfw_custom_demographic_summary.csv
   origin_score_audit_path: origin_open_set_score_audit.csv
   calibration_diagnostics_path: origin_calibration_diagnostics.json
   frozen_codec_manifest_path: frozen_codec_manifest.json
@@ -248,14 +249,14 @@ models:
         std: [127.5, 127.5, 127.5]
 
 datasets:
-  quantitative: [lfw, survface]
+  quantitative: [lfw, survface, rfw_custom]
   # RFW is an additional 1:1 verification diagnostic, not an open-set test.
   # MS1M checkpoints have known overlap risk, while EdgeFace/WebFace12M lacks
   # verified non-overlap evidence. Therefore RFW is reportable only as a
   # supplementary diagnostic and is never promoted to the headline set.
   conditional_quantitative: [rfw]
   additional_development_sources: []
-  saliency_population_initial: [lfw, survface]
+  saliency_population_initial: [lfw, survface, rfw_custom]
   lfw:
     manifest_path: data/interim/lfw/face_manifest.csv
     aligned_bundle_dir: data/interim/common/aligned_112
@@ -277,6 +278,29 @@ datasets:
     require_full_coverage: true
     protocol_adapter: survface_official
     official_manifest_role: evaluation_only
+  rfw_custom:
+    dataset_id: rfw-custom-v1
+    manifest_path: data/raw/RFW/images/test.tar.gz
+    source_archive_sha256: 2ec1875599d01888431be83fe51ed9614188a026539fb970653081ca0fbf3e39
+    aligned_bin_archive_path: data/raw/RFW/bin_for_mxnet/RFW_test.tar.gz
+    aligned_bin_archive_sha256: 8259e53ab1b542a9747335f34b2ae48e22a675bce472e391d6b94bc900fde572
+    aligned_bundle_dir: data/interim/step4/rfw_custom/aligned_112
+    landmark_region_bundle_dir: data/interim/step4/rfw_custom/landmark_regions_106
+    preprocessing_mode: rfw_official_aligned_bin
+    require_full_coverage: true
+    protocol_adapter: rfw_custom_identity_disjoint_v1
+    official_protocol_claim: false
+    checkpoint_overlap_status: UNKNOWN
+    strict_unseen_identity_evidence: false
+    protocol:
+      seed: 42
+      development_fraction: 0.40
+      calibration_fraction: 0.20
+      gallery_identity_count_per_group: 300
+      unknown_unknown_fraction: 0.50
+      enrollment_count: 1
+      group_balanced: true
+      cross_group_source_identity_policy: exclude_from_custom_protocol
   balancedface:
     status: deferred_by_step7_scope
     source_config_path: configs/datasets/rfw_balancedface.yaml
@@ -350,8 +374,10 @@ gradcam:
     saliency_sample_cap:
       lfw: null
       survface: null
+      rfw_custom: 2048
     sampling_unit: sample_id
     survface_sampling_strata: [registered_probe, unknown_unknown_probe]
+    rfw_custom_sampling_strata: [rfw_group, protocol_role]
   two_pass_extraction:
     pass_a:
       output: origin_embedding_512
@@ -486,6 +512,7 @@ evaluation:
   compare_frozen_and_recalibrated_thresholds: true
   target_fpir: 0.01
   survface_target_fpir: 0.10
+  rfw_custom_target_fpir: 0.10
   # v4 compact postprocessing reports both operating points from one set of
   # search scores. The scalars above remain the source-run primary targets.
   reported_target_fpirs: [0.10, 0.01]
@@ -495,6 +522,8 @@ evaluation:
   top_k: 20
   lfw_enrollment_count: 5
   calibration_gallery_identities: 20
+  rfw_custom_calibration_gallery_identities: 80
+  rfw_custom_enrollment_count: 1
   metrics:
     - angular_error
     - cosine_score_drift

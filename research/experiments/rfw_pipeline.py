@@ -261,6 +261,139 @@ def load_rfw_origin_embedding_artifact(
     )
 
 
+def frozen_codec_specs_from_completed_run(
+    run_dir: str | Path,
+    *,
+    expected_model_uid: str | None = None,
+    families: Sequence[str] = ("pca", "pq"),
+    profile_names: Sequence[str] | None = None,
+) -> tuple[FrozenCodecSpec, ...]:
+    """Resolve SHA-pinned codecs from one immutable completed Step 4 run.
+
+    The caller selects the run explicitly. This function never searches for a
+    latest run and never fits a codec. Historical runs without a frozen codec
+    manifest fail closed.
+    """
+
+    source = Path(run_dir).expanduser().resolve()
+    run_manifest_path = source / "run_manifest.json"
+    freeze_manifest_path = (
+        source / "artifacts/step2_workflow/freeze_manifest.json"
+    )
+    codec_manifest_path = (
+        source / "artifacts/step2_workflow/frozen_codec_manifest.json"
+    )
+    if not (source / "COMPLETED").is_file():
+        raise FileNotFoundError(f"completed Step 4 marker is missing: {source}")
+    for path in (run_manifest_path, freeze_manifest_path, codec_manifest_path):
+        if not path.is_file():
+            raise FileNotFoundError(path)
+    run_manifest = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    freeze_manifest = json.loads(
+        freeze_manifest_path.read_text(encoding="utf-8")
+    )
+    codec_manifest = json.loads(
+        codec_manifest_path.read_text(encoding="utf-8")
+    )
+    run_id = str(run_manifest.get("run_id", ""))
+    model_uid = str(freeze_manifest.get("model_uid", ""))
+    dataset_id = str(freeze_manifest.get("dataset_id", "")).lower()
+    expected_contract = {
+        "run_status": (run_manifest.get("status"), "completed"),
+        "freeze_run_id": (str(freeze_manifest.get("run_id", "")), run_id),
+        "codec_status": (codec_manifest.get("status"), "completed"),
+        "codec_artifact_type": (
+            codec_manifest.get("artifact_type"),
+            "frozen_compression_codec_bundle",
+        ),
+        "codec_source_dataset": (
+            str(codec_manifest.get("fit_source_dataset", "")).lower(),
+            dataset_id,
+        ),
+        "codec_source_run_id": (
+            str(codec_manifest.get("fit_source_run_id", "")),
+            run_id,
+        ),
+        "codec_model_uid": (
+            str(codec_manifest.get("model_uid", "")),
+            model_uid,
+        ),
+        "fit_on_rfw": (codec_manifest.get("fit_on_rfw"), False),
+    }
+    mismatches = {
+        key: {"actual": actual, "expected": expected}
+        for key, (actual, expected) in expected_contract.items()
+        if actual != expected
+    }
+    if dataset_id not in {"lfw", "survface"}:
+        mismatches["dataset_id"] = {
+            "actual": dataset_id,
+            "expected": "lfw or survface",
+        }
+    if expected_model_uid is not None and model_uid != str(expected_model_uid):
+        mismatches["expected_model_uid"] = {
+            "actual": model_uid,
+            "expected": str(expected_model_uid),
+        }
+    if mismatches:
+        raise ValueError(f"completed codec-run lineage mismatch: {mismatches}")
+
+    selected_families = tuple(
+        dict.fromkeys(str(value).strip().lower() for value in families)
+    )
+    if not selected_families or set(selected_families) - {"pca", "pq"}:
+        raise ValueError("families must contain pca and/or pq")
+    selected_profiles = (
+        None
+        if profile_names is None
+        else {str(value).strip() for value in profile_names}
+    )
+    if selected_profiles is not None and not all(selected_profiles):
+        raise ValueError("profile_names must be non-empty strings")
+
+    manifest_sha256 = sha256_file(codec_manifest_path)
+    specs: list[FrozenCodecSpec] = []
+    for entry in codec_manifest.get("codecs", []):
+        family = str(entry.get("family", "")).lower()
+        profile_name = str(entry.get("profile_name", ""))
+        if family not in selected_families:
+            continue
+        if selected_profiles is not None and profile_name not in selected_profiles:
+            continue
+        artifact_path = source / str(entry.get("artifact", ""))
+        expected_sha256 = str(entry.get("artifact_sha256", "")).lower()
+        if not artifact_path.is_file():
+            raise FileNotFoundError(artifact_path)
+        if sha256_file(artifact_path) != expected_sha256:
+            raise ValueError(f"frozen codec SHA mismatch: {artifact_path}")
+        if artifact_path.stat().st_size != int(
+            entry.get("artifact_byte_count", -1)
+        ):
+            raise ValueError(f"frozen codec byte-size mismatch: {artifact_path}")
+        specs.append(
+            FrozenCodecSpec(
+                profile_name=profile_name,
+                family=family,
+                artifact_path=artifact_path,
+                artifact_sha256=expected_sha256,
+                fit_source_dataset=dataset_id,
+                fit_source_run_id=run_id,
+                fit_manifest_path=codec_manifest_path,
+                fit_manifest_sha256=manifest_sha256,
+            )
+        )
+    if selected_profiles is not None:
+        observed_profiles = {spec.profile_name for spec in specs}
+        missing_profiles = sorted(selected_profiles - observed_profiles)
+        if missing_profiles:
+            raise ValueError(
+                f"requested frozen codec profiles are absent: {missing_profiles}"
+            )
+    if not specs:
+        raise ValueError("selected completed run contains no requested codecs")
+    return tuple(specs)
+
+
 def extract_rfw_origin_embeddings(
     *,
     aligned_bin_archive_path: str | Path,
@@ -483,6 +616,51 @@ def _load_completed_evaluation(
     )
 
 
+def load_rfw_frozen_codec_evaluation(
+    root: str | Path,
+) -> RFWFrozenCodecEvaluation:
+    """Load and hash-verify a completed RFW supplementary evaluation."""
+
+    return _load_completed_evaluation(Path(root).expanduser().resolve())
+
+
+def rfw_frozen_codec_evaluation_uid(
+    *,
+    origin_artifact_dir: str | Path,
+    codec_specs: Sequence[FrozenCodecSpec],
+    strict_official: bool = True,
+    bootstrap_seed: int = 42,
+    bootstrap_repeats: int = 2000,
+) -> str:
+    """Return a stable UID for one origin/codec/evaluation contract."""
+
+    origin = load_rfw_origin_embedding_artifact(origin_artifact_dir)
+    verified_codecs = [spec.verified_manifest() for spec in codec_specs]
+    wrong_models = sorted(
+        {
+            str(entry["fit_model_uid"])
+            for entry in verified_codecs
+            if str(entry["fit_model_uid"]) != str(origin.manifest["model_uid"])
+        }
+    )
+    if wrong_models:
+        raise ValueError(
+            "RFW origin/model codec mismatch: "
+            f"origin={origin.manifest['model_uid']}, codecs={wrong_models}"
+        )
+    payload = {
+        "artifact_type": "rfw_frozen_codec_evaluation_contract",
+        "origin_manifest_sha256": sha256_file(origin.root / _ORIGIN_MANIFEST),
+        "model_uid": origin.manifest["model_uid"],
+        "pairs_contract_sha256": origin.manifest["pairs_contract_sha256"],
+        "strict_official": bool(strict_official),
+        "bootstrap_seed": int(bootstrap_seed),
+        "bootstrap_repeats": int(bootstrap_repeats),
+        "codecs": verified_codecs,
+    }
+    return f"rfw-{canonical_sha256(payload)[:20]}"
+
+
 def _pair_indexes(
     pairs: pd.DataFrame,
     occurrence_ids: Sequence[str],
@@ -547,7 +725,14 @@ def _result_frames(
             embedding_payload_bytes * occurrence_count + codec_artifact_bytes
         ),
         "macro_group_accuracy": float(result.summary["macro_group_accuracy"]),
+        "macro_group_eer": float(result.summary["macro_group_eer"]),
         "group_accuracy_gap": float(result.summary["group_accuracy_gap"]),
+        "group_eer_gap": float(result.summary["group_eer_gap"]),
+        "eer_threshold_policy": str(result.summary["eer_threshold_policy"]),
+        "eer_threshold_source": str(result.summary["eer_threshold_source"]),
+        "eer_uses_internal_9fold_threshold": bool(
+            result.summary["eer_uses_internal_9fold_threshold"]
+        ),
         "open_set_protocol": False,
     }
     group = result.group_summary.assign(**common)
@@ -583,6 +768,18 @@ def evaluate_rfw_frozen_codecs(
     matrix = np.asarray(origin.embeddings, dtype=np.float32)
     left, right = _pair_indexes(pairs, occurrence_ids)
     verified_codecs = [spec.verified_manifest() for spec in codec_specs]
+    wrong_models = sorted(
+        {
+            str(entry["fit_model_uid"])
+            for entry in verified_codecs
+            if str(entry["fit_model_uid"]) != str(origin.manifest["model_uid"])
+        }
+    )
+    if wrong_models:
+        raise ValueError(
+            "RFW origin/model codec mismatch: "
+            f"origin={origin.manifest['model_uid']}, codecs={wrong_models}"
+        )
     profile_keys = [
         (
             entry["fit_source_dataset"],
@@ -765,6 +962,12 @@ def evaluate_rfw_frozen_codecs(
             "evaluation_role": "supplementary_1to1_verification",
             "open_set_protocol": False,
             "codec_fit_on_rfw": False,
+            "metrics": ["accuracy", "tar", "far", "eer"],
+            "eer_contract": {
+                "threshold_source": "heldout_fold_scores_and_labels",
+                "method": "heldout_scores_minimum_absolute_far_frr_v1",
+                "uses_other_9_fold_accuracy_threshold": False,
+            },
             **requested_contract,
             "profile_result_count": int(len(summary_rows)),
             "artifacts": {

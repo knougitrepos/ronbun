@@ -39,7 +39,13 @@ def write_model_spec(path: str | Path, spec: ModelSpec) -> Path:
         sort_keys=True,
     )
     if destination.exists():
-        if destination.read_text(encoding="utf-8") == serialized:
+        try:
+            existing = json.loads(destination.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"existing model spec is not valid JSON: {destination}"
+            ) from exc
+        if existing == spec.to_manifest():
             return destination
         raise FileExistsError(
             f"different model spec already exists and will not be overwritten: "

@@ -9,12 +9,16 @@ from research.evaluation.compression_characterization import (
     paired_embedding_metrics,
 )
 from research.evaluation.metrics import (
+    PAIRED_BOOTSTRAP_RANDOM_SEED,
+    PAIRED_BOOTSTRAP_RESAMPLES,
     auroc,
     brier_score,
     certified_open_set_metrics,
     expected_calibration_error,
     open_set_identification_metrics,
+    paired_binary_rate_difference_bootstrap_interval,
     rank_at_k,
+    wilson_score_interval,
 )
 from research.evaluation.saliency_compression import (
     DEFAULT_GEOMETRY_METRICS,
@@ -60,6 +64,8 @@ __all__ = [
     "LINEAGE_COLUMNS",
     "ORIGIN_RETRIEVAL_COLUMNS",
     "PAIRED_EMBEDDING_COLUMNS",
+    "PAIRED_BOOTSTRAP_RANDOM_SEED",
+    "PAIRED_BOOTSTRAP_RESAMPLES",
     "PROFILE_KEYS",
     "RETRIEVAL_COMPARISON_COLUMNS",
     "RFWVerificationResult",
@@ -77,6 +83,7 @@ __all__ = [
     "join_population_saliency_with_retrieval",
     "open_set_identification_metrics",
     "origin_cosine_retrieval",
+    "paired_binary_rate_difference_bootstrap_interval",
     "paired_embedding_metrics",
     "rank_at_k",
     "saliency_compression_associations",
@@ -90,4 +97,5 @@ __all__ = [
     "stream_join_population_saliency_with_compression",
     "stream_join_population_saliency_with_retrieval",
     "stream_select_population_representative_cases",
+    "wilson_score_interval",
 ]

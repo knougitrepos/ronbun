@@ -17,6 +17,13 @@ REPORT_MODEL_NAMES = {
     "edge": "edgeface",
     "edgeface": "edgeface",
 }
+EXPECTED_CROSS_MODEL_NAMES = (
+    "arcface",
+    "adaface",
+    "magface",
+    "edgeface",
+)
+EXPECTED_OPEN_SET_DATASETS = ("lfw", "survface", "rfw_custom")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -47,7 +54,7 @@ def _completed_run_identity(run_dir: str | Path) -> dict[str, str]:
     if freeze.get("fallback_free") is not True:
         raise ValueError(f"source run is not fallback-free: {source}")
     dataset_id = str(freeze.get("dataset_id", ""))
-    if dataset_id not in {"lfw", "survface"}:
+    if dataset_id not in {"lfw", "survface", "rfw_custom"}:
         raise ValueError(f"unsupported dataset_id: {dataset_id!r}")
     model_uid = str(freeze.get("model_uid", ""))
     if not model_uid:
@@ -185,6 +192,12 @@ def build_report_parameter_source(
     include_survface_faithfulness: bool,
     write_outputs: bool,
     overwrite_outputs: bool,
+    rfw_evaluation_dir: str | Path | None = None,
+    cross_model_run_matrix: Mapping[
+        str,
+        Mapping[str, str | Path],
+    ]
+    | None = None,
 ) -> tuple[str, dict[str, dict[str, str]]]:
     normalized_model = REPORT_MODEL_NAMES.get(str(model_name).lower())
     if normalized_model is None:
@@ -195,7 +208,7 @@ def build_report_parameter_source(
     }
     if not identities:
         raise ValueError("at least one completed run is required")
-    if set(identities) - {"lfw", "survface"}:
+    if set(identities) - {"lfw", "survface", "rfw_custom"}:
         raise ValueError(f"unsupported dataset keys: {sorted(identities)}")
     for dataset, identity in identities.items():
         if identity["dataset_id"] != dataset:
@@ -215,6 +228,69 @@ def build_report_parameter_source(
     run_ids = {
         dataset: identity["run_id"] for dataset, identity in identities.items()
     }
+    resolved_rfw_dir: str | None = None
+    if rfw_evaluation_dir is not None:
+        from research.experiments import load_rfw_frozen_codec_evaluation
+
+        rfw_evaluation = load_rfw_frozen_codec_evaluation(rfw_evaluation_dir)
+        rfw_model_uid = str(rfw_evaluation.manifest.get("model_uid", ""))
+        rfw_family = rfw_model_uid.split("-", 1)[0].lower()
+        if rfw_family != normalized_model:
+            raise ValueError(
+                f"RFW evaluation model mismatch: {rfw_family} != {normalized_model}"
+            )
+        selected_model_uids = {identity["model_uid"] for identity in identities.values()}
+        if rfw_model_uid not in selected_model_uids:
+            raise ValueError(
+                "RFW evaluation model UID is absent from selected open-set runs: "
+                f"{rfw_model_uid}"
+            )
+        resolved_rfw_dir = str(rfw_evaluation.root)
+    resolved_cross_model_matrix: dict[str, dict[str, str]] = {}
+    if cross_model_run_matrix:
+        for supplied_model, supplied_runs in cross_model_run_matrix.items():
+            matrix_model = REPORT_MODEL_NAMES.get(str(supplied_model).lower())
+            if matrix_model is None:
+                raise ValueError(
+                    f"unsupported cross-model matrix model: {supplied_model!r}"
+                )
+            if matrix_model in resolved_cross_model_matrix:
+                raise ValueError(
+                    f"duplicate cross-model matrix model: {matrix_model!r}"
+                )
+            if set(supplied_runs) != set(EXPECTED_OPEN_SET_DATASETS):
+                raise ValueError(
+                    f"{matrix_model}: cross-model matrix requires datasets "
+                    f"{EXPECTED_OPEN_SET_DATASETS}"
+                )
+            resolved_cross_model_matrix[matrix_model] = {}
+            for matrix_dataset in EXPECTED_OPEN_SET_DATASETS:
+                matrix_identity = _completed_run_identity(
+                    supplied_runs[matrix_dataset]
+                )
+                if matrix_identity["dataset_id"] != matrix_dataset:
+                    raise ValueError(
+                        "cross-model matrix dataset key/manifest mismatch: "
+                        f"{matrix_dataset} != {matrix_identity['dataset_id']}"
+                    )
+                matrix_family = matrix_identity["model_uid"].split(
+                    "-", 1
+                )[0].lower()
+                if matrix_family != matrix_model:
+                    raise ValueError(
+                        "cross-model matrix model mismatch: "
+                        f"{matrix_family} != {matrix_model}"
+                    )
+                resolved_cross_model_matrix[matrix_model][matrix_dataset] = (
+                    matrix_identity["run_dir"]
+                )
+        if set(resolved_cross_model_matrix) != set(
+            EXPECTED_CROSS_MODEL_NAMES
+        ):
+            raise ValueError(
+                "cross-model matrix requires ArcFace, AdaFace, MagFace, and "
+                "EdgeFace completed runs"
+            )
     assignments = {
         "MODEL_NAME": normalized_model,
         "DATASETS": datasets,
@@ -225,6 +301,11 @@ def build_report_parameter_source(
         ),
         "WRITE_OUTPUTS": bool(write_outputs),
         "OVERWRITE_COMMON_OUTPUTS": bool(overwrite_outputs),
+        "RFW_EVALUATION_DIR": resolved_rfw_dir,
+        "MODEL_RUN_MATRIX": resolved_cross_model_matrix,
+        "REQUIRE_COMPLETE_MODEL_MATRIX": bool(
+            resolved_cross_model_matrix
+        ),
     }
     source = "\n".join(
         f"{name} = {pformat(value, sort_dicts=True)}"
@@ -241,6 +322,12 @@ def run_cross_dataset_report_notebook(
     include_survface_faithfulness: bool = True,
     write_outputs: bool = True,
     overwrite_outputs: bool = True,
+    rfw_evaluation_dir: str | Path | None = None,
+    cross_model_run_matrix: Mapping[
+        str,
+        Mapping[str, str | Path],
+    ]
+    | None = None,
     timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
     """Execute the output-free report notebook in memory with explicit selectors."""
@@ -255,6 +342,8 @@ def run_cross_dataset_report_notebook(
         include_survface_faithfulness=include_survface_faithfulness,
         write_outputs=write_outputs,
         overwrite_outputs=overwrite_outputs,
+        rfw_evaluation_dir=rfw_evaluation_dir,
+        cross_model_run_matrix=cross_model_run_matrix,
     )
     notebook_path = root / "notebooks/common/reports/00_cross_dataset_results.ipynb"
     notebook = nbformat.read(notebook_path, as_version=4)

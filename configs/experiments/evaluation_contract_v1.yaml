@@ -8,10 +8,15 @@ execution:
   quick_data_fractions:
     lfw: 0.10
     survface: 0.02
+    rfw_custom: 0.10
   full_data_fraction: 1.00
   quick_paper_eligible: false
 
 comparison:
+  unit: pretrained_checkpoint
+  interpretation: checkpoint_level_generalization_only
+  causal_loss_or_architecture_claim_allowed: false
+  open_set_datasets: [lfw, survface, rfw_custom]
   main_profiles:
     - origin_512
     - pca_256
@@ -30,6 +35,7 @@ comparison:
 pq_search:
   primary: exhaustive_adc
   system_ablation: ivf_pq_selected_profiles
+  system_ablation_status: deferred_step7
   decoded_vector_cosine_is_adc: false
 
 baselines:
@@ -37,6 +43,7 @@ baselines:
     purpose: official_protocol_reproduction
   - id: db
     purpose: postgresql_pgvector_cosine_system
+    ivfflat_status: deferred_step7
 
 calibration:
   enrollment_identity_counts: [100, 500, 1000]
@@ -44,6 +51,8 @@ calibration:
   test_split_selection_forbidden: true
   paper_operating_points: [0.10, 0.01]
   reuse_search_scores_across_operating_points: true
+  appendix_datasets: [lfw, survface]
+  appendix_operating_points: [0.10, 0.01]
 
 thresholds:
   policies:
@@ -74,6 +83,33 @@ evaluation:
   report_realized_fpir: true
   report_denominator_and_error_count: true
   report_confidence_interval: true
+  confidence_intervals:
+    binomial_rates: wilson_95
+    compressed_minus_origin: paired_query_bootstrap_95
+    bootstrap_seed: 42
+    bootstrap_repeats: 2000
+
+rfw:
+  custom:
+    protocol: custom_identity_disjoint_1toN_open_set
+    official_protocol_claim: false
+    metrics: [dir_at_fpir, fpir, rank_1, threshold_crossing]
+    demographic_group_breakdown: true
+  official:
+    protocol: official_groupwise_10fold_1to1_verification
+    metrics: [tar, far, eer]
+    open_set_metrics_forbidden: true
+  edgeface_training_identity_overlap_status: UNKNOWN
+  strict_unseen_identity_evidence_allowed: false
+  reporting_role: supplementary_diagnostic
+
+deferred_step7:
+  - faiss_ivf_pq
+  - pgvector_ivfflat
+  - ann_parameter_sweep
+  - balancedface
+  - uncertainty_defer
+  - high_risk_low_risk_query_experiments
 
 templates:
   primary: mean

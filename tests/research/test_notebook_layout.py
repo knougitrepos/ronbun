@@ -70,6 +70,7 @@ EXPECTED_NOTEBOOKS = {
     "rfw/00_data_preparation": {"00_data_preparation.ipynb"},
     "rfw/01_embeddings": {"00_rfw_origin_embedding_extraction.ipynb"},
     "rfw/02_compression": {"00_rfw_frozen_codec_verification.ipynb"},
+    "rfw": {"00_rfw_all_in_one.ipynb"},
     "balancedface/00_data_preparation": {"00_data_preparation.ipynb"},
     "common/model_preparation": {
         "00_checkpoint_registration.ipynb",
@@ -77,7 +78,10 @@ EXPECTED_NOTEBOOKS = {
     },
     "common/reports": {"00_cross_dataset_results.ipynb"},
     "common/maintenance": {"00_selective_cleanup.ipynb"},
-    "common/orchestration": {"00_batch_experiment_runner.ipynb"},
+    "common/orchestration": {
+        "00_batch_experiment_runner.ipynb",
+        "cross_dataset_calibration_transfer.ipynb",
+    },
 }
 
 
@@ -159,6 +163,8 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         "QUICK_DATA_FRACTIONS = {",
         '"lfw":',
         '"survface":',
+        '"rfw_custom":',
+        "TARGET_FPIRS = (0.10, 0.01)",
         "MODEL_NAME =",
         "arcface_ms1mv3_r100",
         "adaface_ms1mv3_r100",
@@ -186,7 +192,7 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     assert "DATA_FRACTION =" not in source
     assert "%run" not in source
     for phrase in (
-        'DATASET_IDS = ("survface","lfw")',
+        'DATASET_IDS = ("survface", "lfw", "rfw_custom")',
         "postprocess_completed_run",
         "reuse_completed_run_for_plan",
         "COMPLETED_RUN_OVERRIDES = {",
@@ -195,6 +201,12 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         "RUN_SURVFACE_FAITHFULNESS = True",
         "RUN_FINAL_REPORT = True",
         "START_NEW_RUN = False",
+        "RUN_RFW_VERIFICATION = False",
+        "frozen_codec_specs_from_completed_run",
+        "rfw_frozen_codec_evaluation_uid",
+        "rfw_evaluation_dir=",
+        "CROSS_MODEL_RUN_MATRIX = {",
+        "cross_model_run_matrix=",
     ):
         assert phrase in source
     assert source.index("for dataset_id, plan in PLANS.items()") < (
@@ -303,9 +315,9 @@ def test_rfw_notebooks_preserve_frozen_codec_verification_boundary() -> None:
     ):
         assert phrase in origin
     for phrase in (
-        "FrozenCodecSpec",
+        "frozen_codec_specs_from_completed_run",
         "evaluate_rfw_frozen_codecs",
-        "CODEC_CONFIGS",
+        "CODEC_SOURCE_RUN_DIRS",
         'ARTIFACT_STORAGE_MODE = "results_only"',
         "fit_on_rfw=false",
         "DIR@FPIR",
@@ -387,5 +399,53 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "INCLUDE_SURVFACE_FAITHFULNESS",
         "survface_gradcam_faithfulness_cross_model",
         "strong_faithfulness_pass_count",
+        "RFW_EVALUATION_DIR",
+        "load_rfw_frozen_codec_evaluation",
+        "RFW_PROFILE_SUMMARY",
+        "supplementary_1to1_verification",
+        "lfw_survface_fpir_appendix.csv",
+        "origin_false_accept_count",
+        "compressed_false_accept_count",
+        "origin_fpir_denominator",
+        "compressed_fpir_denominator",
+        "origin_realized_fpir",
+        "compressed_realized_fpir",
+        "origin_fpir_wilson95_low",
+        "compressed_fpir_wilson95_high",
+        "compressed_minus_origin_fpir_paired_bootstrap95_low",
+        "compressed_minus_origin_dir_rank1_paired_bootstrap95_high",
+        '"checkpoint_overlap_status": "UNKNOWN"',
+        '"strict_unseen_identity_evidence": False',
+        "MODEL_RUN_MATRIX",
+        "REQUIRE_COMPLETE_MODEL_MATRIX",
+        "load_cross_model_open_set_matrix",
+        "CROSS_MODEL_JOINED",
+        "4 checkpoints × 3 open-set datasets",
     ):
         assert phrase in report
+
+
+def test_cross_dataset_transfer_notebook_is_protocol_aware_and_selectable() -> None:
+    source = _source(
+        NOTEBOOK_ROOT
+        / "common"
+        / "orchestration"
+        / "cross_dataset_calibration_transfer.ipynb"
+    )
+
+    for phrase in (
+        'CALIBRATION_SOURCE_DATASET_IDS',
+        'DATASET_IDS = tuple(',
+        'globals().get("DATASET_IDS", ("survface", "lfw"))',
+        "build_cross_dataset_calibration_plan",
+        "evaluate_external_calibration_transfer",
+        "evaluate_rfw_official_internal_baseline",
+        "ALLOW_SAME_DOMAIN_DIAGNOSTIC",
+        "same-domain diagnostic",
+        "maximum-gallery-score",
+        "pair-score TAR/FAR/EER",
+        "EdgeFace–RFW overlap은 `UNKNOWN`",
+        "EXECUTE_TRANSFER",
+        "WRITE_TRANSFER_OUTPUTS",
+    ):
+        assert phrase in source

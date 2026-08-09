@@ -91,6 +91,18 @@ def test_retrieval_summary_keeps_adc_and_reconstruction_separate(tmp_path) -> No
     assert bool(adc["score_spaces_comparable"]) is False
     assert bool(adc["frozen_origin_threshold_applicable"]) is False
     assert np.isnan(adc["mean_top1_score_drift"])
+    assert adc["origin_fpir_denominator"] == 1
+    assert adc["compressed_fpir_denominator"] == 1
+    assert adc["origin_false_accept_count"] == 0
+    assert adc["compressed_false_accept_count"] == 0
+    assert adc["origin_fpir_wilson95_low"] <= adc["origin_fpir"]
+    assert adc["origin_fpir"] <= adc["origin_fpir_wilson95_high"]
+    assert adc["origin_realized_fpir"] == adc["origin_fpir"]
+    assert adc["compressed_fpir_wilson95_low"] <= adc["compressed_fpir"]
+    assert adc["compressed_fpir"] <= adc["compressed_fpir_wilson95_high"]
+    assert adc["compressed_realized_fpir"] == adc["compressed_fpir"]
+    assert adc["compressed_minus_origin_fpir"] == 0.0
+    assert adc["confidence_interval_unit"] == "probe"
 
 
 def test_legacy_retrieval_summary_infers_reconstruction_cosine(tmp_path) -> None:

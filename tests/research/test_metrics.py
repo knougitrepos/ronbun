@@ -1,11 +1,14 @@
 import pandas as pd
+import pytest
 
 from research.evaluation.metrics import (
     brier_score,
     certified_open_set_metrics,
     expected_calibration_error,
     open_set_identification_metrics,
+    paired_binary_rate_difference_bootstrap_interval,
     rank_at_k,
+    wilson_score_interval,
 )
 
 
@@ -105,3 +108,38 @@ def test_certified_metrics_use_ground_truth_instead_of_origin_agreement():
     }
     assert metrics["certified_DIR"] == 1 / 3
     assert metrics["certified_FPIR"] == 1 / 3
+
+
+def test_wilson_score_interval_handles_sparse_false_accepts() -> None:
+    low, high = wilson_score_interval(0, 100)
+
+    assert low == pytest.approx(0.0)
+    assert high == pytest.approx(0.0369935, rel=1e-5)
+    with pytest.raises(ValueError, match="counts"):
+        wilson_score_interval(2, 1)
+
+
+def test_paired_bootstrap_interval_preserves_origin_compressed_pairing() -> None:
+    first = paired_binary_rate_difference_bootstrap_interval(
+        reference_successes=4,
+        candidate_successes=6,
+        both_successes=3,
+        total=10,
+    )
+    second = paired_binary_rate_difference_bootstrap_interval(
+        reference_successes=4,
+        candidate_successes=6,
+        both_successes=3,
+        total=10,
+    )
+
+    assert first == second
+    assert first[0] <= 0.2 <= first[1]
+    assert paired_binary_rate_difference_bootstrap_interval(
+        reference_successes=10,
+        candidate_successes=10,
+        both_successes=10,
+        total=10,
+    ) == (0.0, 0.0)
+    with pytest.raises(ValueError, match="joint counts"):
+        paired_binary_rate_difference_bootstrap_interval(9, 9, 0, 10)

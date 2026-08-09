@@ -136,8 +136,20 @@ def test_step2_gradcam_extracts_origin_population_before_compression() -> None:
     config = _load_config()
     gradcam = config["gradcam"]
 
-    assert config["datasets"]["quantitative"] == ["lfw", "survface"]
-    assert config["datasets"]["saliency_population_initial"] == ["lfw", "survface"]
+    assert config["datasets"]["quantitative"] == [
+        "lfw",
+        "survface",
+        "rfw_custom",
+    ]
+    assert config["datasets"]["saliency_population_initial"] == [
+        "lfw",
+        "survface",
+        "rfw_custom",
+    ]
+    rfw_custom = config["datasets"]["rfw_custom"]
+    assert rfw_custom["protocol_adapter"] == "rfw_custom_identity_disjoint_v1"
+    assert rfw_custom["official_protocol_claim"] is False
+    assert rfw_custom["checkpoint_overlap_status"] == "UNKNOWN"
     assert gradcam["study_enabled"] is True
     assert "execution_ready" not in gradcam
     assert gradcam["role"] == "origin_population_feature"
