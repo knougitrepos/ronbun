@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "artifact_type": "origin_open_set_multi_fpir_diagnostics",
+  "target_fpirs": [
+    0.1,
+    0.01
+  ],
+  "diagnostics_by_target": {
+    "0.1": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "rfw_custom",
+      "model_uid": "arcface-7972a704552df378345f",
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.1,
+      "origin_decision_threshold": 0.2358408421278,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.2358408421278,
+        "independently_calculated_threshold": 0.2358408421278,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 80,
+          "source_image_count": 80,
+          "images_per_template": {
+            "count": 80,
+            "minimum": 1.0,
+            "mean": 1.0,
+            "p50": 1.0,
+            "p90": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "maximum": 1.0
+          },
+          "query_count": 7975,
+          "mated_count": 209,
+          "non_mated_count": 7766,
+          "probe_type_counts": {
+            "registered": 209,
+            "known_unknown": 7766
+          },
+          "origin_decision_threshold": 0.2358408421278,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.1,
+          "origin_false_accept_count": 776,
+          "origin_fpir": 0.09992274014936904,
+          "origin_fpir_wilson95_low": 0.09344932405667081,
+          "origin_fpir_wilson95_high": 0.10679175770368207,
+          "origin_true_identification_count": 209,
+          "origin_dir_rank1": 1.0,
+          "non_mated_top1_score": {
+            "count": 7766,
+            "minimum": 0.08572012186050415,
+            "mean": 0.18226037572415993,
+            "p50": 0.17641019821166992,
+            "p90": 0.23574989289045334,
+            "p95": 0.25951654464006424,
+            "p99": 0.30571994483470927,
+            "maximum": 0.42859509587287903
+          },
+          "query_raw_embedding_norm": {
+            "count": 7975,
+            "minimum": 12.874030113220215,
+            "mean": 22.766640155517194,
+            "p50": 22.862272262573242,
+            "p90": 26.05447006225586,
+            "p95": 27.00032844543457,
+            "p99": 28.761428833007812,
+            "maximum": 34.3174934387207
+          }
+        },
+        "test": {
+          "template_count": 1200,
+          "source_image_count": 1200,
+          "images_per_template": {
+            "count": 1200,
+            "minimum": 1.0,
+            "mean": 1.0,
+            "p50": 1.0,
+            "p90": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "maximum": 1.0
+          },
+          "query_count": 15063,
+          "mated_count": 3104,
+          "non_mated_count": 11959,
+          "probe_type_counts": {
+            "registered": 3104,
+            "known_unknown": 5981,
+            "unknown_unknown": 5978
+          },
+          "origin_decision_threshold": 0.2358408421278,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.1,
+          "origin_false_accept_count": 8498,
+          "origin_fpir": 0.7105945313153273,
+          "origin_fpir_wilson95_low": 0.7024002804619387,
+          "origin_fpir_wilson95_high": 0.7186535316560856,
+          "origin_true_identification_count": 3100,
+          "origin_dir_rank1": 0.9987113402061856,
+          "non_mated_top1_score": {
+            "count": 11959,
+            "minimum": 0.15101131796836853,
+            "mean": 0.2613951523601137,
+            "p50": 0.2558400630950928,
+            "p90": 0.3172070384025574,
+            "p95": 0.3372038990259171,
+            "p99": 0.38000633895397185,
+            "maximum": 0.4658830761909485
+          },
+          "query_raw_embedding_norm": {
+            "count": 15063,
+            "minimum": 13.112565994262695,
+            "mean": 22.763138236574054,
+            "p50": 22.817367553710938,
+            "p90": 26.143317031860352,
+            "p95": 27.06144561767578,
+            "p99": 29.009329147338864,
+            "maximum": 35.509552001953125
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "failed_target_fpir",
+        "target_met": false,
+        "threshold_dependent_results_valid_for_target_operating_point": false,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.7105945313153273,
+        "target_fpir": 0.1
+      },
+      "calibration_contract": {
+        "name": "rfw_custom_identity_disjoint_calibration_v1",
+        "seed": 42,
+        "gallery_identity_count": 80,
+        "enrollment_count": 1,
+        "compressor_fit_source": "development_pool_only",
+        "compressor_fit_image_count": 16202,
+        "threshold_source": "calibration_pool_non_mated_only",
+        "official_pairs_or_folds_used": false,
+        "checkpoint_overlap_status": "UNKNOWN",
+        "strict_unseen_identity_evidence": false,
+        "evaluation_identity_counts_by_group": {
+          "African": 2982,
+          "Asian": 2489,
+          "Caucasian": 2958,
+          "Indian": 2974
+        }
+      }
+    },
+    "0.01": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "rfw_custom",
+      "model_uid": "arcface-7972a704552df378345f",
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.01,
+      "origin_decision_threshold": 0.30593907833099365,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.30593907833099365,
+        "independently_calculated_threshold": 0.30593907833099365,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 80,
+          "source_image_count": 80,
+          "images_per_template": {
+            "count": 80,
+            "minimum": 1.0,
+            "mean": 1.0,
+            "p50": 1.0,
+            "p90": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "maximum": 1.0
+          },
+          "query_count": 7975,
+          "mated_count": 209,
+          "non_mated_count": 7766,
+          "probe_type_counts": {
+            "registered": 209,
+            "known_unknown": 7766
+          },
+          "origin_decision_threshold": 0.30593907833099365,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.01,
+          "origin_false_accept_count": 77,
+          "origin_fpir": 0.009915014164305949,
+          "origin_fpir_wilson95_low": 0.007940977817198814,
+          "origin_fpir_wilson95_high": 0.012373652752451354,
+          "origin_true_identification_count": 209,
+          "origin_dir_rank1": 1.0,
+          "non_mated_top1_score": {
+            "count": 7766,
+            "minimum": 0.08572012186050415,
+            "mean": 0.18226037572415993,
+            "p50": 0.17641019821166992,
+            "p90": 0.23574989289045334,
+            "p95": 0.25951654464006424,
+            "p99": 0.30571994483470927,
+            "maximum": 0.42859509587287903
+          },
+          "query_raw_embedding_norm": {
+            "count": 7975,
+            "minimum": 12.874030113220215,
+            "mean": 22.766640155517194,
+            "p50": 22.862272262573242,
+            "p90": 26.05447006225586,
+            "p95": 27.00032844543457,
+            "p99": 28.761428833007812,
+            "maximum": 34.3174934387207
+          }
+        },
+        "test": {
+          "template_count": 1200,
+          "source_image_count": 1200,
+          "images_per_template": {
+            "count": 1200,
+            "minimum": 1.0,
+            "mean": 1.0,
+            "p50": 1.0,
+            "p90": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "maximum": 1.0
+          },
+          "query_count": 15063,
+          "mated_count": 3104,
+          "non_mated_count": 11959,
+          "probe_type_counts": {
+            "registered": 3104,
+            "known_unknown": 5981,
+            "unknown_unknown": 5978
+          },
+          "origin_decision_threshold": 0.30593907833099365,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.01,
+          "origin_false_accept_count": 1671,
+          "origin_fpir": 0.13972740195668534,
+          "origin_fpir_wilson95_low": 0.133629180127721,
+          "origin_fpir_wilson95_high": 0.14605700231797783,
+          "origin_true_identification_count": 3098,
+          "origin_dir_rank1": 0.9980670103092784,
+          "non_mated_top1_score": {
+            "count": 11959,
+            "minimum": 0.15101131796836853,
+            "mean": 0.2613951523601137,
+            "p50": 0.2558400630950928,
+            "p90": 0.3172070384025574,
+            "p95": 0.3372038990259171,
+            "p99": 0.38000633895397185,
+            "maximum": 0.4658830761909485
+          },
+          "query_raw_embedding_norm": {
+            "count": 15063,
+            "minimum": 13.112565994262695,
+            "mean": 22.763138236574054,
+            "p50": 22.817367553710938,
+            "p90": 26.143317031860352,
+            "p95": 27.06144561767578,
+            "p99": 29.009329147338864,
+            "maximum": 35.509552001953125
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "failed_target_fpir",
+        "target_met": false,
+        "threshold_dependent_results_valid_for_target_operating_point": false,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.13972740195668534,
+        "target_fpir": 0.01
+      },
+      "calibration_contract": {
+        "name": "rfw_custom_identity_disjoint_calibration_v1",
+        "seed": 42,
+        "gallery_identity_count": 80,
+        "enrollment_count": 1,
+        "compressor_fit_source": "development_pool_only",
+        "compressor_fit_image_count": 16202,
+        "threshold_source": "calibration_pool_non_mated_only",
+        "official_pairs_or_folds_used": false,
+        "checkpoint_overlap_status": "UNKNOWN",
+        "strict_unseen_identity_evidence": false,
+        "evaluation_identity_counts_by_group": {
+          "African": 2982,
+          "Asian": 2489,
+          "Caucasian": 2958,
+          "Indian": 2974
+        }
+      }
+    }
+  }
+}

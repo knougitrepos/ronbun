@@ -1,0 +1,146 @@
+{
+  "schema_version": 4,
+  "artifact_type": "step4_search_space_multi_fpir_v4",
+  "generated_at_utc": "2026-08-09T22:08:22.799181+00:00",
+  "dataset_id": "rfw_custom",
+  "model_uid": "arcface-7972a704552df378345f",
+  "run_id": "20260810-R001-cd97c59b",
+  "source_run_id": "20260810-R001-cd97c59b",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": true,
+  "derived_evaluation_paper_eligible": true,
+  "claim_status": "validation_required",
+  "producer_script": "scripts/refresh_step4_search_spaces.py",
+  "target_fpirs": [
+    0.1,
+    0.01
+  ],
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.2358408421278,
+      "calibration_non_mated_count": 7766,
+      "calibration_false_accept_count": 776,
+      "calibration_fpir": 0.09992274014936904,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 8498,
+      "test_fpir": 0.7105945313153273,
+      "status": "failed_target_fpir"
+    },
+    "0.01": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.30593907833099365,
+      "calibration_non_mated_count": 7766,
+      "calibration_false_accept_count": 77,
+      "calibration_fpir": 0.009915014164305949,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 1671,
+      "test_fpir": 0.13972740195668534,
+      "status": "failed_target_fpir"
+    }
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_available"
+  },
+  "evaluator_git": {
+    "commit": "ce913610057d73b0c25afff5eac05414f99625e9",
+    "branch": "step7",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/rfw_custom_20260810/20260810-R001-cd97c59b_step4_rfw_custom_arcface-7972a704552df378345f/run_manifest.json",
+      "bytes": 30433,
+      "sha256": "526d01bfc669ea1b8f684de91e49e0cf934f2fa98052ef3f11145f88c5c2c020"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/rfw_custom_20260810/20260810-R001-cd97c59b_step4_rfw_custom_arcface-7972a704552df378345f/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 938,
+      "sha256": "128179f11aa7f2b39991183af2ff22c434e4960b25a84dab8e450a91aa350176"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/rfw_custom_20260810/20260810-R001-cd97c59b_step4_rfw_custom_arcface-7972a704552df378345f/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 5893,
+      "sha256": "7b41b90a92eddb4c233221bd7339fd6b48786f8017f5177843a370620f5e8595"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/rfw_custom_20260810/20260810-R001-cd97c59b_step4_rfw_custom_arcface-7972a704552df378345f/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 29581409,
+      "sha256": "5292ba16495454545388f6696bccd3ea69edb60d739005d12141082f98899165"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/rfw_custom/20260810-R001-cd97c59b/search_space_v4_multi_fpir/pca/family_manifest.json",
+      "bytes": 2528,
+      "sha256": "2bbea321bb28fa31d46a0785b18eb7d66fdeb0d6518b21761615405317fe211c"
+    },
+    "pq": {
+      "path": "results/paper/rfw_custom/20260810-R001-cd97c59b/search_space_v4_multi_fpir/pq/family_manifest.json",
+      "bytes": 2527,
+      "sha256": "895babe0e3ac127a0bf255834c3af97d7d182839b6c20f8d3110aeb613a418ba"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 70
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy x target_fpir",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "rate_confidence_intervals": "probe-level two-sided 95% Wilson score intervals",
+    "origin_difference_confidence_intervals": "compressed minus origin probe-level paired nonparametric bootstrap percentile intervals",
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Confidence intervals resample probes and do not represent identity-cluster or checkpoint-training uncertainty.",
+    "RFW-Custom uses a non-official 1:N identity split and must not be reported as RFW Official.",
+    "Checkpoint training identity overlap with RFW is UNKNOWN; this is not strict unseen-identity evidence.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/rfw_custom/20260810-R001-cd97c59b/search_space_v4_multi_fpir/compression_summary.csv",
+      "bytes": 3832,
+      "sha256": "10a3678ef3295225b3bc2f682ae31cac8c86a4c3dbbcb4bf78ae462e4c13ce5d"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/rfw_custom/20260810-R001-cd97c59b/search_space_v4_multi_fpir/retrieval_summary.csv",
+      "bytes": 86676,
+      "sha256": "e41ab50185027f0160e17842481dcfe3a7041a679b1bca7f5cec391bef44d18e"
+    }
+  }
+}

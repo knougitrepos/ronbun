@@ -1,0 +1,92 @@
+{
+  "artifact_type": "cross_dataset_compact_summary",
+  "causal_loss_claim": false,
+  "comparison_unit": "pretrained_checkpoint",
+  "confidence_interval_contract": {
+    "compressed_minus_origin": "paired nonparametric bootstrap percentile 95%; 2000 repeats; seed 42",
+    "does_not_cover": [
+      "identity_cluster",
+      "checkpoint_training_uncertainty"
+    ],
+    "rates": "two-sided Wilson score 95%",
+    "unit": "probe"
+  },
+  "cross_model_open_set_matrix": {
+    "included": false
+  },
+  "datasets": [
+    "rfw_custom"
+  ],
+  "deferred_work": [
+    "faiss_ivf_pq",
+    "pgvector_ivfflat",
+    "ann_parameter_sweep",
+    "balancedface",
+    "uncertainty_defer_high_low_risk_queries"
+  ],
+  "generated_at_utc": "2026-08-09T22:08:32.542650+00:00",
+  "join_contract": {
+    "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
+    "rows": 70,
+    "validation": "compression one-to-retrieval many"
+  },
+  "model_name": "arcface",
+  "output_files": {
+    "compression_summary_all.csv": {
+      "bytes": 102158,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/compression_summary_all.csv",
+      "sha256": "33989e897e3c705e9895ab4a96a53b7ac5f9d017f1915df2f83443bef003a80a"
+    },
+    "dir_fpir_storage_latency.csv": {
+      "bytes": 42254,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/dir_fpir_storage_latency.csv",
+      "sha256": "b90be07930ae77a00b275e9c35b9e1c2b38513f98c48ab40a911e25b73d8076d"
+    },
+    "lfw_survface_fpir_appendix.csv": {
+      "bytes": 820,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/lfw_survface_fpir_appendix.csv",
+      "sha256": "56dd14a7ef709888c3c29d21fe8961c7638eab82933baebce285368c34a2d4da"
+    },
+    "retrieval_summary_all.csv": {
+      "bytes": 90813,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/retrieval_summary_all.csv",
+      "sha256": "fa1b8d01173cbfe792c9fceab15913a7936400651ba7d2ad5c7f2b31f28bc05f"
+    },
+    "storage_distortion.png": {
+      "bytes": 64143,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/storage_distortion.png",
+      "sha256": "8964f9e77543a148fd29f2e6675f13642e0038a4a409695068bde0039a853bce"
+    },
+    "storage_open_set.png": {
+      "bytes": 249623,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/storage_open_set.png",
+      "sha256": "59830353727c3d2e192fcbea5b5f065d0a3ff36633bc4394e499e6d1d408f443"
+    }
+  },
+  "rfw_custom_boundary": {
+    "checkpoint_overlap_status": "UNKNOWN",
+    "official_result_eligible": false,
+    "protocol": "custom_1_to_n_open_set_identification",
+    "strict_unseen_identity_evidence": false
+  },
+  "rfw_verification": {
+    "included": false
+  },
+  "schema_version": 7,
+  "selected_runs": {
+    "rfw_custom": {
+      "model_uid": "arcface-7972a704552df378345f",
+      "run_id": "20260810-R001-cd97c59b",
+      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/rfw_custom/20260810-R001-cd97c59b/search_space_v4_multi_fpir/summary_manifest.json",
+        "sha256": "0574ae8f663f7bf61ca3913faea10075b2402057f9d4b9b787d56227bd6817d9"
+      }
+    }
+  },
+  "survface_faithfulness": {
+    "included": false
+  },
+  "survface_threshold_claim_status": "not_flagged"
+}
