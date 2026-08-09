@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import time
 from collections.abc import Mapping
 from uuid import uuid4
 
@@ -26,6 +27,8 @@ PREPARED_SCHEMA_VERSION = 3
 SALIENCY_SCHEMA_VERSION = 3
 SUPPORTED_PREPARED_SCHEMA_VERSIONS = {1, 2, PREPARED_SCHEMA_VERSION}
 SUPPORTED_SALIENCY_SCHEMA_VERSIONS = {1, 2, SALIENCY_SCHEMA_VERSION}
+_ATOMIC_REPLACE_ATTEMPTS = 8
+_ATOMIC_REPLACE_INITIAL_DELAY_SECONDS = 0.05
 
 
 def _positive_integer(value: int, *, name: str) -> int:
@@ -52,6 +55,19 @@ def _new_atomic_directory(destination: Path, *, overwrite: bool) -> Path:
     )
 
 
+def _replace_with_retry(source: Path, destination: Path) -> None:
+    """Replace an artifact path despite short-lived Windows file locks."""
+
+    for attempt in range(_ATOMIC_REPLACE_ATTEMPTS):
+        try:
+            os.replace(source, destination)
+            return
+        except PermissionError:
+            if attempt + 1 == _ATOMIC_REPLACE_ATTEMPTS:
+                raise
+            time.sleep(_ATOMIC_REPLACE_INITIAL_DELAY_SECONDS * (2**attempt))
+
+
 def _publish_atomic_directory(
     temporary: Path,
     destination: Path,
@@ -63,15 +79,15 @@ def _publish_atomic_directory(
             f"artifact directory appeared during write: {destination}"
         )
     if not destination.exists():
-        os.replace(temporary, destination)
+        _replace_with_retry(temporary, destination)
         return destination
 
     backup = destination.with_name(f".{destination.name}.backup-{uuid4().hex}")
-    os.replace(destination, backup)
+    _replace_with_retry(destination, backup)
     try:
-        os.replace(temporary, destination)
+        _replace_with_retry(temporary, destination)
     except BaseException:
-        os.replace(backup, destination)
+        _replace_with_retry(backup, destination)
         raise
     else:
         shutil.rmtree(backup)

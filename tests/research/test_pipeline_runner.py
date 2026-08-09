@@ -720,6 +720,107 @@ def test_known_survface_quick_protocol_failure_resumes_with_frozen_config(
     assert run.events[-1][0] == "source_correction_resume_authorized"
 
 
+def test_known_saliency_atomic_publish_failure_resumes_phase02(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frozen_snapshot = {"commit": "a" * 40, "branch": "step7", "dirty": False}
+    resume_snapshot = {**frozen_snapshot, "working_tree_diff_sha256": "b" * 64}
+    frozen_config: dict[str, object] = {
+        "execution": {"data_fraction": 1.0},
+        "orchestration": {
+            "dataset_id": "rfw_custom",
+            "run_tier": "full",
+            "source_snapshot": frozen_snapshot,
+        },
+    }
+    current_config = {
+        **frozen_config,
+        "orchestration": {
+            **frozen_config["orchestration"],
+            "source_snapshot": resume_snapshot,
+        },
+    }
+    frozen_config_path = tmp_path / "frozen.yaml"
+    frozen_config_path.write_text(
+        yaml.safe_dump(frozen_config, sort_keys=False),
+        encoding="utf-8",
+    )
+    current_config_path = tmp_path / "current.yaml"
+    current_config_path.write_text(
+        yaml.safe_dump(current_config, sort_keys=False),
+        encoding="utf-8",
+    )
+    run = _SyntheticResumeRun(
+        tmp_path / "active-run",
+        frozen_config=frozen_config,
+        frozen_config_path=frozen_config_path,
+    )
+    for phase_name in (
+        "00_source_and_model_freeze",
+        "01_origin_embedding_and_target_templates",
+    ):
+        _write_phase_attempt(run.run_dir, phase_name, status="completed")
+    attempt_path = (
+        run.run_dir
+        / "phases"
+        / "02_population_gradcam_extraction"
+        / "attempts"
+        / "A001"
+        / "phase_manifest.json"
+    )
+    attempt_path.parent.mkdir(parents=True)
+    attempt_path.write_text(
+        json.dumps(
+            {
+                "phase": "02_population_gradcam_extraction",
+                "attempt": 1,
+                "status": "failed",
+                "failure": {
+                    "type": "PermissionError",
+                    "message": (
+                        "[WinError 5] access denied: "
+                        "'.saliency_population.temporary'"
+                    ),
+                    "traceback": (
+                        "write_population_saliency_artifact\n"
+                        "os.replace(temporary, destination)"
+                    ),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    plan = SimpleNamespace(
+        dataset_id="rfw_custom",
+        run_tier="full",
+        effective_step4_config=current_config,
+        plan_id="resume-saliency-publish-plan",
+    )
+    monkeypatch.setattr(
+        pipeline_runner,
+        "_active_dataset_run",
+        lambda selected_plan: run,
+    )
+
+    resolved_run, resolved_path, context = (
+        pipeline_runner._resolve_execution_run(
+            plan,
+            current_config_path=current_config_path,
+        )
+    )
+
+    assert resolved_run is run
+    assert resolved_path == frozen_config_path.resolve()
+    assert context is not None
+    assert context["correction_id"] == (
+        "saliency_population_atomic_publish_retry_v1"
+    )
+    assert context["frozen_source_snapshot"] == frozen_snapshot
+    assert context["resume_source_snapshot"] == resume_snapshot
+    assert run.events[-1][0] == "source_correction_resume_authorized"
+
+
 def test_known_multi_fpir_join_failure_resumes_completed_phases_even_when_new_requested(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -1,0 +1,69 @@
+{
+  "schema_version": 4,
+  "artifact_type": "step4_search_space_multi_fpir_family_v4",
+  "generated_at_utc": "2026-08-09T22:50:02.324349+00:00",
+  "family": "pq",
+  "dataset_id": "rfw_custom",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "source_run_id": "20260810-R001-26ad700c",
+  "target_fpirs": [
+    0.1,
+    0.01
+  ],
+  "source_origin_embedding_artifact_uid": "origin-embedding-8bd4eb2285935a9eacba54a5",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 40520,
+    "paired_rows": 202600,
+    "retrieval_rows": 451890
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 30
+  },
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.19912542402744293,
+      "calibration_non_mated_count": 7766,
+      "calibration_false_accept_count": 776,
+      "calibration_fpir": 0.09992274014936904,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 8258,
+      "test_fpir": 0.6905259637093403,
+      "status": "failed_target_fpir"
+    },
+    "0.01": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.2542133927345276,
+      "calibration_non_mated_count": 7766,
+      "calibration_false_accept_count": 77,
+      "calibration_fpir": 0.009915014164305949,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 1923,
+      "test_fpir": 0.16079939794297182,
+      "status": "failed_target_fpir"
+    }
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 2157,
+      "sha256": "df76a19d85b352524d29e448f763be4e148876c06ca59a39955f5e27c5c12c72"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 39406,
+      "sha256": "60d6ea9d78e8f9196ecf3472b18fa654bd055348d8b4fedce70dd64ea72dabf0"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 11305,
+      "sha256": "4a36d849f6a06db1ef12b7e10b69b80ce05dad88873294c8b1acb9b1978784c9"
+    }
+  }
+}

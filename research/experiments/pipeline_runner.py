@@ -99,6 +99,9 @@ RETRIEVAL_JOIN_GRAIN_CORRECTION_ID = "retrieval_multi_fpir_join_grain_v2"
 REPRESENTATIVE_CASE_STREAMING_CORRECTION_ID = (
     "representative_case_streaming_memory_v1"
 )
+SALIENCY_ATOMIC_PUBLISH_CORRECTION_ID = (
+    "saliency_population_atomic_publish_retry_v1"
+)
 
 
 @dataclass(frozen=True)
@@ -1403,6 +1406,67 @@ def _is_known_retrieval_join_grain_failure(
     return "search_mode" in columns or "target_fpir" in columns
 
 
+def _is_known_saliency_atomic_publish_failure(
+    run: RunStore,
+    plan: CommonExperimentPlan,
+) -> bool:
+    existing_config = run.config.get("step4")
+    if not isinstance(existing_config, Mapping):
+        return False
+    if (
+        _config_without_source_snapshot(existing_config)
+        != _config_without_source_snapshot(plan.effective_step4_config)
+    ):
+        return False
+    if not all(
+        _completed_phase(run.run_dir, phase_name)
+        for phase_name in (
+            "00_source_and_model_freeze",
+            "01_origin_embedding_and_target_templates",
+        )
+    ):
+        return False
+    if any(
+        _completed_phase(run.run_dir, phase_name)
+        for phase_name in (
+            "03_saliency_feature_validation",
+            "04_step2_compression_characterization",
+            "05_saliency_compression_join",
+            "06_representative_cases",
+        )
+    ):
+        return False
+    latest = _latest_phase_attempt_manifest(
+        run,
+        "02_population_gradcam_extraction",
+    )
+    if latest is None or latest.get("status") != "failed":
+        return False
+    failure = latest.get("failure")
+    if not isinstance(failure, Mapping):
+        return False
+    message = str(failure.get("message", ""))
+    traceback_text = str(failure.get("traceback", ""))
+    if str(failure.get("type", "")) != "PermissionError":
+        return False
+    if not all(
+        marker in f"{message}\n{traceback_text}"
+        for marker in (
+            "[WinError 5]",
+            "write_population_saliency_artifact",
+            ".saliency_population.",
+        )
+    ):
+        return False
+    saliency_path = (
+        run.run_dir
+        / "artifacts"
+        / "step2_workflow"
+        / "saliency_population"
+    )
+    return not saliency_path.exists()
+
+
 def _config_without_storage_policy(
     config: Mapping[str, object],
 ) -> dict[str, object]:
@@ -1528,11 +1592,23 @@ def _resolve_execution_run(
         if retrieval_join_failure
         else _is_known_representative_case_memory_failure(run, plan)
     )
+    saliency_publish_failure = (
+        False
+        if any(
+            (
+                retrieval_join_failure,
+                quick_protocol_failure,
+                representative_case_failure,
+            )
+        )
+        else _is_known_saliency_atomic_publish_failure(run, plan)
+    )
     if not any(
         (
             quick_protocol_failure,
             retrieval_join_failure,
             representative_case_failure,
+            saliency_publish_failure,
         )
     ):
         raise RuntimeError(
@@ -1555,11 +1631,17 @@ def _resolve_execution_run(
             "resume the known retrieval search-mode/target-FPIR join-grain failure "
             "without rewriting completed phases 00-04"
         )
-    else:
+    elif representative_case_failure:
         correction_id = REPRESENTATIVE_CASE_STREAMING_CORRECTION_ID
         reason = (
             "resume the known representative-case full-CSV memory failure "
             "with bounded streaming selection and without rewriting phases 00-05"
+        )
+    else:
+        correction_id = SALIENCY_ATOMIC_PUBLISH_CORRECTION_ID
+        reason = (
+            "resume the known Windows saliency artifact atomic-publish lock "
+            "after preserving completed phases 00-01"
         )
     correction_context = {
         "correction_id": correction_id,

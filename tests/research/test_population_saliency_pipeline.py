@@ -9,6 +9,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from research.explainability.gradcam import artifacts as gradcam_artifacts  # noqa: E402
 from research.embeddings.base import (  # noqa: E402
     CheckpointProvenance,
     ModelSpec,
@@ -28,6 +29,41 @@ from research.explainability.gradcam import (  # noqa: E402
     write_population_saliency_artifact,
     write_prepared_population_artifact,
 )
+
+
+def test_atomic_directory_publish_retries_transient_windows_replace_lock(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    destination = tmp_path / "saliency_population"
+    temporary = tmp_path / ".saliency_population.test"
+    temporary.mkdir()
+    (temporary / "manifest.json").write_text("{}", encoding="utf-8")
+    real_replace = gradcam_artifacts.os.replace
+    attempts = 0
+    delays = []
+
+    def flaky_replace(source, target):
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError(5, "transient Windows file lock")
+        return real_replace(source, target)
+
+    monkeypatch.setattr(gradcam_artifacts.os, "replace", flaky_replace)
+    monkeypatch.setattr(gradcam_artifacts.time, "sleep", delays.append)
+
+    published = gradcam_artifacts._publish_atomic_directory(
+        temporary,
+        destination,
+        overwrite=False,
+    )
+
+    assert published == destination
+    assert attempts == 3
+    assert delays == [0.05, 0.10]
+    assert (destination / "manifest.json").read_text(encoding="utf-8") == "{}"
+    assert not temporary.exists()
 
 
 class _DeterministicFaceEncoder(torch.nn.Module):
