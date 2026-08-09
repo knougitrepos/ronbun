@@ -1015,6 +1015,12 @@ def extract_step4_population_gradcam(
             gradcam_batch_size=int(
                 config["gradcam"]["extraction"]["gradcam_batch_size"]
             ),
+            expected_heatmap_size=tuple(
+                int(value)
+                for value in config["gradcam"]["extraction"][
+                    "expected_heatmap_size"
+                ]
+            ),
             region_masks=region_provider,
             region_mask_uid=region_provider.region_mask_uid,
             capture_intermediates=bool(

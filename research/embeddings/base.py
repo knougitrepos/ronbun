@@ -11,6 +11,12 @@ import numpy as np
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 FRModelFamily = Literal["arcface", "adaface", "magface", "edgeface"]
+SUPPORTED_FR_MODEL_FAMILIES: tuple[FRModelFamily, ...] = (
+    "arcface",
+    "adaface",
+    "magface",
+    "edgeface",
+)
 ColorOrder = Literal["rgb", "bgr"]
 
 
@@ -202,7 +208,7 @@ class ModelSpec:
     module_factory: str | None = None
 
     def __post_init__(self) -> None:
-        if self.family not in {"arcface", "adaface", "magface", "edgeface"}:
+        if self.family not in SUPPORTED_FR_MODEL_FAMILIES:
             raise ValueError(
                 "family must be arcface, adaface, magface, or edgeface"
             )

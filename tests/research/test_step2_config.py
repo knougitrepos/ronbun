@@ -89,7 +89,7 @@ def test_step2_config_is_full_execution_profile_with_fail_closed_guards() -> Non
         "5ae7504cd9aee0a5d52c2115fd2eb66b0985dd1730f40134b5854e0cb658ce16"
     )
     assert edgeface["loader_factory"].endswith(":load_edgeface_checkpoint")
-    assert edgeface["target_layer"] == "model.stages.3.blocks.2.convs.2"
+    assert edgeface["target_layer"] == "model.stages.2.blocks.8.convs.1"
     assert edgeface["preprocessing"] == {
         "input_size": [112, 112],
         "model_color_order": "rgb",
@@ -97,6 +97,7 @@ def test_step2_config_is_full_execution_profile_with_fail_closed_guards() -> Non
         "mean": [127.5, 127.5, 127.5],
         "std": [127.5, 127.5, 127.5],
     }
+    assert config["gradcam"]["extraction"]["expected_heatmap_size"] == [7, 7]
 
     assert models["profiles"]["arcface_ms1mv3_r100"]["preprocessing"] == {
         "input_size": [112, 112],

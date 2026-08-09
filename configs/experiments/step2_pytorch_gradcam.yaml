@@ -186,7 +186,8 @@ models:
       implementation_repository: https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface
       checkpoint_source_page: https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface/-/tree/master/checkpoints?ref_type=heads
       loader_factory: research.embeddings.pytorch.official_loaders:load_edgeface_checkpoint
-      target_layer: model.stages.3.blocks.2.convs.2
+      # Deepest convolution that preserves the common 7x7 saliency grid.
+      target_layer: model.stages.2.blocks.8.convs.1
       run_compression: true
       run_gradcam: true
       preprocessing:
@@ -410,6 +411,7 @@ gradcam:
   extraction:
     embedding_batch_size: 64
     gradcam_batch_size: 4
+    expected_heatmap_size: [7, 7]
     shard_size: 2048
     capture_intermediates: false
   persistence:

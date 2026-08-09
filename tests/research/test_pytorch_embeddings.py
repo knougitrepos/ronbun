@@ -17,6 +17,7 @@ from research.embeddings.base import (
 from research.embeddings.pytorch import PyTorchUnavailableError, resolve_target_layer
 from research.embeddings.manifests import (
     ModelSpecSelectionError,
+    model_spec_registry_stem,
     read_model_spec,
     select_model_spec,
     select_model_spec_by_profile,
@@ -202,6 +203,40 @@ def test_model_spec_registry_selects_unique_family_or_exact_uid(tmp_path):
     assert exact == arcface
 
 
+def test_edgeface_model_spec_registry_supports_family_and_profile_selection(
+    tmp_path,
+):
+    registry = tmp_path / "registry"
+    edgeface = _spec(tmp_path, "edgeface")
+    edgeface_path = write_model_spec(
+        registry / f"{edgeface.model_uid}.json",
+        edgeface,
+    )
+
+    family_path, family_selected = select_model_spec(
+        registry,
+        family="edgeface",
+        model_uid=edgeface.model_uid,
+    )
+    profile_path, profile_selected = select_model_spec_by_profile(
+        registry,
+        profile_id="edgeface_test",
+        profile_config={
+            "family": "edgeface",
+            "architecture": edgeface.architecture,
+            "training_dataset": edgeface.training_dataset,
+            "target_layer": edgeface.target_layer,
+            "model_uid": edgeface.model_uid,
+            "checkpoint_path": edgeface.checkpoint.path,
+        },
+    )
+
+    assert family_path == edgeface_path
+    assert family_selected == edgeface
+    assert profile_path == edgeface_path
+    assert profile_selected == edgeface
+
+
 def test_model_spec_registry_requires_uid_when_family_is_ambiguous(tmp_path):
     registry = tmp_path / "registry"
     first_root = tmp_path / "first"
@@ -260,6 +295,7 @@ def test_profile_selection_pins_exact_uid_and_checkpoint(tmp_path):
         "family": "arcface",
         "architecture": second.architecture,
         "training_dataset": second.training_dataset,
+        "target_layer": second.target_layer,
         "model_uid": second.model_uid,
         "checkpoint_path": second.checkpoint.path,
     }
@@ -282,6 +318,52 @@ def test_profile_selection_pins_exact_uid_and_checkpoint(tmp_path):
             registry,
             profile_id="arcface_test",
             profile_config=wrong_checkpoint,
+        )
+
+
+def test_profile_selection_disambiguates_target_layer_revisions(tmp_path):
+    registry = tmp_path / "registry"
+    original = _spec(tmp_path, "edgeface")
+    revised = ModelSpec(
+        family=original.family,
+        architecture=original.architecture,
+        training_dataset=original.training_dataset,
+        implementation_repository=original.implementation_repository,
+        checkpoint=original.checkpoint,
+        preprocessing=original.preprocessing,
+        target_layer="features.earlier_7x7",
+    )
+    original_path = write_model_spec(
+        registry / f"{original.model_uid}.json",
+        original,
+    )
+    revised_path = write_model_spec(
+        registry / f"{model_spec_registry_stem(revised)}.json",
+        revised,
+    )
+
+    assert original.model_uid == revised.model_uid
+    selected_path, selected = select_model_spec_by_profile(
+        registry,
+        profile_id="edgeface_7x7",
+        profile_config={
+            "family": revised.family,
+            "architecture": revised.architecture,
+            "training_dataset": revised.training_dataset,
+            "target_layer": revised.target_layer,
+            "model_uid": revised.model_uid,
+            "checkpoint_path": revised.checkpoint.path,
+        },
+    )
+
+    assert original_path != revised_path
+    assert selected_path == revised_path
+    assert selected == revised
+    with pytest.raises(ModelSpecSelectionError, match="multiple ModelSpec"):
+        select_model_spec(
+            registry,
+            family="edgeface",
+            model_uid=revised.model_uid,
         )
 
 

@@ -195,6 +195,31 @@ def test_population_gradcam_can_cap_only_the_backward_saliency_pass(tmp_path: Pa
     ]
 
 
+def test_population_gradcam_rejects_non_common_heatmap_grid(tmp_path: Path):
+    faces = _aligned_faces()
+    adapter = _adapter(tmp_path)
+    prepared = prepare_population_saliency_inputs(
+        adapter,
+        faces,
+        sample_ids=np.asarray([f"sample-{index}" for index in range(len(faces))]),
+        identity_ids=np.asarray(["a", "a", "b", "b", "c", "c"]),
+        scope_ids=np.asarray(["dev"] * len(faces)),
+        extraction_uid="synthetic-grid-contract",
+        dataset_id="synthetic-faces",
+        embedding_batch_size=2,
+    )
+
+    with pytest.raises(ValueError, match="expected the common grid"):
+        extract_population_gradcam(
+            adapter,
+            faces,
+            prepared,
+            gradcam_batch_size=2,
+            expected_heatmap_size=(7, 7),
+            faithfulness_fraction=None,
+        )
+
+
 def test_population_pipeline_extracts_all_embeddings_and_all_eligible_gradcam(
     population_pipeline,
 ):

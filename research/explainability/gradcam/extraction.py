@@ -476,6 +476,7 @@ def extract_population_gradcam(
     prepared: PreparedPopulationInputs,
     *,
     gradcam_batch_size: int = 4,
+    expected_heatmap_size: tuple[int, int] | None = None,
     region_masks: Mapping[str, np.ndarray] | Any | None = None,
     region_mask_uid: str | None = None,
     capture_intermediates: bool = False,
@@ -501,6 +502,14 @@ def extract_population_gradcam(
         gradcam_batch_size,
         name="gradcam_batch_size",
     )
+    expected_spatial = None
+    if expected_heatmap_size is not None:
+        if len(expected_heatmap_size) != 2:
+            raise ValueError("expected_heatmap_size must contain height and width")
+        expected_spatial = tuple(
+            _positive_integer(value, name="expected_heatmap_size")
+            for value in expected_heatmap_size
+        )
     minimum_repeat = float(minimum_pass_repeat_cosine)
     if not np.isfinite(minimum_repeat) or not -1.0 <= minimum_repeat <= 1.0:
         raise ValueError("minimum_pass_repeat_cosine must be in [-1, 1]")
@@ -578,6 +587,12 @@ def extract_population_gradcam(
             target_name=prepared.loo_templates.target_name,
             capture_intermediates=capture_intermediates,
         )
+        actual_spatial = tuple(int(value) for value in generated.heatmaps.shape[-2:])
+        if expected_spatial is not None and actual_spatial != expected_spatial:
+            raise ValueError(
+                f"target_layer {target_layer_name!r} produced Grad-CAM shape "
+                f"{actual_spatial}, expected the common grid {expected_spatial}"
+            )
         for key, value in (
             ("heatmaps", generated.heatmaps),
             ("raw_cams", generated.raw_cams),

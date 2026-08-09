@@ -4,11 +4,34 @@ import json
 import os
 from pathlib import Path
 
-from research.embeddings.base import FRModelFamily, ModelSpec
+from research.embeddings.base import (
+    FRModelFamily,
+    ModelSpec,
+    SUPPORTED_FR_MODEL_FAMILIES,
+)
 
 
 class ModelSpecSelectionError(ValueError):
     """Raised when a model registry cannot select one spec unambiguously."""
+
+
+def model_spec_registry_stem(spec: ModelSpec) -> str:
+    """Return a stable registry key for one checkpoint plus analysis target.
+
+    ``model_uid`` deliberately identifies the checkpoint/preprocessing contract
+    and therefore does not change when only the Grad-CAM target changes.  A
+    target-layer revision still needs its own immutable registry file, so the
+    full manifest digest is appended only to the registry filename.
+    """
+
+    from research.runtime.hashing import canonical_sha256
+
+    digest = canonical_sha256(spec.to_manifest())[:16]
+    return f"{spec.model_uid}--spec-{digest}"
+
+
+def _model_spec_filename_matches(path: Path, spec: ModelSpec) -> bool:
+    return path.stem in {spec.model_uid, model_spec_registry_stem(spec)}
 
 
 def read_model_spec(
@@ -82,7 +105,7 @@ def select_model_spec(
     root = Path(registry_root).expanduser().resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"model registry directory does not exist: {root}")
-    if family not in {"arcface", "adaface", "magface"}:
+    if family not in SUPPORTED_FR_MODEL_FAMILIES:
         raise ValueError(f"unsupported FR model family: {family}")
 
     if model_uid is not None:
@@ -92,7 +115,7 @@ def select_model_spec(
         uid_family, separator, uid_digest = resolved_uid.partition("-")
         if (
             separator != "-"
-            or uid_family not in {"arcface", "adaface", "magface"}
+            or uid_family not in SUPPORTED_FR_MODEL_FAMILIES
             or len(uid_digest) != 20
         ):
             raise ValueError(
@@ -113,18 +136,30 @@ def select_model_spec(
                 f"model_uid {resolved_uid!r} does not belong to requested "
                 f"family {family!r}"
             )
-        manifest_path = root / f"{resolved_uid}.json"
-        if not manifest_path.is_file():
+        candidates = sorted(root.glob(f"{resolved_uid}*.json"))
+        matches: list[tuple[Path, ModelSpec]] = []
+        for manifest_path in candidates:
+            spec = read_model_spec(
+                manifest_path, verify_checkpoint=verify_checkpoint
+            )
+            if not _model_spec_filename_matches(manifest_path, spec):
+                raise ModelSpecSelectionError(
+                    "model manifest filename does not match its computed "
+                    f"registry key: {manifest_path}"
+                )
+            if spec.model_uid == resolved_uid:
+                matches.append((manifest_path, spec))
+        if not matches:
             raise FileNotFoundError(
                 f"registered model_uid was not found: {resolved_uid}"
             )
-        spec = read_model_spec(
-            manifest_path, verify_checkpoint=verify_checkpoint
-        )
-        if spec.model_uid != resolved_uid:
+        if len(matches) > 1:
             raise ModelSpecSelectionError(
-                "model manifest filename does not match its computed model_uid"
+                f"multiple ModelSpec manifests share model_uid {resolved_uid!r}; "
+                "select by an explicit model profile so the Grad-CAM target "
+                "layer is unambiguous"
             )
+        manifest_path, spec = matches[0]
         if spec.family != family:
             raise ModelSpecSelectionError(
                 f"model_uid {resolved_uid!r} belongs to {spec.family!r}, "
@@ -137,9 +172,9 @@ def select_model_spec(
         spec = read_model_spec(
             manifest_path, verify_checkpoint=verify_checkpoint
         )
-        if manifest_path.stem != spec.model_uid:
+        if not _model_spec_filename_matches(manifest_path, spec):
             raise ModelSpecSelectionError(
-                "model manifest filename does not match its computed model_uid: "
+                "model manifest filename does not match its computed registry key: "
                 f"{manifest_path}"
             )
         if spec.family == family:
@@ -149,7 +184,14 @@ def select_model_spec(
             f"no registered ModelSpec exists for family {family!r}"
         )
     if len(matches) > 1:
-        available = ", ".join(spec.model_uid for _, spec in matches)
+        available_uids = sorted({spec.model_uid for _, spec in matches})
+        if len(available_uids) == 1:
+            raise ModelSpecSelectionError(
+                f"multiple ModelSpec manifests share model_uid "
+                f"{available_uids[0]!r}; select by an explicit model profile "
+                "so the Grad-CAM target layer is unambiguous"
+            )
+        available = ", ".join(available_uids)
         raise ModelSpecSelectionError(
             f"multiple ModelSpec manifests exist for family {family!r}; "
             f"set MODEL_UID explicitly. Available: {available}"
@@ -177,6 +219,7 @@ def select_model_spec_by_profile(
     family = str(profile_config["family"])
     expected_arch = str(profile_config["architecture"])
     expected_dataset = str(profile_config["training_dataset"])
+    expected_target_layer = str(profile_config["target_layer"])
     pinned_model_uid = profile_config.get("model_uid")
     expected_checkpoint_path = profile_config.get("checkpoint_path")
     resolved_expected_checkpoint = (
@@ -188,53 +231,28 @@ def select_model_spec_by_profile(
     root = Path(registry_root).expanduser().resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"model registry directory does not exist: {root}")
-    if family not in {"arcface", "adaface", "magface"}:
+    if family not in SUPPORTED_FR_MODEL_FAMILIES:
         raise ValueError(f"unsupported FR model family: {family}")
-
-    if pinned_model_uid is not None:
-        manifest_path, spec = select_model_spec(
-            root,
-            family=family,
-            model_uid=str(pinned_model_uid),
-            verify_checkpoint=verify_checkpoint,
-        )
-        if (
-            spec.architecture != expected_arch
-            or spec.training_dataset != expected_dataset
-        ):
-            raise ModelSpecSelectionError(
-                f"profile '{profile_id}' pins model_uid {spec.model_uid!r}, "
-                "but its metadata does not match the profile: "
-                f"expected architecture={expected_arch!r}, "
-                f"training_dataset={expected_dataset!r}; "
-                f"actual architecture={spec.architecture!r}, "
-                f"training_dataset={spec.training_dataset!r}"
-            )
-        if (
-            resolved_expected_checkpoint is not None
-            and Path(spec.checkpoint.path).resolve() != resolved_expected_checkpoint
-        ):
-            raise ModelSpecSelectionError(
-                f"profile '{profile_id}' pins checkpoint "
-                f"{resolved_expected_checkpoint}, but model_uid "
-                f"{spec.model_uid!r} uses {spec.checkpoint.path}"
-            )
-        return manifest_path, spec
 
     matches: list[tuple[Path, ModelSpec]] = []
     for manifest_path in sorted(root.glob(f"{family}-*.json")):
         spec = read_model_spec(
             manifest_path, verify_checkpoint=verify_checkpoint
         )
-        if manifest_path.stem != spec.model_uid:
+        if not _model_spec_filename_matches(manifest_path, spec):
             raise ModelSpecSelectionError(
-                "model manifest filename does not match its computed model_uid: "
+                "model manifest filename does not match its computed registry key: "
                 f"{manifest_path}"
             )
         if (
             spec.family == family
             and spec.architecture == expected_arch
             and spec.training_dataset == expected_dataset
+            and spec.target_layer == expected_target_layer
+            and (
+                pinned_model_uid is None
+                or spec.model_uid == str(pinned_model_uid)
+            )
             and (
                 resolved_expected_checkpoint is None
                 or Path(spec.checkpoint.path).resolve() == resolved_expected_checkpoint
@@ -243,10 +261,37 @@ def select_model_spec_by_profile(
             matches.append((manifest_path, spec))
 
     if not matches:
+        if pinned_model_uid is not None and resolved_expected_checkpoint is not None:
+            pinned_candidates: list[ModelSpec] = []
+            for manifest_path in sorted(root.glob(f"{family}-*.json")):
+                spec = read_model_spec(
+                    manifest_path, verify_checkpoint=verify_checkpoint
+                )
+                if (
+                    spec.model_uid == str(pinned_model_uid)
+                    and spec.family == family
+                    and spec.architecture == expected_arch
+                    and spec.training_dataset == expected_dataset
+                    and spec.target_layer == expected_target_layer
+                ):
+                    pinned_candidates.append(spec)
+            if pinned_candidates:
+                actual_paths = sorted(
+                    {
+                        str(Path(spec.checkpoint.path).resolve())
+                        for spec in pinned_candidates
+                    }
+                )
+                raise ModelSpecSelectionError(
+                    f"profile '{profile_id}' pins checkpoint "
+                    f"{resolved_expected_checkpoint}, but model_uid "
+                    f"{str(pinned_model_uid)!r} uses {actual_paths}"
+                )
         raise ModelSpecSelectionError(
             f"profile '{profile_id}'에 해당하는 등록된 ModelSpec이 없습니다. "
             f"family={family!r}, architecture={expected_arch!r}, "
-            f"training_dataset={expected_dataset!r}"
+            f"training_dataset={expected_dataset!r}, "
+            f"target_layer={expected_target_layer!r}"
         )
     if len(matches) > 1:
         available = ", ".join(spec.model_uid for _, spec in matches)

@@ -21,6 +21,7 @@ from research.embeddings import (
     resolve_smoke_input_batch,
     write_model_spec,
 )
+from research.embeddings.manifests import model_spec_registry_stem
 from research.experiments.scope import ExperimentScope
 from research.experiments.step4_datasets import (
     load_step4_source_manifest,
@@ -344,6 +345,37 @@ def _write_json_atomic(path: Path, payload: Mapping[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def _embed_with_target_shape(
+    adapter: Any,
+    aligned_faces: np.ndarray,
+) -> tuple[Any, list[int]]:
+    """Run one embedding smoke pass and capture the selected feature shape."""
+
+    captured_shapes: list[list[int]] = []
+
+    def capture_shape(_module: Any, _inputs: Any, output: Any) -> None:
+        shape = getattr(output, "shape", None)
+        if shape is None:
+            raise TypeError("target_layer output must expose a tensor shape")
+        captured_shapes.append([int(value) for value in shape])
+
+    handle = adapter.target_layer.register_forward_hook(capture_shape)
+    try:
+        output = adapter.embed(aligned_faces)
+    finally:
+        handle.remove()
+    if len(captured_shapes) != 1:
+        raise ValueError(
+            "target_layer must run exactly once during the model smoke pass"
+        )
+    target_shape = captured_shapes[0]
+    if len(target_shape) != 4:
+        raise ValueError(
+            "target_layer output must have shape [batch, channels, height, width]"
+        )
+    return output, target_shape
+
+
 def prepare_common_model_checkpoint(
     *,
     project_root: str | Path,
@@ -437,16 +469,38 @@ def prepare_common_model_checkpoint(
         embedding_dim=int(profile["embedding_dim"]),
         module_factory=str(profile["loader_factory"]),
     )
-    registry_path = root / config["models"]["registry_root"] / f"{spec.model_uid}.json"
-    write_model_spec(registry_path, spec)
+    registry_root = root / config["models"]["registry_root"]
+    registry_path = registry_root / f"{spec.model_uid}.json"
+    if registry_path.is_file():
+        try:
+            write_model_spec(registry_path, spec)
+        except FileExistsError:
+            registry_path = registry_root / f"{model_spec_registry_stem(spec)}.json"
+            write_model_spec(registry_path, spec)
+    else:
+        write_model_spec(registry_path, spec)
 
     validation_path = (
         root
         / config["models"]["validation_root"]
-        / spec.model_uid
+        / registry_path.stem
         / "smoke_summary.json"
     )
     smoke_status = "not_requested"
+    expected_heatmap_size: list[int] | None = None
+    if validation_path.is_file() or run_smoke_validation:
+        expected_heatmap_size = [
+            int(value)
+            for value in config["gradcam"]["extraction"][
+                "expected_heatmap_size"
+            ]
+        ]
+        if len(expected_heatmap_size) != 2 or any(
+            value < 1 for value in expected_heatmap_size
+        ):
+            raise ValueError(
+                "gradcam expected_heatmap_size must be [height, width]"
+            )
     if validation_path.is_file():
         existing = json.loads(validation_path.read_text(encoding="utf-8"))
         expected = {
@@ -465,6 +519,14 @@ def prepare_common_model_checkpoint(
             for key, value in expected.items()
             if existing.get(key) != value
         }
+        if "target_feature_shape" in existing:
+            assert expected_heatmap_size is not None
+            actual_spatial = list(existing["target_feature_shape"][-2:])
+            if actual_spatial != expected_heatmap_size:
+                mismatches["target_feature_shape"] = {
+                    "expected_spatial": expected_heatmap_size,
+                    "actual": existing["target_feature_shape"],
+                }
         if mismatches:
             raise RuntimeError(
                 "existing smoke validation does not match the selected model: "
@@ -472,6 +534,7 @@ def prepare_common_model_checkpoint(
             )
         smoke_status = "reused_validated"
     elif run_smoke_validation:
+        assert expected_heatmap_size is not None
         if (
             isinstance(max_smoke_images, bool)
             or int(max_smoke_images) != max_smoke_images
@@ -489,8 +552,16 @@ def prepare_common_model_checkpoint(
             spec,
             device=str(smoke_device),
         )
-        output = adapter.embed(smoke_input.aligned_faces)
-        _ = adapter.target_layer
+        output, target_feature_shape = _embed_with_target_shape(
+            adapter,
+            smoke_input.aligned_faces,
+        )
+        if target_feature_shape[-2:] != expected_heatmap_size:
+            raise ValueError(
+                f"profile {profile_id!r} target_layer {spec.target_layer!r} "
+                f"produces spatial shape {target_feature_shape[-2:]}, expected "
+                f"the common Grad-CAM grid {expected_heatmap_size}"
+            )
         unit_norms = np.linalg.norm(output.normalized_embedding, axis=1)
         smoke_summary = {
             "model_uid": spec.model_uid,
@@ -509,6 +580,8 @@ def prepare_common_model_checkpoint(
             "raw_norm_max": float(output.raw_norm.max()),
             "maximum_unit_norm_error": float(np.max(np.abs(unit_norms - 1.0))),
             "target_layer": spec.target_layer,
+            "target_feature_shape": target_feature_shape,
+            "expected_heatmap_size": expected_heatmap_size,
             "status": "validated",
         }
         _write_json_atomic(validation_path, smoke_summary)
