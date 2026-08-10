@@ -524,7 +524,10 @@ evaluation:
   top_k: 20
   lfw_enrollment_count: 5
   calibration_gallery_identities: 20
-  rfw_custom_calibration_gallery_identities: 80
+  # Match the calibration maximum-score distribution to the actual evaluation
+  # gallery. Full runs use 300 identities per RFW group (1,200 templates);
+  # quick runs automatically follow their group-balanced evaluation subset.
+  rfw_custom_calibration_gallery_policy: evaluation_group_matched
   rfw_custom_enrollment_count: 1
   metrics:
     - angular_error

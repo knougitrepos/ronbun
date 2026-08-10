@@ -3,6 +3,7 @@ import pytest
 
 from research.protocols.open_set import (
     build_calibration_protocol,
+    build_group_matched_calibration_protocol,
     build_open_set_protocol,
     build_survface_official_protocol,
     build_survface_matched_calibration_protocol,
@@ -99,7 +100,7 @@ def test_calibration_protocol_is_deterministic_and_does_not_read_test_rows():
             "image_path": "test0.jpg",
         }
     )
-    manifest = pd.DataFrame(rows)
+    manifest = pd.DataFrame.from_records(rows)
 
     first = build_calibration_protocol(
         manifest,
@@ -130,6 +131,64 @@ def test_calibration_protocol_is_deterministic_and_does_not_read_test_rows():
             ]
         )["identity_id"]
     )
+
+
+def test_group_matched_calibration_mirrors_each_gallery_group_deterministically():
+    rows = []
+    for group in ("African", "Asian"):
+        for identity_index in range(4):
+            identity = f"{group}-{identity_index}"
+            for image_index in range(3):
+                rows.append(
+                    {
+                        "image_id": f"{identity}-{image_index}",
+                        "identity_id": identity,
+                        "split": "calibration",
+                        "image_path": f"{identity}-{image_index}.jpg",
+                        "rfw_group": group,
+                    }
+                )
+    manifest = pd.DataFrame.from_records(rows)
+
+    first = build_group_matched_calibration_protocol(
+        manifest,
+        split_name="calibration",
+        gallery_identity_count_by_group={"African": 2, "Asian": 2},
+        enrollment_count=1,
+        seed=42,
+        group_column="rfw_group",
+    )
+    second = build_group_matched_calibration_protocol(
+        manifest.sample(frac=1.0, random_state=9),
+        split_name="calibration",
+        gallery_identity_count_by_group={"African": 2, "Asian": 2},
+        enrollment_count=1,
+        seed=42,
+        group_column="rfw_group",
+    )
+
+    pd.testing.assert_frame_equal(first.gallery, second.gallery)
+    assert first.gallery.groupby("rfw_group")["identity_id"].nunique().to_dict() == {
+        "African": 2,
+        "Asian": 2,
+    }
+    assert len(first.gallery) == 4
+    assert first.known_unknown_probes.groupby("rfw_group")[
+        "identity_id"
+    ].nunique().to_dict() == {"African": 2, "Asian": 2}
+    assert set(first.gallery["image_id"]).isdisjoint(
+        first.registered_probes["image_id"]
+    )
+
+    with pytest.raises(ValueError, match="reserve at least one"):
+        build_group_matched_calibration_protocol(
+            manifest,
+            split_name="calibration",
+            gallery_identity_count_by_group={"African": 4, "Asian": 2},
+            enrollment_count=1,
+            seed=42,
+            group_column="rfw_group",
+        )
 
 
 def test_survface_matched_calibration_uses_half_gallery_and_all_non_mated_rows():

@@ -14,6 +14,8 @@ _WORKFLOW_SUBDIR = Path("artifacts/step2_workflow")
 _GEOMETRY_FILE = "saliency_geometry_associations.csv"
 _RETRIEVAL_FILE = "saliency_retrieval_associations.csv"
 _CASES_FILE = "representative_cases.csv"
+_RFW_CALIBRATION_CONTRACT = "rfw_custom_gallery_group_matched_calibration_v2"
+_RFW_GALLERY_POLICY = "evaluation_group_matched"
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,55 @@ def _with_lineage(frame: pd.DataFrame, *, run_id: str, run_dir: Path) -> pd.Data
     return enriched
 
 
+def _validate_rfw_custom_calibration(
+    run_manifest: Mapping[str, object],
+    diagnostics: Mapping[str, object],
+) -> None:
+    config = run_manifest.get("config")
+    if not isinstance(config, Mapping):
+        raise ValueError("RFW-Custom run manifest is missing its frozen config")
+    step4 = config.get("step4")
+    evaluation = step4.get("evaluation") if isinstance(step4, Mapping) else None
+    if not isinstance(evaluation, Mapping) or evaluation.get(
+        "rfw_custom_calibration_gallery_policy"
+    ) != _RFW_GALLERY_POLICY:
+        raise ValueError(
+            "RFW-Custom run predates gallery-size-matched calibration"
+        )
+    contract = diagnostics.get("calibration_contract")
+    if not isinstance(contract, Mapping):
+        raise ValueError("RFW-Custom calibration diagnostics lack a contract")
+    expected = {
+        "name": _RFW_CALIBRATION_CONTRACT,
+        "score_statistic": "maximum_gallery_score",
+        "gallery_matching_policy": _RFW_GALLERY_POLICY,
+        "gallery_size_match_verified": True,
+        "gallery_group_match_verified": True,
+    }
+    mismatches = {
+        key: (contract.get(key), value)
+        for key, value in expected.items()
+        if contract.get(key) != value
+    }
+    if mismatches:
+        raise ValueError(
+            f"RFW-Custom calibration contract mismatch: {mismatches}"
+        )
+    splits = diagnostics.get("splits")
+    if not isinstance(splits, Mapping):
+        raise ValueError("RFW-Custom calibration diagnostics lack split summaries")
+    calibration = splits.get("calibration")
+    test = splits.get("test")
+    if not isinstance(calibration, Mapping) or not isinstance(test, Mapping):
+        raise ValueError("RFW-Custom calibration/test split summaries are required")
+    calibration_templates = int(calibration.get("template_count", -1))
+    test_templates = int(test.get("template_count", -1))
+    if calibration_templates <= 0 or calibration_templates != test_templates:
+        raise ValueError(
+            "RFW-Custom calibration/test gallery template counts do not match"
+        )
+
+
 def load_cross_dataset_saliency_associations(
     selected_runs: Mapping[str, str | Path],
     *,
@@ -146,6 +197,9 @@ def load_cross_dataset_saliency_associations(
         run_manifest_path = run_dir / "run_manifest.json"
         freeze_path = run_dir / _WORKFLOW_SUBDIR / "freeze_manifest.json"
         summary_path = run_dir / _WORKFLOW_SUBDIR / "step4_summary.json"
+        diagnostics_path = (
+            run_dir / _WORKFLOW_SUBDIR / "origin_calibration_diagnostics.json"
+        )
         run_manifest = _read_json(run_manifest_path)
         freeze = _read_json(freeze_path)
         summary = _read_json(summary_path)
@@ -169,6 +223,10 @@ def load_cross_dataset_saliency_associations(
         )
         if freeze.get("fallback_free") is not True:
             raise ValueError(f"selected run is not fallback-free: {run_dir}")
+        diagnostics: dict[str, object] | None = None
+        if dataset == "rfw_custom":
+            diagnostics = _read_json(diagnostics_path)
+            _validate_rfw_custom_calibration(run_manifest, diagnostics)
 
         phase05_path = _latest_completed_attempt(
             run_dir,
@@ -279,6 +337,11 @@ def load_cross_dataset_saliency_associations(
             _RETRIEVAL_FILE: _file_entry(retrieval_path, run_dir=run_dir),
             _CASES_FILE: _file_entry(cases_path, run_dir=run_dir),
         }
+        if diagnostics is not None:
+            sources[dataset]["origin_calibration_diagnostics.json"] = _file_entry(
+                diagnostics_path,
+                run_dir=run_dir,
+            )
 
     return CrossDatasetSaliencyAssociations(
         geometry=pd.concat(geometry_frames, ignore_index=True),

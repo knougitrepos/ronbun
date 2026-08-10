@@ -27,7 +27,19 @@ def _synthetic_completed_run(tmp_path: Path) -> Path:
     (run_dir / "COMPLETED").touch()
     _write_json(
         run_dir / "run_manifest.json",
-        {"status": "completed", "run_id": run_id},
+        {
+            "status": "completed",
+            "run_id": run_id,
+            "config": {
+                "step4": {
+                    "evaluation": {
+                        "rfw_custom_calibration_gallery_policy": (
+                            "evaluation_group_matched"
+                        )
+                    }
+                }
+            },
+        },
     )
     identity = {
         "run_id": run_id,
@@ -45,6 +57,22 @@ def _synthetic_completed_run(tmp_path: Path) -> Path:
             "geometry_association_rows": 1,
             "retrieval_association_rows": 2,
             "representative_cases": 1,
+        },
+    )
+    _write_json(
+        workflow / "origin_calibration_diagnostics.json",
+        {
+            "calibration_contract": {
+                "name": "rfw_custom_gallery_group_matched_calibration_v2",
+                "score_statistic": "maximum_gallery_score",
+                "gallery_matching_policy": "evaluation_group_matched",
+                "gallery_size_match_verified": True,
+                "gallery_group_match_verified": True,
+            },
+            "splits": {
+                "calibration": {"template_count": 4},
+                "test": {"template_count": 4},
+            },
         },
     )
     for phase in (
@@ -125,12 +153,32 @@ def test_load_cross_dataset_saliency_associations_preserves_full_rows_and_lineag
         "run_manifest.json",
         "freeze_manifest.json",
         "step4_summary.json",
+        "origin_calibration_diagnostics.json",
         "phase05_manifest.json",
         "phase06_manifest.json",
         "saliency_geometry_associations.csv",
         "saliency_retrieval_associations.csv",
         "representative_cases.csv",
     }
+
+
+def test_load_cross_dataset_saliency_associations_rejects_legacy_rfw_calibration(
+    tmp_path: Path,
+) -> None:
+    run_dir = _synthetic_completed_run(tmp_path)
+    run_manifest_path = run_dir / "run_manifest.json"
+    run_manifest = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    run_manifest["config"]["step4"]["evaluation"] = {
+        "rfw_custom_calibration_gallery_identities": 80
+    }
+    _write_json(run_manifest_path, run_manifest)
+
+    with pytest.raises(ValueError, match="predates gallery-size-matched"):
+        load_cross_dataset_saliency_associations(
+            {"rfw_custom": run_dir},
+            expected_model_uids={"rfw_custom": "arcface-test"},
+            expected_run_ids={"rfw_custom": "20260810-R001-test"},
+        )
 
 
 def test_load_cross_dataset_saliency_associations_rejects_selector_key_mismatch(

@@ -727,6 +727,12 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
         raise ValueError("RFW custom and official contracts are required")
     if custom.get("official_protocol_claim") is not False:
         raise ValueError("RFW-Custom must not claim official protocol status")
+    if custom.get("score_statistic") != "maximum_gallery_score":
+        raise ValueError("RFW-Custom must use maximum_gallery_score")
+    if custom.get("calibration_gallery_policy") != "evaluation_group_matched":
+        raise ValueError(
+            "RFW-Custom calibration gallery must match the evaluation gallery"
+        )
     if official.get("open_set_metrics_forbidden") is not True:
         raise ValueError("RFW-Official must forbid open-set metrics")
     if rfw.get("edgeface_training_identity_overlap_status") != "UNKNOWN":
@@ -934,6 +940,23 @@ def build_common_experiment_plan(
             "Step 4 reported_target_fpirs differ from evaluation contract: "
             f"{configured_targets} != {paper_targets}"
         )
+    configured_rfw_policy = str(
+        base_config.get("evaluation", {}).get(
+            "rfw_custom_calibration_gallery_policy",
+            "",
+        )
+    )
+    contract_rfw_policy = str(
+        contract.get("rfw", {})
+        .get("custom", {})
+        .get("calibration_gallery_policy", "")
+    )
+    if configured_rfw_policy != contract_rfw_policy:
+        raise ValueError(
+            "Step 4 RFW-Custom calibration gallery policy differs from the "
+            f"evaluation contract: {configured_rfw_policy!r} != "
+            f"{contract_rfw_policy!r}"
+        )
     contract_id = str(contract["contract_id"])
     contract_sha256 = sha256_file(contract_path)
     source_provenance = inspect_git_provenance(
@@ -1101,7 +1124,9 @@ def inspect_common_experiment_plan(
         "search_space_clean_full_rerun": "validation_required",
         "survface_gradcam_faithfulness_controls": "implemented",
         "survface_gradcam_faithfulness_three_models": "implemented",
-        "rfw_custom_open_set_protocol": "implemented_unvalidated_full_run",
+        "rfw_custom_open_set_protocol": (
+            "implemented_gallery_matched_calibration_v2_pending_full_run"
+        ),
         "three_open_set_dataset_comparison": "validation_required",
         "edgeface_rfw_identity_overlap": "unknown",
         "checkpoint_level_generalization_only": "implemented",

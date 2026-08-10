@@ -332,6 +332,15 @@ def _verify_source_run(
             f"selected dataset differs from source run: {dataset_id} != "
             f"{observed_dataset}"
         )
+    if dataset_id == "rfw_custom":
+        step4 = config.get("step4")
+        evaluation = step4.get("evaluation") if isinstance(step4, Mapping) else None
+        if not isinstance(evaluation, Mapping) or evaluation.get(
+            "rfw_custom_calibration_gallery_policy"
+        ) != "evaluation_group_matched":
+            raise ValueError(
+                "RFW-Custom source run predates gallery-size-matched calibration"
+            )
     model_uid = _require_text(
         config.get("model_uid"), field="run_manifest.config.model_uid"
     )

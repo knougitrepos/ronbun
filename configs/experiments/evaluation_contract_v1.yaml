@@ -93,6 +93,8 @@ rfw:
   custom:
     protocol: custom_identity_disjoint_1toN_open_set
     official_protocol_claim: false
+    score_statistic: maximum_gallery_score
+    calibration_gallery_policy: evaluation_group_matched
     metrics: [dir_at_fpir, fpir, rank_1, threshold_crossing]
     demographic_group_breakdown: true
   official:

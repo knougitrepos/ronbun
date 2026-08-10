@@ -157,6 +157,15 @@ def _source_context(run_dir: Path) -> dict[str, Any]:
     dataset_id = str(config.get("dataset_id", "")).strip()
     if dataset_id not in {"lfw", "survface", "rfw_custom"}:
         raise ValueError(f"unsupported source dataset: {dataset_id!r}")
+    if dataset_id == "rfw_custom":
+        evaluation = step4.get("evaluation")
+        if not isinstance(evaluation, dict) or evaluation.get(
+            "rfw_custom_calibration_gallery_policy"
+        ) != "evaluation_group_matched":
+            raise ValueError(
+                "RFW-Custom source run predates gallery-size-matched "
+                "calibration; start a new run"
+            )
     workflow = step4["workflow"]
     workflow_root = source / str(workflow["artifact_subdir"])
     selected_path = workflow_root / str(workflow["selected_manifest_path"])
@@ -453,9 +462,6 @@ def _run_family(
             prepared,
             selected,
             target_fpir=float(evaluation["rfw_custom_target_fpir"]),
-            calibration_gallery_identities=int(
-                evaluation["rfw_custom_calibration_gallery_identities"]
-            ),
             **common,
         )
     else:

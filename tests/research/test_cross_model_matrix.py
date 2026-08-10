@@ -228,6 +228,17 @@ def _build_run(
                 "dataset_id": dataset,
                 "model_uid": model_uid,
                 "step4": {
+                    "evaluation": {
+                        **(
+                            {
+                                "rfw_custom_calibration_gallery_policy": (
+                                    "evaluation_group_matched"
+                                )
+                            }
+                            if dataset == "rfw_custom"
+                            else {}
+                        )
+                    },
                     "workflow": {
                         "artifact_subdir": "artifacts/step2_workflow",
                         "freeze_manifest_path": "freeze_manifest.json",
@@ -412,6 +423,20 @@ def test_rejects_non_fallback_free_completed_run(tmp_path: Path) -> None:
     selections = _build_matrix(tmp_path, fallback_selection=("edgeface", "rfw_custom"))
 
     with pytest.raises(ValueError, match="fallback_free=true"):
+        load_cross_model_open_set_matrix(selections, project_root=tmp_path)
+
+
+def test_rejects_legacy_rfw_custom_calibration_in_matrix(tmp_path: Path) -> None:
+    selections = _build_matrix(tmp_path)
+    run_dir = selections["arcface"]["rfw_custom"]
+    manifest_path = run_dir / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["config"]["step4"]["evaluation"] = {
+        "rfw_custom_calibration_gallery_identities": 80
+    }
+    _write_json(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="predates gallery-size-matched"):
         load_cross_model_open_set_matrix(selections, project_root=tmp_path)
 
 

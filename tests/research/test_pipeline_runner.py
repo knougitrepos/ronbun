@@ -56,6 +56,9 @@ def _write_plan_inputs(tmp_path: Path) -> tuple[Path, Path]:
                 },
                 "evaluation": {
                     "reported_target_fpirs": [0.10, 0.01],
+                    "rfw_custom_calibration_gallery_policy": (
+                        "evaluation_group_matched"
+                    ),
                 },
             },
             sort_keys=False,
@@ -199,6 +202,12 @@ def test_contract_constants_match_user_confirmed_values() -> None:
     assert contract["calibration"][
         "reuse_search_scores_across_operating_points"
     ] is True
+    assert contract["rfw"]["custom"]["score_statistic"] == (
+        "maximum_gallery_score"
+    )
+    assert contract["rfw"]["custom"][
+        "calibration_gallery_policy"
+    ] == "evaluation_group_matched"
     assert contract["calibration"]["appendix_datasets"] == ["lfw", "survface"]
     assert contract["evaluation"]["confidence_intervals"] == {
         "binomial_rates": "wilson_95",

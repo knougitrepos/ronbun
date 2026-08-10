@@ -703,7 +703,6 @@ def test_rfw_custom_runner_uses_persisted_open_set_roles_and_multi_fpir(
         seed=42,
         target_fpir=1.0,
         target_fpirs=(0.5,),
-        calibration_gallery_identities=4,
         top_k=2,
     )
 
@@ -737,3 +736,21 @@ def test_rfw_custom_runner_uses_persisted_open_set_roles_and_multi_fpir(
     assert contract["official_pairs_or_folds_used"] is False
     assert contract["checkpoint_overlap_status"] == "UNKNOWN"
     assert contract["strict_unseen_identity_evidence"] is False
+    assert contract["name"] == (
+        "rfw_custom_gallery_group_matched_calibration_v2"
+    )
+    assert contract["score_statistic"] == "maximum_gallery_score"
+    assert contract["gallery_matching_policy"] == "evaluation_group_matched"
+    assert contract["gallery_identity_count"] == 8
+    assert contract["evaluation_gallery_identity_count"] == 8
+    assert contract["gallery_identity_count_by_group"] == {
+        group: 2 for group in RFW_GROUPS
+    }
+    assert contract["evaluation_gallery_identity_count_by_group"] == {
+        group: 2 for group in RFW_GROUPS
+    }
+    assert contract["gallery_size_match_verified"] is True
+    assert contract["gallery_group_match_verified"] is True
+    diagnostics = result.calibration_diagnostics["splits"]
+    assert diagnostics["calibration"]["template_count"] == 8
+    assert diagnostics["test"]["template_count"] == 8

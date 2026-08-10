@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import hashlib
 import os
@@ -165,6 +165,147 @@ def build_calibration_protocol(
         ).reset_index(drop=True),
         known_unknown_probes=known_unknown.sort_values(
             ["identity_id", "image_id"]
+        ).reset_index(drop=True),
+        unknown_unknown_probes=empty_unknown.reset_index(drop=True),
+    )
+
+
+def build_group_matched_calibration_protocol(
+    manifest: pd.DataFrame,
+    *,
+    split_name: str,
+    gallery_identity_count_by_group: Mapping[str, int],
+    enrollment_count: int,
+    seed: int,
+    group_column: str,
+) -> OpenSetProtocol:
+    """Build an identity-disjoint calibration gallery matched by group.
+
+    The requested identity count is enforced independently for every group.
+    Each group must retain at least one eligible non-gallery identity so the
+    calibration maximum-score distribution contains same-domain non-mated
+    probes. This is intended for protocols whose test statistic is the maximum
+    similarity over a group-balanced gallery, such as RFW-Custom.
+    """
+
+    validate_identity_disjoint_splits(manifest)
+    if split_name not in {"development", "calibration"}:
+        raise ValueError("split_name must be development or calibration")
+    if enrollment_count < 1:
+        raise ValueError("enrollment_count must be positive")
+    if group_column not in manifest.columns:
+        raise ValueError(f"group column is missing: {group_column!r}")
+    if not gallery_identity_count_by_group:
+        raise ValueError("gallery_identity_count_by_group must not be empty")
+
+    requested: dict[str, int] = {}
+    for raw_group, raw_count in gallery_identity_count_by_group.items():
+        group = str(raw_group)
+        if not group:
+            raise ValueError("gallery group names must not be empty")
+        if isinstance(raw_count, bool) or int(raw_count) != raw_count:
+            raise ValueError(f"gallery identity count must be an integer: {group!r}")
+        count = int(raw_count)
+        if count < 1:
+            raise ValueError(f"gallery identity count must be positive: {group!r}")
+        requested[group] = count
+
+    rows = manifest.loc[manifest["split"].eq(split_name)].copy()
+    if rows.empty:
+        raise ValueError(f"{split_name} rows are required")
+    rows[group_column] = rows[group_column].astype(str)
+    observed_groups = set(rows[group_column])
+    if observed_groups != set(requested):
+        raise ValueError(
+            f"{split_name} group keys do not match requested gallery groups: "
+            f"observed={sorted(observed_groups)}, requested={sorted(requested)}"
+        )
+    identity_group_counts = rows.groupby("identity_id")[group_column].nunique()
+    if (identity_group_counts != 1).any():
+        raise ValueError(f"identity maps to multiple {group_column} values")
+
+    selected_ids: set[str] = set()
+    selected_group_by_identity: dict[str, str] = {}
+    for group in sorted(requested):
+        group_rows = rows.loc[rows[group_column].eq(group)]
+        group_sizes = group_rows.groupby("identity_id")["image_id"].nunique()
+        eligible = [
+            str(identity_id)
+            for identity_id, count in group_sizes.items()
+            if int(count) > enrollment_count
+        ]
+        eligible.sort(
+            key=lambda value: _stable_key(
+                value,
+                seed=seed,
+                namespace=(
+                    f"{split_name}:{group_column}:{group}:gallery-identity"
+                ),
+            )
+        )
+        count = requested[group]
+        if count >= len(eligible):
+            raise ValueError(
+                f"{split_name}/{group} must reserve at least one eligible "
+                "non-gallery identity: "
+                f"requested={count}, eligible={len(eligible)}"
+            )
+        for identity_id in eligible[:count]:
+            selected_ids.add(identity_id)
+            selected_group_by_identity[identity_id] = group
+
+    registered = rows.loc[rows["identity_id"].astype(str).isin(selected_ids)].copy()
+    gallery_parts: list[pd.DataFrame] = []
+    for identity_id, group in registered.groupby("identity_id", sort=True):
+        identity = str(identity_id)
+        demographic_group = selected_group_by_identity[identity]
+        ordered = group.assign(
+            _stable_order=group["image_id"].astype(str).map(
+                lambda value: _stable_key(
+                    value,
+                    seed=seed,
+                    namespace=(
+                        f"{split_name}:{group_column}:{demographic_group}:"
+                        f"{identity}:enrollment"
+                    ),
+                )
+            )
+        ).sort_values(["_stable_order", "image_id"], kind="stable")
+        gallery_parts.append(
+            ordered.head(enrollment_count).drop(columns="_stable_order")
+        )
+    gallery = pd.concat(gallery_parts, ignore_index=True)
+    registered_probes = registered.loc[
+        ~registered["image_id"].isin(gallery["image_id"])
+    ].copy()
+    known_unknown = rows.loc[
+        ~rows["identity_id"].astype(str).isin(selected_ids)
+    ].copy()
+    if registered_probes.empty or known_unknown.empty:
+        raise RuntimeError("group-matched calibration probe construction failed")
+
+    actual_counts = {
+        str(group): int(count)
+        for group, count in gallery.groupby(group_column)["identity_id"]
+        .nunique()
+        .to_dict()
+        .items()
+    }
+    if actual_counts != requested:
+        raise RuntimeError(
+            "group-matched calibration gallery count mismatch: "
+            f"actual={actual_counts}, requested={requested}"
+        )
+    empty_unknown = rows.iloc[0:0].copy()
+    return OpenSetProtocol(
+        gallery=gallery.sort_values(
+            [group_column, "identity_id", "image_id"], kind="stable"
+        ).reset_index(drop=True),
+        registered_probes=registered_probes.sort_values(
+            [group_column, "identity_id", "image_id"], kind="stable"
+        ).reset_index(drop=True),
+        known_unknown_probes=known_unknown.sort_values(
+            [group_column, "identity_id", "image_id"], kind="stable"
         ).reset_index(drop=True),
         unknown_unknown_probes=empty_unknown.reset_index(drop=True),
     )

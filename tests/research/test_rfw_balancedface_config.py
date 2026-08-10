@@ -96,6 +96,9 @@ def test_step2_separates_rfw_custom_open_set_from_rfw_official_verification():
     assert datasets["rfw_custom"]["protocol_adapter"] == (
         "rfw_custom_identity_disjoint_v1"
     )
+    assert config["evaluation"][
+        "rfw_custom_calibration_gallery_policy"
+    ] == "evaluation_group_matched"
     assert datasets["rfw"]["status"] == "additional_verification_diagnostic"
     assert datasets["rfw"]["official_open_set_protocol"] is False
     assert datasets["rfw"]["headline_evaluation"] is False

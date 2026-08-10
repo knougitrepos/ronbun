@@ -1,6 +1,7 @@
 from research.protocols.open_set import (
     OpenSetProtocol,
     build_calibration_protocol,
+    build_group_matched_calibration_protocol,
     build_open_set_protocol,
     build_survface_matched_calibration_protocol,
     build_survface_official_protocol,
@@ -12,6 +13,7 @@ from research.protocols.open_set import (
 __all__ = [
     "OpenSetProtocol",
     "build_calibration_protocol",
+    "build_group_matched_calibration_protocol",
     "build_open_set_protocol",
     "build_survface_matched_calibration_protocol",
     "build_survface_official_protocol",

@@ -1,11 +1,40 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from scripts import refresh_step4_search_spaces as module
+
+
+def test_rfw_custom_refresh_rejects_legacy_80_gallery_source_run(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "legacy-rfw-run"
+    run_dir.mkdir()
+    (run_dir / "COMPLETED").write_text("completed\n", encoding="utf-8")
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "run_id": "RFW-LEGACY",
+                "config": {
+                    "dataset_id": "rfw_custom",
+                    "step4": {
+                        "evaluation": {
+                            "rfw_custom_calibration_gallery_identities": 80,
+                        }
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="predates gallery-size-matched"):
+        module._source_context(run_dir)
 
 
 def _compact_retrieval(*, family: str) -> pd.DataFrame:

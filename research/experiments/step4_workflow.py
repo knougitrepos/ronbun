@@ -1317,11 +1317,6 @@ def characterize_step4_compression(
                     config["evaluation"]["rfw_custom_target_fpir"]
                 ),
                 target_fpirs=reported_target_fpirs,
-                calibration_gallery_identities=int(
-                    config["evaluation"][
-                        "rfw_custom_calibration_gallery_identities"
-                    ]
-                ),
                 top_k=int(config["evaluation"]["top_k"]),
                 progress=progress,
             )

@@ -39,6 +39,7 @@ from research.datasets.rfw_custom import (
 from research.protocols import (
     OpenSetProtocol,
     build_calibration_protocol,
+    build_group_matched_calibration_protocol,
     build_open_set_protocol,
     build_survface_official_protocol,
     build_survface_matched_calibration_protocol,
@@ -2063,7 +2064,6 @@ def characterize_step2_rfw_custom_compression(
     seed: int = 42,
     target_fpir: float = 0.10,
     target_fpirs: Sequence[float] | None = None,
-    calibration_gallery_identities: int = 80,
     top_k: int = 20,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
@@ -2104,22 +2104,47 @@ def characterize_step2_rfw_custom_compression(
         "calibration"
     }:
         raise ValueError("RFW custom calibration_pool is required")
-    calibration_sizes = calibration.groupby("identity_id")["image_id"].nunique()
-    eligible_calibration = int((calibration_sizes > 1).sum())
-    requested_gallery_count = int(calibration_gallery_identities)
-    if requested_gallery_count < 1 or requested_gallery_count >= eligible_calibration:
+    if "rfw_group" not in evaluation_protocol.gallery.columns:
+        raise ValueError("RFW custom evaluation gallery is missing rfw_group")
+    evaluation_gallery_counts = {
+        str(group): int(count)
+        for group, count in evaluation_protocol.gallery.groupby("rfw_group")[
+            "identity_id"
+        ]
+        .nunique()
+        .to_dict()
+        .items()
+    }
+    if not evaluation_gallery_counts:
+        raise ValueError("RFW custom evaluation gallery groups are empty")
+    evaluation_gallery_identity_count = int(sum(evaluation_gallery_counts.values()))
+    if evaluation_gallery_identity_count != len(evaluation_protocol.gallery):
         raise ValueError(
-            "RFW custom calibration_gallery_identities must be positive and "
-            "reserve at least one non-mated identity: "
-            f"requested={requested_gallery_count}, eligible={eligible_calibration}"
+            "RFW custom gallery-size matching requires one enrollment image "
+            "per evaluation identity"
         )
-    calibration_protocol = build_calibration_protocol(
+    calibration_protocol = build_group_matched_calibration_protocol(
         population,
         split_name="calibration",
-        gallery_identity_count=requested_gallery_count,
+        gallery_identity_count_by_group=evaluation_gallery_counts,
         enrollment_count=1,
         seed=seed,
+        group_column="rfw_group",
     )
+    calibration_gallery_counts = {
+        str(group): int(count)
+        for group, count in calibration_protocol.gallery.groupby("rfw_group")[
+            "identity_id"
+        ]
+        .nunique()
+        .to_dict()
+        .items()
+    }
+    if (
+        calibration_gallery_counts != evaluation_gallery_counts
+        or len(calibration_protocol.gallery) != len(evaluation_protocol.gallery)
+    ):
+        raise RuntimeError("RFW custom calibration/test gallery contract mismatch")
     group_counts = {
         str(group): int(count)
         for group, count in population.groupby("rfw_group")["identity_id"]
@@ -2142,9 +2167,22 @@ def characterize_step2_rfw_custom_compression(
         top_k=top_k,
         threshold_selection="non_mated_only",
         calibration_contract={
-            "name": "rfw_custom_identity_disjoint_calibration_v1",
+            "name": "rfw_custom_gallery_group_matched_calibration_v2",
             "seed": int(seed),
-            "gallery_identity_count": requested_gallery_count,
+            "score_statistic": "maximum_gallery_score",
+            "gallery_matching_policy": "evaluation_group_matched",
+            "gallery_identity_count": int(len(calibration_protocol.gallery)),
+            "gallery_template_count": int(len(calibration_protocol.gallery)),
+            "gallery_identity_count_by_group": calibration_gallery_counts,
+            "evaluation_gallery_identity_count": evaluation_gallery_identity_count,
+            "evaluation_gallery_template_count": int(
+                len(evaluation_protocol.gallery)
+            ),
+            "evaluation_gallery_identity_count_by_group": (
+                evaluation_gallery_counts
+            ),
+            "gallery_size_match_verified": True,
+            "gallery_group_match_verified": True,
             "enrollment_count": 1,
             "compressor_fit_source": "development_pool_only",
             "compressor_fit_image_count": int(len(development)),
