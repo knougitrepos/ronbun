@@ -1,5 +1,5 @@
 {
-  "artifact_type": "cross_dataset_compact_summary",
+  "artifact_type": "cross_dataset_results",
   "causal_loss_claim": false,
   "comparison_unit": "pretrained_checkpoint",
   "confidence_interval_contract": {
@@ -24,7 +24,7 @@
     "balancedface",
     "uncertainty_defer_high_low_risk_queries"
   ],
-  "generated_at_utc": "2026-08-09T22:08:32.542650+00:00",
+  "generated_at_utc": "2026-08-10T00:25:30.219785+00:00",
   "join_contract": {
     "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
     "rows": 70,
@@ -47,10 +47,25 @@
       "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/lfw_survface_fpir_appendix.csv",
       "sha256": "56dd14a7ef709888c3c29d21fe8961c7638eab82933baebce285368c34a2d4da"
     },
+    "representative_cases_all.csv": {
+      "bytes": 372083,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/representative_cases_all.csv",
+      "sha256": "1bc8c6491dee7a664dbcf3e30cba5973b84d48af3bf3d7ed0335199a4b413fac"
+    },
     "retrieval_summary_all.csv": {
       "bytes": 90813,
       "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/retrieval_summary_all.csv",
       "sha256": "fa1b8d01173cbfe792c9fceab15913a7936400651ba7d2ad5c7f2b31f28bc05f"
+    },
+    "saliency_geometry_associations_all.csv": {
+      "bytes": 198683,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/saliency_geometry_associations_all.csv",
+      "sha256": "377c1826e6ff980e5a43a910d16ed42d5bf024ca5f590654a13155b09c3dedf0"
+    },
+    "saliency_retrieval_associations_all.csv": {
+      "bytes": 3680610,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-cd97c59b/saliency_retrieval_associations_all.csv",
+      "sha256": "cdeb5124fe8d32c52715793d2bf8c4f17ee5cb5565ea0d6247e284666d4387fe"
     },
     "storage_distortion.png": {
       "bytes": 64143,
@@ -72,10 +87,62 @@
   "rfw_verification": {
     "included": false
   },
-  "schema_version": 7,
+  "saliency_associations": {
+    "bootstrap_unit": "identity_id",
+    "geometry_rows": 570,
+    "included": true,
+    "representative_case_rows": 926,
+    "retrieval_rows": 7980,
+    "source_files": {
+      "rfw_custom": {
+        "freeze_manifest.json": {
+          "bytes": 938,
+          "path": "artifacts/step2_workflow/freeze_manifest.json",
+          "sha256": "128179f11aa7f2b39991183af2ff22c434e4960b25a84dab8e450a91aa350176"
+        },
+        "phase05_manifest.json": {
+          "bytes": 1345,
+          "path": "phases/05_saliency_compression_join/attempts/A001/phase_manifest.json",
+          "sha256": "54d173e18c380e7e2376388caac72bf6ba9c28b0b3e1c37558187ec0fed2ca5b"
+        },
+        "phase06_manifest.json": {
+          "bytes": 302,
+          "path": "phases/06_representative_case_visualization/attempts/A001/phase_manifest.json",
+          "sha256": "470e7896c45e2c58a8c7a677f561181f6a109d84feb3710a2c9371d251b6789a"
+        },
+        "representative_cases.csv": {
+          "bytes": 262016,
+          "path": "artifacts/step2_workflow/representative_cases.csv",
+          "sha256": "9b4118502e216ce8ed35b6bc8f2e1cc4e7bd6908aad0da0aa0436a5a6b1462cd"
+        },
+        "run_manifest.json": {
+          "bytes": 30433,
+          "path": "run_manifest.json",
+          "sha256": "526d01bfc669ea1b8f684de91e49e0cf934f2fa98052ef3f11145f88c5c2c020"
+        },
+        "saliency_geometry_associations.csv": {
+          "bytes": 134428,
+          "path": "artifacts/step2_workflow/saliency_geometry_associations.csv",
+          "sha256": "78504af26c110243c8d3ff16bdc3535f09e035e08a580437ad266b5a254c3817"
+        },
+        "saliency_retrieval_associations.csv": {
+          "bytes": 2753279,
+          "path": "artifacts/step2_workflow/saliency_retrieval_associations.csv",
+          "sha256": "9aa3639372afb6f18e67fb1286076351e0a2cce76efcba2fdf81c992e5b25483"
+        },
+        "step4_summary.json": {
+          "bytes": 854,
+          "path": "artifacts/step2_workflow/step4_summary.json",
+          "sha256": "52a6f7d4e07486e6c26262e0e473c65851087cdddb3315537907b5250cb09d97"
+        }
+      }
+    }
+  },
+  "schema_version": 8,
   "selected_runs": {
     "rfw_custom": {
       "model_uid": "arcface-7972a704552df378345f",
+      "run_dir": "runs/rfw_custom_20260810/20260810-R001-cd97c59b_step4_rfw_custom_arcface-7972a704552df378345f",
       "run_id": "20260810-R001-cd97c59b",
       "summary_artifact_type": "step4_search_space_multi_fpir_v4",
       "summary_claim_status": "validation_required",

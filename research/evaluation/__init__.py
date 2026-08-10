@@ -48,6 +48,10 @@ from research.evaluation.saliency_streaming import (
     stream_join_population_saliency_with_retrieval,
     stream_select_population_representative_cases,
 )
+from research.evaluation.cross_dataset_saliency import (
+    CrossDatasetSaliencyAssociations,
+    load_cross_dataset_saliency_associations,
+)
 from research.evaluation.rfw_verification import (
     RFWVerificationResult,
     evaluate_rfw_10fold,
@@ -97,5 +101,7 @@ __all__ = [
     "stream_join_population_saliency_with_compression",
     "stream_join_population_saliency_with_retrieval",
     "stream_select_population_representative_cases",
+    "CrossDatasetSaliencyAssociations",
+    "load_cross_dataset_saliency_associations",
     "wilson_score_interval",
 ]
