@@ -1,0 +1,149 @@
+{
+  "schema_version": 4,
+  "artifact_type": "step4_search_space_multi_fpir_v4",
+  "generated_at_utc": "2026-08-10T13:00:32.121958+00:00",
+  "dataset_id": "survface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "run_id": "20260810-R001-5d742943",
+  "source_run_id": "20260810-R001-5d742943",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": true,
+  "derived_evaluation_paper_eligible": true,
+  "claim_status": "validation_required",
+  "producer_script": "scripts/refresh_step4_search_spaces.py",
+  "target_fpirs": [
+    0.1,
+    0.01
+  ],
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.7789576053619385,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 9795,
+      "calibration_fpir": 0.09999489561533358,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 11284,
+      "test_fpir": 0.09269238351843333,
+      "status": "target_met"
+    },
+    "0.01": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.8407073616981506,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 979,
+      "calibration_fpir": 0.009994385176866929,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 1511,
+      "test_fpir": 0.012412104882696983,
+      "status": "failed_target_fpir"
+    }
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_applicable_protocol_changed",
+    "reason": "SurvFace 3,000-ID half-gallery calibration and watch-list compressor fit intentionally replace the legacy 200-ID regime"
+  },
+  "evaluator_git": {
+    "commit": "678f512ff6ec1c900d651d0a973eab959ab4b24f",
+    "branch": "step7",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [
+      "runs/lfw_20260810/20260810-R001-e9b2f0fd_step4_lfw_arcface-7972a704552df378345f/logs/events.jsonl",
+      "runs/survface_20260810/20260810-R001-5d742943_step4_survface_arcface-7972a704552df378345f/logs/events.jsonl"
+    ],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/survface_20260810/20260810-R001-5d742943_step4_survface_arcface-7972a704552df378345f/run_manifest.json",
+      "bytes": 30740,
+      "sha256": "e8150da4dd0edff77a0ac02d92c17378e37714a815b124d81a659e781a7a3665"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/survface_20260810/20260810-R001-5d742943_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 937,
+      "sha256": "c83e2d5370c820e009ff6998513169329ee0032d7b195f69398e72721df8440f"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/survface_20260810/20260810-R001-5d742943_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58675,
+      "sha256": "156d4b5f21636eb66d0ef4279677afef6deed27f08489a2dfe60735972f08653"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/survface_20260810/20260810-R001-5d742943_step4_survface_arcface-7972a704552df378345f/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/survface/20260810-R001-5d742943/search_space_v4_multi_fpir/pca/family_manifest.json",
+      "bytes": 2544,
+      "sha256": "e8560c1d5f0353ffa3a94ed30b6882cc9396ebf23a8a55c1396a74c28bbbb4b0"
+    },
+    "pq": {
+      "path": "results/paper/survface/20260810-R001-5d742943/search_space_v4_multi_fpir/pq/family_manifest.json",
+      "bytes": 2543,
+      "sha256": "faa55cd0d91f65f30d42e69aea98ec30625ae9f06c7f89de44f6a634d2b6891e"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 70
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy x target_fpir",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "rate_confidence_intervals": "probe-level two-sided 95% Wilson score intervals",
+    "origin_difference_confidence_intervals": "compressed minus origin probe-level paired nonparametric bootstrap percentile intervals",
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Confidence intervals resample probes and do not represent identity-cluster or checkpoint-training uncertainty.",
+    "SurvFace threshold-dependent claims remain blocked for targets whose held-out realized FPIR exceeds the calibrated target: ['0.01'].",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/survface/20260810-R001-5d742943/search_space_v4_multi_fpir/compression_summary.csv",
+      "bytes": 3837,
+      "sha256": "36af7cdb9e17ff891655773abe71eca74aab3d198a0886e89b853a7d6335560d"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/survface/20260810-R001-5d742943/search_space_v4_multi_fpir/retrieval_summary.csv",
+      "bytes": 91628,
+      "sha256": "aeb04791d01c4094384c805ccfaf5ce93415dd360310cee565cb62527c4755a3"
+    }
+  }
+}

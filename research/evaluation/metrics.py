@@ -59,10 +59,13 @@ def wilson_score_interval(
         )
         / denominator
     )
-    return (
-        float(max(0.0, center - margin)),
-        float(min(1.0, center + margin)),
+    lower = 0.0 if successes_value == 0 else float(max(0.0, center - margin))
+    upper = (
+        1.0
+        if successes_value == total_value
+        else float(min(1.0, center + margin))
     )
+    return lower, upper
 
 
 def paired_binary_rate_difference_bootstrap_interval(

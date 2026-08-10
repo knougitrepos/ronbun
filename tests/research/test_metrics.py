@@ -113,8 +113,10 @@ def test_certified_metrics_use_ground_truth_instead_of_origin_agreement():
 def test_wilson_score_interval_handles_sparse_false_accepts() -> None:
     low, high = wilson_score_interval(0, 100)
 
-    assert low == pytest.approx(0.0)
+    assert low == 0.0
     assert high == pytest.approx(0.0369935, rel=1e-5)
+    assert wilson_score_interval(0, 1688)[0] == 0.0
+    assert wilson_score_interval(1688, 1688)[1] == 1.0
     with pytest.raises(ValueError, match="counts"):
         wilson_score_interval(2, 1)
 

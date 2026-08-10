@@ -1,0 +1,68 @@
+{
+  "attempt": 1,
+  "details": {
+    "artifacts": [
+      {
+        "bytes": 794104,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_384_A001.joblib",
+        "sha256": "523b055b44906d9b8971ad6e0f3888e64f1d2e53d06ef63677aa7429aa7834b8"
+      },
+      {
+        "bytes": 530424,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_256_A001.joblib",
+        "sha256": "4ad7d43d3056aaaee8da276dabf880b962132643482ef2138ed282e635c75062"
+      },
+      {
+        "bytes": 266744,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_128_A001.joblib",
+        "sha256": "de5201ee2ab8f6b3fb984f8976b846e9dc22c074495d59cddbf6ba630db8e3b9"
+      },
+      {
+        "bytes": 134904,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_64_A001.joblib",
+        "sha256": "adbc529f697bf91a9a2a132c935393f9fbf5029cfd91d801ac0aa5ac8fe23077"
+      },
+      {
+        "bytes": 68984,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_32_A001.joblib",
+        "sha256": "8bdcc4561591f74d89c8e771b7490b2d824bf29f072fda68f5741d96b7b201e1"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m8_b8_A001.faiss",
+        "sha256": "63679ad0db9bdc814f9a73ce3914b35ae3434fae8faf707e74a553f54c754efa"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m16_b8_A001.faiss",
+        "sha256": "5e076a765c30e488697a11cf2ab5ba1ab427af175a89e9096763e36c680264b4"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m32_b8_A001.faiss",
+        "sha256": "0394ede6fbf07c84a7a4c650e437512cc9efb9b0942ae87c9b41b46d1ecf3e11"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m64_b8_A001.faiss",
+        "sha256": "55985bc2c2ab4d1edbbf4f08cd2f451f6e72c24ead264099ff4b831e686a6383"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m128_b8_A001.faiss",
+        "sha256": "94531a0ed607a8a61a22a648e642b47b1d60abf4bdf82affa18bd50103273785"
+      }
+    ],
+    "counts": {
+      "demographic_summary_rows": 0,
+      "frozen_codec_count": 10,
+      "origin_score_audit_rows": 10366,
+      "paired_rows": 131950,
+      "retrieval_rows": 151480
+    }
+  },
+  "finished_at_utc": "2026-08-10T01:26:20.516073+00:00",
+  "phase": "04_step2_compression_characterization",
+  "started_at_utc": "2026-08-10T01:25:13.954383+00:00",
+  "status": "completed"
+}
