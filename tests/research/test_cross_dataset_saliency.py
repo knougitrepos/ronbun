@@ -160,7 +160,10 @@ def test_cross_dataset_report_exports_full_saliency_association_contract() -> No
         cell.source for cell in notebook.cells if cell.cell_type == "code"
     )
 
-    assert 'globals().get("DATASETS", ("rfw_custom",))' in source
+    assert 'CROSS_DATASET_REPORT_PARAMETERS_INJECTED' in source
+    assert 'if not PARAMETERS_INJECTED:' in source
+    assert 'DATASETS = ("rfw_custom",)' in source
+    assert 'globals().get("DATASETS"' not in source
     assert "keys must exactly match DATASETS" in source
     assert "load_cross_dataset_saliency_associations" in source
     assert "saliency_geometry_associations_all.csv" in source

@@ -307,7 +307,7 @@ def build_report_parameter_source(
             resolved_cross_model_matrix
         ),
     }
-    source = "\n".join(
+    source = "CROSS_DATASET_REPORT_PARAMETERS_INJECTED = True\n" + "\n".join(
         f"{name} = {pformat(value, sort_dicts=True)}"
         for name, value in assignments.items()
     ) + "\n"

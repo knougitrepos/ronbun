@@ -107,6 +107,7 @@ def test_report_parameter_source_uses_verified_run_identity(tmp_path: Path):
     assert identities["lfw"]["run_id"] == "L001"
     assert identities["survface"]["run_id"] == "S001"
     assert "MODEL_NAME = 'magface'" in source
+    assert source.startswith("CROSS_DATASET_REPORT_PARAMETERS_INJECTED = True\n")
     assert "WRITE_OUTPUTS = False" in source
     assert "INCLUDE_SURVFACE_FAITHFULNESS = True" in source
     assert "RFW_EVALUATION_DIR = None" in source

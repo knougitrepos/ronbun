@@ -1,5 +1,5 @@
 {
-  "artifact_type": "cross_dataset_compact_summary",
+  "artifact_type": "cross_dataset_results",
   "causal_loss_claim": false,
   "comparison_unit": "pretrained_checkpoint",
   "confidence_interval_contract": {
@@ -24,7 +24,7 @@
     "balancedface",
     "uncertainty_defer_high_low_risk_queries"
   ],
-  "generated_at_utc": "2026-08-09T23:16:05.937526+00:00",
+  "generated_at_utc": "2026-08-10T00:42:54.792299+00:00",
   "join_contract": {
     "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
     "rows": 70,
@@ -47,10 +47,25 @@
       "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/lfw_survface_fpir_appendix.csv",
       "sha256": "56dd14a7ef709888c3c29d21fe8961c7638eab82933baebce285368c34a2d4da"
     },
+    "representative_cases_all.csv": {
+      "bytes": 359726,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/representative_cases_all.csv",
+      "sha256": "f855d68813715d6e101abdd69b924c2db62e5dae65a9a3ddfcba09fada371fa9"
+    },
     "retrieval_summary_all.csv": {
       "bytes": 91845,
       "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/retrieval_summary_all.csv",
       "sha256": "fe77cb8f1f623e625e5d19a654d368d345929b79c75eadfa5d83cd6ea3749b71"
+    },
+    "saliency_geometry_associations_all.csv": {
+      "bytes": 198723,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/saliency_geometry_associations_all.csv",
+      "sha256": "65590f873e8f03bd6116e4f575f131767c4775f58820e74877159db5bc1fa3a1"
+    },
+    "saliency_retrieval_associations_all.csv": {
+      "bytes": 3717689,
+      "path": "results/paper/common/magface/rfw_custom-20260810-R001-5304b105/saliency_retrieval_associations_all.csv",
+      "sha256": "67b7ddbb4c83d649b4fc8d7b6315024e434ff899a5f0338d1fd9beb0cf5f6936"
     },
     "storage_distortion.png": {
       "bytes": 64508,
@@ -72,10 +87,62 @@
   "rfw_verification": {
     "included": false
   },
-  "schema_version": 7,
+  "saliency_associations": {
+    "bootstrap_unit": "identity_id",
+    "geometry_rows": 570,
+    "included": true,
+    "representative_case_rows": 896,
+    "retrieval_rows": 7980,
+    "source_files": {
+      "rfw_custom": {
+        "freeze_manifest.json": {
+          "bytes": 938,
+          "path": "artifacts/step2_workflow/freeze_manifest.json",
+          "sha256": "7a78daa25e06aacdddaf66c11aec9c305659ff0653b230de3fb3ca551364f100"
+        },
+        "phase05_manifest.json": {
+          "bytes": 1345,
+          "path": "phases/05_saliency_compression_join/attempts/A001/phase_manifest.json",
+          "sha256": "bd7adfcd89276c0436b3e54c4841c3fd2e1be7aad18b7bcbc72b0739e5190aa0"
+        },
+        "phase06_manifest.json": {
+          "bytes": 302,
+          "path": "phases/06_representative_case_visualization/attempts/A001/phase_manifest.json",
+          "sha256": "e18db53cb232ddc42274d5f5ca1d5bb792eca219f862f142d62f9a3f5db89f94"
+        },
+        "representative_cases.csv": {
+          "bytes": 253204,
+          "path": "artifacts/step2_workflow/representative_cases.csv",
+          "sha256": "ebc078a0a7a63c4dd705ddce11cae59333fbf9c82cd2c2be3b9aea5f454ba596"
+        },
+        "run_manifest.json": {
+          "bytes": 30427,
+          "path": "run_manifest.json",
+          "sha256": "0938f5ce26a243877891a28ae27015de0de6f1d1fb037bcc47f972b3d2b01323"
+        },
+        "saliency_geometry_associations.csv": {
+          "bytes": 134393,
+          "path": "artifacts/step2_workflow/saliency_geometry_associations.csv",
+          "sha256": "aad5d3569f14feeff9ace80e3e95bd12c42137b67e5e51910b97d2c7aad20def"
+        },
+        "saliency_retrieval_associations.csv": {
+          "bytes": 2800647,
+          "path": "artifacts/step2_workflow/saliency_retrieval_associations.csv",
+          "sha256": "0ef33558a35452e40e9aaa1c403b201e1da09a00998acc0d8c180faa1492e9d3"
+        },
+        "step4_summary.json": {
+          "bytes": 854,
+          "path": "artifacts/step2_workflow/step4_summary.json",
+          "sha256": "2a5b08f99f733a62dd82bc01eaccfbad3d1e988f11b69156af1dcd110a90d391"
+        }
+      }
+    }
+  },
+  "schema_version": 8,
   "selected_runs": {
     "rfw_custom": {
       "model_uid": "magface-6931178ad2025e1b3799",
+      "run_dir": "runs/rfw_custom_20260810/20260810-R001-5304b105_step4_rfw_custom_magface-6931178ad2025e1b3799",
       "run_id": "20260810-R001-5304b105",
       "summary_artifact_type": "step4_search_space_multi_fpir_v4",
       "summary_claim_status": "validation_required",
