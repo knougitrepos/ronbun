@@ -1,0 +1,15 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "eligible_rows": 9133,
+      "gradcam_selected_rows": 9133,
+      "population_rows": 13195,
+      "valid_heatmap_rows": 9132
+    }
+  },
+  "finished_at_utc": "2026-08-10T13:47:51.915311+00:00",
+  "phase": "03_saliency_feature_validation",
+  "started_at_utc": "2026-08-10T13:47:51.900300+00:00",
+  "status": "completed"
+}

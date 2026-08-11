@@ -1,0 +1,164 @@
+{
+  "artifact_type": "cross_dataset_results",
+  "causal_loss_claim": false,
+  "comparison_unit": "pretrained_checkpoint",
+  "confidence_interval_contract": {
+    "compressed_minus_origin": "paired nonparametric bootstrap percentile 95%; 2000 repeats; seed 42",
+    "does_not_cover": [
+      "identity_cluster",
+      "checkpoint_training_uncertainty"
+    ],
+    "rates": "two-sided Wilson score 95%",
+    "unit": "probe"
+  },
+  "cross_model_open_set_matrix": {
+    "included": false
+  },
+  "datasets": [
+    "rfw_custom"
+  ],
+  "deferred_work": [
+    "faiss_ivf_pq",
+    "pgvector_ivfflat",
+    "ann_parameter_sweep",
+    "balancedface",
+    "uncertainty_defer_high_low_risk_queries"
+  ],
+  "generated_at_utc": "2026-08-11T07:43:57.047658+00:00",
+  "join_contract": {
+    "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
+    "rows": 70,
+    "validation": "compression one-to-retrieval many"
+  },
+  "model_name": "adaface",
+  "output_files": {
+    "compression_summary_all.csv": {
+      "bytes": 102971,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/compression_summary_all.csv",
+      "sha256": "b665b9827ee00bbeb25519a826bcc77c9350c9c939158e275ce6a81c93167193"
+    },
+    "dir_fpir_storage_latency.csv": {
+      "bytes": 42995,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/dir_fpir_storage_latency.csv",
+      "sha256": "bd8660af2c44d9b039bfd9c3c88abd7635d93472eef0ed9ef8ca977742cfb8be"
+    },
+    "lfw_survface_fpir_appendix.csv": {
+      "bytes": 820,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/lfw_survface_fpir_appendix.csv",
+      "sha256": "56dd14a7ef709888c3c29d21fe8961c7638eab82933baebce285368c34a2d4da"
+    },
+    "representative_cases_all.csv": {
+      "bytes": 366224,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/representative_cases_all.csv",
+      "sha256": "622cffd0a3d45d9b7f9524780911855b2ddb75e2bc0b876c03370f84af9e9ee6"
+    },
+    "retrieval_summary_all.csv": {
+      "bytes": 91668,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/retrieval_summary_all.csv",
+      "sha256": "371e2b9c812c4c26fb8f7d4c3844bfa8f2deb6f39d368bd1ef1c22b0d3a4ced4"
+    },
+    "saliency_geometry_associations_all.csv": {
+      "bytes": 198718,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/saliency_geometry_associations_all.csv",
+      "sha256": "9c78279f010e649dca38eecbceeae19a8bc1bbc81c3177895cd6bf7378141fed"
+    },
+    "saliency_retrieval_associations_all.csv": {
+      "bytes": 3732150,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/saliency_retrieval_associations_all.csv",
+      "sha256": "579d9d749c4eaa308bc1c94e3a340bbb6c7ae38db379e53a800fe7ced7af9987"
+    },
+    "storage_distortion.png": {
+      "bytes": 65493,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/storage_distortion.png",
+      "sha256": "06f0db79cc5bcb8a2c77038b8b86ce26f375b2813a76b6d53b4982c6ccba1ef3"
+    },
+    "storage_open_set.png": {
+      "bytes": 232442,
+      "path": "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/storage_open_set.png",
+      "sha256": "5dee2750fb4d541470cd468d155605215ab9c64e8a5938447687cb93bf873d31"
+    }
+  },
+  "rfw_custom_boundary": {
+    "checkpoint_overlap_status": "UNKNOWN",
+    "official_result_eligible": false,
+    "protocol": "custom_1_to_n_open_set_identification",
+    "strict_unseen_identity_evidence": false
+  },
+  "rfw_verification": {
+    "included": false
+  },
+  "saliency_associations": {
+    "bootstrap_unit": "identity_id",
+    "geometry_rows": 570,
+    "included": true,
+    "representative_case_rows": 913,
+    "retrieval_rows": 7980,
+    "source_files": {
+      "rfw_custom": {
+        "freeze_manifest.json": {
+          "bytes": 943,
+          "path": "artifacts/step2_workflow/freeze_manifest.json",
+          "sha256": "82193477a62409abfb1eb07c3d253a3840b8dce4e4084b45984a4780d34bc97b"
+        },
+        "origin_calibration_diagnostics.json": {
+          "bytes": 5852,
+          "path": "artifacts/step2_workflow/origin_calibration_diagnostics.json",
+          "sha256": "d73dca5af54a7264f48e91f4f83fc169e002f39c84bb12190ad9bf7b7c7b76f3"
+        },
+        "phase05_manifest.json": {
+          "bytes": 1345,
+          "path": "phases/05_saliency_compression_join/attempts/A001/phase_manifest.json",
+          "sha256": "16b7d5b36a1d25763fc2b60dd65e0f37620d4a8bc6b07a52b03cf47a2c47684d"
+        },
+        "phase06_manifest.json": {
+          "bytes": 302,
+          "path": "phases/06_representative_case_visualization/attempts/A001/phase_manifest.json",
+          "sha256": "727d152c45f1fcc39ee1e70cd3c15908cbebfed929c7493fb9c8c724f51f9227"
+        },
+        "representative_cases.csv": {
+          "bytes": 257929,
+          "path": "artifacts/step2_workflow/representative_cases.csv",
+          "sha256": "a71eaafcc6091a38e3f6a04e2b63a8680bceee0d48c59199d0543c85d11cf362"
+        },
+        "run_manifest.json": {
+          "bytes": 30455,
+          "path": "run_manifest.json",
+          "sha256": "9f8f8842d288f2ffeed54c505acdbc76c3017dd7478b7219b213b34d4f382c51"
+        },
+        "saliency_geometry_associations.csv": {
+          "bytes": 134457,
+          "path": "artifacts/step2_workflow/saliency_geometry_associations.csv",
+          "sha256": "b8703d47f8f71ff55efcbc1ebbcf210ed7ec2d7076298eab266f01d2fbaa285d"
+        },
+        "saliency_retrieval_associations.csv": {
+          "bytes": 2818710,
+          "path": "artifacts/step2_workflow/saliency_retrieval_associations.csv",
+          "sha256": "d150f039786b251bc83bc37eb1e2cc55ef5ed5c618ee4dd3f396e60cfea2b25c"
+        },
+        "step4_summary.json": {
+          "bytes": 847,
+          "path": "artifacts/step2_workflow/step4_summary.json",
+          "sha256": "0e85e4683c86af77db36ace7f60cb9511b56691cc0d36e7677690db63979bfc1"
+        }
+      }
+    }
+  },
+  "schema_version": 8,
+  "selected_runs": {
+    "rfw_custom": {
+      "model_uid": "adaface-4df25b75e065b0b9ed43",
+      "run_dir": "runs/rfw_custom_20260811/20260811-R001-84619ab9_step4_rfw_custom_adaface-4df25b75e065b0b9ed43",
+      "run_id": "20260811-R001-84619ab9",
+      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/rfw_custom/20260811-R001-84619ab9/search_space_v4_multi_fpir/summary_manifest.json",
+        "sha256": "5c51a8e6cf688a55b70077cff15f913b4f5bb8af306aa6bb7beb5a8d826f0507"
+      }
+    }
+  },
+  "survface_faithfulness": {
+    "included": false
+  },
+  "survface_threshold_claim_status": "not_flagged"
+}

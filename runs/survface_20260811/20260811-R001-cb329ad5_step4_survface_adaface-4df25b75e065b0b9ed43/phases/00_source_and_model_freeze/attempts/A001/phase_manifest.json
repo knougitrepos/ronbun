@@ -1,0 +1,12 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "selected_samples": 463341
+    }
+  },
+  "finished_at_utc": "2026-08-11T01:20:27.667751+00:00",
+  "phase": "00_source_and_model_freeze",
+  "started_at_utc": "2026-08-11T01:20:21.886409+00:00",
+  "status": "completed"
+}
