@@ -1,0 +1,308 @@
+{
+  "artifact_type": "cross_dataset_results",
+  "causal_loss_claim": false,
+  "comparison_unit": "pretrained_checkpoint",
+  "confidence_interval_contract": {
+    "compressed_minus_origin": "paired nonparametric bootstrap percentile 95%; 2000 repeats; seed 42",
+    "does_not_cover": [
+      "identity_cluster",
+      "checkpoint_training_uncertainty"
+    ],
+    "rates": "two-sided Wilson score 95%",
+    "unit": "probe"
+  },
+  "cross_model_open_set_matrix": {
+    "included": false
+  },
+  "datasets": [
+    "lfw",
+    "survface",
+    "rfw_custom"
+  ],
+  "deferred_work": [
+    "faiss_ivf_pq",
+    "pgvector_ivfflat",
+    "ann_parameter_sweep",
+    "balancedface",
+    "uncertainty_defer_high_low_risk_queries"
+  ],
+  "faithfulness": {
+    "datasets": {
+      "lfw": {
+        "candidate_count": 9133,
+        "evaluation_mode": "inline_full",
+        "selected_count": 9133,
+        "source_manifest": {
+          "path": "results/paper/lfw/20260811-R001-f9c81fe5/faithfulness_v2_n10000/manifest.json",
+          "sha256": "e434f99398e961a40c84c0cb0a906f496a6e44c52fbb128b98a943cf44623f59"
+        }
+      },
+      "rfw_custom": {
+        "candidate_count": 10000,
+        "evaluation_mode": "derived_stratified",
+        "selected_count": 10000,
+        "source_manifest": {
+          "path": "results/paper/rfw_custom/20260811-R001-7549107b/faithfulness_v2_n10000/manifest.json",
+          "sha256": "bb83b1e6da879b6dce54e3aa67d6d5b8a24c07727b56651d6f0ac2b2fa50fe07"
+        }
+      },
+      "survface": {
+        "candidate_count": 182148,
+        "evaluation_mode": "derived_stratified",
+        "selected_count": 10000,
+        "source_manifest": {
+          "path": "results/paper/survface/20260811-R001-dcc2dbde/faithfulness_v2_n10000/manifest.json",
+          "sha256": "40699ba12a34a006e456cfffd933d549de64661d64ea07a0516b724be843d04e"
+        }
+      }
+    },
+    "included": true,
+    "maximum_samples_per_dataset": 10000,
+    "threshold_independent": true
+  },
+  "generated_at_utc": "2026-08-11T16:17:42.576377+00:00",
+  "join_contract": {
+    "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
+    "rows": 210,
+    "validation": "compression one-to-retrieval many"
+  },
+  "model_name": "magface",
+  "output_files": {
+    "compression_summary_all.csv": {
+      "bytes": 301294,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/compression_summary_all.csv",
+      "sha256": "a541c5ecb26e5e525b296887b49edaf6153fa3582420655b0356667ca59b9426"
+    },
+    "dir_fpir_storage_latency.csv": {
+      "bytes": 123151,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/dir_fpir_storage_latency.csv",
+      "sha256": "c12ce4cecc764c85b68401c0e49bb119a595d8b69c00a42656bf81e22a92205a"
+    },
+    "faithfulness_summary_all.csv": {
+      "bytes": 22252,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/faithfulness_summary_all.csv",
+      "sha256": "a60f0f6da35ab4a85dd4583d3dd0454186e66e187563633f580a9282ee2e81ee"
+    },
+    "lfw_survface_fpir_appendix.csv": {
+      "bytes": 57858,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/lfw_survface_fpir_appendix.csv",
+      "sha256": "a59e48863026ba4ff50a61789ce10fb25498ada253c35284e3ca7a8b3b955ac7"
+    },
+    "representative_cases_all.csv": {
+      "bytes": 1068493,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/representative_cases_all.csv",
+      "sha256": "185adf86da8281a3eafd4aaab4005752813bf27650a206d7d413bd0e442d99a4"
+    },
+    "retrieval_summary_all.csv": {
+      "bytes": 267611,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/retrieval_summary_all.csv",
+      "sha256": "2c1312b8b48ed93946b1c1c1ed7be0865ce79c6e9e65086a0748da1551eb5dc1"
+    },
+    "saliency_geometry_associations_all.csv": {
+      "bytes": 582079,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/saliency_geometry_associations_all.csv",
+      "sha256": "71bc8d82caa31bf6ac3498d2b70b0d446a7f7cbda8aee8561ca6b9c95a2f3c28"
+    },
+    "saliency_retrieval_associations_all.csv": {
+      "bytes": 10868986,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/saliency_retrieval_associations_all.csv",
+      "sha256": "04987aa004e00b5a3098aee410ce790c09b588a1b6e6b9a2d41a8fb9c4d7403e"
+    },
+    "storage_distortion.png": {
+      "bytes": 149585,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/storage_distortion.png",
+      "sha256": "6ee4774b7b85206e22a268b657197b23fc337f85a3b279c20333b5da326b5664"
+    },
+    "storage_open_set.png": {
+      "bytes": 746939,
+      "path": "results/paper/common/magface/lfw-20260811-R001-f9c81fe5__survface-20260811-R001-dcc2dbde__rfw_custom-20260811-R001-7549107b/storage_open_set.png",
+      "sha256": "b279caa6863a17c87643acf846d6420b36b438c4bfdfd45b34b48bea082866f6"
+    }
+  },
+  "rfw_custom_boundary": {
+    "checkpoint_overlap_status": "UNKNOWN",
+    "official_result_eligible": false,
+    "protocol": "custom_1_to_n_open_set_identification",
+    "strict_unseen_identity_evidence": false
+  },
+  "rfw_verification": {
+    "included": false
+  },
+  "saliency_associations": {
+    "bootstrap_unit": "identity_id",
+    "geometry_rows": 1710,
+    "included": true,
+    "representative_case_rows": 2662,
+    "retrieval_rows": 23940,
+    "source_files": {
+      "lfw": {
+        "freeze_manifest.json": {
+          "bytes": 931,
+          "path": "artifacts/step2_workflow/freeze_manifest.json",
+          "sha256": "d9cc5e032a765c2b2ea38b463c540b0984179f79f976cc8a6044f477a1fb0e57"
+        },
+        "phase05_manifest.json": {
+          "bytes": 1343,
+          "path": "phases/05_saliency_compression_join/attempts/A001/phase_manifest.json",
+          "sha256": "35bee95de068b03599ae32746c17814a7e881e397295de65945e344e7e7941ec"
+        },
+        "phase06_manifest.json": {
+          "bytes": 302,
+          "path": "phases/06_representative_case_visualization/attempts/A001/phase_manifest.json",
+          "sha256": "7e12df6db513bbe011794ebc29ca831e497f5090faed04f4cd08692c0db0cbe3"
+        },
+        "representative_cases.csv": {
+          "bytes": 232413,
+          "path": "artifacts/step2_workflow/representative_cases.csv",
+          "sha256": "92d1822a92fc53be00c6e9993f838e4ca83421b0387af21942cf7f8843c6b5da"
+        },
+        "run_manifest.json": {
+          "bytes": 30497,
+          "path": "run_manifest.json",
+          "sha256": "cd560e483908b33f0a2c5abff8ed160e4b990b1a72904cfcdddc8ccc9d5c3927"
+        },
+        "saliency_geometry_associations.csv": {
+          "bytes": 130377,
+          "path": "artifacts/step2_workflow/saliency_geometry_associations.csv",
+          "sha256": "51d02595ae3c3fa5d8aca7630ac1416947052769f098cb017665fb861b2314ce"
+        },
+        "saliency_retrieval_associations.csv": {
+          "bytes": 2485846,
+          "path": "artifacts/step2_workflow/saliency_retrieval_associations.csv",
+          "sha256": "538cd17981476b16ae4160496da562e6fcc27429086d1e4713c9c022a2b27c88"
+        },
+        "step4_summary.json": {
+          "bytes": 825,
+          "path": "artifacts/step2_workflow/step4_summary.json",
+          "sha256": "f2ec4a91bed0b01bfc5d406567f6bb0dd2a56e2e35f8c39a5f33d3844e996b67"
+        }
+      },
+      "rfw_custom": {
+        "freeze_manifest.json": {
+          "bytes": 938,
+          "path": "artifacts/step2_workflow/freeze_manifest.json",
+          "sha256": "ed6262bd3d1fd3dcc572df3aff4a130b2c6f5cffa0fe80b5059667b3e25570c6"
+        },
+        "origin_calibration_diagnostics.json": {
+          "bytes": 5852,
+          "path": "artifacts/step2_workflow/origin_calibration_diagnostics.json",
+          "sha256": "80b0ce7d4ba368ad8329d55f845714ca5af103ed8f491632bcd1a095c189aed1"
+        },
+        "phase05_manifest.json": {
+          "bytes": 1347,
+          "path": "phases/05_saliency_compression_join/attempts/A001/phase_manifest.json",
+          "sha256": "ee3fce97c0dcad57fc8151487ce0c264cdb7bb0b20a6c192b3926d634c6ee2a9"
+        },
+        "phase06_manifest.json": {
+          "bytes": 302,
+          "path": "phases/06_representative_case_visualization/attempts/A001/phase_manifest.json",
+          "sha256": "0abdc3c6e4619a4f8a6802021bb767d879747e3be2cfac80853cc7cd94c46ebb"
+        },
+        "representative_cases.csv": {
+          "bytes": 255531,
+          "path": "artifacts/step2_workflow/representative_cases.csv",
+          "sha256": "8f1dc30ca86beabd85ee1a1c0433e36b331846dc8035cff6ad84ec8aa5cc7006"
+        },
+        "run_manifest.json": {
+          "bytes": 30537,
+          "path": "run_manifest.json",
+          "sha256": "d660092eb3f07ecbc580d032780fe2b659e0efb0bf2bee0aa19a618e2dabdc93"
+        },
+        "saliency_geometry_associations.csv": {
+          "bytes": 135392,
+          "path": "artifacts/step2_workflow/saliency_geometry_associations.csv",
+          "sha256": "12adc3141ddcfe53b3ede084494218fb2dc1b92f8694b7df22519fbdc362248b"
+        },
+        "saliency_retrieval_associations.csv": {
+          "bytes": 2850717,
+          "path": "artifacts/step2_workflow/saliency_retrieval_associations.csv",
+          "sha256": "e994301e5b3dd3e61c014376ecca96edbce0db6585707aeac4fdf6b9b21ed403"
+        },
+        "step4_summary.json": {
+          "bytes": 848,
+          "path": "artifacts/step2_workflow/step4_summary.json",
+          "sha256": "dd8d3c6ca597b16eb61b6d8022f9a2fdd38f7943f522de812f6092854fc788b2"
+        }
+      },
+      "survface": {
+        "freeze_manifest.json": {
+          "bytes": 937,
+          "path": "artifacts/step2_workflow/freeze_manifest.json",
+          "sha256": "24d10bda18df59db5055b99c5e6d6c32e15a483ba1569bbada64f02b04aea9b6"
+        },
+        "phase05_manifest.json": {
+          "bytes": 1354,
+          "path": "phases/05_saliency_compression_join/attempts/A001/phase_manifest.json",
+          "sha256": "bdb6f92bc15187a3de5e510f7c8f652aeaffe93212e3036392a1b887ba4e57cc"
+        },
+        "phase06_manifest.json": {
+          "bytes": 302,
+          "path": "phases/06_representative_case_visualization/attempts/A001/phase_manifest.json",
+          "sha256": "61bf01d0f3ff297d92c26c37a4fd9d4060b11c9f51c21e513f90d8413a1b7941"
+        },
+        "representative_cases.csv": {
+          "bytes": 280197,
+          "path": "artifacts/step2_workflow/representative_cases.csv",
+          "sha256": "9b8a4a6070fbe668491d876c63cfa4dae9d5f74e335b3fdcee96b3df41f0b826"
+        },
+        "run_manifest.json": {
+          "bytes": 30775,
+          "path": "run_manifest.json",
+          "sha256": "5419400319b32d7e19f679f4f53ca10f644971626c656bf98b39aa435d9e9330"
+        },
+        "saliency_geometry_associations.csv": {
+          "bytes": 134608,
+          "path": "artifacts/step2_workflow/saliency_geometry_associations.csv",
+          "sha256": "7d5ae53fd87107cc815cd7b55b6b2420167c7d41fd4ab8a8bfcd2b40428605e7"
+        },
+        "saliency_retrieval_associations.csv": {
+          "bytes": 2929897,
+          "path": "artifacts/step2_workflow/saliency_retrieval_associations.csv",
+          "sha256": "ae29af1598404a16845ed0899cb091eae1b7b8016a7b4187daab1ab96dde8915"
+        },
+        "step4_summary.json": {
+          "bytes": 851,
+          "path": "artifacts/step2_workflow/step4_summary.json",
+          "sha256": "0f5ffca5fab734887f78fa108fb736c91216ac04636d9b13f1486fb1695eb66e"
+        }
+      }
+    }
+  },
+  "schema_version": 8,
+  "selected_runs": {
+    "lfw": {
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "run_dir": "runs/lfw_20260811/20260811-R001-f9c81fe5_step4_lfw_magface-6931178ad2025e1b3799",
+      "run_id": "20260811-R001-f9c81fe5",
+      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/lfw/20260811-R001-f9c81fe5/search_space_v4_multi_fpir/summary_manifest.json",
+        "sha256": "63bbc588525a7b9b7f340dd05e2441930909a9c5d0dc1b98436757c052e2280c"
+      }
+    },
+    "rfw_custom": {
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "run_dir": "runs/rfw_custom_20260811/20260811-R001-7549107b_step4_rfw_custom_magface-6931178ad2025e1b3799",
+      "run_id": "20260811-R001-7549107b",
+      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/rfw_custom/20260811-R001-7549107b/search_space_v4_multi_fpir/summary_manifest.json",
+        "sha256": "0fc25efbe4cac07f0eeeaf836c2c54b91dd7fbdccc3ea07372e9a7f781734200"
+      }
+    },
+    "survface": {
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "run_dir": "runs/survface_20260811/20260811-R001-dcc2dbde_step4_survface_magface-6931178ad2025e1b3799",
+      "run_id": "20260811-R001-dcc2dbde",
+      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
+      "summary_claim_status": "validation_required",
+      "summary_manifest": {
+        "path": "results/paper/survface/20260811-R001-dcc2dbde/search_space_v4_multi_fpir/summary_manifest.json",
+        "sha256": "05caab80873f491a650d67d4a34b69d05e12ab423430d0a313235972d683bd25"
+      }
+    }
+  },
+  "survface_threshold_claim_status": "not_flagged"
+}

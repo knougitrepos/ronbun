@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "artifact_type": "origin_open_set_multi_fpir_diagnostics",
+  "target_fpirs": [
+    0.1,
+    0.01
+  ],
+  "diagnostics_by_target": {
+    "0.01": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "lfw",
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.01,
+      "origin_decision_threshold": 0.4329013526439667,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.4329013526439667,
+        "independently_calculated_threshold": 0.4329013526439667,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 20,
+          "source_image_count": 20,
+          "images_per_template": {
+            "count": 20,
+            "minimum": 1.0,
+            "mean": 1.0,
+            "p50": 1.0,
+            "p90": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "maximum": 1.0
+          },
+          "query_count": 3019,
+          "mated_count": 109,
+          "non_mated_count": 2910,
+          "probe_type_counts": {
+            "registered": 109,
+            "known_unknown": 2910
+          },
+          "origin_decision_threshold": 0.4329013526439667,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.01,
+          "origin_false_accept_count": 0,
+          "origin_fpir": 0.0,
+          "origin_fpir_wilson95_low": 0.0,
+          "origin_fpir_wilson95_high": 0.0013183486044051483,
+          "origin_true_identification_count": 109,
+          "origin_dir_rank1": 1.0,
+          "non_mated_top1_score": {
+            "count": 2910,
+            "minimum": 0.03937792778015137,
+            "mean": 0.16219471529433407,
+            "p50": 0.15821503847837448,
+            "p90": 0.21719419211149216,
+            "p95": 0.23947970122098922,
+            "p99": 0.2820170271396637,
+            "maximum": 0.32055750489234924
+          },
+          "query_raw_embedding_norm": {
+            "count": 3019,
+            "minimum": 20.03055191040039,
+            "mean": 27.78356556672851,
+            "p50": 27.966663360595703,
+            "p90": 29.741950607299806,
+            "p95": 30.149820899963377,
+            "p99": 31.002154312133793,
+            "maximum": 32.15989685058594
+          }
+        },
+        "test": {
+          "template_count": 50,
+          "source_image_count": 250,
+          "images_per_template": {
+            "count": 50,
+            "minimum": 5.0,
+            "mean": 5.0,
+            "p50": 5.0,
+            "p90": 5.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "maximum": 5.0
+          },
+          "query_count": 2164,
+          "mated_count": 476,
+          "non_mated_count": 1688,
+          "probe_type_counts": {
+            "registered": 476,
+            "known_unknown": 857,
+            "unknown_unknown": 831
+          },
+          "origin_decision_threshold": 0.4329013526439667,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.01,
+          "origin_false_accept_count": 1,
+          "origin_fpir": 0.0005924170616113745,
+          "origin_fpir_wilson95_low": 0.00010458381374392348,
+          "origin_fpir_wilson95_high": 0.0033481385381281836,
+          "origin_true_identification_count": 463,
+          "origin_dir_rank1": 0.9726890756302521,
+          "non_mated_top1_score": {
+            "count": 1688,
+            "minimum": 0.09395575523376465,
+            "mean": 0.19376180256977324,
+            "p50": 0.18827928602695465,
+            "p90": 0.24700871556997298,
+            "p95": 0.2702086240053177,
+            "p99": 0.32837490677833553,
+            "maximum": 0.7599208354949951
+          },
+          "query_raw_embedding_norm": {
+            "count": 2164,
+            "minimum": 20.943815231323242,
+            "mean": 27.65356305610671,
+            "p50": 27.7471284866333,
+            "p90": 29.741245651245116,
+            "p95": 30.307637691497803,
+            "p99": 31.359962081909178,
+            "maximum": 33.14910125732422
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "target_met",
+        "target_met": true,
+        "threshold_dependent_results_valid_for_target_operating_point": true,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.0005924170616113745,
+        "target_fpir": 0.01
+      }
+    },
+    "0.1": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "lfw",
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.1,
+      "origin_decision_threshold": 0.4329013526439667,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.4329013526439667,
+        "independently_calculated_threshold": 0.4329013526439667,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 20,
+          "source_image_count": 20,
+          "images_per_template": {
+            "count": 20,
+            "minimum": 1.0,
+            "mean": 1.0,
+            "p50": 1.0,
+            "p90": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "maximum": 1.0
+          },
+          "query_count": 3019,
+          "mated_count": 109,
+          "non_mated_count": 2910,
+          "probe_type_counts": {
+            "registered": 109,
+            "known_unknown": 2910
+          },
+          "origin_decision_threshold": 0.4329013526439667,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.1,
+          "origin_false_accept_count": 0,
+          "origin_fpir": 0.0,
+          "origin_fpir_wilson95_low": 0.0,
+          "origin_fpir_wilson95_high": 0.0013183486044051483,
+          "origin_true_identification_count": 109,
+          "origin_dir_rank1": 1.0,
+          "non_mated_top1_score": {
+            "count": 2910,
+            "minimum": 0.03937792778015137,
+            "mean": 0.16219471529433407,
+            "p50": 0.15821503847837448,
+            "p90": 0.21719419211149216,
+            "p95": 0.23947970122098922,
+            "p99": 0.2820170271396637,
+            "maximum": 0.32055750489234924
+          },
+          "query_raw_embedding_norm": {
+            "count": 3019,
+            "minimum": 20.03055191040039,
+            "mean": 27.78356556672851,
+            "p50": 27.966663360595703,
+            "p90": 29.741950607299806,
+            "p95": 30.149820899963377,
+            "p99": 31.002154312133793,
+            "maximum": 32.15989685058594
+          }
+        },
+        "test": {
+          "template_count": 50,
+          "source_image_count": 250,
+          "images_per_template": {
+            "count": 50,
+            "minimum": 5.0,
+            "mean": 5.0,
+            "p50": 5.0,
+            "p90": 5.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "maximum": 5.0
+          },
+          "query_count": 2164,
+          "mated_count": 476,
+          "non_mated_count": 1688,
+          "probe_type_counts": {
+            "registered": 476,
+            "known_unknown": 857,
+            "unknown_unknown": 831
+          },
+          "origin_decision_threshold": 0.4329013526439667,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.1,
+          "origin_false_accept_count": 1,
+          "origin_fpir": 0.0005924170616113745,
+          "origin_fpir_wilson95_low": 0.00010458381374392348,
+          "origin_fpir_wilson95_high": 0.0033481385381281836,
+          "origin_true_identification_count": 463,
+          "origin_dir_rank1": 0.9726890756302521,
+          "non_mated_top1_score": {
+            "count": 1688,
+            "minimum": 0.09395575523376465,
+            "mean": 0.19376180256977324,
+            "p50": 0.18827928602695465,
+            "p90": 0.24700871556997298,
+            "p95": 0.2702086240053177,
+            "p99": 0.32837490677833553,
+            "maximum": 0.7599208354949951
+          },
+          "query_raw_embedding_norm": {
+            "count": 2164,
+            "minimum": 20.943815231323242,
+            "mean": 27.65356305610671,
+            "p50": 27.7471284866333,
+            "p90": 29.741245651245116,
+            "p95": 30.307637691497803,
+            "p99": 31.359962081909178,
+            "maximum": 33.14910125732422
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "target_met",
+        "target_met": true,
+        "threshold_dependent_results_valid_for_target_operating_point": true,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.0005924170616113745,
+        "target_fpir": 0.1
+      }
+    }
+  }
+}
