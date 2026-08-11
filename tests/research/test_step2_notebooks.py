@@ -56,7 +56,7 @@ def test_step2_config_uses_interpretable_aligned_crop_bundle() -> None:
     assert config["gradcam"]["population"]["saliency_sample_cap"] == {
         "lfw": None,
         "survface": None,
-        "rfw_custom": 2048,
+        "rfw_custom": 10000,
     }
     assert config["datasets"]["lfw"]["aligned_bundle_dir"] == (
         "data/interim/common/aligned_112"

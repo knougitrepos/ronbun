@@ -42,6 +42,11 @@ from research.evaluation.saliency_faithfulness import (
     select_stratified_faithfulness_sample,
     summarize_faithfulness,
 )
+from research.evaluation.faithfulness_artifacts import (
+    FAITHFULNESS_MAXIMUM_SAMPLES,
+    SelectedFaithfulnessArtifacts,
+    load_selected_faithfulness_artifacts,
+)
 from research.evaluation.saliency_streaming import (
     StreamingJoinResult,
     stream_join_population_saliency_with_compression,
@@ -60,6 +65,7 @@ from research.evaluation.rfw_verification import (
 
 __all__ = [
     "FAITHFULNESS_METRICS",
+    "FAITHFULNESS_MAXIMUM_SAMPLES",
     "DEFAULT_GEOMETRY_METRICS",
     "DEFAULT_RETRIEVAL_METRICS",
     "DEFAULT_SALIENCY_FEATURES",
@@ -94,6 +100,8 @@ __all__ = [
     "saliency_geometry_associations",
     "saliency_retrieval_associations",
     "select_stratified_faithfulness_sample",
+    "SelectedFaithfulnessArtifacts",
+    "load_selected_faithfulness_artifacts",
     "summarize_faithfulness",
     "StreamingJoinResult",
     "WEIGHTED_RERANK_ALGORITHM_VERSION",

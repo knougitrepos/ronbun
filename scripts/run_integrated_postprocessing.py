@@ -71,7 +71,8 @@ def postprocess_completed_run(
     run_dir: str | Path,
     *,
     refresh_search_spaces: bool = True,
-    derive_survface_faithfulness: bool = True,
+    derive_faithfulness: bool = True,
+    derive_survface_faithfulness: bool | None = None,
     faithfulness_options: Mapping[str, Any] | None = None,
     target_fpirs: tuple[float, ...] = (0.10, 0.01),
 ) -> dict[str, Any]:
@@ -82,8 +83,10 @@ def postprocess_completed_run(
         "status": "completed",
         "source": identity,
         "search_space_v4_multi_fpir": {"status": "disabled"},
-        "survface_faithfulness": {"status": "not_applicable"},
+        "faithfulness": {"status": "disabled"},
     }
+    if derive_survface_faithfulness is not None:
+        derive_faithfulness = bool(derive_survface_faithfulness)
     if refresh_search_spaces:
         from scripts.refresh_step4_search_spaces import refresh
 
@@ -93,22 +96,34 @@ def postprocess_completed_run(
             families=("pca", "pq"),
             target_fpirs=tuple(float(value) for value in target_fpirs),
         )
-    if identity["dataset_id"] == "survface":
-        if derive_survface_faithfulness:
+    if identity["dataset_id"] in {"lfw", "survface", "rfw_custom"}:
+        if derive_faithfulness:
             from scripts.derive_survface_faithfulness import (
-                derive_survface_faithfulness as derive,
+                derive_open_set_faithfulness as derive,
             )
 
             options = dict(faithfulness_options or {})
+            options.setdefault("maximum_samples", 10_000)
             manifest = derive(identity["run_dir"], **options)
-            result["survface_faithfulness"] = {
+            result["faithfulness"] = {
                 "status": "completed",
                 "artifact_type": manifest.get("artifact_type"),
                 "source_run_id": manifest.get("source_run_id"),
                 "model_uid": manifest.get("model_uid"),
+                "dataset_id": manifest.get("dataset_id"),
+                "evaluation_mode": manifest.get("evaluation_mode"),
+                "candidate_count": manifest.get("sampling", {}).get(
+                    "candidate_count"
+                ),
+                "selected_count": manifest.get("sampling", {}).get(
+                    "selected_count"
+                ),
+                "maximum_samples": manifest.get("sampling", {}).get(
+                    "maximum_samples"
+                ),
             }
         else:
-            result["survface_faithfulness"] = {"status": "disabled"}
+            result["faithfulness"] = {"status": "disabled"}
     return result
 
 
@@ -189,7 +204,7 @@ def build_report_parameter_source(
     *,
     model_name: str,
     selected_runs: Mapping[str, str | Path],
-    include_survface_faithfulness: bool,
+    include_faithfulness: bool,
     write_outputs: bool,
     overwrite_outputs: bool,
     rfw_evaluation_dir: str | Path | None = None,
@@ -296,9 +311,7 @@ def build_report_parameter_source(
         "DATASETS": datasets,
         "MODEL_UIDS": model_uids,
         "RUN_IDS": run_ids,
-        "INCLUDE_SURVFACE_FAITHFULNESS": bool(
-            include_survface_faithfulness and "survface" in datasets
-        ),
+        "INCLUDE_FAITHFULNESS": bool(include_faithfulness),
         "WRITE_OUTPUTS": bool(write_outputs),
         "OVERWRITE_COMMON_OUTPUTS": bool(overwrite_outputs),
         "RFW_EVALUATION_DIR": resolved_rfw_dir,
@@ -319,7 +332,7 @@ def run_cross_dataset_report_notebook(
     *,
     model_name: str,
     selected_runs: Mapping[str, str | Path],
-    include_survface_faithfulness: bool = True,
+    include_faithfulness: bool = True,
     write_outputs: bool = True,
     overwrite_outputs: bool = True,
     rfw_evaluation_dir: str | Path | None = None,
@@ -339,7 +352,7 @@ def run_cross_dataset_report_notebook(
     parameter_source, identities = build_report_parameter_source(
         model_name=model_name,
         selected_runs=selected_runs,
-        include_survface_faithfulness=include_survface_faithfulness,
+        include_faithfulness=include_faithfulness,
         write_outputs=write_outputs,
         overwrite_outputs=overwrite_outputs,
         rfw_evaluation_dir=rfw_evaluation_dir,

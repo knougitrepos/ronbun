@@ -122,14 +122,26 @@ protocol과 overlap 상태가 manifest에서 모두 일치해야 한다. RFW off
 외부 calibration을 적용한 결과는 official 내부 9-fold benchmark가 아니라 별도
 external-calibration diagnostic으로 기록한다.
 
-## SurvFace Grad-CAM faithfulness 파생 평가
+## 공통 Grad-CAM faithfulness 평가
 
-완료된 full SurvFace run의 heatmap과 frozen target template을 변경하지 않고
-`scripts/derive_survface_faithfulness.py`로 high-saliency, low-saliency,
-random occlusion 결과를 별도 생성한다. 표본은 protocol role, 모델별 raw-norm
-사분위, 원본 target-score 사분위의 32개 층에서 2,048개를 결정적으로 선택한다.
-ArcFace·AdaFace·MagFace 결과는
-`scripts/summarize_survface_faithfulness_models.py`가 동일 조건인지 검증한 뒤 한
-표로 결합한다. 이 평가는 threshold-independent이므로 SurvFace FPIR calibration
-transfer 실패와 분리되지만, 현재 파생 evaluator가 dirty source이므로 논문 최종
-수치로 승격하려면 clean commit에서 새 output version으로 재실행해야 한다.
+LFW, SurvFace, RFW-Custom은 dataset별 최대 10,000개를 같은 high-saliency,
+low-saliency, random occlusion 계약으로 평가하고 다음 경로에 같은 스키마로
+게시한다.
+
+```text
+results/paper/<dataset>/<run_id>/faithfulness_v2_n10000/
+  faithfulness_rows.csv
+  faithfulness_summary.csv
+  manifest.json
+```
+
+LFW는 원 run에 inline 저장된 faithfulness feature를 재사용하므로 실제 eligible
+수가 10,000보다 작으면 전부 내보낸다. SurvFace는 protocol role·raw-norm
+사분위·target-score 사분위에서 결정론적으로 선택한다. RFW-Custom은 같은 층에
+`rfw_group`을 추가한다. SurvFace와 RFW-Custom은 완료 run의 heatmap과 frozen
+target template을 변경하지 않고 forward-only occlusion 평가를 수행한다.
+
+공통 보고서는 dataset별 row CSV를 복제하지 않고 SHA-256이 검증된
+`faithfulness_summary.csv`만 `faithfulness_summary_all.csv`로 결합한다. 평가는
+threshold-independent이며 모델 family의 인과효과가 아니라 선택 checkpoint의
+설명 신뢰성 결과로 해석한다.

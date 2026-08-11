@@ -375,7 +375,7 @@ gradcam:
     saliency_sample_cap:
       lfw: null
       survface: null
-      rfw_custom: 2048
+      rfw_custom: 10000
     sampling_unit: sample_id
     survface_sampling_strata: [registered_probe, unknown_unknown_probe]
     rfw_custom_sampling_strata: [rfw_group, protocol_role]
@@ -444,13 +444,16 @@ gradcam:
     infer_missing_semantic_masks: false
   faithfulness:
     enabled: true
-    # LFW is computed inline for all eligible rows. SurvFace is derived from
-    # immutable heatmaps with bounded forward-only occlusion evaluation.
+    # LFW is computed inline and exported from the immutable saliency rows.
+    # SurvFace and RFW-Custom use bounded forward-only evaluation from saved
+    # heatmaps. Every dataset publishes one common rows/summary/manifest schema.
     enabled_datasets: [lfw]
     coverage: all_target_eligible_samples
-    derived_stratified_datasets: [survface]
+    derived_stratified_datasets: [survface, rfw_custom]
     derived_maximum_samples:
-      survface: 2048
+      lfw: 10000
+      survface: 10000
+      rfw_custom: 10000
     derived_strata:
       - protocol_role
       - raw_embedding_norm_within_role_quartile

@@ -17,9 +17,17 @@ def test_provenance_uses_resolved_source_run_before_expensive_work(
     monkeypatch.setattr(
         module,
         "_source_context",
-        lambda run_dir: {"run_dir": source_run},
+        lambda run_dir: {
+            "run_dir": source_run,
+            "dataset_id": "survface",
+            "run_id": "S001",
+        },
     )
-    monkeypatch.setattr(module, "_verify_existing_output", lambda output: None)
+    monkeypatch.setattr(
+        module,
+        "_verify_existing_output",
+        lambda output, **kwargs: None,
+    )
 
     def inspect(repo_root, *, run_root):
         observed["repo_root"] = Path(repo_root)

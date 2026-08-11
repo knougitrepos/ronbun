@@ -34,7 +34,12 @@ def select_stratified_faithfulness_sample(
     norm_column: str = "raw_embedding_norm",
     score_column: str = "gradcam_target_score",
 ) -> pd.DataFrame:
-    """Deterministically balance roles, raw-norm quartiles, and score quartiles."""
+    """Deterministically balance roles, raw-norm quartiles, and score quartiles.
+
+    ``role_column`` may be a dataset-specific composite balance key (for
+    example ``rfw_group|protocol_role``).  The original protocol columns stay
+    in the returned frame for reporting.
+    """
 
     required = {
         "sample_id",

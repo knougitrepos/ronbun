@@ -87,6 +87,9 @@ runs/**
 results/step1/
 results/step2/
 # Compact publication results are intentionally tracked.
+# Dataset-level faithfulness rows are reproducible local ledgers. Keep only the
+# compact summary and SHA-verified manifest Git-visible under results/paper.
+results/paper/*/*/faithfulness_v2_n10000/faithfulness_rows.csv
 tmp/
 temp/
 

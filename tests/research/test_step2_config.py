@@ -218,10 +218,13 @@ def test_step2_gradcam_persists_bounded_shards_and_defers_cases() -> None:
     assert gradcam["faithfulness"]["enabled"] is True
     assert gradcam["faithfulness"]["enabled_datasets"] == ["lfw"]
     assert gradcam["faithfulness"]["derived_stratified_datasets"] == [
-        "survface"
+        "survface",
+        "rfw_custom",
     ]
     assert gradcam["faithfulness"]["derived_maximum_samples"] == {
-        "survface": 2048
+        "lfw": 10000,
+        "survface": 10000,
+        "rfw_custom": 10000,
     }
     assert gradcam["extraction"]["capture_intermediates"] is False
 
