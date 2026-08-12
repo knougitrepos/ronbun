@@ -1,0 +1,118 @@
+{
+  "artifact_type": "open_set_gradcam_faithfulness",
+  "schema_version": 2,
+  "created_at_utc": "2026-08-12T01:24:30.316081+00:00",
+  "dataset_id": "rfw_custom",
+  "source_run_id": "20260812-R001-22dd0f7b",
+  "model_uid": "edgeface-a348c305af33c223b337",
+  "checkpoint_sha256": "5ae7504cd9aee0a5d52c2115fd2eb66b0985dd1730f40134b5854e0cb658ce16",
+  "origin_embedding_artifact_uid": "origin-embedding-b47262dae2ed3fe18a3143db",
+  "saliency_spec_uid": "saliency-4f16aacf1f7b15339856db56",
+  "saliency_target_name": "origin_leave_one_out_identity_cosine",
+  "claim_status": "validation_required",
+  "paper_eligible": false,
+  "threshold_independent": true,
+  "evaluation_mode": "derived_stratified",
+  "source_full_paper_run": true,
+  "sampling": {
+    "candidate_count": 9932,
+    "selected_count": 9932,
+    "maximum_samples": 10000,
+    "seed": 42,
+    "unit": "sample_id",
+    "strata": [
+      "rfw_group",
+      "protocol_role_or_lfw_split",
+      "raw_embedding_norm_within_role_quartile",
+      "gradcam_target_score_within_role_quartile"
+    ],
+    "selected_sample_sha256": "4d2eeb6c4737ad707117c033f47c494ed90f3acd9aa9e75fa9234800a94d8928",
+    "stratum_count": 384
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "strategies": [
+      "high_saliency",
+      "low_saliency",
+      "random"
+    ],
+    "random_repeats": 5,
+    "random_seed_unit": "sample_id",
+    "fill_value": "model_preprocessing_channel_mean"
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "bootstrap_repeats": 1000,
+    "confidence_level": 0.95,
+    "grouping": [
+      "all",
+      "protocol_role",
+      "rfw_group"
+    ]
+  },
+  "validation": {
+    "maximum_stored_target_score_abs_difference": 2.980232238769531e-07,
+    "source_completed": true,
+    "source_fallback_free": true,
+    "source_artifacts_immutable": true
+  },
+  "evaluator_git": {
+    "commit": "5f3cb90fa2b566da516767998cb94258c8555c98",
+    "branch": "step7",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "sources": [
+    {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/run_manifest.json",
+      "bytes": 30548,
+      "sha256": "dc37e6a03ab853ff5b3470cbf1e7d941f6944550a601e98cf963cb5e8bb594a9"
+    },
+    {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 956,
+      "sha256": "6864a1b5a3b89415ef34821efaedb7a9f94a60f6030998dc734079ce95703800"
+    },
+    {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 29581409,
+      "sha256": "5292ba16495454545388f6696bccd3ea69edb60d739005d12141082f98899165"
+    },
+    {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 5894,
+      "sha256": "0ca0b689a956e85012b100a6af0cdb13ffdd1ef888bad7d4968179ac2012a90a"
+    },
+    {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/artifacts/step2_workflow/saliency_population/manifest.json",
+      "bytes": 4202,
+      "sha256": "1ae850297ee32664ac289cd7adf28f768fef3743ad760bf658f518093412d3fd"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 3602426,
+      "sha256": "4a7762a5dd8e483b51a2fabb02cb8f334257bed599bc8a07d396f9142ead2f09"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 14299,
+      "sha256": "3d8193de05510e13dee3a04438cd8cd70763eaf86024ca914608e0a674f60b90"
+    }
+  ],
+  "limitations": [
+    "The maximum is 10000; smaller eligible populations remain below the cap.",
+    "Dataset-specific strata are preserved and must be reported with coverage.",
+    "This threshold-independent artifact does not establish a causal model-family effect."
+  ]
+}

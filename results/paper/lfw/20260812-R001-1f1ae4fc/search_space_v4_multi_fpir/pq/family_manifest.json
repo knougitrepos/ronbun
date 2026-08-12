@@ -1,0 +1,69 @@
+{
+  "schema_version": 4,
+  "artifact_type": "step4_search_space_multi_fpir_family_v4",
+  "generated_at_utc": "2026-08-12T00:23:45.329490+00:00",
+  "family": "pq",
+  "dataset_id": "lfw",
+  "model_uid": "edgeface-a348c305af33c223b337",
+  "source_run_id": "20260812-R001-1f1ae4fc",
+  "target_fpirs": [
+    0.1,
+    0.01
+  ],
+  "source_origin_embedding_artifact_uid": "origin-embedding-8577b5bbf681a732fddf7b83",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 13195,
+    "paired_rows": 65975,
+    "retrieval_rows": 64920
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 30
+  },
+  "origin_calibration_signatures": {
+    "0.01": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.41218703985214233,
+      "calibration_non_mated_count": 2910,
+      "calibration_false_accept_count": 0,
+      "calibration_fpir": 0.0,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 5,
+      "test_fpir": 0.002962085308056872,
+      "status": "target_met"
+    },
+    "0.1": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.3078024983406067,
+      "calibration_non_mated_count": 2910,
+      "calibration_false_accept_count": 110,
+      "calibration_fpir": 0.037800687285223365,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 142,
+      "test_fpir": 0.08412322274881516,
+      "status": "target_met"
+    }
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 2129,
+      "sha256": "e6deb3ae2cd0c164c12ef9edc778504a7c87b6e5689a3fe0ef0f826e2610fb51"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 37768,
+      "sha256": "6e52a016a99a54ec7af6d865f38accf1cd2770250c42756445ce7f611cb425d1"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 9755,
+      "sha256": "6b6b2f31cc1a132fbdd8f0520304a494e86ed64c0030d919d0a7a5c333e30f48"
+    }
+  }
+}

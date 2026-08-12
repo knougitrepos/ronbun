@@ -1,0 +1,21 @@
+{
+  "run_id": "20260812-R001-1f1ae4fc",
+  "dataset_id": "lfw",
+  "model_uid": "edgeface-a348c305af33c223b337",
+  "selected_samples": 13195,
+  "saliency_selected_samples": 9133,
+  "saliency_selection_sha256": "5ae923f4ec1ae78a320e34d8ef45f7be833ff47a77dcb6616385aba248f380e8",
+  "paired_rows": 131950,
+  "retrieval_rows": 151480,
+  "origin_score_audit_rows": 10366,
+  "frozen_codec_count": 10,
+  "frozen_codec_manifest_sha256": "a09a5f5a828a1a0e45495ec75b6787455f872e7e01c4e958174fba7bea929a5a",
+  "calibration_origin_fpir": 0.0,
+  "test_origin_fpir": 0.002962085308056872,
+  "origin_calibration_transfer_status": "target_met",
+  "geometry_association_rows": 570,
+  "retrieval_association_rows": 7980,
+  "representative_cases": 830,
+  "threshold_policy": "frozen_origin",
+  "regenerated_gradcam": false
+}
