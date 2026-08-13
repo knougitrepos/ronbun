@@ -89,7 +89,8 @@ MAIN_COMPARISON_PROFILES = (
     "pca_128",
     "pq_origin_512_m128_nbits8",
 )
-FORMAL_FPIR_TARGETS = (0.30, 0.20, 0.10, 0.01, 0.001)
+FORMAL_FPIR_TARGETS = (0.30, 0.20, 0.10, 0.05, 0.01, 0.001)
+PAPER_OPERATING_POINTS = (0.01, 0.05, 0.10, 0.20, 0.30)
 EXPLORATORY_FPIR_TARGETS = (0.0001,)
 CALIBRATION_IDENTITY_COUNTS = (100, 500, 1000)
 SURVFACE_QUICK_PROTOCOL_REBASE_CORRECTION_ID = (
@@ -670,8 +671,10 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
         calibration.get("paper_operating_points"),
         label="paper_operating_points",
     )
-    if paper_operating_points != (0.10, 0.01):
-        raise ValueError("paper operating points must be FPIR 0.10 and 0.01")
+    if paper_operating_points != PAPER_OPERATING_POINTS:
+        raise ValueError(
+            f"paper operating points must be exactly {PAPER_OPERATING_POINTS}"
+        )
     if calibration.get("reuse_search_scores_across_operating_points") is not True:
         raise ValueError("multi-FPIR evaluation must reuse search scores")
     if tuple(calibration.get("appendix_datasets", ())) != ("lfw", "survface"):

@@ -74,7 +74,7 @@ def postprocess_completed_run(
     derive_faithfulness: bool = True,
     derive_survface_faithfulness: bool | None = None,
     faithfulness_options: Mapping[str, Any] | None = None,
-    target_fpirs: tuple[float, ...] = (0.10, 0.01),
+    target_fpirs: tuple[float, ...] = (0.01, 0.05, 0.10, 0.20, 0.30),
 ) -> dict[str, Any]:
     """Build derived artifacts without mutating an immutable completed run."""
 
@@ -82,7 +82,7 @@ def postprocess_completed_run(
     result: dict[str, Any] = {
         "status": "completed",
         "source": identity,
-        "search_space_v4_multi_fpir": {"status": "disabled"},
+        "search_space_v5_tpir20_multi_fpir": {"status": "disabled"},
         "faithfulness": {"status": "disabled"},
     }
     if derive_survface_faithfulness is not None:
@@ -90,7 +90,7 @@ def postprocess_completed_run(
     if refresh_search_spaces:
         from scripts.refresh_step4_search_spaces import refresh
 
-        result["search_space_v4_multi_fpir"] = refresh(
+        result["search_space_v5_tpir20_multi_fpir"] = refresh(
             Path(identity["run_dir"]),
             output_dir=None,
             families=("pca", "pq"),

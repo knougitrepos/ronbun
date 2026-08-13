@@ -1132,6 +1132,10 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
         compressed_correct = group["compressed_rank1_correct"].astype(
             bool
         ).to_numpy()
+        origin_tpir = group["origin_tpir_at_rank_k"].astype(bool).to_numpy() & mated
+        compressed_tpir = (
+            group["compressed_tpir_at_rank_k"].astype(bool).to_numpy() & mated
+        )
         origin_dir = origin_accepted & origin_correct & mated
         compressed_dir = compressed_accepted & compressed_correct & mated
         origin_false_accept = origin_accepted & non_mated
@@ -1141,6 +1145,9 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
         origin_dir_count = int(origin_dir.sum())
         compressed_dir_count = int(compressed_dir.sum())
         both_dir_count = int((origin_dir & compressed_dir).sum())
+        origin_tpir_count = int(origin_tpir.sum())
+        compressed_tpir_count = int(compressed_tpir.sum())
+        both_tpir_count = int((origin_tpir & compressed_tpir).sum())
         origin_false_accept_count = int(origin_false_accept.sum())
         compressed_false_accept_count = int(compressed_false_accept.sum())
         both_false_accept_count = int(
@@ -1161,10 +1168,27 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 both_dir_count,
                 mated_count,
             )
+            origin_tpir_ci = wilson_score_interval(
+                origin_tpir_count,
+                mated_count,
+            )
+            compressed_tpir_ci = wilson_score_interval(
+                compressed_tpir_count,
+                mated_count,
+            )
+            tpir_delta_ci = paired_binary_rate_difference_bootstrap_interval(
+                origin_tpir_count,
+                compressed_tpir_count,
+                both_tpir_count,
+                mated_count,
+            )
         else:
             origin_dir_ci = (np.nan, np.nan)
             compressed_dir_ci = (np.nan, np.nan)
             dir_delta_ci = (np.nan, np.nan)
+            origin_tpir_ci = (np.nan, np.nan)
+            compressed_tpir_ci = (np.nan, np.nan)
+            tpir_delta_ci = (np.nan, np.nan)
         if non_mated_count:
             origin_fpir_ci = wilson_score_interval(
                 origin_false_accept_count,
@@ -1190,6 +1214,19 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
         compressed_dir_rate = (
             float(compressed_dir_count / mated_count) if mated_count else np.nan
         )
+        origin_tpir_rate = (
+            float(origin_tpir_count / mated_count) if mated_count else np.nan
+        )
+        compressed_tpir_rate = (
+            float(compressed_tpir_count / mated_count) if mated_count else np.nan
+        )
+        tpir_retention = (
+            compressed_tpir_rate / origin_tpir_rate
+            if np.isfinite(origin_tpir_rate) and origin_tpir_rate > 0.0
+            else np.nan
+        )
+        top_k_value = int(group["top_k"].iloc[0])
+        is_tpir20 = top_k_value == 20
         origin_fpir = (
             float(origin_false_accept_count / non_mated_count)
             if non_mated_count
@@ -1230,6 +1267,53 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 ),
                 "compressed_minus_origin_dir_rank1_paired_bootstrap95_high": (
                     dir_delta_ci[1]
+                ),
+                "tpir_rank": top_k_value,
+                "origin_tpir_at_rank_k_count": origin_tpir_count,
+                "origin_tpir_at_rank_k_denominator": mated_count,
+                "origin_tpir_at_rank_k": origin_tpir_rate,
+                "origin_tpir_at_rank_k_wilson95_low": origin_tpir_ci[0],
+                "origin_tpir_at_rank_k_wilson95_high": origin_tpir_ci[1],
+                "compressed_tpir_at_rank_k_count": compressed_tpir_count,
+                "compressed_tpir_at_rank_k_denominator": mated_count,
+                "compressed_tpir_at_rank_k": compressed_tpir_rate,
+                "compressed_tpir_at_rank_k_wilson95_low": compressed_tpir_ci[0],
+                "compressed_tpir_at_rank_k_wilson95_high": compressed_tpir_ci[1],
+                "both_tpir_at_rank_k_count": both_tpir_count,
+                "compressed_minus_origin_tpir_at_rank_k": (
+                    compressed_tpir_rate - origin_tpir_rate
+                ),
+                "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_low": (
+                    tpir_delta_ci[0]
+                ),
+                "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_high": (
+                    tpir_delta_ci[1]
+                ),
+                "compressed_tpir_at_rank_k_retention": tpir_retention,
+                "origin_tpir20_count": origin_tpir_count if is_tpir20 else np.nan,
+                "origin_tpir20_denominator": mated_count if is_tpir20 else np.nan,
+                "origin_tpir20": origin_tpir_rate if is_tpir20 else np.nan,
+                "compressed_tpir20_count": (
+                    compressed_tpir_count if is_tpir20 else np.nan
+                ),
+                "compressed_tpir20_denominator": (
+                    mated_count if is_tpir20 else np.nan
+                ),
+                "compressed_tpir20": (
+                    compressed_tpir_rate if is_tpir20 else np.nan
+                ),
+                "compressed_tpir20_retention": (
+                    tpir_retention if is_tpir20 else np.nan
+                ),
+                "origin_closed_set_rank20_recall": (
+                    float(group.loc[mated, "origin_top_k_correct"].mean())
+                    if is_tpir20 and mated_count
+                    else np.nan
+                ),
+                "compressed_closed_set_rank20_recall": (
+                    float(group.loc[mated, "compressed_top_k_correct"].mean())
+                    if is_tpir20 and mated_count
+                    else np.nan
                 ),
                 "origin_false_accept_count": origin_false_accept_count,
                 "compressed_false_accept_count": compressed_false_accept_count,

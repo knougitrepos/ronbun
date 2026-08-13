@@ -9,9 +9,14 @@ import pandas as pd
 import pytest
 
 from research.experiments.cross_model_matrix import (
+    FAMILY_ARTIFACT_TYPE,
     MATRIX_ARTIFACT_TYPE,
+    SEARCH_SPACE_ARTIFACT_TYPE,
+    SEARCH_SPACE_DIRECTORY,
+    SEARCH_SPACE_SCHEMA_VERSION,
     SUPPORTED_MODEL_FAMILIES,
     SUPPORTED_OPEN_SET_DATASETS,
+    TARGET_FPIRS,
     load_cross_model_open_set_matrix,
     write_cross_model_open_set_matrix,
 )
@@ -81,8 +86,8 @@ def _retrieval_record(
     target_fpir: float,
     bootstrap_resamples: int,
 ) -> dict[str, object]:
-    origin_false_accepts = 10 if target_fpir == 0.10 else 1
-    compressed_false_accepts = 9 if target_fpir == 0.10 else 2
+    origin_false_accepts = int(round(target_fpir * 100))
+    compressed_false_accepts = max(0, origin_false_accepts - 1)
     origin_fpir = origin_false_accepts / 100
     compressed_fpir = compressed_false_accepts / 100
     return {
@@ -110,18 +115,35 @@ def _retrieval_record(
         "compressed_minus_origin_dir_rank1": -0.1,
         "compressed_minus_origin_dir_rank1_paired_bootstrap95_low": -0.3,
         "compressed_minus_origin_dir_rank1_paired_bootstrap95_high": 0.1,
+        "tpir_rank": 20,
+        "origin_tpir20_count": 6,
+        "origin_tpir20_denominator": 10,
+        "origin_tpir20": 0.6,
+        "origin_tpir_at_rank_k_wilson95_low": 0.3,
+        "origin_tpir_at_rank_k_wilson95_high": 0.85,
+        "compressed_tpir20_count": 5,
+        "compressed_tpir20_denominator": 10,
+        "compressed_tpir20": 0.5,
+        "compressed_tpir_at_rank_k_wilson95_low": 0.2,
+        "compressed_tpir_at_rank_k_wilson95_high": 0.8,
+        "compressed_tpir20_retention": 5 / 6,
+        "origin_closed_set_rank20_recall": 0.9,
+        "compressed_closed_set_rank20_recall": 0.8,
+        "compressed_minus_origin_tpir_at_rank_k": -0.1,
+        "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_low": -0.4,
+        "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_high": 0.2,
         "origin_false_accept_count": origin_false_accepts,
         "origin_fpir_denominator": 100,
         "origin_fpir": origin_fpir,
         "origin_realized_fpir": origin_fpir,
         "origin_fpir_wilson95_low": 0.0,
-        "origin_fpir_wilson95_high": 0.2,
+        "origin_fpir_wilson95_high": 0.5,
         "compressed_false_accept_count": compressed_false_accepts,
         "compressed_fpir_denominator": 100,
         "compressed_fpir": compressed_fpir,
         "compressed_realized_fpir": compressed_fpir,
         "compressed_fpir_wilson95_low": 0.0,
-        "compressed_fpir_wilson95_high": 0.2,
+        "compressed_fpir_wilson95_high": 0.5,
         "compressed_minus_origin_fpir": compressed_fpir - origin_fpir,
         "compressed_minus_origin_fpir_paired_bootstrap95_low": -0.1,
         "compressed_minus_origin_fpir_paired_bootstrap95_high": 0.1,
@@ -158,7 +180,7 @@ def _retrieval_rows(
             else ("frozen_origin", "recalibrated_compressed")
         )
         for policy in policies:
-            for target in (0.10, 0.01):
+            for target in TARGET_FPIRS:
                 records.append(
                     _retrieval_record(
                         dataset=dataset,
@@ -251,7 +273,7 @@ def _build_run(
     )
 
     summary_dir = (
-        root / "results" / "paper" / dataset / run_id / "search_space_v4_multi_fpir"
+        root / "results" / "paper" / dataset / run_id / SEARCH_SPACE_DIRECTORY
     )
     summary_dir.mkdir(parents=True)
     compression = _compression_rows(
@@ -287,18 +309,18 @@ def _build_run(
         retrieval.loc[retrieval["compression_family"].eq(family)].to_csv(
             family_retrieval_path, index=False
         )
-        _write_json(diagnostics_path, {"target_fpirs": [0.10, 0.01]})
+        _write_json(diagnostics_path, {"target_fpirs": list(TARGET_FPIRS)})
         family_manifest_path = family_dir / "family_manifest.json"
         _write_json(
             family_manifest_path,
             {
-                "schema_version": 4,
-                "artifact_type": "step4_search_space_multi_fpir_family_v4",
+                "schema_version": SEARCH_SPACE_SCHEMA_VERSION,
+                "artifact_type": FAMILY_ARTIFACT_TYPE,
                 "family": family,
                 "dataset_id": dataset,
                 "model_uid": model_uid,
                 "source_run_id": run_id,
-                "target_fpirs": [0.10, 0.01],
+                "target_fpirs": list(TARGET_FPIRS),
                 "outputs": {
                     "compression_summary.csv": _named_entry(family_compression_path),
                     "retrieval_summary.csv": _named_entry(family_retrieval_path),
@@ -313,8 +335,8 @@ def _build_run(
     _write_json(
         summary_dir / "summary_manifest.json",
         {
-            "schema_version": 4,
-            "artifact_type": "step4_search_space_multi_fpir_v4",
+            "schema_version": SEARCH_SPACE_SCHEMA_VERSION,
+            "artifact_type": SEARCH_SPACE_ARTIFACT_TYPE,
             "dataset_id": dataset,
             "model_uid": model_uid,
             "run_id": run_id,
@@ -322,7 +344,7 @@ def _build_run(
             "source_run_preserved_immutable": True,
             "compact_only": True,
             "producer_script": "scripts/refresh_step4_search_spaces.py",
-            "target_fpirs": [0.10, 0.01],
+            "target_fpirs": list(TARGET_FPIRS),
             "source_files": {
                 "run_manifest.json": _entry(run_manifest_path, root=root),
                 "freeze_manifest.json": _entry(freeze_path, root=root),
@@ -376,8 +398,8 @@ def test_loads_complete_explicit_4_by_3_matrix_with_claim_boundaries(
     result = load_cross_model_open_set_matrix(selections, project_root=tmp_path)
 
     assert len(result.compression_summary) == 24
-    assert len(result.retrieval_summary) == 168
-    assert len(result.joined_summary) == 168
+    assert len(result.retrieval_summary) == 420
+    assert len(result.joined_summary) == 420
     assert result.selection_manifest["complete_matrix"] is True
     assert result.selection_manifest["matrix_shape"] == {
         "model_count": 4,
@@ -387,7 +409,8 @@ def test_loads_complete_explicit_4_by_3_matrix_with_claim_boundaries(
     assert result.selection_manifest["matrix_uid"].startswith("open-set-matrix-")
     assert len(result.selection_manifest["selected_runs"]) == 12
     assert result.selection_manifest["auto_selection_used"] is False
-    assert set(result.retrieval_summary["target_fpir"]) == {0.10, 0.01}
+    assert set(result.retrieval_summary["target_fpir"]) == set(TARGET_FPIRS)
+    assert result.retrieval_summary["tpir_rank"].eq(20).all()
     assert not result.retrieval_summary["strict_unseen_identity_evidence"].any()
     rfw = result.joined_summary.loc[result.joined_summary["dataset"].eq("rfw_custom")]
     assert set(rfw["checkpoint_training_identity_overlap_status"]) == {"UNKNOWN"}
@@ -449,7 +472,7 @@ def test_rejects_tampered_compact_output_hash(tmp_path: Path) -> None:
         / "paper"
         / "lfw"
         / run_id
-        / "search_space_v4_multi_fpir"
+        / SEARCH_SPACE_DIRECTORY
         / "compression_summary.csv"
     )
     compression_path.write_text(

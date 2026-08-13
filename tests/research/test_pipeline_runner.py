@@ -55,7 +55,7 @@ def _write_plan_inputs(tmp_path: Path) -> tuple[Path, Path]:
                     }
                 },
                 "evaluation": {
-                    "reported_target_fpirs": [0.10, 0.01],
+                    "reported_target_fpirs": [0.01, 0.05, 0.10, 0.20, 0.30],
                     "rfw_custom_calibration_gallery_policy": (
                         "evaluation_group_matched"
                     ),
@@ -198,7 +198,13 @@ def test_contract_constants_match_user_confirmed_values() -> None:
         500,
         1000,
     ]
-    assert contract["calibration"]["paper_operating_points"] == [0.10, 0.01]
+    assert contract["calibration"]["paper_operating_points"] == [
+        0.01,
+        0.05,
+        0.10,
+        0.20,
+        0.30,
+    ]
     assert contract["calibration"][
         "reuse_search_scores_across_operating_points"
     ] is True

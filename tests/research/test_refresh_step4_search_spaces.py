@@ -65,7 +65,7 @@ def _compact_retrieval(*, family: str) -> pd.DataFrame:
         )
     )
     rows = []
-    for target in (0.10, 0.01):
+    for target in module.DEFAULT_TARGET_FPIRS:
         for search_mode, threshold_policy in modes_and_policies:
             is_adc = search_mode == "pq_adc_exhaustive"
             rows.append(
@@ -88,6 +88,31 @@ def _compact_retrieval(*, family: str) -> pd.DataFrame:
                     "compressed_minus_origin_dir_rank1": -0.1,
                     "compressed_minus_origin_dir_rank1_paired_bootstrap95_low": -0.5,
                     "compressed_minus_origin_dir_rank1_paired_bootstrap95_high": 0.2,
+                    "top_k": 20,
+                    "tpir_rank": 20,
+                    "origin_tpir_at_rank_k_count": 6,
+                    "origin_tpir_at_rank_k_denominator": 10,
+                    "origin_tpir_at_rank_k": 0.6,
+                    "origin_tpir_at_rank_k_wilson95_low": 0.3,
+                    "origin_tpir_at_rank_k_wilson95_high": 0.85,
+                    "compressed_tpir_at_rank_k_count": 5,
+                    "compressed_tpir_at_rank_k_denominator": 10,
+                    "compressed_tpir_at_rank_k": 0.5,
+                    "compressed_tpir_at_rank_k_wilson95_low": 0.2,
+                    "compressed_tpir_at_rank_k_wilson95_high": 0.8,
+                    "compressed_minus_origin_tpir_at_rank_k": -0.1,
+                    "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_low": -0.4,
+                    "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_high": 0.2,
+                    "compressed_tpir_at_rank_k_retention": 5 / 6,
+                    "origin_tpir20_count": 6,
+                    "origin_tpir20_denominator": 10,
+                    "origin_tpir20": 0.6,
+                    "compressed_tpir20_count": 5,
+                    "compressed_tpir20_denominator": 10,
+                    "compressed_tpir20": 0.5,
+                    "compressed_tpir20_retention": 5 / 6,
+                    "origin_closed_set_rank20_recall": 0.9,
+                    "compressed_closed_set_rank20_recall": 0.8,
                     "origin_false_accept_count": 1,
                     "origin_fpir_denominator": 10,
                     "origin_fpir": 0.1,
@@ -120,7 +145,7 @@ def _compact_retrieval(*, family: str) -> pd.DataFrame:
 
 
 @pytest.mark.parametrize("family", ["pca", "pq"])
-def test_v4_compact_validation_requires_both_fpir_targets(family: str) -> None:
+def test_v5_compact_validation_requires_tpir20_fpir_grid(family: str) -> None:
     compression = pd.DataFrame(
         {
             "compression_family": [family],
@@ -134,7 +159,7 @@ def test_v4_compact_validation_requires_both_fpir_targets(family: str) -> None:
         retrieval,
         family=family,
         expected_profiles=1,
-        target_fpirs=(0.10, 0.01),
+        target_fpirs=module.DEFAULT_TARGET_FPIRS,
     )
 
     with pytest.raises(ValueError, match="missing confidence fields"):
@@ -143,7 +168,7 @@ def test_v4_compact_validation_requires_both_fpir_targets(family: str) -> None:
             retrieval.drop(columns="compressed_fpir_wilson95_high"),
             family=family,
             expected_profiles=1,
-            target_fpirs=(0.10, 0.01),
+            target_fpirs=module.DEFAULT_TARGET_FPIRS,
         )
 
     with pytest.raises(ValueError, match="row mismatch|coverage mismatch"):
@@ -152,11 +177,11 @@ def test_v4_compact_validation_requires_both_fpir_targets(family: str) -> None:
             retrieval.loc[retrieval["target_fpir"].eq(0.10)],
             family=family,
             expected_profiles=1,
-            target_fpirs=(0.10, 0.01),
+            target_fpirs=module.DEFAULT_TARGET_FPIRS,
         )
 
 
-def test_v4_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift():
+def test_v5_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift():
     compression = pd.DataFrame(
         {
             "compression_family": ["pca"],
@@ -172,7 +197,7 @@ def test_v4_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift
         csv_roundtrip,
         family="pca",
         expected_profiles=1,
-        target_fpirs=(0.10, 0.01),
+        target_fpirs=module.DEFAULT_TARGET_FPIRS,
     )
 
     drifted = csv_roundtrip.copy()
@@ -183,7 +208,7 @@ def test_v4_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift
             drifted,
             family="pca",
             expected_profiles=1,
-            target_fpirs=(0.10, 0.01),
+            target_fpirs=module.DEFAULT_TARGET_FPIRS,
         )
 
 
@@ -217,8 +242,8 @@ def test_refresh_passes_explicit_targets_to_each_family(
         tmp_path / "source-run",
         output_dir=tmp_path / "derived",
         families=("pca",),
-        target_fpirs=(0.10, 0.01),
+        target_fpirs=module.DEFAULT_TARGET_FPIRS,
     )
 
-    assert observed == [("pca", (0.10, 0.01))]
+    assert observed == [("pca", module.DEFAULT_TARGET_FPIRS)]
     assert result["output_dir"] == str((tmp_path / "derived").resolve())

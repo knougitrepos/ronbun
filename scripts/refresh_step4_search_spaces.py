@@ -36,11 +36,11 @@ from scripts.generate_step4_compact_summaries import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = 4
-ARTIFACT_TYPE = "step4_search_space_multi_fpir_v4"
-FAMILY_ARTIFACT_TYPE = "step4_search_space_multi_fpir_family_v4"
+SCHEMA_VERSION = 5
+ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_v5"
+FAMILY_ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_family_v5"
 SUPPORTED_FAMILIES = ("pca", "pq")
-DEFAULT_TARGET_FPIRS = (0.10, 0.01)
+DEFAULT_TARGET_FPIRS = (0.01, 0.05, 0.10, 0.20, 0.30)
 # Compact CSVs use ``%.12g``. Origin, compressed, and their independently
 # rounded delta can differ from recomputation by at most about 1.5e-12 for
 # rates in [0, 1]; keep the check strict enough to reject scientific drift.
@@ -59,6 +59,30 @@ REQUIRED_OPEN_SET_CONFIDENCE_COLUMNS = (
     "compressed_minus_origin_dir_rank1",
     "compressed_minus_origin_dir_rank1_paired_bootstrap95_low",
     "compressed_minus_origin_dir_rank1_paired_bootstrap95_high",
+    "tpir_rank",
+    "origin_tpir_at_rank_k_count",
+    "origin_tpir_at_rank_k_denominator",
+    "origin_tpir_at_rank_k",
+    "origin_tpir_at_rank_k_wilson95_low",
+    "origin_tpir_at_rank_k_wilson95_high",
+    "compressed_tpir_at_rank_k_count",
+    "compressed_tpir_at_rank_k_denominator",
+    "compressed_tpir_at_rank_k",
+    "compressed_tpir_at_rank_k_wilson95_low",
+    "compressed_tpir_at_rank_k_wilson95_high",
+    "compressed_minus_origin_tpir_at_rank_k",
+    "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_low",
+    "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_high",
+    "compressed_tpir_at_rank_k_retention",
+    "origin_tpir20_count",
+    "origin_tpir20_denominator",
+    "origin_tpir20",
+    "compressed_tpir20_count",
+    "compressed_tpir20_denominator",
+    "compressed_tpir20",
+    "compressed_tpir20_retention",
+    "origin_closed_set_rank20_recall",
+    "compressed_closed_set_rank20_recall",
     "origin_false_accept_count",
     "origin_fpir_denominator",
     "origin_fpir",
@@ -378,6 +402,59 @@ def _validate_compact_frames(
         )
         if (delta_low > delta_high).any():
             raise ValueError(f"{metric} paired-bootstrap interval is inverted")
+    if not retrieval["top_k"].astype(int).eq(20).all():
+        raise ValueError("TPIR20 compact artifacts require top_k=20")
+    if not retrieval["tpir_rank"].astype(int).eq(20).all():
+        raise ValueError("TPIR rank metadata must equal 20")
+    origin_tpir = pd.to_numeric(
+        retrieval["origin_tpir_at_rank_k"], errors="raise"
+    )
+    compressed_tpir = pd.to_numeric(
+        retrieval["compressed_tpir_at_rank_k"], errors="raise"
+    )
+    tpir_delta = pd.to_numeric(
+        retrieval["compressed_minus_origin_tpir_at_rank_k"], errors="raise"
+    )
+    if not np.allclose(
+        tpir_delta,
+        compressed_tpir - origin_tpir,
+        rtol=0.0,
+        atol=COMPACT_RATE_DELTA_ROUNDTRIP_ATOL,
+    ):
+        raise ValueError("TPIR20 compressed-minus-origin delta drifted")
+    for source, rate in (
+        ("origin", origin_tpir),
+        ("compressed", compressed_tpir),
+    ):
+        low = pd.to_numeric(
+            retrieval[f"{source}_tpir_at_rank_k_wilson95_low"],
+            errors="raise",
+        )
+        high = pd.to_numeric(
+            retrieval[f"{source}_tpir_at_rank_k_wilson95_high"],
+            errors="raise",
+        )
+        if ((low > rate) | (rate > high)).any():
+            raise ValueError(f"{source} TPIR20 escaped its Wilson interval")
+    for alias, canonical in (
+        ("origin_tpir20", origin_tpir),
+        ("compressed_tpir20", compressed_tpir),
+    ):
+        observed = pd.to_numeric(retrieval[alias], errors="raise")
+        if not np.allclose(observed, canonical, rtol=0.0, atol=1e-12):
+            raise ValueError(f"{alias} alias drifted")
+    retention = pd.to_numeric(
+        retrieval["compressed_tpir20_retention"], errors="coerce"
+    )
+    expected_retention = compressed_tpir / origin_tpir.replace(0.0, np.nan)
+    if not np.allclose(
+        retention,
+        expected_retention,
+        rtol=0.0,
+        atol=COMPACT_RATE_DELTA_ROUNDTRIP_ATOL,
+        equal_nan=True,
+    ):
+        raise ValueError("TPIR20 retention drifted")
     crossing = retrieval["threshold_crossing_count"].astype(int)
     directional = (
         retrieval["accept_to_reject_count"].astype(int)
@@ -798,6 +875,7 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             and output_root.name in {
                 "search_space_v3_matched_calibration",
                 "search_space_v4_multi_fpir",
+                "search_space_v5_tpir20_multi_fpir",
             }
         )
         else _legacy_consistency(context, compression, retrieval)
@@ -889,6 +967,14 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             "compression_grain": "family x profile",
             "retrieval_grain": (
                 "family x profile x search_mode x threshold_policy x target_fpir"
+            ),
+            "tpir20_definition": (
+                "mated probe true identity is within top 20 and its score is "
+                "greater than or equal to the calibration threshold"
+            ),
+            "tpir20_threshold_score": "true_identity_score_within_top20",
+            "closed_set_rank20_definition": (
+                "mated probe true identity is within top 20 without thresholding"
             ),
             "search_modes": sorted(retrieval["search_mode"].astype(str).unique()),
             "pq_adc_frozen_origin": "not_applicable",
@@ -988,7 +1074,7 @@ def refresh(
         / "paper"
         / context["dataset_id"]
         / context["run_id"]
-        / "search_space_v4_multi_fpir"
+        / "search_space_v5_tpir20_multi_fpir"
     )
     output_root.mkdir(parents=True, exist_ok=True)
     merged_manifest_path = output_root / "summary_manifest.json"

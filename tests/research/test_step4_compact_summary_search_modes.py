@@ -35,6 +35,8 @@ def _retrieval_rows(*, include_search_schema: bool) -> pd.DataFrame:
                 "compressed_top_k_correct": is_mated,
                 "origin_accepted": is_mated,
                 "compressed_accepted": is_mated,
+                "origin_tpir_at_rank_k": is_mated,
+                "compressed_tpir_at_rank_k": is_mated,
                 "threshold_crossing": False,
                 "origin_decision_correct": True,
                 "compressed_decision_correct": True,
@@ -44,7 +46,7 @@ def _retrieval_rows(*, include_search_schema: bool) -> pd.DataFrame:
                 "top1_score_drift": (
                     np.nan if search_mode == "pq_adc_exhaustive" else 0.01
                 ),
-                "top_k": 1,
+                "top_k": 20,
                 "protocol_uid": "protocol-1",
                 "threshold_source_split": "calibration",
                 "evaluation_split": "test",
@@ -102,6 +104,10 @@ def test_retrieval_summary_keeps_adc_and_reconstruction_separate(tmp_path) -> No
     assert adc["compressed_fpir"] <= adc["compressed_fpir_wilson95_high"]
     assert adc["compressed_realized_fpir"] == adc["compressed_fpir"]
     assert adc["compressed_minus_origin_fpir"] == 0.0
+    assert adc["origin_tpir20"] == 1.0
+    assert adc["compressed_tpir20"] == 1.0
+    assert adc["compressed_tpir20_retention"] == 1.0
+    assert adc["origin_closed_set_rank20_recall"] == 1.0
     assert adc["confidence_interval_unit"] == "probe"
 
 

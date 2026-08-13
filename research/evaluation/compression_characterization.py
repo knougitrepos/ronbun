@@ -64,11 +64,17 @@ RETRIEVAL_COMPARISON_COLUMNS = (
     "compressed_rank1_correct",
     "origin_top_k_correct",
     "compressed_top_k_correct",
+    "origin_true_identity_rank",
+    "compressed_true_identity_rank",
+    "origin_true_identity_score",
+    "compressed_true_identity_score",
     "decision_threshold",
     "origin_decision_threshold",
     "compressed_decision_threshold",
     "origin_accepted",
     "compressed_accepted",
+    "origin_tpir_at_rank_k",
+    "compressed_tpir_at_rank_k",
     "threshold_crossing",
     "threshold_crossing_direction",
     "origin_decision_correct",
@@ -115,6 +121,23 @@ def _validate_profile(compression_family: str, compression_profile: str) -> tupl
     if not profile:
         raise ValueError("compression_profile must not be empty")
     return family, profile
+
+
+def _true_identity_rank_and_score(
+    query_identity: Any,
+    ranked_identities: Sequence[Any],
+    ranked_scores: Sequence[float],
+) -> tuple[int | None, float]:
+    """Return the best true-identity rank and score within the retained top-k."""
+
+    if len(ranked_identities) != len(ranked_scores):
+        raise ValueError("ranked identities and scores must have equal length")
+    for index, (identity, score) in enumerate(
+        zip(ranked_identities, ranked_scores, strict=True)
+    ):
+        if identity == query_identity:
+            return index + 1, float(score)
+    return None, np.nan
 
 
 def _as_identifier_array(
@@ -685,6 +708,18 @@ def compare_cosine_retrieval(
         is_mated = query_identity in gallery_identity_set
         origin_top1_score = float(origin_scores[row_index, 0])
         compressed_top1_score = float(compressed_scores[row_index, 0])
+        origin_true_rank, origin_true_score = _true_identity_rank_and_score(
+            query_identity,
+            origin_identity_ranking,
+            origin_scores[row_index],
+        )
+        compressed_true_rank, compressed_true_score = (
+            _true_identity_rank_and_score(
+                query_identity,
+                compressed_identity_ranking,
+                compressed_scores[row_index],
+            )
+        )
 
         if origin_threshold_value is None:
             origin_accepted: bool | None = None
@@ -693,6 +728,8 @@ def compare_cosine_retrieval(
             crossing_direction: str | None = None
             origin_decision_correct: bool | None = None
             compressed_decision_correct: bool | None = None
+            origin_tpir_at_rank_k: bool | None = None
+            compressed_tpir_at_rank_k: bool | None = None
         else:
             origin_accepted = origin_top1_score >= origin_threshold_value
             compressed_accepted = (
@@ -714,6 +751,16 @@ def compare_cosine_retrieval(
                 compressed_accepted and compressed_rank1_correct
                 if is_mated
                 else not compressed_accepted
+            )
+            origin_tpir_at_rank_k = bool(
+                is_mated
+                and origin_true_rank is not None
+                and origin_true_score >= origin_threshold_value
+            )
+            compressed_tpir_at_rank_k = bool(
+                is_mated
+                and compressed_true_rank is not None
+                and compressed_true_score >= compressed_threshold_value
             )
 
         records.append(
@@ -772,11 +819,17 @@ def compare_cosine_retrieval(
                 "compressed_top_k_correct": bool(
                     query_identity in compressed_identity_ranking
                 ),
+                "origin_true_identity_rank": origin_true_rank,
+                "compressed_true_identity_rank": compressed_true_rank,
+                "origin_true_identity_score": origin_true_score,
+                "compressed_true_identity_score": compressed_true_score,
                 "decision_threshold": threshold_value,
                 "origin_decision_threshold": origin_threshold_value,
                 "compressed_decision_threshold": compressed_threshold_value,
                 "origin_accepted": origin_accepted,
                 "compressed_accepted": compressed_accepted,
+                "origin_tpir_at_rank_k": origin_tpir_at_rank_k,
+                "compressed_tpir_at_rank_k": compressed_tpir_at_rank_k,
                 "threshold_crossing": crossing,
                 "threshold_crossing_direction": crossing_direction,
                 "origin_decision_correct": origin_decision_correct,
@@ -915,6 +968,16 @@ def compare_pq_adc_retrieval(
         origin_top1_identity = origin_identity_ranking[0]
         adc_top1_identity = adc_identity_ranking[0]
         is_mated = query_identity in gallery_identity_set
+        origin_true_rank, origin_true_score = _true_identity_rank_and_score(
+            query_identity,
+            origin_identity_ranking,
+            origin_score_ranking,
+        )
+        adc_true_rank, adc_true_score = _true_identity_rank_and_score(
+            query_identity,
+            adc_identity_ranking,
+            adc_score_ranking,
+        )
         records.append(
             {
                 "query_id": query_identifiers[row_index],
@@ -975,11 +1038,17 @@ def compare_pq_adc_retrieval(
                 "compressed_top_k_correct": bool(
                     query_identity in adc_identity_ranking
                 ),
+                "origin_true_identity_rank": origin_true_rank,
+                "compressed_true_identity_rank": adc_true_rank,
+                "origin_true_identity_score": origin_true_score,
+                "compressed_true_identity_score": adc_true_score,
                 "decision_threshold": None,
                 "origin_decision_threshold": None,
                 "compressed_decision_threshold": None,
                 "origin_accepted": None,
                 "compressed_accepted": None,
+                "origin_tpir_at_rank_k": None,
+                "compressed_tpir_at_rank_k": None,
                 "threshold_crossing": None,
                 "threshold_crossing_direction": None,
                 "origin_decision_correct": None,
@@ -1010,6 +1079,10 @@ def apply_retrieval_thresholds(
         "compressed_top1_score",
         "origin_rank1_correct",
         "compressed_rank1_correct",
+        "origin_true_identity_rank",
+        "compressed_true_identity_rank",
+        "origin_true_identity_score",
+        "compressed_true_identity_score",
     }
     missing = sorted(required.difference(comparison.columns))
     if missing:
@@ -1042,6 +1115,18 @@ def apply_retrieval_thresholds(
     mated = result["is_mated"].to_numpy(dtype=bool)
     origin_correct = result["origin_rank1_correct"].to_numpy(dtype=bool)
     compressed_correct = result["compressed_rank1_correct"].to_numpy(dtype=bool)
+    origin_true_rank = pd.to_numeric(
+        result["origin_true_identity_rank"], errors="coerce"
+    ).to_numpy(dtype=float)
+    compressed_true_rank = pd.to_numeric(
+        result["compressed_true_identity_rank"], errors="coerce"
+    ).to_numpy(dtype=float)
+    origin_true_score = pd.to_numeric(
+        result["origin_true_identity_score"], errors="coerce"
+    ).to_numpy(dtype=float)
+    compressed_true_score = pd.to_numeric(
+        result["compressed_true_identity_score"], errors="coerce"
+    ).to_numpy(dtype=float)
     crossing = origin_accepted != compressed_accepted
 
     result["decision_threshold"] = (
@@ -1051,6 +1136,18 @@ def apply_retrieval_thresholds(
     result["compressed_decision_threshold"] = compressed_value
     result["origin_accepted"] = origin_accepted
     result["compressed_accepted"] = compressed_accepted
+    result["origin_tpir_at_rank_k"] = (
+        mated
+        & np.isfinite(origin_true_rank)
+        & np.isfinite(origin_true_score)
+        & (origin_true_score >= origin_value)
+    )
+    result["compressed_tpir_at_rank_k"] = (
+        mated
+        & np.isfinite(compressed_true_rank)
+        & np.isfinite(compressed_true_score)
+        & (compressed_true_score >= compressed_value)
+    )
     result["threshold_crossing"] = crossing
     result["threshold_crossing_direction"] = np.select(
         [

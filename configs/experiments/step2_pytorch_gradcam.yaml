@@ -518,9 +518,10 @@ evaluation:
   target_fpir: 0.01
   survface_target_fpir: 0.10
   rfw_custom_target_fpir: 0.10
-  # v4 compact postprocessing reports both operating points from one set of
-  # search scores. The scalars above remain the source-run primary targets.
-  reported_target_fpirs: [0.10, 0.01]
+  # v5 compact postprocessing reports the SurvFace-comparable TPIR20 curve
+  # operating points from one set of search scores. The scalars above remain
+  # the source-run primary targets.
+  reported_target_fpirs: [0.01, 0.05, 0.10, 0.20, 0.30]
   survface_calibration_gallery_identities: 3000
   survface_calibration_protocol: training_3000_half_gallery_v2
   survface_threshold_selection: non_mated_only

@@ -284,6 +284,38 @@ def test_threshold_policy_can_be_reapplied_without_repeating_search():
     assert row["threshold_crossing_direction"] == "accept_to_reject"
 
 
+def test_tpir_uses_true_identity_score_in_top_k_not_top1_maximum():
+    gallery = np.eye(2, dtype=np.float32)
+    base = compare_cosine_retrieval(
+        np.array([[0.6, 0.8]], dtype=np.float32),
+        gallery,
+        np.array([[0.8, 0.6]], dtype=np.float32),
+        gallery,
+        query_ids=["q-a"],
+        gallery_ids=["g-a", "g-b"],
+        query_identity_ids=["a"],
+        gallery_identity_ids=["a", "b"],
+        compression_family="pca",
+        compression_profile="pca_2",
+        top_k=2,
+    )
+
+    thresholded = apply_retrieval_thresholds(
+        base,
+        origin_threshold=0.7,
+        compressed_threshold=0.7,
+    )
+    row = thresholded.iloc[0]
+
+    assert bool(row["origin_accepted"])
+    assert row["origin_true_identity_rank"] == 2
+    assert row["origin_true_identity_score"] == pytest.approx(0.6)
+    assert not bool(row["origin_tpir_at_rank_k"])
+    assert row["compressed_true_identity_rank"] == 1
+    assert row["compressed_true_identity_score"] == pytest.approx(0.8)
+    assert bool(row["compressed_tpir_at_rank_k"])
+
+
 def test_compression_characterization_validates_alignment_and_memory_boundary():
     vectors = np.eye(2, dtype=np.float32)
 

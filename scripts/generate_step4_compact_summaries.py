@@ -24,7 +24,7 @@ from research.evaluation.metrics import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 COMPRESSION_METRICS = (
     "reconstruction_mse",
     "angular_error_rad",
@@ -103,6 +103,8 @@ RETRIEVAL_BOOLEAN_COLUMNS = (
     "compressed_top_k_correct",
     "origin_accepted",
     "compressed_accepted",
+    "origin_tpir_at_rank_k",
+    "compressed_tpir_at_rank_k",
     "threshold_crossing",
     "origin_decision_correct",
     "compressed_decision_correct",
@@ -347,6 +349,9 @@ def _new_retrieval_accumulator() -> dict[str, Any]:
         "origin_dir_rank1_count": 0,
         "compressed_dir_rank1_count": 0,
         "both_dir_rank1_count": 0,
+        "origin_tpir_at_rank_k_count": 0,
+        "compressed_tpir_at_rank_k_count": 0,
+        "both_tpir_at_rank_k_count": 0,
         "origin_false_accept_count": 0,
         "compressed_false_accept_count": 0,
         "both_false_accept_count": 0,
@@ -485,6 +490,8 @@ def summarize_retrieval(
             compressed_top_k = boolean["compressed_top_k_correct"]
             origin_accepted = boolean["origin_accepted"]
             compressed_accepted = boolean["compressed_accepted"]
+            origin_tpir = boolean["origin_tpir_at_rank_k"] & mated
+            compressed_tpir = boolean["compressed_tpir_at_rank_k"] & mated
 
             acc["query_count"] += int(len(group))
             acc["mated_count"] += int(mated.sum())
@@ -507,6 +514,13 @@ def summarize_retrieval(
             acc["compressed_dir_rank1_count"] += int(compressed_dir.sum())
             acc["both_dir_rank1_count"] += int(
                 (origin_dir & compressed_dir).sum()
+            )
+            acc["origin_tpir_at_rank_k_count"] += int(origin_tpir.sum())
+            acc["compressed_tpir_at_rank_k_count"] += int(
+                compressed_tpir.sum()
+            )
+            acc["both_tpir_at_rank_k_count"] += int(
+                (origin_tpir & compressed_tpir).sum()
             )
             acc["origin_false_accept_count"] += int(
                 origin_false_accept.sum()
@@ -595,6 +609,20 @@ def summarize_retrieval(
             acc["both_dir_rank1_count"],
             acc["mated_count"],
         )
+        origin_tpir_ci = _wilson_or_nan(
+            acc["origin_tpir_at_rank_k_count"],
+            acc["mated_count"],
+        )
+        compressed_tpir_ci = _wilson_or_nan(
+            acc["compressed_tpir_at_rank_k_count"],
+            acc["mated_count"],
+        )
+        tpir_delta_ci = _paired_difference_or_nan(
+            acc["origin_tpir_at_rank_k_count"],
+            acc["compressed_tpir_at_rank_k_count"],
+            acc["both_tpir_at_rank_k_count"],
+            acc["mated_count"],
+        )
         origin_fpir_ci = _wilson_or_nan(
             acc["origin_false_accept_count"],
             acc["non_mated_count"],
@@ -615,6 +643,19 @@ def summarize_retrieval(
         compressed_dir_rate = _rate(
             acc["compressed_dir_rank1_count"], acc["mated_count"]
         )
+        origin_tpir_rate = _rate(
+            acc["origin_tpir_at_rank_k_count"], acc["mated_count"]
+        )
+        compressed_tpir_rate = _rate(
+            acc["compressed_tpir_at_rank_k_count"], acc["mated_count"]
+        )
+        tpir_retention = (
+            compressed_tpir_rate / origin_tpir_rate
+            if np.isfinite(origin_tpir_rate) and origin_tpir_rate > 0.0
+            else np.nan
+        )
+        top_k_value = int(fixed["top_k"])
+        is_tpir20 = top_k_value == 20
         origin_fpir = _rate(
             acc["origin_false_accept_count"], acc["non_mated_count"]
         )
@@ -678,7 +719,7 @@ def summarize_retrieval(
                 "target_fpir": target_fpir,
                 "threshold_source_split": fixed["threshold_source_split"],
                 "evaluation_split": fixed["evaluation_split"],
-                "top_k": fixed["top_k"],
+                "top_k": top_k_value,
                 "query_count": acc["query_count"],
                 "mated_count": acc["mated_count"],
                 "non_mated_count": acc["non_mated_count"],
@@ -722,6 +763,66 @@ def summarize_retrieval(
                 ),
                 "compressed_minus_origin_dir_rank1_paired_bootstrap95_high": (
                     dir_delta_ci[1]
+                ),
+                "tpir_rank": top_k_value,
+                "origin_tpir_at_rank_k_count": acc[
+                    "origin_tpir_at_rank_k_count"
+                ],
+                "origin_tpir_at_rank_k_denominator": acc["mated_count"],
+                "origin_tpir_at_rank_k": origin_tpir_rate,
+                "origin_tpir_at_rank_k_wilson95_low": origin_tpir_ci[0],
+                "origin_tpir_at_rank_k_wilson95_high": origin_tpir_ci[1],
+                "compressed_tpir_at_rank_k_count": acc[
+                    "compressed_tpir_at_rank_k_count"
+                ],
+                "compressed_tpir_at_rank_k_denominator": acc["mated_count"],
+                "compressed_tpir_at_rank_k": compressed_tpir_rate,
+                "compressed_tpir_at_rank_k_wilson95_low": compressed_tpir_ci[0],
+                "compressed_tpir_at_rank_k_wilson95_high": compressed_tpir_ci[1],
+                "both_tpir_at_rank_k_count": acc["both_tpir_at_rank_k_count"],
+                "compressed_minus_origin_tpir_at_rank_k": (
+                    compressed_tpir_rate - origin_tpir_rate
+                ),
+                "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_low": (
+                    tpir_delta_ci[0]
+                ),
+                "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_high": (
+                    tpir_delta_ci[1]
+                ),
+                "compressed_tpir_at_rank_k_retention": tpir_retention,
+                "origin_tpir20_count": (
+                    acc["origin_tpir_at_rank_k_count"] if is_tpir20 else np.nan
+                ),
+                "origin_tpir20_denominator": (
+                    acc["mated_count"] if is_tpir20 else np.nan
+                ),
+                "origin_tpir20": origin_tpir_rate if is_tpir20 else np.nan,
+                "compressed_tpir20_count": (
+                    acc["compressed_tpir_at_rank_k_count"]
+                    if is_tpir20
+                    else np.nan
+                ),
+                "compressed_tpir20_denominator": (
+                    acc["mated_count"] if is_tpir20 else np.nan
+                ),
+                "compressed_tpir20": (
+                    compressed_tpir_rate if is_tpir20 else np.nan
+                ),
+                "compressed_tpir20_retention": (
+                    tpir_retention if is_tpir20 else np.nan
+                ),
+                "origin_closed_set_rank20_recall": (
+                    _rate(acc["origin_top_k_correct_count"], acc["mated_count"])
+                    if is_tpir20
+                    else np.nan
+                ),
+                "compressed_closed_set_rank20_recall": (
+                    _rate(
+                        acc["compressed_top_k_correct_count"],
+                        acc["mated_count"],
+                    )
+                    if is_tpir20
+                    else np.nan
                 ),
                 "origin_false_accept_count": acc["origin_false_accept_count"],
                 "origin_fpir_denominator": acc["non_mated_count"],

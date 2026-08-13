@@ -17,15 +17,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 SUPPORTED_MODEL_FAMILIES = ("arcface", "adaface", "magface", "edgeface")
 SUPPORTED_OPEN_SET_DATASETS = ("lfw", "survface", "rfw_custom")
-TARGET_FPIRS = (0.10, 0.01)
+TARGET_FPIRS = (0.01, 0.05, 0.10, 0.20, 0.30)
 
-SEARCH_SPACE_DIRECTORY = "search_space_v4_multi_fpir"
-SEARCH_SPACE_SCHEMA_VERSION = 4
-SEARCH_SPACE_ARTIFACT_TYPE = "step4_search_space_multi_fpir_v4"
-FAMILY_ARTIFACT_TYPE = "step4_search_space_multi_fpir_family_v4"
+SEARCH_SPACE_DIRECTORY = "search_space_v5_tpir20_multi_fpir"
+SEARCH_SPACE_SCHEMA_VERSION = 5
+SEARCH_SPACE_ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_v5"
+FAMILY_ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_family_v5"
 
-MATRIX_SCHEMA_VERSION = 1
-MATRIX_ARTIFACT_TYPE = "cross_model_open_set_completed_run_matrix_v1"
+MATRIX_SCHEMA_VERSION = 2
+MATRIX_ARTIFACT_TYPE = "cross_model_open_set_completed_run_matrix_v2"
 
 REQUIRED_SOURCE_FILES = {
     "run_manifest.json",
@@ -82,6 +82,23 @@ REQUIRED_RETRIEVAL_COLUMNS = {
     "compressed_minus_origin_dir_rank1",
     "compressed_minus_origin_dir_rank1_paired_bootstrap95_low",
     "compressed_minus_origin_dir_rank1_paired_bootstrap95_high",
+    "tpir_rank",
+    "origin_tpir20_count",
+    "origin_tpir20_denominator",
+    "origin_tpir20",
+    "origin_tpir_at_rank_k_wilson95_low",
+    "origin_tpir_at_rank_k_wilson95_high",
+    "compressed_tpir20_count",
+    "compressed_tpir20_denominator",
+    "compressed_tpir20",
+    "compressed_tpir_at_rank_k_wilson95_low",
+    "compressed_tpir_at_rank_k_wilson95_high",
+    "compressed_tpir20_retention",
+    "origin_closed_set_rank20_recall",
+    "compressed_closed_set_rank20_recall",
+    "compressed_minus_origin_tpir_at_rank_k",
+    "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_low",
+    "compressed_minus_origin_tpir_at_rank_k_paired_bootstrap95_high",
     "origin_false_accept_count",
     "origin_fpir_denominator",
     "origin_fpir",
@@ -451,9 +468,13 @@ def _verify_family_artifacts(
 
 def _validate_target_fpirs(values: object, *, label: str) -> None:
     if not isinstance(values, (list, tuple)):
-        raise ValueError(f"{label} must be a two-value sequence")
+        raise ValueError(f"{label} must be a target-FPIR sequence")
     targets = tuple(float(value) for value in values)
-    if len(targets) != 2 or len(set(targets)) != 2 or set(targets) != set(TARGET_FPIRS):
+    if (
+        len(targets) != len(TARGET_FPIRS)
+        or len(set(targets)) != len(TARGET_FPIRS)
+        or set(targets) != set(TARGET_FPIRS)
+    ):
         raise ValueError(
             f"{label} must contain exactly {set(TARGET_FPIRS)}; got {targets}"
         )
@@ -587,6 +608,51 @@ def _validate_retrieval_statistics(frame: pd.DataFrame, *, label: str) -> None:
         fpir = _numeric(frame, f"{source}_fpir", label=label)
         if not np.allclose(realized, fpir, rtol=0.0, atol=1e-12):
             raise ValueError(f"{label} {source} realized FPIR alias drifted")
+
+    if _numeric(frame, "tpir_rank", label=label).ne(20).any():
+        raise ValueError(f"{label} TPIR rank must be 20")
+    origin_tpir = _numeric(frame, "origin_tpir20", label=label)
+    compressed_tpir = _numeric(frame, "compressed_tpir20", label=label)
+    for source, rate in (
+        ("origin", origin_tpir),
+        ("compressed", compressed_tpir),
+    ):
+        count = _numeric(frame, f"{source}_tpir20_count", label=label)
+        denominator = _numeric(
+            frame, f"{source}_tpir20_denominator", label=label
+        )
+        if not np.allclose(rate, count / denominator, rtol=0.0, atol=1e-12):
+            raise ValueError(f"{label} {source} TPIR20 rate/count mismatch")
+        low = _numeric(
+            frame, f"{source}_tpir_at_rank_k_wilson95_low", label=label
+        )
+        high = _numeric(
+            frame, f"{source}_tpir_at_rank_k_wilson95_high", label=label
+        )
+        if ((low > rate) | (rate > high)).any():
+            raise ValueError(f"{label} {source} TPIR20 Wilson interval is invalid")
+    tpir_delta = _numeric(
+        frame, "compressed_minus_origin_tpir_at_rank_k", label=label
+    )
+    if not np.allclose(
+        tpir_delta,
+        compressed_tpir - origin_tpir,
+        rtol=0.0,
+        atol=1e-12,
+    ):
+        raise ValueError(f"{label} TPIR20 delta does not reconcile")
+    retention = pd.to_numeric(
+        frame["compressed_tpir20_retention"], errors="raise"
+    )
+    expected_retention = compressed_tpir / origin_tpir.mask(origin_tpir.eq(0.0))
+    if not np.allclose(
+        retention.to_numpy(dtype=float),
+        expected_retention.to_numpy(dtype=float),
+        rtol=0.0,
+        atol=1e-12,
+        equal_nan=True,
+    ):
+        raise ValueError(f"{label} TPIR20 retention does not reconcile")
 
 
 def _validate_mode_coverage(frame: pd.DataFrame, *, label: str) -> None:

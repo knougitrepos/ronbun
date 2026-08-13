@@ -57,7 +57,7 @@ def test_postprocess_can_validate_completed_run_without_derived_work(tmp_path: P
 
     assert result["status"] == "completed"
     assert result["source"]["dataset_id"] == "lfw"
-    assert result["search_space_v4_multi_fpir"] == {
+    assert result["search_space_v5_tpir20_multi_fpir"] == {
         "status": "disabled"
     }
     assert result["faithfulness"] == {"status": "disabled"}
