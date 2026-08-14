@@ -1,5 +1,7 @@
-models/**/*.pth
-models/**/*.ckpt
+# Local checkpoints and reference PDFs are not source artifacts and must not
+# enter the repository or a source-only archive.
+models/
+reference_articles/
 
 
 
@@ -86,6 +88,7 @@ runs/**
 !runs/survface_*/*/artifacts/step2_workflow/prepared_population/manifest.json
 results/step1/
 results/step2/
+results/rfw_step7/
 # Compact publication results are intentionally tracked.
 # Dataset-level faithfulness rows are reproducible local ledgers. Keep only the
 # compact summary and SHA-verified manifest Git-visible under results/paper.

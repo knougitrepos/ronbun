@@ -16,10 +16,13 @@ from research.evaluation.saliency_compression import (
     JOIN_KEYS,
     LINEAGE_COLUMNS,
     PROFILE_KEYS,
+    RETRIEVAL_BOOLEAN_METRICS,
+    RETRIEVAL_DERIVATION_SOURCE_COLUMNS,
     _require_columns,
     _strict_boolean,
     _strict_false,
     _validate_unique,
+    derive_saliency_threshold_metrics,
 )
 from research.explainability.gradcam.cases import (
     select_population_representative_cases,
@@ -188,7 +191,7 @@ def _coerce_projection(
     sensitivity_metrics: Sequence[str],
 ) -> pd.DataFrame:
     projection = joined.loc[:, list(columns)].copy()
-    boolean_metrics = {"agreement_with_origin", "threshold_crossing"}
+    boolean_metrics = set(RETRIEVAL_BOOLEAN_METRICS)
     numeric_columns = tuple(
         column
         for column in dict.fromkeys((*saliency_features, *sensitivity_metrics))
@@ -566,7 +569,8 @@ def stream_join_population_saliency_with_retrieval(
         "origin_fallback_used",
         "threshold_policy",
         "is_mated",
-        *DEFAULT_RETRIEVAL_METRICS,
+        "agreement_with_origin",
+        *RETRIEVAL_DERIVATION_SOURCE_COLUMNS,
     ]
     missing = [column for column in required if column not in normalized_columns]
     if missing:
@@ -596,6 +600,7 @@ def stream_join_population_saliency_with_retrieval(
                 *optional_groups,
                 "threshold_policy",
                 "is_mated",
+                "threshold_metric_derivation_version",
                 "origin_fallback_used",
                 "saliency_target_eligible",
                 "heatmap_available",
@@ -632,6 +637,7 @@ def stream_join_population_saliency_with_retrieval(
                 chunk["is_mated"],
                 name="retrieval_sensitivity.is_mated",
             )
+            chunk = derive_saliency_threshold_metrics(chunk)
             _validate_unique(
                 chunk,
                 unique_keys,

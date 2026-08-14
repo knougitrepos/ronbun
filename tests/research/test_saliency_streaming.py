@@ -78,6 +78,9 @@ def _retrieval() -> pd.DataFrame:
             ),
             start=1,
         ):
+            origin_score = (0.80, 0.66, 0.40)[sample_index - 1]
+            compressed_score = (0.79, 0.64, 0.43)[sample_index - 1]
+            crossing = sample_index == 2
             rows.append(
                 {
                     "extraction_uid": "extract-1",
@@ -93,9 +96,18 @@ def _retrieval() -> pd.DataFrame:
                     "evaluation_split": "official_test",
                     "threshold_policy": policy,
                     "is_mated": is_mated,
-                    "top1_score_drift": sample_index / 100.0,
+                    "origin_top1_score": origin_score,
+                    "compressed_top1_score": compressed_score,
+                    "top1_score_drift": compressed_score - origin_score,
+                    "origin_winner_score_drift": compressed_score - origin_score,
+                    "origin_decision_threshold": 0.65,
+                    "compressed_decision_threshold": 0.65,
+                    "score_spaces_comparable": True,
                     "agreement_with_origin": sample_index != 3,
-                    "threshold_crossing": sample_index == 2,
+                    "threshold_crossing": crossing,
+                    "threshold_crossing_direction": (
+                        "accept_to_reject" if crossing else "none"
+                    ),
                 }
             )
     return pd.DataFrame.from_records(rows)
@@ -174,6 +186,13 @@ def test_streaming_retrieval_join_matches_in_memory_join(tmp_path: Path) -> None
     assert len(projection) == len(expected)
     assert set(DEFAULT_RETRIEVAL_METRICS).issubset(projection)
     assert set(projection["is_mated"]) == {False, True}
+    assert projection["threshold_metric_derivation_version"].nunique() == 1
+    assert projection["absolute_top1_score_drift"].tolist() == pytest.approx(
+        [0.01, 0.02, 0.03, 0.01, 0.02, 0.03]
+    )
+    assert projection["origin_threshold_distance"].tolist() == pytest.approx(
+        [0.15, 0.01, 0.25, 0.15, 0.01, 0.25]
+    )
 
 
 def test_results_only_streaming_skips_full_joins_and_keeps_case_candidates(

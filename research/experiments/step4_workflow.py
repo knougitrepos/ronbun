@@ -22,6 +22,7 @@ from research.embeddings import (
 from research.evaluation import (
     WEIGHTED_RERANK_ALGORITHM_VERSION,
     WEIGHTED_RERANK_STRATEGY,
+    SALIENCY_THRESHOLD_METRICS_VERSION,
     annotate_compression_lineage,
     saliency_geometry_associations,
     saliency_retrieval_associations,
@@ -1619,6 +1620,9 @@ def analyze_step4_saliency_compression(
             "association_algorithm_version": (
                 WEIGHTED_RERANK_ALGORITHM_VERSION
             ),
+            "threshold_metric_derivation_version": (
+                SALIENCY_THRESHOLD_METRICS_VERSION
+            ),
             "bootstrap_method": bootstrap_method,
             "bootstrap_unit": bootstrap_unit,
             "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
@@ -1806,6 +1810,9 @@ def analyze_step4_saliency_compression(
             association_algorithm_version=(
                 WEIGHTED_RERANK_ALGORITHM_VERSION
             ),
+            threshold_metric_derivation_version=(
+                SALIENCY_THRESHOLD_METRICS_VERSION
+            ),
         )
     return {
         "run_id": run.run_id,
@@ -1817,6 +1824,9 @@ def analyze_step4_saliency_compression(
         "representative_candidate_rows": representative_candidate_rows,
         "persisted_large_join_artifacts": persist_large_joins,
         "association_algorithm_version": WEIGHTED_RERANK_ALGORITHM_VERSION,
+        "threshold_metric_derivation_version": (
+            SALIENCY_THRESHOLD_METRICS_VERSION
+        ),
         "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
         "next_stage": "06_representative_case_visualization",
     }

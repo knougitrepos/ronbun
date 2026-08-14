@@ -280,6 +280,9 @@ def _retrieval_frame() -> pd.DataFrame:
             ),
             start=1,
         ):
+            origin_score = (0.80, 0.66, 0.40)[sample_index - 1]
+            compressed_score = (0.79, 0.64, 0.43)[sample_index - 1]
+            crossing = sample_index == 2
             rows.append(
                 {
                     "extraction_uid": "extract-1",
@@ -295,9 +298,18 @@ def _retrieval_frame() -> pd.DataFrame:
                     "evaluation_split": "official_test",
                     "threshold_policy": policy,
                     "is_mated": is_mated,
-                    "top1_score_drift": sample_index / 100.0,
+                    "origin_top1_score": origin_score,
+                    "compressed_top1_score": compressed_score,
+                    "top1_score_drift": compressed_score - origin_score,
+                    "origin_winner_score_drift": compressed_score - origin_score,
+                    "origin_decision_threshold": 0.65,
+                    "compressed_decision_threshold": 0.65,
+                    "score_spaces_comparable": True,
                     "agreement_with_origin": sample_index != 3,
-                    "threshold_crossing": sample_index == 2,
+                    "threshold_crossing": crossing,
+                    "threshold_crossing_direction": (
+                        "accept_to_reject" if crossing else "none"
+                    ),
                 }
             )
     return pd.DataFrame.from_records(rows)
@@ -553,6 +565,10 @@ def test_saliency_compression_workflow_streams_and_publishes_after_success(
     implementation = run.last_phase.details["implementation"]
     assert implementation["bootstrap_rank_strategy"] == "weighted_rerank"
     assert implementation["bootstrap_batch_size"] == 4
+    assert (
+        implementation["threshold_metric_derivation_version"]
+        == "saliency-threshold-metrics-v1"
+    )
     assert len(implementation["source_git_commit"]) == 40
     assert set(implementation["source_sha256"]) == {
         "association",

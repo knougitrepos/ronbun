@@ -47,9 +47,44 @@ DEFAULT_GEOMETRY_METRICS = (
 )
 DEFAULT_RETRIEVAL_METRICS = (
     "top1_score_drift",
+    "absolute_top1_score_drift",
+    "absolute_origin_winner_score_drift",
+    "origin_threshold_distance",
     "agreement_with_origin",
     "threshold_crossing",
+    "accept_to_reject_crossing",
+    "reject_to_accept_crossing",
 )
+RETRIEVAL_DERIVATION_SOURCE_COLUMNS = (
+    "origin_top1_score",
+    "compressed_top1_score",
+    "top1_score_drift",
+    "origin_winner_score_drift",
+    "origin_decision_threshold",
+    "compressed_decision_threshold",
+    "score_spaces_comparable",
+    "threshold_crossing",
+    "threshold_crossing_direction",
+)
+RETRIEVAL_DERIVED_METRICS = (
+    "absolute_top1_score_drift",
+    "absolute_origin_winner_score_drift",
+    "origin_threshold_margin",
+    "compressed_threshold_margin",
+    "origin_threshold_distance",
+    "compressed_threshold_distance",
+    "threshold_margin_shift",
+    "absolute_threshold_margin_shift",
+    "accept_to_reject_crossing",
+    "reject_to_accept_crossing",
+)
+RETRIEVAL_BOOLEAN_METRICS = (
+    "agreement_with_origin",
+    "threshold_crossing",
+    "accept_to_reject_crossing",
+    "reject_to_accept_crossing",
+)
+SALIENCY_THRESHOLD_METRICS_VERSION = "saliency-threshold-metrics-v1"
 # Backward-compatible union for callers that intentionally analyze a table
 # containing one retrieval row per geometry row. New code should use the
 # geometry/retrieval-specific wrappers below.
@@ -161,6 +196,118 @@ def _validate_unique(
             .to_dict("records")
         )
         raise ValueError(f"{name} rows are not unique by {list(keys)}: {examples}")
+
+
+def derive_saliency_threshold_metrics(
+    retrieval_sensitivity: pd.DataFrame,
+) -> pd.DataFrame:
+    """Derive score-shift and decision-boundary metrics for saliency analysis.
+
+    ``top1_score_drift`` is the change in the maximum decision statistic and
+    may compare different winning identities. ``origin_winner_score_drift``
+    instead fixes the origin winner and is the available same-candidate score
+    perturbation. Raw cross-space differences are undefined for PQ ADC, so all
+    drift and margin-shift outputs are forced missing unless the source marks
+    the score spaces comparable. Each representation's own threshold margin
+    and distance remain valid within its score space.
+    """
+
+    _require_columns(
+        retrieval_sensitivity,
+        RETRIEVAL_DERIVATION_SOURCE_COLUMNS,
+        name="retrieval_sensitivity",
+    )
+    result = retrieval_sensitivity.copy()
+    comparable = _strict_boolean(
+        result["score_spaces_comparable"],
+        name="retrieval_sensitivity.score_spaces_comparable",
+    )
+    crossing = _strict_boolean(
+        result["threshold_crossing"],
+        name="retrieval_sensitivity.threshold_crossing",
+    )
+    numeric_columns = (
+        "origin_top1_score",
+        "compressed_top1_score",
+        "top1_score_drift",
+        "origin_winner_score_drift",
+        "origin_decision_threshold",
+        "compressed_decision_threshold",
+    )
+    numeric = {
+        column: pd.to_numeric(result[column], errors="coerce").astype(np.float64)
+        for column in numeric_columns
+    }
+    for column in (
+        "origin_top1_score",
+        "compressed_top1_score",
+        "origin_decision_threshold",
+        "compressed_decision_threshold",
+    ):
+        if not np.isfinite(numeric[column].to_numpy(dtype=np.float64)).all():
+            raise ValueError(
+                f"retrieval_sensitivity.{column} must contain finite values"
+            )
+
+    for column in ("top1_score_drift", "origin_winner_score_drift"):
+        values = numeric[column].to_numpy(dtype=np.float64)
+        if np.isfinite(values[~comparable.to_numpy(dtype=bool)]).any():
+            raise ValueError(
+                f"retrieval_sensitivity.{column} must be missing when score "
+                "spaces are not comparable"
+            )
+        if not np.isfinite(values[comparable.to_numpy(dtype=bool)]).all():
+            raise ValueError(
+                f"retrieval_sensitivity.{column} must be finite when score "
+                "spaces are comparable"
+            )
+
+    origin_margin = (
+        numeric["origin_top1_score"] - numeric["origin_decision_threshold"]
+    )
+    compressed_margin = (
+        numeric["compressed_top1_score"]
+        - numeric["compressed_decision_threshold"]
+    )
+    margin_shift = compressed_margin - origin_margin
+    margin_shift = margin_shift.where(comparable, np.nan)
+    top1_drift = numeric["top1_score_drift"].where(comparable, np.nan)
+    origin_winner_drift = numeric["origin_winner_score_drift"].where(
+        comparable,
+        np.nan,
+    )
+
+    direction = result["threshold_crossing_direction"].astype(str).str.strip()
+    allowed_directions = {"none", "accept_to_reject", "reject_to_accept"}
+    if not direction.isin(allowed_directions).all():
+        invalid = sorted(set(direction).difference(allowed_directions))
+        raise ValueError(
+            "retrieval_sensitivity.threshold_crossing_direction contains "
+            f"unsupported values: {invalid}"
+        )
+    direction_crossing = direction.ne("none")
+    if not direction_crossing.equals(crossing):
+        raise ValueError(
+            "retrieval_sensitivity threshold_crossing disagrees with "
+            "threshold_crossing_direction"
+        )
+
+    result["score_spaces_comparable"] = comparable
+    result["threshold_crossing"] = crossing
+    result["absolute_top1_score_drift"] = top1_drift.abs()
+    result["absolute_origin_winner_score_drift"] = origin_winner_drift.abs()
+    result["origin_threshold_margin"] = origin_margin
+    result["compressed_threshold_margin"] = compressed_margin
+    result["origin_threshold_distance"] = origin_margin.abs()
+    result["compressed_threshold_distance"] = compressed_margin.abs()
+    result["threshold_margin_shift"] = margin_shift
+    result["absolute_threshold_margin_shift"] = margin_shift.abs()
+    result["accept_to_reject_crossing"] = direction.eq("accept_to_reject")
+    result["reject_to_accept_crossing"] = direction.eq("reject_to_accept")
+    result["threshold_metric_derivation_version"] = (
+        SALIENCY_THRESHOLD_METRICS_VERSION
+    )
+    return result
 
 
 def join_population_saliency_with_compression(
@@ -368,6 +515,7 @@ def join_population_saliency_with_retrieval(
         retrieval["is_mated"],
         name="retrieval_sensitivity.is_mated",
     )
+    retrieval = derive_saliency_threshold_metrics(retrieval)
     retrieval_extra_keys = [
         column
         for column in (
@@ -1101,4 +1249,9 @@ def saliency_retrieval_associations(
         progress=progress,
     )
     result.insert(0, "analysis_scope", "retrieval")
+    result.insert(
+        1,
+        "threshold_metric_derivation_version",
+        SALIENCY_THRESHOLD_METRICS_VERSION,
+    )
     return result

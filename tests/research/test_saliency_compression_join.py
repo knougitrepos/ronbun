@@ -12,6 +12,7 @@ from research.evaluation.saliency_compression import (
     _spearman,
     _weighted_average_rank_batch,
     annotate_compression_lineage,
+    derive_saliency_threshold_metrics,
     join_population_saliency_with_compression,
     join_population_saliency_with_retrieval,
     saliency_compression_associations,
@@ -92,12 +93,63 @@ def _retrieval_frame(
                         "threshold_source_split": "calibration",
                         "evaluation_split": "test",
                         "is_mated": is_mated,
+                        "origin_top1_score": 0.70,
+                        "compressed_top1_score": 0.70 + drift * multiplier,
                         "top1_score_drift": drift * multiplier,
+                        "origin_winner_score_drift": drift * multiplier,
+                        "origin_decision_threshold": 0.60,
+                        "compressed_decision_threshold": 0.60,
+                        "score_spaces_comparable": True,
                         "agreement_with_origin": True,
                         "threshold_crossing": False,
+                        "threshold_crossing_direction": "none",
                     }
                 )
     return pd.DataFrame.from_records(rows)
+
+
+def test_threshold_metrics_separate_maximum_and_fixed_pair_score_shift():
+    source = pd.DataFrame(
+        {
+            "origin_top1_score": [0.70, 0.70],
+            "compressed_top1_score": [0.65, -0.20],
+            "top1_score_drift": [-0.05, np.nan],
+            "origin_winner_score_drift": [-0.08, np.nan],
+            "origin_decision_threshold": [0.60, 0.60],
+            "compressed_decision_threshold": [0.55, -0.30],
+            "score_spaces_comparable": [True, False],
+            "threshold_crossing": [False, True],
+            "threshold_crossing_direction": ["none", "accept_to_reject"],
+        }
+    )
+
+    derived = derive_saliency_threshold_metrics(source)
+
+    assert derived.loc[0, "absolute_top1_score_drift"] == pytest.approx(0.05)
+    assert derived.loc[0, "absolute_origin_winner_score_drift"] == pytest.approx(
+        0.08
+    )
+    assert derived.loc[0, "origin_threshold_margin"] == pytest.approx(0.10)
+    assert derived.loc[0, "compressed_threshold_margin"] == pytest.approx(0.10)
+    assert derived.loc[0, "threshold_margin_shift"] == pytest.approx(0.0)
+    assert pd.isna(derived.loc[1, "absolute_top1_score_drift"])
+    assert pd.isna(derived.loc[1, "absolute_origin_winner_score_drift"])
+    assert pd.isna(derived.loc[1, "threshold_margin_shift"])
+    assert derived.loc[1, "origin_threshold_distance"] == pytest.approx(0.10)
+    assert derived.loc[1, "compressed_threshold_distance"] == pytest.approx(0.10)
+    assert bool(derived.loc[1, "accept_to_reject_crossing"])
+    assert not bool(derived.loc[1, "reject_to_accept_crossing"])
+    assert derived["threshold_metric_derivation_version"].nunique() == 1
+
+
+def test_threshold_metrics_reject_crossing_direction_mismatch():
+    source = _retrieval_frame().iloc[[0]].assign(
+        threshold_crossing=True,
+        threshold_crossing_direction="none",
+    )
+
+    with pytest.raises(ValueError, match="disagrees"):
+        derive_saliency_threshold_metrics(source)
 
 
 def test_geometry_and_retrieval_joins_keep_independent_row_grains():
@@ -173,6 +225,7 @@ def test_retrieval_join_and_associations_keep_search_modes_separate():
         "pca_direct_cosine",
         "pca_reconstruction_cosine",
     }
+    assert associations["threshold_metric_derivation_version"].nunique() == 1
 
 
 def test_retrieval_join_and_associations_keep_target_fpirs_separate():
