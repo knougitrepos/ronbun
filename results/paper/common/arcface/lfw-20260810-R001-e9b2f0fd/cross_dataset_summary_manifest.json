@@ -24,28 +24,34 @@
     "balancedface",
     "uncertainty_defer_high_low_risk_queries"
   ],
-  "generated_at_utc": "2026-08-10T13:31:45.374182+00:00",
+  "faithfulness": {
+    "datasets": {},
+    "included": false,
+    "maximum_samples_per_dataset": 10000,
+    "threshold_independent": true
+  },
+  "generated_at_utc": "2026-08-14T01:25:26.444608+00:00",
   "join_contract": {
     "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
-    "rows": 70,
+    "rows": 175,
     "validation": "compression one-to-retrieval many"
   },
   "model_name": "arcface",
   "output_files": {
     "compression_summary_all.csv": {
-      "bytes": 95888,
+      "bytes": 276655,
       "path": "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/compression_summary_all.csv",
-      "sha256": "8df52d58cec3e549beff4e5568c0868bdad119a557a14222a40c38004823abd4"
+      "sha256": "7cc9d01aa59555f8a143a64070ecf9c714c87bd6f5f297cd1edf18af9ebc3da8"
     },
     "dir_fpir_storage_latency.csv": {
-      "bytes": 37724,
+      "bytes": 111950,
       "path": "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/dir_fpir_storage_latency.csv",
-      "sha256": "2151f7f63b1b6e73c567e503851cce3b2ac8e15154f3d0ac3d1c2ac4568d459a"
+      "sha256": "2fb0d7c8e03fc63c2204e548e73b3ef7a6c8663d5696f871f777189cf1a427d9"
     },
     "lfw_survface_fpir_appendix.csv": {
-      "bytes": 26452,
+      "bytes": 84524,
       "path": "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/lfw_survface_fpir_appendix.csv",
-      "sha256": "7e7b2ba98e94cd24aaa65bfc3366bb14591e321e302043a387c56bf4b44cb79e"
+      "sha256": "c7b1440d97924c0e18a5fd8112e02ab3e712ac6ec7af3aaaa06c42542021c06f"
     },
     "representative_cases_all.csv": {
       "bytes": 316255,
@@ -53,9 +59,9 @@
       "sha256": "f07056c32f438f9609fb52aecc0580a6d083fc896dd086e1e31814b5288f0b90"
     },
     "retrieval_summary_all.csv": {
-      "bytes": 84513,
+      "bytes": 248714,
       "path": "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/retrieval_summary_all.csv",
-      "sha256": "fb45ad4d2ac3c26bdb13acb761c0886d9eefdb83050c070041f90d2d1f245863"
+      "sha256": "0070c5d87be9e6c7d50f5890f9f10f33cf9c5f93f93f882bae5588f62b2d0b11"
     },
     "saliency_geometry_associations_all.csv": {
       "bytes": 186589,
@@ -73,9 +79,19 @@
       "sha256": "a2c5d07af3400c7e87f09ec9f7601fa14a0cc8b741ca279e4ce43e6b178b89b6"
     },
     "storage_open_set.png": {
-      "bytes": 198639,
+      "bytes": 280907,
       "path": "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/storage_open_set.png",
-      "sha256": "1b1633210bd0633d7069bca1b16243e1047f211f80b4a814d0deee0b3bd43d6f"
+      "sha256": "73eaa4f7a640962d134b6c0ca1175e4bb9c66931115664361ac19788a2692e91"
+    },
+    "survface_tpir20_comparison.csv": {
+      "bytes": 213,
+      "path": "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/survface_tpir20_comparison.csv",
+      "sha256": "64f9c8d67e742d99cd2e3338a1077db9ee3e9ca0b376967352eac60dc7c532c2"
+    },
+    "tpir20_method_comparison.csv": {
+      "bytes": 56687,
+      "path": "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/tpir20_method_comparison.csv",
+      "sha256": "409e3aebd969675cf72a4698e5f027652857f839f59313a9bc7caa5289c882b8"
     }
   },
   "rfw_custom_boundary": {
@@ -138,22 +154,37 @@
       }
     }
   },
-  "schema_version": 8,
+  "schema_version": 9,
   "selected_runs": {
     "lfw": {
       "model_uid": "arcface-7972a704552df378345f",
       "run_dir": "runs/lfw_20260810/20260810-R001-e9b2f0fd_step4_lfw_arcface-7972a704552df378345f",
       "run_id": "20260810-R001-e9b2f0fd",
-      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
-      "summary_claim_status": "validation_required",
+      "summary_artifact_type": "step4_search_space_tpir20_multi_fpir_v5",
+      "summary_claim_status": "exploratory_dirty_evaluator",
       "summary_manifest": {
-        "path": "results/paper/lfw/20260810-R001-e9b2f0fd/search_space_v4_multi_fpir/summary_manifest.json",
-        "sha256": "d655bf07532c9b2b994c5280e23cfe1a17e33bf9d3713ab8b3f51290ede33bb9"
+        "path": "results/paper/lfw/20260810-R001-e9b2f0fd/search_space_v5_tpir20_multi_fpir/summary_manifest.json",
+        "sha256": "b4209fa63a8e4a59d6a666e87dad3d18a2480ecc6afddfa4da67a1d80806f6a3"
       }
     }
   },
-  "survface_faithfulness": {
-    "included": false
-  },
-  "survface_threshold_claim_status": "not_flagged"
+  "survface_threshold_claim_status": "not_flagged",
+  "tpir20_contract": {
+    "method_rows": [
+      "origin",
+      "compressed_frozen_threshold",
+      "compressed_recalibrated"
+    ],
+    "rank": 20,
+    "retention": "compressed_tpir20 / origin_tpir20",
+    "target_fpirs": [
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "threshold_source": "calibration",
+    "thresholded_score": "true_identity_score_within_top20"
+  }
 }

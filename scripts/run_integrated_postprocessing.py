@@ -312,6 +312,7 @@ def build_report_parameter_source(
         "MODEL_UIDS": model_uids,
         "RUN_IDS": run_ids,
         "INCLUDE_FAITHFULNESS": bool(include_faithfulness),
+        "GENERATE_MISSING_TPIR20_ARTIFACTS": False,
         "WRITE_OUTPUTS": bool(write_outputs),
         "OVERWRITE_COMMON_OUTPUTS": bool(overwrite_outputs),
         "RFW_EVALUATION_DIR": resolved_rfw_dir,

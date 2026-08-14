@@ -12,6 +12,8 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
+from research.evaluation.metrics import rate_ratio_matches_counts_or_compact_csv
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -641,16 +643,12 @@ def _validate_retrieval_statistics(frame: pd.DataFrame, *, label: str) -> None:
         atol=1e-12,
     ):
         raise ValueError(f"{label} TPIR20 delta does not reconcile")
-    retention = pd.to_numeric(
-        frame["compressed_tpir20_retention"], errors="raise"
-    )
-    expected_retention = compressed_tpir / origin_tpir.mask(origin_tpir.eq(0.0))
-    if not np.allclose(
-        retention.to_numpy(dtype=float),
-        expected_retention.to_numpy(dtype=float),
-        rtol=0.0,
-        atol=1e-12,
-        equal_nan=True,
+    if not rate_ratio_matches_counts_or_compact_csv(
+        frame["compressed_tpir20_retention"],
+        reference_successes=frame["origin_tpir20_count"],
+        reference_totals=frame["origin_tpir20_denominator"],
+        candidate_successes=frame["compressed_tpir20_count"],
+        candidate_totals=frame["compressed_tpir20_denominator"],
     ):
         raise ValueError(f"{label} TPIR20 retention does not reconcile")
 

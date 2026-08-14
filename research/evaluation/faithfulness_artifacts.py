@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from typing import Mapping
+from typing import Literal, Mapping
 
 import pandas as pd
 
@@ -27,6 +27,7 @@ class SelectedFaithfulnessArtifacts:
     summary: pd.DataFrame
     manifests: dict[str, dict[str, object]]
     roots: dict[str, Path]
+    missing_manifests: dict[str, Path]
 
 
 def load_selected_faithfulness_artifacts(
@@ -36,13 +37,23 @@ def load_selected_faithfulness_artifacts(
     model_uids: Mapping[str, str],
     run_ids: Mapping[str, str],
     maximum_samples: int = FAITHFULNESS_MAXIMUM_SAMPLES,
+    missing_policy: Literal["raise", "omit"] = "raise",
 ) -> SelectedFaithfulnessArtifacts:
-    """Load one SHA-verified, dataset-level faithfulness summary per run."""
+    """Load one SHA-verified, dataset-level faithfulness summary per run.
+
+    ``missing_policy="omit"`` skips only datasets whose manifest is absent.
+    Once a manifest exists, all identity, sampling, file, and SHA checks remain
+    fail-closed.
+    """
+
+    if missing_policy not in {"raise", "omit"}:
+        raise ValueError(f"unsupported missing_policy: {missing_policy!r}")
 
     root = Path(project_root).resolve()
     summaries: list[pd.DataFrame] = []
     manifests: dict[str, dict[str, object]] = {}
     roots: dict[str, Path] = {}
+    missing_manifests: dict[str, Path] = {}
     for dataset in datasets:
         artifact_root = (
             root
@@ -54,6 +65,9 @@ def load_selected_faithfulness_artifacts(
         )
         manifest_path = artifact_root / "manifest.json"
         if not manifest_path.is_file():
+            if missing_policy == "omit":
+                missing_manifests[dataset] = manifest_path
+                continue
             raise FileNotFoundError(manifest_path)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         expected = {
@@ -115,4 +129,5 @@ def load_selected_faithfulness_artifacts(
         summary=combined,
         manifests=manifests,
         roots=roots,
+        missing_manifests=missing_manifests,
     )

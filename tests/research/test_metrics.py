@@ -7,9 +7,37 @@ from research.evaluation.metrics import (
     expected_calibration_error,
     open_set_identification_metrics,
     paired_binary_rate_difference_bootstrap_interval,
+    rate_ratio_matches_counts_or_compact_csv,
     rank_at_k,
     wilson_score_interval,
 )
+
+
+def test_rate_ratio_validation_accepts_full_and_compact_csv_precision() -> None:
+    reference_successes = pd.Series([59, 0])
+    totals = pd.Series([60_423, 60_423])
+    candidate_successes = pd.Series([1_589, 0])
+    full_precision = pd.Series([1_589 / 59, float("nan")])
+    compact_csv = pd.Series([26.9322033898, float("nan")])
+
+    for observed in (full_precision, compact_csv):
+        assert rate_ratio_matches_counts_or_compact_csv(
+            observed,
+            reference_successes=reference_successes,
+            reference_totals=totals,
+            candidate_successes=candidate_successes,
+            candidate_totals=totals,
+        )
+
+    drifted = compact_csv.copy()
+    drifted.iloc[0] += 1e-6
+    assert not rate_ratio_matches_counts_or_compact_csv(
+        drifted,
+        reference_successes=reference_successes,
+        reference_totals=totals,
+        candidate_successes=candidate_successes,
+        candidate_totals=totals,
+    )
 
 
 def test_metrics_cover_rank_and_calibration_quality():

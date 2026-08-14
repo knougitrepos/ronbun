@@ -1,0 +1,263 @@
+{
+  "schema_version": 5,
+  "artifact_type": "step4_search_space_tpir20_multi_fpir_v5",
+  "generated_at_utc": "2026-08-14T06:16:55.761146+00:00",
+  "dataset_id": "survface",
+  "model_uid": "edgeface-a348c305af33c223b337",
+  "run_id": "20260812-R001-ea495479",
+  "source_run_id": "20260812-R001-ea495479",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": false,
+  "derived_evaluation_paper_eligible": false,
+  "claim_status": "exploratory_dirty_evaluator",
+  "producer_script": "scripts/refresh_step4_search_spaces.py",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.8529760241508484,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 9795,
+      "calibration_fpir": 0.09999489561533358,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 12188,
+      "test_fpir": 0.10011828875599658,
+      "status": "failed_target_fpir"
+    },
+    "0.01": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.9277411699295044,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 979,
+      "calibration_fpir": 0.009994385176866929,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 1519,
+      "test_fpir": 0.012477820858250641,
+      "status": "failed_target_fpir"
+    },
+    "0.05": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.8849262595176697,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 4897,
+      "calibration_fpir": 0.04999234342300036,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 6311,
+      "test_fpir": 0.05184169021489124,
+      "status": "failed_target_fpir"
+    },
+    "0.2": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.8075929880142212,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 19591,
+      "calibration_fpir": 0.2,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 24018,
+      "test_fpir": 0.197295787605967,
+      "status": "target_met"
+    },
+    "0.3": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.7723793387413025,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 29386,
+      "calibration_fpir": 0.29999489561533355,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 35541,
+      "test_fpir": 0.29195143589406586,
+      "status": "target_met"
+    }
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_applicable_protocol_changed",
+    "reason": "SurvFace 3,000-ID half-gallery calibration and watch-list compressor fit intentionally replace the legacy 200-ID regime"
+  },
+  "evaluator_git": {
+    "commit": "1507ad61d49a2b3d6b60bf7acc9cade369b055cb",
+    "branch": "step8",
+    "dirty": true,
+    "working_tree_diff_sha256": "d30a2c0ba88a858d5dd59dae762af8f79181c77ffe68ecfb02bad67ef920f5ee",
+    "tracked_source_changes": [
+      "architect/20260814.md",
+      "notebooks/common/reports/00_cross_dataset_results.ipynb",
+      "research/evaluation/__init__.py",
+      "research/evaluation/cross_dataset_saliency.py",
+      "research/evaluation/metrics.py",
+      "research/experiments/cross_model_matrix.py",
+      "scripts/refresh_step4_search_spaces.py",
+      "tests/research/test_cross_dataset_saliency.py",
+      "tests/research/test_metrics.py",
+      "tests/research/test_notebook_layout.py"
+    ],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/compression_summary_all.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/retrieval_summary_all.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/storage_open_set.png",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/compression_summary_all.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/retrieval_summary_all.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/storage_open_set.png",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/compression_summary_all.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/retrieval_summary_all.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/storage_open_set.png",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/compression_summary_all.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/retrieval_summary_all.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/storage_open_set.png",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/compression_summary_all.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/retrieval_summary_all.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/storage_open_set.png",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/compression_summary_all.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/retrieval_summary_all.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/storage_open_set.png",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/compression_summary_all.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/cross_dataset_summary_manifest.json",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/dir_fpir_storage_latency.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/retrieval_summary_all.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/storage_open_set.png",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/compression_summary_all.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/dir_fpir_storage_latency.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/retrieval_summary_all.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/storage_open_set.png",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/compression_summary_all.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/dir_fpir_storage_latency.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/retrieval_summary_all.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/storage_open_set.png",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/compression_summary_all.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/dir_fpir_storage_latency.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/retrieval_summary_all.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/storage_open_set.png"
+    ],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/survface_20260812/20260812-R001-ea495479_step4_survface_edgeface-a348c305af33c223b337/run_manifest.json",
+      "bytes": 30786,
+      "sha256": "c1e1478038cf8126eb7783ac38c50866d9f01f1872a99c4a223711a7eba46ae2"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/survface_20260812/20260812-R001-ea495479_step4_survface_edgeface-a348c305af33c223b337/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 955,
+      "sha256": "5c8143d29e937a61025c252898b73cfb4a77b6606e5d7653e9d3f23409d89ca9"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/survface_20260812/20260812-R001-ea495479_step4_survface_edgeface-a348c305af33c223b337/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58676,
+      "sha256": "47d65a52d046e002de3e9307f11fba19aec30563b54add1d0fe5d6d5662aef49"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/survface_20260812/20260812-R001-ea495479_step4_survface_edgeface-a348c305af33c223b337/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/survface/20260812-R001-ea495479/search_space_v5_tpir20_multi_fpir/pca/family_manifest.json",
+      "bytes": 4423,
+      "sha256": "1adaac6bc58d771007ce6c663cab3617c14c3c367c7045c813d9412bd3c18cc2"
+    },
+    "pq": {
+      "path": "results/paper/survface/20260812-R001-ea495479/search_space_v5_tpir20_multi_fpir/pq/family_manifest.json",
+      "bytes": 4421,
+      "sha256": "2e4b6135500ca88ca7b1bc057370686b1aecb43fd8af7a9c6f87a6cf6890b5b5"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 175
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy x target_fpir",
+    "tpir20_definition": "mated probe true identity is within top 20 and its score is greater than or equal to the calibration threshold",
+    "tpir20_threshold_score": "true_identity_score_within_top20",
+    "closed_set_rank20_definition": "mated probe true identity is within top 20 without thresholding",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "rate_confidence_intervals": "probe-level two-sided 95% Wilson score intervals",
+    "origin_difference_confidence_intervals": "compressed minus origin probe-level paired nonparametric bootstrap percentile intervals",
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Confidence intervals resample probes and do not represent identity-cluster or checkpoint-training uncertainty.",
+    "SurvFace threshold-dependent claims remain blocked for targets whose held-out realized FPIR exceeds the calibrated target: ['0.1', '0.01', '0.05'].",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/survface/20260812-R001-ea495479/search_space_v5_tpir20_multi_fpir/compression_summary.csv",
+      "bytes": 3862,
+      "sha256": "f0f8a69ca3e1e790aa120491b113574cdf06cfba663f816749899e6b8ede557a"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/survface/20260812-R001-ea495479/search_space_v5_tpir20_multi_fpir/retrieval_summary.csv",
+      "bytes": 268653,
+      "sha256": "9f92e9dae17adedee2499db35330622f916823a0d5c731b8580448e0195b2da1"
+    }
+  }
+}

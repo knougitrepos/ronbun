@@ -24,28 +24,34 @@
     "balancedface",
     "uncertainty_defer_high_low_risk_queries"
   ],
-  "generated_at_utc": "2026-08-10T13:36:29.782963+00:00",
+  "faithfulness": {
+    "datasets": {},
+    "included": false,
+    "maximum_samples_per_dataset": 10000,
+    "threshold_independent": true
+  },
+  "generated_at_utc": "2026-08-14T03:02:52.659333+00:00",
   "join_contract": {
     "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
-    "rows": 70,
+    "rows": 175,
     "validation": "compression one-to-retrieval many"
   },
   "model_name": "arcface",
   "output_files": {
     "compression_summary_all.csv": {
-      "bytes": 103141,
+      "bytes": 298289,
       "path": "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/compression_summary_all.csv",
-      "sha256": "50ae2afa7f6cf48a8392e0540df6731cd909ccaa7b80c04e25bae78ee6dbebd7"
+      "sha256": "87550f0f8a6fcd46f1480a3010bfcf375ca6f0d03cb76c2d1888c1e49fde438c"
     },
     "dir_fpir_storage_latency.csv": {
-      "bytes": 43034,
+      "bytes": 122460,
       "path": "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/dir_fpir_storage_latency.csv",
-      "sha256": "9b859181676d58a83bf6870426ba455984a96525b96f234358f3736b57e7ebf9"
+      "sha256": "ffbb5b04c58138489aab0a8b0301ba1796e7ae930ceaa3be82b558cd42d60fe4"
     },
     "lfw_survface_fpir_appendix.csv": {
-      "bytes": 820,
+      "bytes": 1104,
       "path": "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/lfw_survface_fpir_appendix.csv",
-      "sha256": "56dd14a7ef709888c3c29d21fe8961c7638eab82933baebce285368c34a2d4da"
+      "sha256": "c4d3349689a43f95ad844fc54475e0b13093fe686e5bacdb152e1a185660e7d7"
     },
     "representative_cases_all.csv": {
       "bytes": 358167,
@@ -53,9 +59,9 @@
       "sha256": "b6cceef1eb0ccc998ae2caf5fa0d4b97dddc4a0008b6463eec793b9a7d97c1b5"
     },
     "retrieval_summary_all.csv": {
-      "bytes": 91796,
+      "bytes": 270423,
       "path": "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/retrieval_summary_all.csv",
-      "sha256": "07379b1cffcd7732a2e03a56598a01269878e8e448dbeecdf7101d293dde042a"
+      "sha256": "2a0753a32ea06a62e33b92f9d28538ebafe2b88efb453f35a626bd12eecca30d"
     },
     "saliency_geometry_associations_all.csv": {
       "bytes": 198683,
@@ -73,9 +79,19 @@
       "sha256": "8964f9e77543a148fd29f2e6675f13642e0038a4a409695068bde0039a853bce"
     },
     "storage_open_set.png": {
-      "bytes": 229989,
+      "bytes": 351063,
       "path": "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/storage_open_set.png",
-      "sha256": "1628bcd50d9c8cc3df3e38da20068aab0c1009ac5eeae4f6cd0dc3ab07a00d80"
+      "sha256": "af480f2ef8dd96342b32a9c32934682bd2d2fa0e0966fdca8da4f7f98d9f7517"
+    },
+    "survface_tpir20_comparison.csv": {
+      "bytes": 213,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/survface_tpir20_comparison.csv",
+      "sha256": "64f9c8d67e742d99cd2e3338a1077db9ee3e9ca0b376967352eac60dc7c532c2"
+    },
+    "tpir20_method_comparison.csv": {
+      "bytes": 213,
+      "path": "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/tpir20_method_comparison.csv",
+      "sha256": "64f9c8d67e742d99cd2e3338a1077db9ee3e9ca0b376967352eac60dc7c532c2"
     }
   },
   "rfw_custom_boundary": {
@@ -143,22 +159,37 @@
       }
     }
   },
-  "schema_version": 8,
+  "schema_version": 9,
   "selected_runs": {
     "rfw_custom": {
       "model_uid": "arcface-7972a704552df378345f",
       "run_dir": "runs/rfw_custom_20260810/20260810-R001-558cd106_step4_rfw_custom_arcface-7972a704552df378345f",
       "run_id": "20260810-R001-558cd106",
-      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
-      "summary_claim_status": "validation_required",
+      "summary_artifact_type": "step4_search_space_tpir20_multi_fpir_v5",
+      "summary_claim_status": "exploratory_dirty_evaluator",
       "summary_manifest": {
-        "path": "results/paper/rfw_custom/20260810-R001-558cd106/search_space_v4_multi_fpir/summary_manifest.json",
-        "sha256": "49e1d28f7d1f13ed0c2e7e76271a52c5faffef8ee194a2f4c86d8971d00d60e2"
+        "path": "results/paper/rfw_custom/20260810-R001-558cd106/search_space_v5_tpir20_multi_fpir/summary_manifest.json",
+        "sha256": "38ab6d0f16344f8ae25cf66b39afe96840bc50ba2fc845c7775f2f1d3d1741fa"
       }
     }
   },
-  "survface_faithfulness": {
-    "included": false
-  },
-  "survface_threshold_claim_status": "not_flagged"
+  "survface_threshold_claim_status": "not_flagged",
+  "tpir20_contract": {
+    "method_rows": [
+      "origin",
+      "compressed_frozen_threshold",
+      "compressed_recalibrated"
+    ],
+    "rank": 20,
+    "retention": "compressed_tpir20 / origin_tpir20",
+    "target_fpirs": [
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "threshold_source": "calibration",
+    "thresholded_score": "true_identity_score_within_top20"
+  }
 }

@@ -9,6 +9,7 @@ import pytest
 
 from research.evaluation.cross_dataset_saliency import (
     load_cross_dataset_saliency_associations,
+    validate_rfw_custom_calibration_contract,
 )
 
 
@@ -181,6 +182,29 @@ def test_load_cross_dataset_saliency_associations_rejects_legacy_rfw_calibration
         )
 
 
+def test_validate_rfw_custom_calibration_contract_rejects_legacy_manifest(
+    tmp_path: Path,
+) -> None:
+    run_dir = _synthetic_completed_run(tmp_path)
+    run_manifest = json.loads(
+        (run_dir / "run_manifest.json").read_text(encoding="utf-8")
+    )
+    diagnostics = json.loads(
+        (
+            run_dir
+            / "artifacts"
+            / "step2_workflow"
+            / "origin_calibration_diagnostics.json"
+        ).read_text(encoding="utf-8")
+    )
+    run_manifest["config"]["step4"]["evaluation"] = {
+        "rfw_custom_calibration_gallery_identities": 80
+    }
+
+    with pytest.raises(ValueError, match="predates gallery-size-matched"):
+        validate_rfw_custom_calibration_contract(run_manifest, diagnostics)
+
+
 def test_load_cross_dataset_saliency_associations_rejects_selector_key_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -214,6 +238,10 @@ def test_cross_dataset_report_exports_full_saliency_association_contract() -> No
     assert 'globals().get("DATASETS"' not in source
     assert "keys must exactly match DATASETS" in source
     assert "load_cross_dataset_saliency_associations" in source
+    assert "validate_rfw_custom_calibration_contract" in source
+    assert '"report_ready": report_ready' in source
+    assert 'EXPERIMENT_CANDIDATES["report_ready"]' in source
+    assert "보고서 호환 불가" in source
     assert "saliency_geometry_associations_all.csv" in source
     assert "saliency_retrieval_associations_all.csv" in source
     assert "representative_cases_all.csv" in source

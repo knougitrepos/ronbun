@@ -1,0 +1,272 @@
+{
+  "schema_version": 5,
+  "artifact_type": "step4_search_space_tpir20_multi_fpir_v5",
+  "generated_at_utc": "2026-08-14T06:22:31.653958+00:00",
+  "dataset_id": "rfw_custom",
+  "model_uid": "edgeface-a348c305af33c223b337",
+  "run_id": "20260812-R001-22dd0f7b",
+  "source_run_id": "20260812-R001-22dd0f7b",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": false,
+  "derived_evaluation_paper_eligible": false,
+  "claim_status": "exploratory_dirty_evaluator",
+  "producer_script": "scripts/refresh_step4_search_spaces.py",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.4033184349536896,
+      "calibration_non_mated_count": 3794,
+      "calibration_false_accept_count": 379,
+      "calibration_fpir": 0.09989457037427517,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 1214,
+      "test_fpir": 0.10151350447361819,
+      "status": "failed_target_fpir"
+    },
+    "0.01": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.47704675793647766,
+      "calibration_non_mated_count": 3794,
+      "calibration_false_accept_count": 37,
+      "calibration_fpir": 0.009752240379546653,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 92,
+      "test_fpir": 0.007692950915628397,
+      "status": "target_met"
+    },
+    "0.05": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.4247659146785736,
+      "calibration_non_mated_count": 3794,
+      "calibration_false_accept_count": 189,
+      "calibration_fpir": 0.04981549815498155,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 627,
+      "test_fpir": 0.05242913287064136,
+      "status": "failed_target_fpir"
+    },
+    "0.2": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.3794358968734741,
+      "calibration_non_mated_count": 3794,
+      "calibration_false_accept_count": 758,
+      "calibration_fpir": 0.19978914074855034,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 2441,
+      "test_fpir": 0.20411405635922736,
+      "status": "failed_target_fpir"
+    },
+    "0.3": {
+      "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.3645137548446655,
+      "calibration_non_mated_count": 3794,
+      "calibration_false_accept_count": 1138,
+      "calibration_fpir": 0.2999472851871376,
+      "test_non_mated_count": 11959,
+      "test_false_accept_count": 3573,
+      "test_fpir": 0.29877080023413327,
+      "status": "target_met"
+    }
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_available"
+  },
+  "evaluator_git": {
+    "commit": "1507ad61d49a2b3d6b60bf7acc9cade369b055cb",
+    "branch": "step8",
+    "dirty": true,
+    "working_tree_diff_sha256": "a4d41069f60a454e6e40e061a2ae4da61d33a158f67873097d2732b99e5d8860",
+    "tracked_source_changes": [
+      "architect/20260814.md",
+      "notebooks/common/reports/00_cross_dataset_results.ipynb",
+      "research/evaluation/__init__.py",
+      "research/evaluation/cross_dataset_saliency.py",
+      "research/evaluation/metrics.py",
+      "research/experiments/cross_model_matrix.py",
+      "scripts/refresh_step4_search_spaces.py",
+      "tests/research/test_cross_dataset_saliency.py",
+      "tests/research/test_metrics.py",
+      "tests/research/test_notebook_layout.py"
+    ],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/compression_summary_all.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/retrieval_summary_all.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/storage_open_set.png",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/compression_summary_all.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/retrieval_summary_all.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/storage_open_set.png",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/compression_summary_all.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/retrieval_summary_all.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/storage_open_set.png",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/compression_summary_all.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/retrieval_summary_all.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/storage_open_set.png",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/compression_summary_all.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/retrieval_summary_all.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/storage_open_set.png",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/compression_summary_all.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/retrieval_summary_all.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/storage_open_set.png",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/compression_summary_all.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/cross_dataset_summary_manifest.json",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/dir_fpir_storage_latency.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/retrieval_summary_all.csv",
+      "results/paper/common/edgeface/lfw-20260812-R001-1f1ae4fc/storage_open_set.png",
+      "results/paper/common/edgeface/survface-20260812-R001-ea495479/compression_summary_all.csv",
+      "results/paper/common/edgeface/survface-20260812-R001-ea495479/cross_dataset_summary_manifest.json",
+      "results/paper/common/edgeface/survface-20260812-R001-ea495479/dir_fpir_storage_latency.csv",
+      "results/paper/common/edgeface/survface-20260812-R001-ea495479/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/edgeface/survface-20260812-R001-ea495479/retrieval_summary_all.csv",
+      "results/paper/common/edgeface/survface-20260812-R001-ea495479/storage_open_set.png",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/compression_summary_all.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/dir_fpir_storage_latency.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/retrieval_summary_all.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/storage_open_set.png",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/compression_summary_all.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/dir_fpir_storage_latency.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/retrieval_summary_all.csv",
+      "results/paper/common/magface/rfw_custom-20260811-R001-7549107b/storage_open_set.png",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/compression_summary_all.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/dir_fpir_storage_latency.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/retrieval_summary_all.csv",
+      "results/paper/common/magface/survface-20260811-R001-dcc2dbde/storage_open_set.png"
+    ],
+    "untracked_paths": [
+      "FR모델_교차데이터셋_성능분석_20260814_v1.md",
+      "FR모델_교차데이터셋_성능분석_20260814_v2.md"
+    ],
+    "untracked_content_sha256": "74b11996bf246362a847c8a9f0d26b32bc2a352ae6497da291667269f2e6f466",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/run_manifest.json",
+      "bytes": 30548,
+      "sha256": "dc37e6a03ab853ff5b3470cbf1e7d941f6944550a601e98cf963cb5e8bb594a9"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 956,
+      "sha256": "6864a1b5a3b89415ef34821efaedb7a9f94a60f6030998dc734079ce95703800"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 5894,
+      "sha256": "0ca0b689a956e85012b100a6af0cdb13ffdd1ef888bad7d4968179ac2012a90a"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/rfw_custom_20260812/20260812-R001-22dd0f7b_step4_rfw_custom_edgeface-a348c305af33c223b337/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 29581409,
+      "sha256": "5292ba16495454545388f6696bccd3ea69edb60d739005d12141082f98899165"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/rfw_custom/20260812-R001-22dd0f7b/search_space_v5_tpir20_multi_fpir/pca/family_manifest.json",
+      "bytes": 4388,
+      "sha256": "e7a3de12c4abea8ba676c625a2165203db633f03fc6425ef7c1cf986631357bf"
+    },
+    "pq": {
+      "path": "results/paper/rfw_custom/20260812-R001-22dd0f7b/search_space_v5_tpir20_multi_fpir/pq/family_manifest.json",
+      "bytes": 4386,
+      "sha256": "11de404c010d46f7e1279839aa5c45ef97dcbe32ace742e1423d322ebe16c588"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 175
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy x target_fpir",
+    "tpir20_definition": "mated probe true identity is within top 20 and its score is greater than or equal to the calibration threshold",
+    "tpir20_threshold_score": "true_identity_score_within_top20",
+    "closed_set_rank20_definition": "mated probe true identity is within top 20 without thresholding",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "rate_confidence_intervals": "probe-level two-sided 95% Wilson score intervals",
+    "origin_difference_confidence_intervals": "compressed minus origin probe-level paired nonparametric bootstrap percentile intervals",
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Confidence intervals resample probes and do not represent identity-cluster or checkpoint-training uncertainty.",
+    "RFW-Custom uses a non-official 1:N identity split and must not be reported as RFW Official.",
+    "Checkpoint training identity overlap with RFW is UNKNOWN; this is not strict unseen-identity evidence.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/rfw_custom/20260812-R001-22dd0f7b/search_space_v5_tpir20_multi_fpir/compression_summary.csv",
+      "bytes": 3859,
+      "sha256": "687c3fc63351cf2c78bdea50022dea834038288c831aee14a719f68268cd6068"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/rfw_custom/20260812-R001-22dd0f7b/search_space_v5_tpir20_multi_fpir/retrieval_summary.csv",
+      "bytes": 261738,
+      "sha256": "5a6aee1d7d3caa127907e4ddd5c998ce30a5ad5752e8822321e0659a698b5002"
+    }
+  }
+}

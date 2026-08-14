@@ -1,0 +1,244 @@
+{
+  "schema_version": 5,
+  "artifact_type": "step4_search_space_tpir20_multi_fpir_v5",
+  "generated_at_utc": "2026-08-14T05:11:17.281647+00:00",
+  "dataset_id": "survface",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "run_id": "20260811-R001-dcc2dbde",
+  "source_run_id": "20260811-R001-dcc2dbde",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": false,
+  "derived_evaluation_paper_eligible": false,
+  "claim_status": "exploratory_dirty_evaluator",
+  "producer_script": "scripts/refresh_step4_search_spaces.py",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.7869700193405151,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 9795,
+      "calibration_fpir": 0.09999489561533358,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 11396,
+      "test_fpir": 0.09361240717618453,
+      "status": "target_met"
+    },
+    "0.01": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.8530327081680298,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 979,
+      "calibration_fpir": 0.009994385176866929,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 1182,
+      "test_fpir": 0.009709535388052836,
+      "status": "target_met"
+    },
+    "0.05": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.8107540011405945,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 4897,
+      "calibration_fpir": 0.04999234342300036,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 5722,
+      "test_fpir": 0.04700335151475324,
+      "status": "target_met"
+    },
+    "0.2": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.7570189833641052,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 19591,
+      "calibration_fpir": 0.2,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 22793,
+      "test_fpir": 0.18723302884931325,
+      "status": "target_met"
+    },
+    "0.3": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.733823299407959,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 29386,
+      "calibration_fpir": 0.29999489561533355,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 34654,
+      "test_fpir": 0.28466517710455413,
+      "status": "target_met"
+    }
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_applicable_protocol_changed",
+    "reason": "SurvFace 3,000-ID half-gallery calibration and watch-list compressor fit intentionally replace the legacy 200-ID regime"
+  },
+  "evaluator_git": {
+    "commit": "1507ad61d49a2b3d6b60bf7acc9cade369b055cb",
+    "branch": "step8",
+    "dirty": true,
+    "working_tree_diff_sha256": "ea6416d7415a818f6a3ed347441314c3822b430e9410e42342633aad532cf733",
+    "tracked_source_changes": [
+      "architect/20260814.md",
+      "notebooks/common/reports/00_cross_dataset_results.ipynb",
+      "research/evaluation/__init__.py",
+      "research/evaluation/cross_dataset_saliency.py",
+      "research/evaluation/metrics.py",
+      "research/experiments/cross_model_matrix.py",
+      "scripts/refresh_step4_search_spaces.py",
+      "tests/research/test_cross_dataset_saliency.py",
+      "tests/research/test_metrics.py",
+      "tests/research/test_notebook_layout.py"
+    ],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/compression_summary_all.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/retrieval_summary_all.csv",
+      "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/storage_open_set.png",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/compression_summary_all.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/retrieval_summary_all.csv",
+      "results/paper/common/adaface/rfw_custom-20260811-R001-84619ab9/storage_open_set.png",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/compression_summary_all.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/cross_dataset_summary_manifest.json",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/dir_fpir_storage_latency.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/retrieval_summary_all.csv",
+      "results/paper/common/adaface/survface-20260811-R001-cb329ad5/storage_open_set.png",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/compression_summary_all.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/retrieval_summary_all.csv",
+      "results/paper/common/arcface/lfw-20260810-R001-e9b2f0fd/storage_open_set.png",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/compression_summary_all.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/retrieval_summary_all.csv",
+      "results/paper/common/arcface/rfw_custom-20260810-R001-558cd106/storage_open_set.png",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/compression_summary_all.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/cross_dataset_summary_manifest.json",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/dir_fpir_storage_latency.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/retrieval_summary_all.csv",
+      "results/paper/common/arcface/survface-20260810-R001-5d742943/storage_open_set.png",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/compression_summary_all.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/cross_dataset_summary_manifest.json",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/dir_fpir_storage_latency.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/lfw_survface_fpir_appendix.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/retrieval_summary_all.csv",
+      "results/paper/common/magface/lfw-20260811-R001-f9c81fe5/storage_open_set.png"
+    ],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/survface_20260811/20260811-R001-dcc2dbde_step4_survface_magface-6931178ad2025e1b3799/run_manifest.json",
+      "bytes": 30775,
+      "sha256": "5419400319b32d7e19f679f4f53ca10f644971626c656bf98b39aa435d9e9330"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/survface_20260811/20260811-R001-dcc2dbde_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 937,
+      "sha256": "24d10bda18df59db5055b99c5e6d6c32e15a483ba1569bbada64f02b04aea9b6"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/survface_20260811/20260811-R001-dcc2dbde_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58679,
+      "sha256": "fc6656af4d31d4521c2c823cd7bf93a288d2a6c98952b2708824968f0c954e69"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/survface_20260811/20260811-R001-dcc2dbde_step4_survface_magface-6931178ad2025e1b3799/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/survface/20260811-R001-dcc2dbde/search_space_v5_tpir20_multi_fpir/pca/family_manifest.json",
+      "bytes": 4399,
+      "sha256": "0353924a2d715431a8ddc39f15056695688be773c39405aa0f015b72d44c83a9"
+    },
+    "pq": {
+      "path": "results/paper/survface/20260811-R001-dcc2dbde/search_space_v5_tpir20_multi_fpir/pq/family_manifest.json",
+      "bytes": 4397,
+      "sha256": "e1f79a5612d888a79183fd7295bdacf4c72b51b1417af593834da064f5a698af"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 175
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy x target_fpir",
+    "tpir20_definition": "mated probe true identity is within top 20 and its score is greater than or equal to the calibration threshold",
+    "tpir20_threshold_score": "true_identity_score_within_top20",
+    "closed_set_rank20_definition": "mated probe true identity is within top 20 without thresholding",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_adc_frozen_origin": "not_applicable",
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "rate_confidence_intervals": "probe-level two-sided 95% Wilson score intervals",
+    "origin_difference_confidence_intervals": "compressed minus origin probe-level paired nonparametric bootstrap percentile intervals",
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Confidence intervals resample probes and do not represent identity-cluster or checkpoint-training uncertainty.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/survface/20260811-R001-dcc2dbde/search_space_v5_tpir20_multi_fpir/compression_summary.csv",
+      "bytes": 3839,
+      "sha256": "78195a032e1949bdb64598e24caf594d4e2c503142355eae9c1ce61101232817"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/survface/20260811-R001-dcc2dbde/search_space_v5_tpir20_multi_fpir/retrieval_summary.csv",
+      "bytes": 274719,
+      "sha256": "42e9497bd11ee28f88298c8446634bf5e247fbad3a76d4c3b18428b9b4938cf5"
+    }
+  }
+}

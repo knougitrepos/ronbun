@@ -17,6 +17,7 @@ from research.evaluation.metrics import (
     expected_calibration_error,
     open_set_identification_metrics,
     paired_binary_rate_difference_bootstrap_interval,
+    rate_ratio_matches_counts_or_compact_csv,
     rank_at_k,
     wilson_score_interval,
 )
@@ -56,6 +57,7 @@ from research.evaluation.saliency_streaming import (
 from research.evaluation.cross_dataset_saliency import (
     CrossDatasetSaliencyAssociations,
     load_cross_dataset_saliency_associations,
+    validate_rfw_custom_calibration_contract,
 )
 from research.evaluation.rfw_verification import (
     RFWVerificationResult,
@@ -95,6 +97,7 @@ __all__ = [
     "origin_cosine_retrieval",
     "paired_binary_rate_difference_bootstrap_interval",
     "paired_embedding_metrics",
+    "rate_ratio_matches_counts_or_compact_csv",
     "rank_at_k",
     "saliency_compression_associations",
     "saliency_geometry_associations",
@@ -111,5 +114,6 @@ __all__ = [
     "stream_select_population_representative_cases",
     "CrossDatasetSaliencyAssociations",
     "load_cross_dataset_saliency_associations",
+    "validate_rfw_custom_calibration_contract",
     "wilson_score_interval",
 ]

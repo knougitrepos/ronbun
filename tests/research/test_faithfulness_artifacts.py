@@ -111,3 +111,61 @@ def test_rejects_output_hash_mismatch(tmp_path: Path) -> None:
             model_uids={"lfw": "adaface-test"},
             run_ids={"lfw": "L001"},
         )
+
+
+def test_missing_policy_omit_skips_only_absent_manifests(tmp_path: Path) -> None:
+    _artifact(
+        tmp_path,
+        dataset="rfw_custom",
+        run_id="R001",
+        model_uid="adaface-test",
+    )
+
+    result = load_selected_faithfulness_artifacts(
+        tmp_path,
+        datasets=("lfw", "rfw_custom"),
+        model_uids={"lfw": "adaface-test", "rfw_custom": "adaface-test"},
+        run_ids={"lfw": "L001", "rfw_custom": "R001"},
+        missing_policy="omit",
+    )
+
+    assert set(result.summary["dataset"]) == {"rfw_custom"}
+    assert set(result.manifests) == {"rfw_custom"}
+    assert set(result.missing_manifests) == {"lfw"}
+    assert result.missing_manifests["lfw"].name == "manifest.json"
+
+
+def test_missing_manifest_remains_fail_closed_by_default(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="manifest.json"):
+        load_selected_faithfulness_artifacts(
+            tmp_path,
+            datasets=("lfw",),
+            model_uids={"lfw": "adaface-test"},
+            run_ids={"lfw": "L001"},
+        )
+
+
+def test_missing_policy_omit_still_rejects_invalid_existing_artifact(
+    tmp_path: Path,
+) -> None:
+    _artifact(tmp_path, dataset="lfw", run_id="L001", model_uid="wrong-model")
+
+    with pytest.raises(ValueError, match="faithfulness manifest mismatch"):
+        load_selected_faithfulness_artifacts(
+            tmp_path,
+            datasets=("lfw",),
+            model_uids={"lfw": "adaface-test"},
+            run_ids={"lfw": "L001"},
+            missing_policy="omit",
+        )
+
+
+def test_rejects_unknown_missing_policy(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unsupported missing_policy"):
+        load_selected_faithfulness_artifacts(
+            tmp_path,
+            datasets=("lfw",),
+            model_uids={"lfw": "adaface-test"},
+            run_ids={"lfw": "L001"},
+            missing_policy="ignore",  # type: ignore[arg-type]
+        )

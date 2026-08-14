@@ -20,7 +20,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from research.evaluation import annotate_compression_lineage  # noqa: E402
+from research.evaluation import (  # noqa: E402
+    annotate_compression_lineage,
+    rate_ratio_matches_counts_or_compact_csv,
+)
 from research.experiments import (  # noqa: E402
     characterize_step2_compression,
     characterize_step2_rfw_custom_compression,
@@ -443,16 +446,12 @@ def _validate_compact_frames(
         observed = pd.to_numeric(retrieval[alias], errors="raise")
         if not np.allclose(observed, canonical, rtol=0.0, atol=1e-12):
             raise ValueError(f"{alias} alias drifted")
-    retention = pd.to_numeric(
-        retrieval["compressed_tpir20_retention"], errors="coerce"
-    )
-    expected_retention = compressed_tpir / origin_tpir.replace(0.0, np.nan)
-    if not np.allclose(
-        retention,
-        expected_retention,
-        rtol=0.0,
-        atol=COMPACT_RATE_DELTA_ROUNDTRIP_ATOL,
-        equal_nan=True,
+    if not rate_ratio_matches_counts_or_compact_csv(
+        retrieval["compressed_tpir20_retention"],
+        reference_successes=retrieval["origin_tpir20_count"],
+        reference_totals=retrieval["origin_tpir20_denominator"],
+        candidate_successes=retrieval["compressed_tpir20_count"],
+        candidate_totals=retrieval["compressed_tpir20_denominator"],
     ):
         raise ValueError("TPIR20 retention drifted")
     crossing = retrieval["threshold_crossing_count"].astype(int)
@@ -1133,7 +1132,8 @@ def _parse_args() -> argparse.Namespace:
         type=float,
         dest="target_fpirs",
         help=(
-            "Repeat for each calibrated operating point. Defaults to 0.10 and 0.01."
+            "Repeat for each calibrated operating point. Defaults to "
+            "0.01, 0.05, 0.10, 0.20, and 0.30."
         ),
     )
     return parser.parse_args()

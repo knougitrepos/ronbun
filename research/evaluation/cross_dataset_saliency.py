@@ -112,10 +112,11 @@ def _with_lineage(frame: pd.DataFrame, *, run_id: str, run_dir: Path) -> pd.Data
     return enriched
 
 
-def _validate_rfw_custom_calibration(
+def validate_rfw_custom_calibration_contract(
     run_manifest: Mapping[str, object],
     diagnostics: Mapping[str, object],
 ) -> None:
+    """Fail closed unless an RFW-Custom run uses the current gallery contract."""
     config = run_manifest.get("config")
     if not isinstance(config, Mapping):
         raise ValueError("RFW-Custom run manifest is missing its frozen config")
@@ -226,7 +227,7 @@ def load_cross_dataset_saliency_associations(
         diagnostics: dict[str, object] | None = None
         if dataset == "rfw_custom":
             diagnostics = _read_json(diagnostics_path)
-            _validate_rfw_custom_calibration(run_manifest, diagnostics)
+            validate_rfw_custom_calibration_contract(run_manifest, diagnostics)
 
         phase05_path = _latest_completed_attempt(
             run_dir,

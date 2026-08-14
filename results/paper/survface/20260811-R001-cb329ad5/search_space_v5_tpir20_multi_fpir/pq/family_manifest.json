@@ -1,0 +1,111 @@
+{
+  "schema_version": 5,
+  "artifact_type": "step4_search_space_tpir20_multi_fpir_family_v5",
+  "generated_at_utc": "2026-08-14T04:06:09.324748+00:00",
+  "family": "pq",
+  "dataset_id": "survface",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "source_run_id": "20260811-R001-cb329ad5",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "source_origin_embedding_artifact_uid": "origin-embedding-13c5d2e2fa370ebd645dcf58",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 463341,
+    "paired_rows": 2316705,
+    "retrieval_rows": 13661925
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 75
+  },
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.7551835775375366,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 9795,
+      "calibration_fpir": 0.09999489561533358,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 11331,
+      "test_fpir": 0.09307846487481107,
+      "status": "target_met"
+    },
+    "0.01": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.8214111924171448,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 979,
+      "calibration_fpir": 0.009994385176866929,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 1021,
+      "test_fpir": 0.008387001380035487,
+      "status": "target_met"
+    },
+    "0.05": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.7810812592506409,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 4897,
+      "calibration_fpir": 0.04999234342300036,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 5531,
+      "test_fpir": 0.04543438259840967,
+      "status": "target_met"
+    },
+    "0.2": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.7208032011985779,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 19591,
+      "calibration_fpir": 0.2,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 22425,
+      "test_fpir": 0.18421009397384505,
+      "status": "target_met"
+    },
+    "0.3": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.6923377513885498,
+      "calibration_non_mated_count": 97955,
+      "calibration_false_accept_count": 29386,
+      "calibration_fpir": 0.29999489561533355,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 33909,
+      "test_fpir": 0.2785453768811198,
+      "status": "target_met"
+    }
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 2157,
+      "sha256": "c743fdea0e0c05f334f353180458f2db0092811095676e0b4589ba629fb2d514"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 121189,
+      "sha256": "c30d80dfac3806760e4e23f864522a6513afea5efcc04aa8417ac1d32252b134"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 27786,
+      "sha256": "db76b6b1e56f6c7837989590f65b34eeb5b4ea7c79bf7bbc48843c79f16448ce"
+    }
+  }
+}

@@ -24,28 +24,34 @@
     "balancedface",
     "uncertainty_defer_high_low_risk_queries"
   ],
-  "generated_at_utc": "2026-08-11T07:41:31.480924+00:00",
+  "faithfulness": {
+    "datasets": {},
+    "included": false,
+    "maximum_samples_per_dataset": 10000,
+    "threshold_independent": true
+  },
+  "generated_at_utc": "2026-08-14T03:05:29.199018+00:00",
   "join_contract": {
     "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
-    "rows": 70,
+    "rows": 175,
     "validation": "compression one-to-retrieval many"
   },
   "model_name": "adaface",
   "output_files": {
     "compression_summary_all.csv": {
-      "bytes": 97065,
+      "bytes": 283212,
       "path": "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/compression_summary_all.csv",
-      "sha256": "39c1d49f2bef87308faec0441285d98971bf65744ae2d8c0546ff6097a309c5b"
+      "sha256": "b67814ef93211fa41d1a3261b26683d0cffdeb1ebded0275bc4a62362b3acbe3"
     },
     "dir_fpir_storage_latency.csv": {
-      "bytes": 38615,
+      "bytes": 115052,
       "path": "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/dir_fpir_storage_latency.csv",
-      "sha256": "1472e1f81689be93ded611524fc23d81bb391f5d689b6a31443bb116b6927ea3"
+      "sha256": "08efa3047bb1ce93645f91dc8cc3d224eae35fe1eaad8bd6457cc499f16f523e"
     },
     "lfw_survface_fpir_appendix.csv": {
-      "bytes": 27078,
+      "bytes": 86932,
       "path": "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/lfw_survface_fpir_appendix.csv",
-      "sha256": "cd16bc05a2d6c3be6518b1d7c85285b9bf9080311d5a0cfc2f1ad94a0562c375"
+      "sha256": "1ed9556cec14ce6401902e586faae006b026eae426cdaeebed370e727ccdad58"
     },
     "representative_cases_all.csv": {
       "bytes": 328437,
@@ -53,9 +59,9 @@
       "sha256": "297ba22045241dc7b57399b51425c04d5ff54dd934d26e94279dac2eec6a2d2e"
     },
     "retrieval_summary_all.csv": {
-      "bytes": 85690,
+      "bytes": 255271,
       "path": "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/retrieval_summary_all.csv",
-      "sha256": "7718dc72f909643b5ab267655a599bc21f9c3a9c837d9b6070c3735d3c382f43"
+      "sha256": "aa5e813b9f382260916a518dc0d6430ec93fa3c00af9f876d51bec6251b1ee5c"
     },
     "saliency_geometry_associations_all.csv": {
       "bytes": 186437,
@@ -73,9 +79,19 @@
       "sha256": "722b90164ac840187f5d908886204f895bfb5a2401e2e1b32f1c02cc43b295ef"
     },
     "storage_open_set.png": {
-      "bytes": 205718,
+      "bytes": 285327,
       "path": "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/storage_open_set.png",
-      "sha256": "8f163dc1eece954d05e330bf6cdcec55492f54db3222c21e1a3a06f0b1a08290"
+      "sha256": "a529ff5eceec870887c3b13298cb60bad812183f7eeab0d05b889564a8329cbb"
+    },
+    "survface_tpir20_comparison.csv": {
+      "bytes": 213,
+      "path": "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/survface_tpir20_comparison.csv",
+      "sha256": "64f9c8d67e742d99cd2e3338a1077db9ee3e9ca0b376967352eac60dc7c532c2"
+    },
+    "tpir20_method_comparison.csv": {
+      "bytes": 57618,
+      "path": "results/paper/common/adaface/lfw-20260811-R001-c2e11ab2/tpir20_method_comparison.csv",
+      "sha256": "e09657febabe01eb20d815ef5946d6abc4cb82dfbc6723914fbd500c25d5ec73"
     }
   },
   "rfw_custom_boundary": {
@@ -138,22 +154,37 @@
       }
     }
   },
-  "schema_version": 8,
+  "schema_version": 9,
   "selected_runs": {
     "lfw": {
       "model_uid": "adaface-4df25b75e065b0b9ed43",
       "run_dir": "runs/lfw_20260811/20260811-R001-c2e11ab2_step4_lfw_adaface-4df25b75e065b0b9ed43",
       "run_id": "20260811-R001-c2e11ab2",
-      "summary_artifact_type": "step4_search_space_multi_fpir_v4",
-      "summary_claim_status": "validation_required",
+      "summary_artifact_type": "step4_search_space_tpir20_multi_fpir_v5",
+      "summary_claim_status": "exploratory_dirty_evaluator",
       "summary_manifest": {
-        "path": "results/paper/lfw/20260811-R001-c2e11ab2/search_space_v4_multi_fpir/summary_manifest.json",
-        "sha256": "936f23617ddae857ba70f1ba03f4d08baa954312ed755abf5edd3a174b6cfba9"
+        "path": "results/paper/lfw/20260811-R001-c2e11ab2/search_space_v5_tpir20_multi_fpir/summary_manifest.json",
+        "sha256": "0f64e22d299059c0f75446940ca4ce46d8de8692e29bfaa078ab4ef8695de989"
       }
     }
   },
-  "survface_faithfulness": {
-    "included": false
-  },
-  "survface_threshold_claim_status": "not_flagged"
+  "survface_threshold_claim_status": "not_flagged",
+  "tpir20_contract": {
+    "method_rows": [
+      "origin",
+      "compressed_frozen_threshold",
+      "compressed_recalibrated"
+    ],
+    "rank": 20,
+    "retention": "compressed_tpir20 / origin_tpir20",
+    "target_fpirs": [
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "threshold_source": "calibration",
+    "thresholded_score": "true_identity_score_within_top20"
+  }
 }

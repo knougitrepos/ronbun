@@ -1,0 +1,111 @@
+{
+  "schema_version": 5,
+  "artifact_type": "step4_search_space_tpir20_multi_fpir_family_v5",
+  "generated_at_utc": "2026-08-14T04:14:00.579903+00:00",
+  "family": "pca",
+  "dataset_id": "lfw",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "source_run_id": "20260811-R001-f9c81fe5",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "source_origin_embedding_artifact_uid": "origin-embedding-00590837a43076eb252f2679",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 13195,
+    "paired_rows": 65975,
+    "retrieval_rows": 216400
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 100
+  },
+  "origin_calibration_signatures": {
+    "0.01": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.4329013526439667,
+      "calibration_non_mated_count": 2910,
+      "calibration_false_accept_count": 0,
+      "calibration_fpir": 0.0,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 1,
+      "test_fpir": 0.0005924170616113745,
+      "status": "target_met"
+    },
+    "0.05": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.4329013526439667,
+      "calibration_non_mated_count": 2910,
+      "calibration_false_accept_count": 0,
+      "calibration_fpir": 0.0,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 1,
+      "test_fpir": 0.0005924170616113745,
+      "status": "target_met"
+    },
+    "0.1": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.4329013526439667,
+      "calibration_non_mated_count": 2910,
+      "calibration_false_accept_count": 0,
+      "calibration_fpir": 0.0,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 1,
+      "test_fpir": 0.0005924170616113745,
+      "status": "target_met"
+    },
+    "0.2": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.4329013526439667,
+      "calibration_non_mated_count": 2910,
+      "calibration_false_accept_count": 0,
+      "calibration_fpir": 0.0,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 1,
+      "test_fpir": 0.0005924170616113745,
+      "status": "target_met"
+    },
+    "0.3": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.4329013526439667,
+      "calibration_non_mated_count": 2910,
+      "calibration_false_accept_count": 0,
+      "calibration_fpir": 0.0,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 1,
+      "test_fpir": 0.0005924170616113745,
+      "status": "target_met"
+    }
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 2121,
+      "sha256": "7686dfdd7f626166fa5496f5531b33c6d0b94f05a8207ab604afa9303ed74369"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 132915,
+      "sha256": "feabebc4c9028b2c4f2593dda7218a12c0e9cf9393228f2a57f137a34d2635df"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 24009,
+      "sha256": "13f1e71455af60ad72d6fbef1a6d8ff6c321f6af626b5234b06a55d8ed717507"
+    }
+  }
+}

@@ -9,6 +9,105 @@ from sklearn.metrics import brier_score_loss, roc_auc_score
 
 PAIRED_BOOTSTRAP_RESAMPLES = 2_000
 PAIRED_BOOTSTRAP_RANDOM_SEED = 42
+COMPACT_CSV_SIGNIFICANT_DIGITS = 12
+
+
+def rate_ratio_matches_counts_or_compact_csv(
+    observed,
+    *,
+    reference_successes,
+    reference_totals,
+    candidate_successes,
+    candidate_totals,
+    significant_digits: int = COMPACT_CSV_SIGNIFICANT_DIGITS,
+) -> bool:
+    """Check a rate ratio against integer counts before or after CSV rounding.
+
+    Compact research tables use ``%.12g``. Dividing two independently rounded
+    rates can amplify harmless error when the reference rate is small, so the
+    ratio is reconstructed from the integer sufficient statistics instead.
+    Both the full-precision value and its compact-CSV representation are valid.
+    """
+
+    if isinstance(significant_digits, (bool, np.bool_)):
+        raise ValueError("significant_digits must be a positive integer")
+    digits = int(significant_digits)
+    if digits != significant_digits or digits <= 0:
+        raise ValueError("significant_digits must be a positive integer")
+
+    vectors = {
+        "observed": pd.to_numeric(pd.Series(observed), errors="raise").to_numpy(
+            dtype=np.float64
+        ),
+        "reference_successes": pd.to_numeric(
+            pd.Series(reference_successes), errors="raise"
+        ).to_numpy(dtype=np.float64),
+        "reference_totals": pd.to_numeric(
+            pd.Series(reference_totals), errors="raise"
+        ).to_numpy(dtype=np.float64),
+        "candidate_successes": pd.to_numeric(
+            pd.Series(candidate_successes), errors="raise"
+        ).to_numpy(dtype=np.float64),
+        "candidate_totals": pd.to_numeric(
+            pd.Series(candidate_totals), errors="raise"
+        ).to_numpy(dtype=np.float64),
+    }
+    lengths = {values.size for values in vectors.values()}
+    if len(lengths) != 1:
+        raise ValueError("rate-ratio vectors must have the same length")
+
+    for prefix in ("reference", "candidate"):
+        successes = vectors[f"{prefix}_successes"]
+        totals = vectors[f"{prefix}_totals"]
+        if (
+            not np.isfinite(successes).all()
+            or not np.isfinite(totals).all()
+            or not np.equal(successes, np.floor(successes)).all()
+            or not np.equal(totals, np.floor(totals)).all()
+            or (totals <= 0).any()
+            or (successes < 0).any()
+            or (successes > totals).any()
+        ):
+            raise ValueError(f"{prefix} binomial counts are invalid")
+
+    observed_values = vectors["observed"]
+    if np.isinf(observed_values).any():
+        return False
+    reference_rate = (
+        vectors["reference_successes"] / vectors["reference_totals"]
+    )
+    candidate_rate = (
+        vectors["candidate_successes"] / vectors["candidate_totals"]
+    )
+    expected = np.full(reference_rate.shape, np.nan, dtype=np.float64)
+    np.divide(
+        candidate_rate,
+        reference_rate,
+        out=expected,
+        where=reference_rate != 0.0,
+    )
+    compact_expected = np.asarray(
+        [
+            np.nan if np.isnan(value) else float(format(float(value), f".{digits}g"))
+            for value in expected
+        ],
+        dtype=np.float64,
+    )
+    full_precision_match = np.isclose(
+        observed_values,
+        expected,
+        rtol=1e-14,
+        atol=1e-14,
+        equal_nan=True,
+    )
+    compact_match = np.isclose(
+        observed_values,
+        compact_expected,
+        rtol=0.0,
+        atol=0.0,
+        equal_nan=True,
+    )
+    return bool(np.all(full_precision_match | compact_match))
 
 
 def _validated_binomial_counts(successes: int, total: int) -> tuple[int, int]:
