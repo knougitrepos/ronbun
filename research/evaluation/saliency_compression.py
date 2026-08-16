@@ -50,18 +50,37 @@ DEFAULT_RETRIEVAL_METRICS = (
     "absolute_top1_score_drift",
     "absolute_origin_winner_score_drift",
     "origin_threshold_distance",
+    "compressed_threshold_distance",
+    "absolute_threshold_margin_shift",
     "agreement_with_origin",
     "threshold_crossing",
     "accept_to_reject_crossing",
     "reject_to_accept_crossing",
+    "false_accept_gain",
+    "false_accept_loss",
+    "tpir_at_rank_k_loss",
+    "tpir_at_rank_k_gain",
+    "tpir_threshold_loss",
+    "tpir_rank_loss",
 )
 RETRIEVAL_DERIVATION_SOURCE_COLUMNS = (
+    "is_mated",
+    "top_k",
     "origin_top1_score",
     "compressed_top1_score",
+    "compressed_score_at_origin_top1",
     "top1_score_drift",
     "origin_winner_score_drift",
     "origin_decision_threshold",
     "compressed_decision_threshold",
+    "origin_accepted",
+    "compressed_accepted",
+    "origin_true_identity_rank",
+    "compressed_true_identity_rank",
+    "origin_true_identity_score",
+    "compressed_true_identity_score",
+    "origin_tpir_at_rank_k",
+    "compressed_tpir_at_rank_k",
     "score_spaces_comparable",
     "threshold_crossing",
     "threshold_crossing_direction",
@@ -77,6 +96,12 @@ RETRIEVAL_DERIVED_METRICS = (
     "absolute_threshold_margin_shift",
     "accept_to_reject_crossing",
     "reject_to_accept_crossing",
+    "false_accept_gain",
+    "false_accept_loss",
+    "tpir_at_rank_k_loss",
+    "tpir_at_rank_k_gain",
+    "tpir_threshold_loss",
+    "tpir_rank_loss",
 )
 RETRIEVAL_BOOLEAN_METRICS = (
     "agreement_with_origin",
@@ -85,6 +110,37 @@ RETRIEVAL_BOOLEAN_METRICS = (
     "reject_to_accept_crossing",
 )
 SALIENCY_THRESHOLD_METRICS_VERSION = "saliency-threshold-metrics-v1"
+DEFAULT_THRESHOLD_EVENT_METRICS = (
+    "threshold_crossing",
+    "accept_to_reject_crossing",
+    "reject_to_accept_crossing",
+    "false_accept_gain",
+    "false_accept_loss",
+    "tpir_at_rank_k_loss",
+    "tpir_at_rank_k_gain",
+    "tpir_threshold_loss",
+    "tpir_rank_loss",
+)
+DEFAULT_THRESHOLD_INSTABILITY_PREDICTORS = (
+    "absolute_top1_score_drift",
+    "absolute_origin_winner_score_drift",
+    "origin_threshold_distance",
+    "compressed_threshold_distance",
+    "absolute_threshold_margin_shift",
+)
+DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES = (
+    "outside_face_attention",
+    "saliency_entropy",
+)
+DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS = (
+    "false_accept_gain",
+    "tpir_at_rank_k_loss",
+    "tpir_threshold_loss",
+    "tpir_rank_loss",
+)
+FROZEN_ORIGIN_THRESHOLD_POLICY = "frozen_origin"
+RECALIBRATED_COMPRESSED_THRESHOLD_POLICY = "recalibrated_compressed"
+DEFAULT_MINIMUM_EVENT_COUNT = 5
 # Backward-compatible union for callers that intentionally analyze a table
 # containing one retrieval row per geometry row. New code should use the
 # geometry/retrieval-specific wrappers below.
@@ -218,6 +274,10 @@ def derive_saliency_threshold_metrics(
         name="retrieval_sensitivity",
     )
     result = retrieval_sensitivity.copy()
+    mated = _strict_boolean(
+        result["is_mated"],
+        name="retrieval_sensitivity.is_mated",
+    )
     comparable = _strict_boolean(
         result["score_spaces_comparable"],
         name="retrieval_sensitivity.score_spaces_comparable",
@@ -226,13 +286,41 @@ def derive_saliency_threshold_metrics(
         result["threshold_crossing"],
         name="retrieval_sensitivity.threshold_crossing",
     )
+    origin_accepted = _strict_boolean(
+        result["origin_accepted"],
+        name="retrieval_sensitivity.origin_accepted",
+    )
+    compressed_accepted = _strict_boolean(
+        result["compressed_accepted"],
+        name="retrieval_sensitivity.compressed_accepted",
+    )
+    origin_tpir = _strict_boolean(
+        result["origin_tpir_at_rank_k"],
+        name="retrieval_sensitivity.origin_tpir_at_rank_k",
+    )
+    compressed_tpir = _strict_boolean(
+        result["compressed_tpir_at_rank_k"],
+        name="retrieval_sensitivity.compressed_tpir_at_rank_k",
+    )
+    top_k = pd.to_numeric(result["top_k"], errors="coerce").astype(np.float64)
+    if (
+        not np.isfinite(top_k.to_numpy()).all()
+        or (top_k <= 0).any()
+        or not np.equal(top_k, np.floor(top_k)).all()
+    ):
+        raise ValueError("retrieval_sensitivity.top_k must contain positive integers")
     numeric_columns = (
         "origin_top1_score",
         "compressed_top1_score",
+        "compressed_score_at_origin_top1",
         "top1_score_drift",
         "origin_winner_score_drift",
         "origin_decision_threshold",
         "compressed_decision_threshold",
+        "origin_true_identity_rank",
+        "compressed_true_identity_rank",
+        "origin_true_identity_score",
+        "compressed_true_identity_score",
     )
     numeric = {
         column: pd.to_numeric(result[column], errors="coerce").astype(np.float64)
@@ -262,6 +350,40 @@ def derive_saliency_threshold_metrics(
                 "spaces are comparable"
             )
 
+    comparable_mask = comparable.to_numpy(dtype=bool)
+    origin_winner_scores = numeric["compressed_score_at_origin_top1"].to_numpy()
+    if np.isfinite(origin_winner_scores[~comparable_mask]).any():
+        raise ValueError(
+            "retrieval_sensitivity.compressed_score_at_origin_top1 must be "
+            "missing when score spaces are not comparable"
+        )
+    if not np.isfinite(origin_winner_scores[comparable_mask]).all():
+        raise ValueError(
+            "retrieval_sensitivity.compressed_score_at_origin_top1 must be "
+            "finite when score spaces are comparable"
+        )
+    expected_top1_drift = (
+        numeric["compressed_top1_score"] - numeric["origin_top1_score"]
+    )
+    expected_origin_winner_drift = (
+        numeric["compressed_score_at_origin_top1"]
+        - numeric["origin_top1_score"]
+    )
+    for column, expected in (
+        ("top1_score_drift", expected_top1_drift),
+        ("origin_winner_score_drift", expected_origin_winner_drift),
+    ):
+        observed = numeric[column].to_numpy(dtype=np.float64)
+        if not np.isclose(
+            observed[comparable_mask],
+            expected.to_numpy(dtype=np.float64)[comparable_mask],
+            rtol=1e-7,
+            atol=1e-10,
+        ).all():
+            raise ValueError(
+                f"retrieval_sensitivity.{column} disagrees with source scores"
+            )
+
     origin_margin = (
         numeric["origin_top1_score"] - numeric["origin_decision_threshold"]
     )
@@ -277,6 +399,28 @@ def derive_saliency_threshold_metrics(
         np.nan,
     )
 
+    computed_origin_accepted = numeric["origin_top1_score"].ge(
+        numeric["origin_decision_threshold"]
+    )
+    computed_compressed_accepted = numeric["compressed_top1_score"].ge(
+        numeric["compressed_decision_threshold"]
+    )
+    if not computed_origin_accepted.equals(origin_accepted):
+        raise ValueError(
+            "retrieval_sensitivity.origin_accepted disagrees with score and threshold"
+        )
+    if not computed_compressed_accepted.equals(compressed_accepted):
+        raise ValueError(
+            "retrieval_sensitivity.compressed_accepted disagrees with score and "
+            "threshold"
+        )
+    computed_crossing = computed_origin_accepted.ne(computed_compressed_accepted)
+    if not computed_crossing.equals(crossing):
+        raise ValueError(
+            "retrieval_sensitivity.threshold_crossing disagrees with score and "
+            "threshold decisions"
+        )
+
     direction = result["threshold_crossing_direction"].astype(str).str.strip()
     allowed_directions = {"none", "accept_to_reject", "reject_to_accept"}
     if not direction.isin(allowed_directions).all():
@@ -285,14 +429,102 @@ def derive_saliency_threshold_metrics(
             "retrieval_sensitivity.threshold_crossing_direction contains "
             f"unsupported values: {invalid}"
         )
-    direction_crossing = direction.ne("none")
-    if not direction_crossing.equals(crossing):
+    expected_direction = pd.Series(
+        np.select(
+            [
+                computed_origin_accepted & ~computed_compressed_accepted,
+                ~computed_origin_accepted & computed_compressed_accepted,
+            ],
+            ["accept_to_reject", "reject_to_accept"],
+            default="none",
+        ),
+        index=result.index,
+    )
+    if not direction.equals(expected_direction):
         raise ValueError(
-            "retrieval_sensitivity threshold_crossing disagrees with "
-            "threshold_crossing_direction"
+            "retrieval_sensitivity.threshold_crossing_direction disagrees with "
+            "score and threshold decisions"
         )
 
+    rank_columns = (
+        "origin_true_identity_rank",
+        "compressed_true_identity_rank",
+    )
+    score_columns = (
+        "origin_true_identity_score",
+        "compressed_true_identity_score",
+    )
+    mated_mask = mated.to_numpy(dtype=bool)
+    for rank_column, score_column in zip(rank_columns, score_columns):
+        ranks = numeric[rank_column].to_numpy(dtype=np.float64)
+        scores = numeric[score_column].to_numpy(dtype=np.float64)
+        finite_rank = np.isfinite(ranks)
+        finite_score = np.isfinite(scores)
+        if finite_rank[~mated_mask].any() or finite_score[~mated_mask].any():
+            raise ValueError(
+                f"retrieval_sensitivity.{rank_column}/{score_column} must be "
+                "missing for non-mated queries"
+            )
+        if not np.array_equal(finite_rank, finite_score):
+            raise ValueError(
+                f"retrieval_sensitivity.{rank_column} and {score_column} "
+                "availability differs"
+            )
+        valid_ranks = ranks[finite_rank]
+        valid_top_k = top_k.to_numpy(dtype=np.float64)[finite_rank]
+        if (
+            (valid_ranks < 1).any()
+            or (valid_ranks > valid_top_k).any()
+            or not np.equal(valid_ranks, np.floor(valid_ranks)).all()
+        ):
+            raise ValueError(
+                f"retrieval_sensitivity.{rank_column} must be an integer in "
+                "[1, top_k] when present"
+            )
+
+    origin_rank_available = numeric["origin_true_identity_rank"].notna()
+    compressed_rank_available = numeric["compressed_true_identity_rank"].notna()
+    computed_origin_tpir = (
+        mated
+        & origin_rank_available
+        & numeric["origin_true_identity_score"].ge(
+            numeric["origin_decision_threshold"]
+        )
+    )
+    computed_compressed_tpir = (
+        mated
+        & compressed_rank_available
+        & numeric["compressed_true_identity_score"].ge(
+            numeric["compressed_decision_threshold"]
+        )
+    )
+    if not computed_origin_tpir.equals(origin_tpir):
+        raise ValueError(
+            "retrieval_sensitivity.origin_tpir_at_rank_k disagrees with genuine "
+            "rank, score, and threshold"
+        )
+    if not computed_compressed_tpir.equals(compressed_tpir):
+        raise ValueError(
+            "retrieval_sensitivity.compressed_tpir_at_rank_k disagrees with "
+            "genuine rank, score, and threshold"
+        )
+
+    def applicable_event(
+        applicable: pd.Series,
+        event: pd.Series,
+    ) -> pd.Series:
+        return pd.Series(
+            np.where(applicable, event.astype(np.float64), np.nan),
+            index=result.index,
+            dtype=np.float64,
+        )
+
+    result["is_mated"] = mated
     result["score_spaces_comparable"] = comparable
+    result["origin_accepted"] = origin_accepted
+    result["compressed_accepted"] = compressed_accepted
+    result["origin_tpir_at_rank_k"] = origin_tpir
+    result["compressed_tpir_at_rank_k"] = compressed_tpir
     result["threshold_crossing"] = crossing
     result["absolute_top1_score_drift"] = top1_drift.abs()
     result["absolute_origin_winner_score_drift"] = origin_winner_drift.abs()
@@ -304,6 +536,30 @@ def derive_saliency_threshold_metrics(
     result["absolute_threshold_margin_shift"] = margin_shift.abs()
     result["accept_to_reject_crossing"] = direction.eq("accept_to_reject")
     result["reject_to_accept_crossing"] = direction.eq("reject_to_accept")
+    result["false_accept_gain"] = applicable_event(
+        ~mated,
+        ~origin_accepted & compressed_accepted,
+    )
+    result["false_accept_loss"] = applicable_event(
+        ~mated,
+        origin_accepted & ~compressed_accepted,
+    )
+    result["tpir_at_rank_k_loss"] = applicable_event(
+        mated,
+        origin_tpir & ~compressed_tpir,
+    )
+    result["tpir_at_rank_k_gain"] = applicable_event(
+        mated,
+        ~origin_tpir & compressed_tpir,
+    )
+    result["tpir_threshold_loss"] = applicable_event(
+        mated,
+        origin_tpir & ~compressed_tpir & compressed_rank_available,
+    )
+    result["tpir_rank_loss"] = applicable_event(
+        mated,
+        origin_tpir & ~compressed_tpir & ~compressed_rank_available,
+    )
     result["threshold_metric_derivation_version"] = (
         SALIENCY_THRESHOLD_METRICS_VERSION
     )
@@ -730,6 +986,20 @@ def _weighted_rerank_group_records(
                     observed = np.nan
             else:
                 observed = np.nan
+            if sensitivity_metric in DEFAULT_THRESHOLD_EVENT_METRICS:
+                event_values = right[valid]
+                if not np.isin(event_values, (0.0, 1.0)).all():
+                    raise ValueError(
+                        f"{sensitivity_metric} must contain only binary events"
+                    )
+                event_count = int(event_values.sum())
+                non_event_count = int(valid_count - event_count)
+                event_rate = (
+                    float(event_count / valid_count) if valid_count else np.nan
+                )
+            else:
+                event_count = non_event_count = None
+                event_rate = np.nan
             pair_index = len(pair_specs)
             pair_specs.append(
                 {
@@ -739,6 +1009,9 @@ def _weighted_rerank_group_records(
                     "sample_count": valid_count,
                     "identity_count": int(np.unique(identities[valid]).size),
                     "observed": observed,
+                    "event_count": event_count,
+                    "non_event_count": non_event_count,
+                    "event_rate": event_rate,
                 }
             )
             digest = hashlib.sha256(np.packbits(valid).tobytes()).digest()
@@ -958,6 +1231,9 @@ def _weighted_rerank_group_records(
                 "sensitivity_metric": pair_spec["sensitivity_metric"],
                 "sample_count": int(pair_spec["sample_count"]),
                 "identity_count": int(pair_spec["identity_count"]),
+                "event_count": pair_spec["event_count"],
+                "non_event_count": pair_spec["non_event_count"],
+                "event_rate": float(pair_spec["event_rate"]),
                 "spearman_rho": float(pair_spec["observed"]),
                 "bootstrap_confidence_level": confidence_level,
                 "bootstrap_ci_low": float(lower),
@@ -1124,6 +1400,25 @@ def saliency_compression_associations(
                     )
                 else:
                     lower = upper = np.nan
+                if sensitivity_metric in DEFAULT_THRESHOLD_EVENT_METRICS:
+                    event_values = pd.to_numeric(
+                        pair_frame[sensitivity_metric],
+                        errors="coerce",
+                    ).to_numpy(dtype=np.float64)
+                    if not np.isin(event_values, (0.0, 1.0)).all():
+                        raise ValueError(
+                            f"{sensitivity_metric} must contain only binary events"
+                        )
+                    event_count = int(event_values.sum())
+                    non_event_count = int(len(event_values) - event_count)
+                    event_rate = (
+                        float(event_count / len(event_values))
+                        if len(event_values)
+                        else np.nan
+                    )
+                else:
+                    event_count = non_event_count = None
+                    event_rate = np.nan
                 record = {
                     column: value for column, value in zip(group_columns, group_key)
                 }
@@ -1135,6 +1430,9 @@ def saliency_compression_associations(
                         "identity_count": int(
                             pair_frame[identity_column].nunique(dropna=False)
                         ),
+                        "event_count": event_count,
+                        "non_event_count": non_event_count,
+                        "event_rate": event_rate,
                         "spearman_rho": observed,
                         "bootstrap_confidence_level": level,
                         "bootstrap_ci_low": float(lower),
@@ -1153,7 +1451,36 @@ def saliency_compression_associations(
             completed=group_index,
             total=total_groups,
         )
-    return pd.DataFrame.from_records(records)
+    result = pd.DataFrame.from_records(records)
+    if result.empty:
+        return result
+    event_rows = result["sensitivity_metric"].isin(
+        DEFAULT_THRESHOLD_EVENT_METRICS
+    )
+    event_support = (
+        pd.to_numeric(result["event_count"], errors="coerce").ge(
+            DEFAULT_MINIMUM_EVENT_COUNT
+        )
+        & pd.to_numeric(result["non_event_count"], errors="coerce").ge(
+            DEFAULT_MINIMUM_EVENT_COUNT
+        )
+    )
+    result["event_support_eligible"] = pd.array(
+        np.where(event_rows, event_support, pd.NA),
+        dtype="boolean",
+    )
+    result["association_status"] = np.select(
+        [~event_rows, event_support],
+        ["continuous_outcome", "eligible"],
+        default="insufficient_event_support",
+    )
+    insufficient = event_rows & ~event_support
+    result.loc[
+        insufficient,
+        ["spearman_rho", "bootstrap_ci_low", "bootstrap_ci_high"],
+    ] = np.nan
+    result.loc[insufficient, "bootstrap_valid_repeats"] = 0
+    return result
 
 
 def saliency_geometry_associations(
@@ -1254,4 +1581,580 @@ def saliency_retrieval_associations(
         "threshold_metric_derivation_version",
         SALIENCY_THRESHOLD_METRICS_VERSION,
     )
+    primary = (
+        result["saliency_feature"].isin(
+            DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES
+        )
+        & result["sensitivity_metric"].isin(
+            (
+                "absolute_threshold_margin_shift",
+                *DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
+            )
+        )
+    )
+    result.insert(
+        2,
+        "analysis_tier",
+        np.where(primary, "prespecified_primary", "exploratory"),
+    )
     return result
+
+
+def threshold_instability_associations(
+    joined_retrieval: pd.DataFrame,
+    *,
+    predictors: Sequence[str] = DEFAULT_THRESHOLD_INSTABILITY_PREDICTORS,
+    event_metrics: Sequence[str] = DEFAULT_THRESHOLD_EVENT_METRICS,
+    identity_column: str = "identity_id",
+    bootstrap_repeats: int = 500,
+    confidence_level: float = 0.95,
+    seed: int = 42,
+    bootstrap_rank_strategy: str = WEIGHTED_RERANK_STRATEGY,
+    bootstrap_batch_size: int = 4,
+    progress: AssociationProgressCallback | None = None,
+) -> pd.DataFrame:
+    """Relate score/margin perturbations directly to threshold events."""
+
+    _require_columns(
+        joined_retrieval,
+        ("threshold_policy", "is_mated", *predictors, *event_metrics),
+        name="joined_retrieval",
+    )
+    normalized = joined_retrieval.copy()
+    normalized["is_mated"] = _strict_boolean(
+        normalized["is_mated"],
+        name="joined_retrieval.is_mated",
+    )
+    optional_groups = tuple(
+        column
+        for column in (
+            "search_mode",
+            "protocol_uid",
+            "threshold_source_split",
+            "evaluation_split",
+            "target_fpir",
+        )
+        if column in normalized
+    )
+    group_columns = (
+        *BASE_ASSOCIATION_GROUP_COLUMNS,
+        *optional_groups,
+        "threshold_policy",
+        "is_mated",
+    )
+    result = saliency_compression_associations(
+        normalized,
+        saliency_features=predictors,
+        sensitivity_metrics=event_metrics,
+        group_columns=group_columns,
+        identity_column=identity_column,
+        bootstrap_repeats=bootstrap_repeats,
+        confidence_level=confidence_level,
+        seed=seed,
+        bootstrap_rank_strategy=bootstrap_rank_strategy,
+        bootstrap_batch_size=bootstrap_batch_size,
+        progress=progress,
+    ).rename(columns={"saliency_feature": "instability_predictor"})
+    result.insert(0, "analysis_scope", "threshold_instability")
+    result.insert(
+        1,
+        "threshold_metric_derivation_version",
+        SALIENCY_THRESHOLD_METRICS_VERSION,
+    )
+    primary = (
+        result["instability_predictor"].isin(
+            ("absolute_top1_score_drift", "absolute_threshold_margin_shift")
+        )
+        & result["sensitivity_metric"].isin(
+            DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS
+        )
+    )
+    result.insert(
+        2,
+        "analysis_tier",
+        np.where(primary, "prespecified_supporting", "exploratory"),
+    )
+    return result
+
+
+def threshold_policy_event_comparisons(
+    joined_retrieval: pd.DataFrame,
+    *,
+    event_metrics: Sequence[str] = DEFAULT_THRESHOLD_EVENT_METRICS,
+    identity_column: str = "identity_id",
+    bootstrap_repeats: int = 500,
+    confidence_level: float = 0.95,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Compare frozen and recalibrated threshold events on paired queries."""
+
+    _require_columns(
+        joined_retrieval,
+        (
+            *JOIN_KEYS,
+            *PROFILE_KEYS,
+            identity_column,
+            "threshold_policy",
+            "is_mated",
+            *event_metrics,
+        ),
+        name="joined_retrieval",
+    )
+    if (
+        isinstance(bootstrap_repeats, bool)
+        or not isinstance(bootstrap_repeats, int)
+        or bootstrap_repeats < 0
+    ):
+        raise ValueError("bootstrap_repeats must be a non-negative integer")
+    repeats = bootstrap_repeats
+    if not 0.0 < float(confidence_level) < 1.0:
+        raise ValueError("confidence_level must be between 0 and 1")
+    level = float(confidence_level)
+    normalized = joined_retrieval.copy()
+    normalized["is_mated"] = _strict_boolean(
+        normalized["is_mated"],
+        name="joined_retrieval.is_mated",
+    )
+    optional_groups = tuple(
+        column
+        for column in (
+            "search_mode",
+            "protocol_uid",
+            "threshold_source_split",
+            "evaluation_split",
+            "target_fpir",
+        )
+        if column in normalized
+    )
+    group_columns = (
+        *BASE_ASSOCIATION_GROUP_COLUMNS,
+        *optional_groups,
+        "is_mated",
+    )
+    _validate_unique(
+        normalized,
+        (*group_columns, "sample_id", "threshold_policy"),
+        name="joined_retrieval",
+    )
+    alpha = (1.0 - level) / 2.0
+    records: list[dict[str, object]] = []
+    grouped = normalized.groupby(list(group_columns), dropna=False, sort=True)
+    for raw_group_key, group in grouped:
+        group_key = (
+            raw_group_key if isinstance(raw_group_key, tuple) else (raw_group_key,)
+        )
+        policies = set(group["threshold_policy"].astype(str))
+        required_policies = {
+            FROZEN_ORIGIN_THRESHOLD_POLICY,
+            RECALIBRATED_COMPRESSED_THRESHOLD_POLICY,
+        }
+        if not required_policies.issubset(policies):
+            continue
+        for event_metric in event_metrics:
+            event_frame = group.loc[
+                group["threshold_policy"].astype(str).isin(required_policies),
+                ["sample_id", identity_column, "threshold_policy", event_metric],
+            ].copy()
+            event_frame[event_metric] = pd.to_numeric(
+                event_frame[event_metric],
+                errors="coerce",
+            )
+            identities = event_frame.pivot(
+                index="sample_id",
+                columns="threshold_policy",
+                values=identity_column,
+            )
+            values = event_frame.pivot(
+                index="sample_id",
+                columns="threshold_policy",
+                values=event_metric,
+            )
+            valid = values.loc[:, sorted(required_policies)].notna().all(axis=1)
+            values = values.loc[valid]
+            if values.empty:
+                continue
+            identity_pairs = identities.loc[valid, sorted(required_policies)]
+            if not identity_pairs.iloc[:, 0].astype(str).equals(
+                identity_pairs.iloc[:, 1].astype(str)
+            ):
+                raise ValueError(
+                    f"paired threshold policies disagree on {identity_column}"
+                )
+            frozen = values[FROZEN_ORIGIN_THRESHOLD_POLICY].to_numpy(
+                dtype=np.float64
+            )
+            recalibrated = values[
+                RECALIBRATED_COMPRESSED_THRESHOLD_POLICY
+            ].to_numpy(dtype=np.float64)
+            if not (
+                np.isin(frozen, (0.0, 1.0)).all()
+                and np.isin(recalibrated, (0.0, 1.0)).all()
+            ):
+                raise ValueError(f"{event_metric} must contain only binary events")
+            difference = recalibrated - frozen
+            identity_values = identity_pairs.iloc[:, 0].astype(str).to_numpy()
+            cluster_identities, cluster_codes = np.unique(
+                identity_values,
+                return_inverse=True,
+            )
+            bootstrap_values: list[float] = []
+            if repeats and len(cluster_identities):
+                rng = np.random.default_rng(
+                    _pair_seed(
+                        seed,
+                        group_key,
+                        "threshold_policy_comparison",
+                        str(event_metric),
+                    )
+                )
+                probabilities = np.full(
+                    len(cluster_identities),
+                    1.0 / len(cluster_identities),
+                    dtype=np.float64,
+                )
+                counts = rng.multinomial(
+                    len(cluster_identities),
+                    probabilities,
+                    size=repeats,
+                ).astype(np.float64, copy=False)
+                row_weights = counts[:, cluster_codes]
+                denominators = row_weights.sum(axis=1)
+                estimates = (row_weights @ difference) / denominators
+                bootstrap_values = estimates[np.isfinite(estimates)].tolist()
+            if bootstrap_values:
+                lower, upper = np.quantile(
+                    np.asarray(bootstrap_values, dtype=np.float64),
+                    [alpha, 1.0 - alpha],
+                )
+            else:
+                lower = upper = np.nan
+            record = {
+                column: value for column, value in zip(group_columns, group_key)
+            }
+            record.update(
+                {
+                    "analysis_scope": "threshold_policy_comparison",
+                    "threshold_metric_derivation_version": (
+                        SALIENCY_THRESHOLD_METRICS_VERSION
+                    ),
+                    "event_metric": str(event_metric),
+                    "analysis_tier": (
+                        "prespecified_supporting"
+                        if event_metric in DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS
+                        else "exploratory"
+                    ),
+                    "paired_query_count": int(len(values)),
+                    "identity_count": int(len(cluster_identities)),
+                    "frozen_event_count": int(frozen.sum()),
+                    "frozen_event_rate": float(frozen.mean()),
+                    "recalibrated_event_count": int(recalibrated.sum()),
+                    "recalibrated_event_rate": float(recalibrated.mean()),
+                    "recalibrated_minus_frozen_rate": float(difference.mean()),
+                    "resolved_event_count": int(
+                        ((frozen == 1.0) & (recalibrated == 0.0)).sum()
+                    ),
+                    "introduced_event_count": int(
+                        ((frozen == 0.0) & (recalibrated == 1.0)).sum()
+                    ),
+                    "paired_bootstrap_confidence_level": level,
+                    "paired_bootstrap_ci_low": float(lower),
+                    "paired_bootstrap_ci_high": float(upper),
+                    "paired_bootstrap_valid_repeats": len(bootstrap_values),
+                    "bootstrap_unit": identity_column,
+                }
+            )
+            records.append(record)
+    return pd.DataFrame.from_records(records)
+
+
+def _weighted_correlation_batch(
+    left: np.ndarray,
+    right: np.ndarray,
+    weights: np.ndarray,
+) -> np.ndarray:
+    denominators = weights.sum(axis=1)
+    left_mean = (weights * left).sum(axis=1) / denominators
+    right_mean = (weights * right).sum(axis=1) / denominators
+    left_centered = left - left_mean[:, None]
+    right_centered = right - right_mean[:, None]
+    covariance = (weights * left_centered * right_centered).sum(axis=1)
+    left_variance = (weights * left_centered**2).sum(axis=1)
+    right_variance = (weights * right_centered**2).sum(axis=1)
+    scale = np.sqrt(left_variance * right_variance)
+    result = np.full(len(weights), np.nan, dtype=np.float64)
+    valid = np.isfinite(scale) & (scale > 0.0)
+    result[valid] = covariance[valid] / scale[valid]
+    return result
+
+
+def threshold_policy_saliency_rho_comparisons(
+    joined_retrieval: pd.DataFrame,
+    *,
+    saliency_features: Sequence[str] = (
+        DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES
+    ),
+    event_metrics: Sequence[str] = DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
+    identity_column: str = "identity_id",
+    bootstrap_repeats: int = 500,
+    confidence_level: float = 0.95,
+    seed: int = 42,
+    bootstrap_batch_size: int = 4,
+    minimum_event_count: int = DEFAULT_MINIMUM_EVENT_COUNT,
+) -> pd.DataFrame:
+    """Compare paired frozen/recalibrated saliency-event Spearman rho."""
+
+    _require_columns(
+        joined_retrieval,
+        (
+            *JOIN_KEYS,
+            *PROFILE_KEYS,
+            identity_column,
+            "threshold_policy",
+            "is_mated",
+            *saliency_features,
+            *event_metrics,
+        ),
+        name="joined_retrieval",
+    )
+    if (
+        isinstance(bootstrap_repeats, bool)
+        or not isinstance(bootstrap_repeats, int)
+        or bootstrap_repeats < 0
+    ):
+        raise ValueError("bootstrap_repeats must be a non-negative integer")
+    if (
+        isinstance(bootstrap_batch_size, bool)
+        or not isinstance(bootstrap_batch_size, int)
+        or bootstrap_batch_size <= 0
+    ):
+        raise ValueError("bootstrap_batch_size must be a positive integer")
+    if (
+        isinstance(minimum_event_count, bool)
+        or not isinstance(minimum_event_count, int)
+        or minimum_event_count < 1
+    ):
+        raise ValueError("minimum_event_count must be a positive integer")
+    if not 0.0 < float(confidence_level) < 1.0:
+        raise ValueError("confidence_level must be between 0 and 1")
+    level = float(confidence_level)
+    normalized = joined_retrieval.copy()
+    normalized["is_mated"] = _strict_boolean(
+        normalized["is_mated"],
+        name="joined_retrieval.is_mated",
+    )
+    optional_groups = tuple(
+        column
+        for column in (
+            "search_mode",
+            "protocol_uid",
+            "threshold_source_split",
+            "evaluation_split",
+            "target_fpir",
+        )
+        if column in normalized
+    )
+    group_columns = (
+        *BASE_ASSOCIATION_GROUP_COLUMNS,
+        *optional_groups,
+        "is_mated",
+    )
+    _validate_unique(
+        normalized,
+        (*group_columns, "sample_id", "threshold_policy"),
+        name="joined_retrieval",
+    )
+    required_policies = {
+        FROZEN_ORIGIN_THRESHOLD_POLICY,
+        RECALIBRATED_COMPRESSED_THRESHOLD_POLICY,
+    }
+    alpha = (1.0 - level) / 2.0
+    records: list[dict[str, object]] = []
+    grouped = normalized.groupby(list(group_columns), dropna=False, sort=True)
+    for raw_group_key, group in grouped:
+        group_key = (
+            raw_group_key if isinstance(raw_group_key, tuple) else (raw_group_key,)
+        )
+        policies = set(group["threshold_policy"].astype(str))
+        if not required_policies.issubset(policies):
+            continue
+        policy_frames = {
+            policy: group.loc[
+                group["threshold_policy"].astype(str).eq(policy)
+            ].set_index("sample_id").sort_index()
+            for policy in required_policies
+        }
+        frozen_frame = policy_frames[FROZEN_ORIGIN_THRESHOLD_POLICY]
+        recalibrated_frame = policy_frames[
+            RECALIBRATED_COMPRESSED_THRESHOLD_POLICY
+        ]
+        if not frozen_frame.index.equals(recalibrated_frame.index):
+            raise ValueError(
+                "paired threshold policies do not contain identical query sets"
+            )
+        if not frozen_frame[identity_column].astype(str).equals(
+            recalibrated_frame[identity_column].astype(str)
+        ):
+            raise ValueError(
+                f"paired threshold policies disagree on {identity_column}"
+            )
+        identities = frozen_frame[identity_column].astype(str).to_numpy()
+        for saliency_feature in saliency_features:
+            frozen_saliency = pd.to_numeric(
+                frozen_frame[saliency_feature],
+                errors="coerce",
+            ).to_numpy(dtype=np.float64)
+            recalibrated_saliency = pd.to_numeric(
+                recalibrated_frame[saliency_feature],
+                errors="coerce",
+            ).to_numpy(dtype=np.float64)
+            if not np.allclose(
+                frozen_saliency,
+                recalibrated_saliency,
+                equal_nan=True,
+            ):
+                raise ValueError(
+                    "paired threshold policies disagree on saliency feature "
+                    f"{saliency_feature}"
+                )
+            for event_metric in event_metrics:
+                frozen_event = pd.to_numeric(
+                    frozen_frame[event_metric],
+                    errors="coerce",
+                ).to_numpy(dtype=np.float64)
+                recalibrated_event = pd.to_numeric(
+                    recalibrated_frame[event_metric],
+                    errors="coerce",
+                ).to_numpy(dtype=np.float64)
+                valid = (
+                    np.isfinite(frozen_saliency)
+                    & np.isfinite(frozen_event)
+                    & np.isfinite(recalibrated_event)
+                )
+                if not valid.any():
+                    continue
+                left = frozen_saliency[valid]
+                frozen = frozen_event[valid]
+                recalibrated = recalibrated_event[valid]
+                if not (
+                    np.isin(frozen, (0.0, 1.0)).all()
+                    and np.isin(recalibrated, (0.0, 1.0)).all()
+                ):
+                    raise ValueError(
+                        f"{event_metric} must contain only binary events"
+                    )
+                frozen_rho = _spearman(pd.Series(left), pd.Series(frozen))
+                recalibrated_rho = _spearman(
+                    pd.Series(left),
+                    pd.Series(recalibrated),
+                )
+                rho_difference = (
+                    recalibrated_rho - frozen_rho
+                    if np.isfinite(frozen_rho) and np.isfinite(recalibrated_rho)
+                    else np.nan
+                )
+                event_support_eligible = bool(
+                    min(
+                        frozen.sum(),
+                        len(frozen) - frozen.sum(),
+                        recalibrated.sum(),
+                        len(recalibrated) - recalibrated.sum(),
+                    )
+                    >= minimum_event_count
+                )
+                if not event_support_eligible:
+                    frozen_rho = recalibrated_rho = rho_difference = np.nan
+                valid_identities = identities[valid]
+                cluster_identities, cluster_codes = np.unique(
+                    valid_identities,
+                    return_inverse=True,
+                )
+                bootstrap_values: list[float] = []
+                if (
+                    event_support_eligible
+                    and bootstrap_repeats
+                    and len(left) >= 3
+                    and len(cluster_identities)
+                ):
+                    rng = np.random.default_rng(
+                        _pair_seed(
+                            seed,
+                            group_key,
+                            str(saliency_feature),
+                            str(event_metric),
+                        )
+                    )
+                    probabilities = np.full(
+                        len(cluster_identities),
+                        1.0 / len(cluster_identities),
+                        dtype=np.float64,
+                    )
+                    rank_specs = tuple(
+                        _rank_spec(values) for values in (left, frozen, recalibrated)
+                    )
+                    for start in range(0, bootstrap_repeats, bootstrap_batch_size):
+                        size = min(
+                            bootstrap_batch_size,
+                            bootstrap_repeats - start,
+                        )
+                        counts = rng.multinomial(
+                            len(cluster_identities),
+                            probabilities,
+                            size=size,
+                        ).astype(np.float64, copy=False)
+                        weights = counts[:, cluster_codes]
+                        ranked = tuple(
+                            _weighted_average_rank_batch(weights, rank_spec)
+                            for rank_spec in rank_specs
+                        )
+                        frozen_bootstrap = _weighted_correlation_batch(
+                            ranked[0],
+                            ranked[1],
+                            weights,
+                        )
+                        recalibrated_bootstrap = _weighted_correlation_batch(
+                            ranked[0],
+                            ranked[2],
+                            weights,
+                        )
+                        differences = recalibrated_bootstrap - frozen_bootstrap
+                        bootstrap_values.extend(
+                            differences[np.isfinite(differences)].tolist()
+                        )
+                if bootstrap_values:
+                    lower, upper = np.quantile(
+                        np.asarray(bootstrap_values, dtype=np.float64),
+                        [alpha, 1.0 - alpha],
+                    )
+                else:
+                    lower = upper = np.nan
+                record = {
+                    column: value
+                    for column, value in zip(group_columns, group_key)
+                }
+                record.update(
+                    {
+                        "analysis_scope": "threshold_policy_saliency_rho",
+                        "threshold_metric_derivation_version": (
+                            SALIENCY_THRESHOLD_METRICS_VERSION
+                        ),
+                        "saliency_feature": str(saliency_feature),
+                        "event_metric": str(event_metric),
+                        "analysis_tier": "prespecified_primary",
+                        "paired_query_count": int(len(left)),
+                        "identity_count": int(len(cluster_identities)),
+                        "frozen_event_count": int(frozen.sum()),
+                        "recalibrated_event_count": int(recalibrated.sum()),
+                        "frozen_spearman_rho": frozen_rho,
+                        "recalibrated_spearman_rho": recalibrated_rho,
+                        "recalibrated_minus_frozen_rho": rho_difference,
+                        "event_support_eligible": event_support_eligible,
+                        "minimum_event_count": minimum_event_count,
+                        "paired_bootstrap_confidence_level": level,
+                        "paired_bootstrap_ci_low": float(lower),
+                        "paired_bootstrap_ci_high": float(upper),
+                        "paired_bootstrap_valid_repeats": len(bootstrap_values),
+                        "bootstrap_unit": identity_column,
+                    }
+                )
+                records.append(record)
+    return pd.DataFrame.from_records(records)

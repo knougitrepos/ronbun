@@ -29,6 +29,9 @@ from research.evaluation import (
     stream_join_population_saliency_with_compression,
     stream_join_population_saliency_with_retrieval,
     stream_select_population_representative_cases,
+    threshold_instability_associations,
+    threshold_policy_event_comparisons,
+    threshold_policy_saliency_rho_comparisons,
 )
 from research.experiments.scope import (
     ExperimentScope,
@@ -1571,6 +1574,9 @@ def analyze_step4_saliency_compression(
             "retrieval_joined_metrics_path",
             "geometry_association_path",
             "retrieval_association_path",
+            "threshold_instability_association_path",
+            "threshold_policy_comparison_path",
+            "threshold_policy_saliency_rho_path",
         )
     }
     candidate_path = workflow_root / config["workflow"].get(
@@ -1583,6 +1589,9 @@ def analyze_step4_saliency_compression(
     checked_output_paths = [
         output_paths["geometry_association_path"],
         output_paths["retrieval_association_path"],
+        output_paths["threshold_instability_association_path"],
+        output_paths["threshold_policy_comparison_path"],
+        output_paths["threshold_policy_saliency_rho_path"],
         candidate_path,
     ]
     if persist_large_joins:
@@ -1659,6 +1668,15 @@ def analyze_step4_saliency_compression(
             staged_retrieval_association = (
                 staging / "saliency_retrieval_associations.csv"
             )
+            staged_threshold_instability_association = (
+                staging / "saliency_threshold_instability_associations.csv"
+            )
+            staged_threshold_policy_comparison = (
+                staging / "saliency_threshold_policy_comparisons.csv"
+            )
+            staged_threshold_policy_saliency_rho = (
+                staging / "saliency_threshold_policy_rho_comparisons.csv"
+            )
             staged_case_candidates = (
                 staging / "representative_case_candidates.csv"
             )
@@ -1730,7 +1748,60 @@ def analyze_step4_saliency_compression(
                 overwrite=False,
             )
             retrieval_association_rows = int(len(retrieval_associations))
-            del retrieval_projection, retrieval_associations, features
+            instability_associations = threshold_instability_associations(
+                retrieval_projection,
+                bootstrap_repeats=bootstrap,
+                seed=int(execution["seed"]),
+                bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
+                bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
+                progress=_scoped_progress(
+                    progress,
+                    "threshold instability association",
+                ),
+            )
+            _write_csv(
+                staged_threshold_instability_association,
+                instability_associations,
+                overwrite=False,
+            )
+            threshold_instability_association_rows = int(
+                len(instability_associations)
+            )
+            policy_comparisons = threshold_policy_event_comparisons(
+                retrieval_projection,
+                bootstrap_repeats=bootstrap,
+                seed=int(execution["seed"]),
+            )
+            _write_csv(
+                staged_threshold_policy_comparison,
+                policy_comparisons,
+                overwrite=False,
+            )
+            threshold_policy_comparison_rows = int(len(policy_comparisons))
+            policy_saliency_rho_comparisons = (
+                threshold_policy_saliency_rho_comparisons(
+                    retrieval_projection,
+                    bootstrap_repeats=bootstrap,
+                    seed=int(execution["seed"]),
+                    bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
+                )
+            )
+            _write_csv(
+                staged_threshold_policy_saliency_rho,
+                policy_saliency_rho_comparisons,
+                overwrite=False,
+            )
+            threshold_policy_saliency_rho_rows = int(
+                len(policy_saliency_rho_comparisons)
+            )
+            del (
+                retrieval_projection,
+                retrieval_associations,
+                instability_associations,
+                policy_comparisons,
+                policy_saliency_rho_comparisons,
+                features,
+            )
             gc.collect()
             case_config = config.get("gradcam", {}).get(
                 "representative_case_visualization",
@@ -1757,6 +1828,15 @@ def analyze_step4_saliency_compression(
             staged_outputs = {
                 "geometry_association_path": staged_geometry_association,
                 "retrieval_association_path": staged_retrieval_association,
+                "threshold_instability_association_path": (
+                    staged_threshold_instability_association
+                ),
+                "threshold_policy_comparison_path": (
+                    staged_threshold_policy_comparison
+                ),
+                "threshold_policy_saliency_rho_path": (
+                    staged_threshold_policy_saliency_rho
+                ),
                 "representative_case_candidates_path": staged_case_candidates,
             }
             if persist_large_joins:
@@ -1801,6 +1881,13 @@ def analyze_step4_saliency_compression(
             retrieval_projection_rows=retrieval_stream.projected_row_count,
             geometry_association_rows=geometry_association_rows,
             retrieval_association_rows=retrieval_association_rows,
+            threshold_instability_association_rows=(
+                threshold_instability_association_rows
+            ),
+            threshold_policy_comparison_rows=threshold_policy_comparison_rows,
+            threshold_policy_saliency_rho_rows=(
+                threshold_policy_saliency_rho_rows
+            ),
             representative_candidate_rows=representative_candidate_rows,
             geometry_join_chunks=geometry_stream.chunk_count,
             retrieval_join_chunks=retrieval_stream.chunk_count,
@@ -1821,6 +1908,11 @@ def analyze_step4_saliency_compression(
         "retrieval_join_rows": int(retrieval_stream.row_count),
         "geometry_association_rows": geometry_association_rows,
         "retrieval_association_rows": retrieval_association_rows,
+        "threshold_instability_association_rows": (
+            threshold_instability_association_rows
+        ),
+        "threshold_policy_comparison_rows": threshold_policy_comparison_rows,
+        "threshold_policy_saliency_rho_rows": threshold_policy_saliency_rho_rows,
         "representative_candidate_rows": representative_candidate_rows,
         "persisted_large_join_artifacts": persist_large_joins,
         "association_algorithm_version": WEIGHTED_RERANK_ALGORITHM_VERSION,
@@ -1988,6 +2080,16 @@ def finalize_step4_representative_cases(
     retrieval_associations = pd.read_csv(
         workflow_root / config["workflow"]["retrieval_association_path"]
     )
+    threshold_instability_associations_frame = pd.read_csv(
+        workflow_root
+        / config["workflow"]["threshold_instability_association_path"]
+    )
+    threshold_policy_comparisons = pd.read_csv(
+        workflow_root / config["workflow"]["threshold_policy_comparison_path"]
+    )
+    threshold_policy_saliency_rho = pd.read_csv(
+        workflow_root / config["workflow"]["threshold_policy_saliency_rho_path"]
+    )
     summary = {
         "run_id": run.run_id,
         "dataset_id": dataset_spec.dataset_id,
@@ -2019,6 +2121,15 @@ def finalize_step4_representative_cases(
         ),
         "geometry_association_rows": int(len(geometry_associations)),
         "retrieval_association_rows": int(len(retrieval_associations)),
+        "threshold_instability_association_rows": int(
+            len(threshold_instability_associations_frame)
+        ),
+        "threshold_policy_comparison_rows": int(
+            len(threshold_policy_comparisons)
+        ),
+        "threshold_policy_saliency_rho_rows": int(
+            len(threshold_policy_saliency_rho)
+        ),
         "representative_cases": int(len(cases)),
         "threshold_policy": threshold_policy,
         "regenerated_gradcam": False,

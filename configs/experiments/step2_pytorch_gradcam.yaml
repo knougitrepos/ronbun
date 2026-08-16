@@ -67,6 +67,9 @@ workflow:
   persist_large_join_artifacts: true
   geometry_association_path: saliency_geometry_associations.csv
   retrieval_association_path: saliency_retrieval_associations.csv
+  threshold_instability_association_path: saliency_threshold_instability_associations.csv
+  threshold_policy_comparison_path: saliency_threshold_policy_comparisons.csv
+  threshold_policy_saliency_rho_path: saliency_threshold_policy_rho_comparisons.csv
   representative_cases_path: representative_cases.csv
   figure_dir: figures
 

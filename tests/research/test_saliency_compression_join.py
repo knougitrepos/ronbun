@@ -17,6 +17,9 @@ from research.evaluation.saliency_compression import (
     join_population_saliency_with_retrieval,
     saliency_compression_associations,
     saliency_retrieval_associations,
+    threshold_instability_associations,
+    threshold_policy_event_comparisons,
+    threshold_policy_saliency_rho_comparisons,
 )
 
 
@@ -78,7 +81,11 @@ def _retrieval_frame(
         ("sample-2", 0.02, False),
     ):
         for profile in ("pca_128", "pca_64"):
-            for policy, multiplier in (("fixed_origin", 1.0), ("recalibrated", 0.5)):
+            for policy, multiplier in (
+                ("frozen_origin", 1.0),
+                ("recalibrated_compressed", 0.5),
+            ):
+                compressed_score = 0.70 + drift * multiplier
                 rows.append(
                     {
                         "extraction_uid": "extract-1",
@@ -93,12 +100,28 @@ def _retrieval_frame(
                         "threshold_source_split": "calibration",
                         "evaluation_split": "test",
                         "is_mated": is_mated,
+                        "top_k": 20,
                         "origin_top1_score": 0.70,
-                        "compressed_top1_score": 0.70 + drift * multiplier,
+                        "compressed_top1_score": compressed_score,
+                        "compressed_score_at_origin_top1": compressed_score,
                         "top1_score_drift": drift * multiplier,
                         "origin_winner_score_drift": drift * multiplier,
                         "origin_decision_threshold": 0.60,
                         "compressed_decision_threshold": 0.60,
+                        "origin_accepted": True,
+                        "compressed_accepted": True,
+                        "origin_true_identity_rank": 1 if is_mated else np.nan,
+                        "compressed_true_identity_rank": (
+                            1 if is_mated else np.nan
+                        ),
+                        "origin_true_identity_score": (
+                            0.70 if is_mated else np.nan
+                        ),
+                        "compressed_true_identity_score": (
+                            compressed_score if is_mated else np.nan
+                        ),
+                        "origin_tpir_at_rank_k": is_mated,
+                        "compressed_tpir_at_rank_k": is_mated,
                         "score_spaces_comparable": True,
                         "agreement_with_origin": True,
                         "threshold_crossing": False,
@@ -111,12 +134,23 @@ def _retrieval_frame(
 def test_threshold_metrics_separate_maximum_and_fixed_pair_score_shift():
     source = pd.DataFrame(
         {
+            "is_mated": [True, False],
+            "top_k": [20, 20],
             "origin_top1_score": [0.70, 0.70],
-            "compressed_top1_score": [0.65, -0.20],
+            "compressed_top1_score": [0.65, -0.40],
+            "compressed_score_at_origin_top1": [0.62, np.nan],
             "top1_score_drift": [-0.05, np.nan],
             "origin_winner_score_drift": [-0.08, np.nan],
             "origin_decision_threshold": [0.60, 0.60],
             "compressed_decision_threshold": [0.55, -0.30],
+            "origin_accepted": [True, True],
+            "compressed_accepted": [True, False],
+            "origin_true_identity_rank": [1, np.nan],
+            "compressed_true_identity_rank": [1, np.nan],
+            "origin_true_identity_score": [0.70, np.nan],
+            "compressed_true_identity_score": [0.65, np.nan],
+            "origin_tpir_at_rank_k": [True, False],
+            "compressed_tpir_at_rank_k": [True, False],
             "score_spaces_comparable": [True, False],
             "threshold_crossing": [False, True],
             "threshold_crossing_direction": ["none", "accept_to_reject"],
@@ -139,6 +173,8 @@ def test_threshold_metrics_separate_maximum_and_fixed_pair_score_shift():
     assert derived.loc[1, "compressed_threshold_distance"] == pytest.approx(0.10)
     assert bool(derived.loc[1, "accept_to_reject_crossing"])
     assert not bool(derived.loc[1, "reject_to_accept_crossing"])
+    assert derived.loc[1, "false_accept_loss"] == pytest.approx(1.0)
+    assert pd.isna(derived.loc[0, "false_accept_loss"])
     assert derived["threshold_metric_derivation_version"].nunique() == 1
 
 
@@ -150,6 +186,54 @@ def test_threshold_metrics_reject_crossing_direction_mismatch():
 
     with pytest.raises(ValueError, match="disagrees"):
         derive_saliency_threshold_metrics(source)
+
+
+def test_threshold_metrics_reject_score_crossing_mismatch():
+    source = _retrieval_frame().iloc[[0]].assign(
+        compressed_top1_score=0.50,
+        compressed_score_at_origin_top1=0.50,
+        top1_score_drift=-0.20,
+        origin_winner_score_drift=-0.20,
+        compressed_accepted=True,
+        threshold_crossing=False,
+        threshold_crossing_direction="none",
+        compressed_true_identity_score=0.50,
+        compressed_tpir_at_rank_k=False,
+    )
+
+    with pytest.raises(ValueError, match="compressed_accepted disagrees"):
+        derive_saliency_threshold_metrics(source)
+
+
+def test_threshold_metrics_split_tpir_threshold_and_rank_losses():
+    source = pd.concat(
+        [
+            _retrieval_frame().iloc[[0]],
+            _retrieval_frame().iloc[[0]],
+        ],
+        ignore_index=True,
+    )
+    source.loc[0, [
+        "compressed_top1_score",
+        "compressed_score_at_origin_top1",
+        "compressed_true_identity_score",
+    ]] = 0.50
+    source.loc[0, ["top1_score_drift", "origin_winner_score_drift"]] = -0.20
+    source.loc[0, "compressed_accepted"] = False
+    source.loc[0, "compressed_tpir_at_rank_k"] = False
+    source.loc[0, "threshold_crossing"] = True
+    source.loc[0, "threshold_crossing_direction"] = "accept_to_reject"
+    source.loc[1, [
+        "compressed_true_identity_rank",
+        "compressed_true_identity_score",
+    ]] = np.nan
+    source.loc[1, "compressed_tpir_at_rank_k"] = False
+
+    derived = derive_saliency_threshold_metrics(source)
+
+    assert derived["tpir_at_rank_k_loss"].tolist() == [1.0, 1.0]
+    assert derived["tpir_threshold_loss"].tolist() == [1.0, 0.0]
+    assert derived["tpir_rank_loss"].tolist() == [0.0, 1.0]
 
 
 def test_geometry_and_retrieval_joins_keep_independent_row_grains():
@@ -180,7 +264,7 @@ def test_geometry_and_retrieval_joins_keep_independent_row_grains():
     )
     assert (
         retrieval.loc[
-            retrieval["threshold_policy"].eq("fixed_origin"),
+            retrieval["threshold_policy"].eq("frozen_origin"),
             "top1_score_drift",
         ].isin({0.01, 0.02}).all()
     )
@@ -245,6 +329,101 @@ def test_retrieval_join_and_associations_keep_target_fpirs_separate():
         bootstrap_repeats=0,
     )
     assert set(associations["target_fpir"]) == {0.10, 0.01}
+
+
+def test_threshold_instability_association_reports_event_denominators():
+    joined = join_population_saliency_with_retrieval(
+        _saliency_frame(),
+        _retrieval_frame(),
+    )
+
+    associations = threshold_instability_associations(
+        joined,
+        predictors=("absolute_top1_score_drift",),
+        event_metrics=("threshold_crossing",),
+        bootstrap_repeats=0,
+    )
+
+    assert set(associations["instability_predictor"]) == {
+        "absolute_top1_score_drift"
+    }
+    assert associations["event_count"].eq(0).all()
+    assert associations["non_event_count"].eq(1).all()
+    assert associations["event_rate"].eq(0.0).all()
+
+
+def test_threshold_policy_comparison_is_paired_by_query_and_identity():
+    joined = join_population_saliency_with_retrieval(
+        _saliency_frame(),
+        _retrieval_frame(),
+    )
+    recalibrated_sample_1 = joined["threshold_policy"].eq(
+        "recalibrated_compressed"
+    ) & joined["sample_id"].eq("sample-1")
+    joined.loc[recalibrated_sample_1, "threshold_crossing"] = True
+
+    comparisons = threshold_policy_event_comparisons(
+        joined,
+        event_metrics=("threshold_crossing",),
+        bootstrap_repeats=20,
+        seed=1701,
+    )
+
+    mated = comparisons.loc[comparisons["is_mated"]].reset_index(drop=True)
+    assert len(mated) == 2
+    assert mated["paired_query_count"].eq(1).all()
+    assert mated["frozen_event_count"].eq(0).all()
+    assert mated["recalibrated_event_count"].eq(1).all()
+    assert mated["recalibrated_minus_frozen_rate"].eq(1.0).all()
+    assert mated["introduced_event_count"].eq(1).all()
+    assert mated["paired_bootstrap_valid_repeats"].eq(20).all()
+
+
+def test_threshold_policy_saliency_rho_comparison_uses_paired_queries():
+    rows = []
+    frozen_events = (0.0, 0.0, 1.0, 1.0)
+    recalibrated_events = (0.0, 1.0, 1.0, 1.0)
+    for policy, events in (
+        ("frozen_origin", frozen_events),
+        ("recalibrated_compressed", recalibrated_events),
+    ):
+        for index, event in enumerate(events, start=1):
+            rows.append(
+                {
+                    "extraction_uid": "extract-1",
+                    "dataset_id": "lfw",
+                    "sample_id": f"sample-{index}",
+                    "model_uid": "model-a",
+                    "compression_family": "pca",
+                    "compression_profile": "pca_128",
+                    "identity_id": f"identity-{index}",
+                    "threshold_policy": policy,
+                    "is_mated": True,
+                    "target_fpir": 0.01,
+                    "saliency_entropy": index / 10.0,
+                    "tpir_at_rank_k_loss": event,
+                }
+            )
+
+    comparisons = threshold_policy_saliency_rho_comparisons(
+        pd.DataFrame.from_records(rows),
+        saliency_features=("saliency_entropy",),
+        event_metrics=("tpir_at_rank_k_loss",),
+        bootstrap_repeats=20,
+        bootstrap_batch_size=4,
+        minimum_event_count=1,
+        seed=1701,
+    )
+
+    assert len(comparisons) == 1
+    row = comparisons.iloc[0]
+    assert row["paired_query_count"] == 4
+    assert row["frozen_event_count"] == 2
+    assert row["recalibrated_event_count"] == 3
+    assert row["recalibrated_minus_frozen_rho"] == pytest.approx(
+        row["recalibrated_spearman_rho"] - row["frozen_spearman_rho"]
+    )
+    assert 0 < row["paired_bootstrap_valid_repeats"] <= 20
 
 
 def test_combined_join_rejects_multi_policy_geometry_duplication():

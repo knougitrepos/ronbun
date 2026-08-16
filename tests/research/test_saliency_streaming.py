@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -81,6 +82,7 @@ def _retrieval() -> pd.DataFrame:
             origin_score = (0.80, 0.66, 0.40)[sample_index - 1]
             compressed_score = (0.79, 0.64, 0.43)[sample_index - 1]
             crossing = sample_index == 2
+            compressed_tpir = is_mated and not crossing
             rows.append(
                 {
                     "extraction_uid": "extract-1",
@@ -96,12 +98,26 @@ def _retrieval() -> pd.DataFrame:
                     "evaluation_split": "official_test",
                     "threshold_policy": policy,
                     "is_mated": is_mated,
+                    "top_k": 20,
                     "origin_top1_score": origin_score,
                     "compressed_top1_score": compressed_score,
+                    "compressed_score_at_origin_top1": compressed_score,
                     "top1_score_drift": compressed_score - origin_score,
                     "origin_winner_score_drift": compressed_score - origin_score,
                     "origin_decision_threshold": 0.65,
                     "compressed_decision_threshold": 0.65,
+                    "origin_accepted": is_mated,
+                    "compressed_accepted": compressed_tpir,
+                    "origin_true_identity_rank": 1 if is_mated else np.nan,
+                    "compressed_true_identity_rank": 1 if is_mated else np.nan,
+                    "origin_true_identity_score": (
+                        origin_score if is_mated else np.nan
+                    ),
+                    "compressed_true_identity_score": (
+                        compressed_score if is_mated else np.nan
+                    ),
+                    "origin_tpir_at_rank_k": is_mated,
+                    "compressed_tpir_at_rank_k": compressed_tpir,
                     "score_spaces_comparable": True,
                     "agreement_with_origin": sample_index != 3,
                     "threshold_crossing": crossing,
