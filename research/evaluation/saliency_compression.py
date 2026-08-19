@@ -109,7 +109,7 @@ RETRIEVAL_BOOLEAN_METRICS = (
     "accept_to_reject_crossing",
     "reject_to_accept_crossing",
 )
-SALIENCY_THRESHOLD_METRICS_VERSION = "saliency-threshold-metrics-v1"
+SALIENCY_THRESHOLD_METRICS_VERSION = "saliency-threshold-metrics-v2"
 DEFAULT_THRESHOLD_EVENT_METRICS = (
     "threshold_crossing",
     "accept_to_reject_crossing",
@@ -133,10 +133,33 @@ DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES = (
     "saliency_entropy",
 )
 DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS = (
+    "threshold_crossing",
     "false_accept_gain",
     "tpir_at_rank_k_loss",
     "tpir_threshold_loss",
     "tpir_rank_loss",
+)
+POLICY_INVARIANT_THRESHOLD_COMPARISON_COLUMNS = (
+    "extraction_uid",
+    "origin_embedding_artifact_uid",
+    "top_k",
+    "origin_top1_score",
+    "compressed_top1_score",
+    "compressed_score_at_origin_top1",
+    "origin_true_identity_rank",
+    "compressed_true_identity_rank",
+    "origin_true_identity_score",
+    "compressed_true_identity_score",
+    "score_spaces_comparable",
+    "top1_score_drift",
+    "origin_winner_score_drift",
+    "absolute_top1_score_drift",
+    "absolute_origin_winner_score_drift",
+    "origin_decision_threshold",
+    "origin_accepted",
+    "origin_threshold_margin",
+    "origin_threshold_distance",
+    "agreement_with_origin",
 )
 FROZEN_ORIGIN_THRESHOLD_POLICY = "frozen_origin"
 RECALIBRATED_COMPRESSED_THRESHOLD_POLICY = "recalibrated_compressed"
@@ -1677,6 +1700,107 @@ def threshold_instability_associations(
     return result
 
 
+def _paired_threshold_policy_frames(
+    group: pd.DataFrame,
+    *,
+    identity_column: str,
+) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    """Return aligned policy frames, or ``None`` for valid ADC-only groups."""
+
+    for column in ("sample_id", identity_column, "extraction_uid", *LINEAGE_COLUMNS):
+        if column not in group:
+            continue
+        values = group[column]
+        if values.isna().any() or values.astype(str).str.strip().eq("").any():
+            raise ValueError(
+                "paired threshold comparisons require non-empty "
+                f"{column} values"
+            )
+
+    policies = set(group["threshold_policy"].astype(str))
+    required_policies = {
+        FROZEN_ORIGIN_THRESHOLD_POLICY,
+        RECALIBRATED_COMPRESSED_THRESHOLD_POLICY,
+    }
+    search_mode = (
+        str(group["search_mode"].iloc[0]) if "search_mode" in group else None
+    )
+    if search_mode == "pq_adc_exhaustive":
+        if policies == {RECALIBRATED_COMPRESSED_THRESHOLD_POLICY}:
+            return None
+        raise ValueError(
+            "pq_adc_exhaustive threshold comparisons require exactly the "
+            "recalibrated_compressed policy"
+        )
+    if policies != required_policies:
+        raise ValueError(
+            "paired threshold comparisons require both frozen_origin and "
+            "recalibrated_compressed policies for non-ADC score spaces"
+        )
+
+    policy_frames = {
+        policy: group.loc[
+            group["threshold_policy"].astype(str).eq(policy)
+        ].set_index("sample_id").sort_index()
+        for policy in required_policies
+    }
+    frozen_frame = policy_frames[FROZEN_ORIGIN_THRESHOLD_POLICY]
+    recalibrated_frame = policy_frames[
+        RECALIBRATED_COMPRESSED_THRESHOLD_POLICY
+    ]
+    if not frozen_frame.index.equals(recalibrated_frame.index):
+        raise ValueError(
+            "paired threshold policies do not contain identical query sets"
+        )
+    if not frozen_frame[identity_column].astype(str).equals(
+        recalibrated_frame[identity_column].astype(str)
+    ):
+        raise ValueError(
+            f"paired threshold policies disagree on {identity_column}"
+        )
+    for column in POLICY_INVARIANT_THRESHOLD_COMPARISON_COLUMNS:
+        if column not in group:
+            continue
+        if not frozen_frame[column].equals(recalibrated_frame[column]):
+            raise ValueError(
+                "paired threshold policies disagree on policy-invariant "
+                f"field {column}"
+            )
+    return frozen_frame, recalibrated_frame
+
+
+def _paired_binary_event_values(
+    frozen_frame: pd.DataFrame,
+    recalibrated_frame: pd.DataFrame,
+    *,
+    event_metric: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return aligned binary events and their shared applicability mask."""
+
+    frozen = pd.to_numeric(
+        frozen_frame[event_metric],
+        errors="coerce",
+    ).to_numpy(dtype=np.float64)
+    recalibrated = pd.to_numeric(
+        recalibrated_frame[event_metric],
+        errors="coerce",
+    ).to_numpy(dtype=np.float64)
+    frozen_applicable = np.isfinite(frozen)
+    recalibrated_applicable = np.isfinite(recalibrated)
+    if not np.array_equal(frozen_applicable, recalibrated_applicable):
+        raise ValueError(
+            "paired threshold policies disagree on event applicability for "
+            f"{event_metric}"
+        )
+    applicable = frozen_applicable
+    if not (
+        np.isin(frozen[applicable], (0.0, 1.0)).all()
+        and np.isin(recalibrated[applicable], (0.0, 1.0)).all()
+    ):
+        raise ValueError(f"{event_metric} must contain only binary events")
+    return frozen, recalibrated, applicable
+
+
 def threshold_policy_event_comparisons(
     joined_retrieval: pd.DataFrame,
     *,
@@ -1743,56 +1867,31 @@ def threshold_policy_event_comparisons(
         group_key = (
             raw_group_key if isinstance(raw_group_key, tuple) else (raw_group_key,)
         )
-        policies = set(group["threshold_policy"].astype(str))
-        required_policies = {
-            FROZEN_ORIGIN_THRESHOLD_POLICY,
-            RECALIBRATED_COMPRESSED_THRESHOLD_POLICY,
-        }
-        if not required_policies.issubset(policies):
+        paired_frames = _paired_threshold_policy_frames(
+            group,
+            identity_column=identity_column,
+        )
+        if paired_frames is None:
             continue
+        frozen_frame, recalibrated_frame = paired_frames
         for event_metric in event_metrics:
-            event_frame = group.loc[
-                group["threshold_policy"].astype(str).isin(required_policies),
-                ["sample_id", identity_column, "threshold_policy", event_metric],
-            ].copy()
-            event_frame[event_metric] = pd.to_numeric(
-                event_frame[event_metric],
-                errors="coerce",
-            )
-            identities = event_frame.pivot(
-                index="sample_id",
-                columns="threshold_policy",
-                values=identity_column,
-            )
-            values = event_frame.pivot(
-                index="sample_id",
-                columns="threshold_policy",
-                values=event_metric,
-            )
-            valid = values.loc[:, sorted(required_policies)].notna().all(axis=1)
-            values = values.loc[valid]
-            if values.empty:
-                continue
-            identity_pairs = identities.loc[valid, sorted(required_policies)]
-            if not identity_pairs.iloc[:, 0].astype(str).equals(
-                identity_pairs.iloc[:, 1].astype(str)
-            ):
-                raise ValueError(
-                    f"paired threshold policies disagree on {identity_column}"
+            frozen_all, recalibrated_all, applicable = (
+                _paired_binary_event_values(
+                    frozen_frame,
+                    recalibrated_frame,
+                    event_metric=str(event_metric),
                 )
-            frozen = values[FROZEN_ORIGIN_THRESHOLD_POLICY].to_numpy(
-                dtype=np.float64
             )
-            recalibrated = values[
-                RECALIBRATED_COMPRESSED_THRESHOLD_POLICY
-            ].to_numpy(dtype=np.float64)
-            if not (
-                np.isin(frozen, (0.0, 1.0)).all()
-                and np.isin(recalibrated, (0.0, 1.0)).all()
-            ):
-                raise ValueError(f"{event_metric} must contain only binary events")
+            if not applicable.any():
+                continue
+            frozen = frozen_all[applicable]
+            recalibrated = recalibrated_all[applicable]
             difference = recalibrated - frozen
-            identity_values = identity_pairs.iloc[:, 0].astype(str).to_numpy()
+            identity_values = (
+                frozen_frame.loc[applicable, identity_column]
+                .astype(str)
+                .to_numpy()
+            )
             cluster_identities, cluster_codes = np.unique(
                 identity_values,
                 return_inverse=True,
@@ -1843,7 +1942,7 @@ def threshold_policy_event_comparisons(
                         if event_metric in DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS
                         else "exploratory"
                     ),
-                    "paired_query_count": int(len(values)),
+                    "paired_query_count": int(len(frozen)),
                     "identity_count": int(len(cluster_identities)),
                     "frozen_event_count": int(frozen.sum()),
                     "frozen_event_rate": float(frozen.mean()),
@@ -1963,10 +2062,6 @@ def threshold_policy_saliency_rho_comparisons(
         (*group_columns, "sample_id", "threshold_policy"),
         name="joined_retrieval",
     )
-    required_policies = {
-        FROZEN_ORIGIN_THRESHOLD_POLICY,
-        RECALIBRATED_COMPRESSED_THRESHOLD_POLICY,
-    }
     alpha = (1.0 - level) / 2.0
     records: list[dict[str, object]] = []
     grouped = normalized.groupby(list(group_columns), dropna=False, sort=True)
@@ -1974,29 +2069,13 @@ def threshold_policy_saliency_rho_comparisons(
         group_key = (
             raw_group_key if isinstance(raw_group_key, tuple) else (raw_group_key,)
         )
-        policies = set(group["threshold_policy"].astype(str))
-        if not required_policies.issubset(policies):
+        paired_frames = _paired_threshold_policy_frames(
+            group,
+            identity_column=identity_column,
+        )
+        if paired_frames is None:
             continue
-        policy_frames = {
-            policy: group.loc[
-                group["threshold_policy"].astype(str).eq(policy)
-            ].set_index("sample_id").sort_index()
-            for policy in required_policies
-        }
-        frozen_frame = policy_frames[FROZEN_ORIGIN_THRESHOLD_POLICY]
-        recalibrated_frame = policy_frames[
-            RECALIBRATED_COMPRESSED_THRESHOLD_POLICY
-        ]
-        if not frozen_frame.index.equals(recalibrated_frame.index):
-            raise ValueError(
-                "paired threshold policies do not contain identical query sets"
-            )
-        if not frozen_frame[identity_column].astype(str).equals(
-            recalibrated_frame[identity_column].astype(str)
-        ):
-            raise ValueError(
-                f"paired threshold policies disagree on {identity_column}"
-            )
+        frozen_frame, recalibrated_frame = paired_frames
         identities = frozen_frame[identity_column].astype(str).to_numpy()
         for saliency_feature in saliency_features:
             frozen_saliency = pd.to_numeric(
@@ -2017,31 +2096,19 @@ def threshold_policy_saliency_rho_comparisons(
                     f"{saliency_feature}"
                 )
             for event_metric in event_metrics:
-                frozen_event = pd.to_numeric(
-                    frozen_frame[event_metric],
-                    errors="coerce",
-                ).to_numpy(dtype=np.float64)
-                recalibrated_event = pd.to_numeric(
-                    recalibrated_frame[event_metric],
-                    errors="coerce",
-                ).to_numpy(dtype=np.float64)
-                valid = (
-                    np.isfinite(frozen_saliency)
-                    & np.isfinite(frozen_event)
-                    & np.isfinite(recalibrated_event)
+                frozen_event, recalibrated_event, event_applicable = (
+                    _paired_binary_event_values(
+                        frozen_frame,
+                        recalibrated_frame,
+                        event_metric=str(event_metric),
+                    )
                 )
+                valid = np.isfinite(frozen_saliency) & event_applicable
                 if not valid.any():
                     continue
                 left = frozen_saliency[valid]
                 frozen = frozen_event[valid]
                 recalibrated = recalibrated_event[valid]
-                if not (
-                    np.isin(frozen, (0.0, 1.0)).all()
-                    and np.isin(recalibrated, (0.0, 1.0)).all()
-                ):
-                    raise ValueError(
-                        f"{event_metric} must contain only binary events"
-                    )
                 frozen_rho = _spearman(pd.Series(left), pd.Series(frozen))
                 recalibrated_rho = _spearman(
                     pd.Series(left),
@@ -2139,7 +2206,16 @@ def threshold_policy_saliency_rho_comparisons(
                         ),
                         "saliency_feature": str(saliency_feature),
                         "event_metric": str(event_metric),
-                        "analysis_tier": "prespecified_primary",
+                        "analysis_tier": (
+                            "prespecified_primary"
+                            if (
+                                saliency_feature
+                                in DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES
+                                and event_metric
+                                in DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS
+                            )
+                            else "exploratory"
+                        ),
                         "paired_query_count": int(len(left)),
                         "identity_count": int(len(cluster_identities)),
                         "frozen_event_count": int(frozen.sum()),

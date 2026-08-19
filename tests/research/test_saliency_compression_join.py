@@ -5,6 +5,8 @@ import pandas as pd
 import pytest
 
 from research.evaluation.saliency_compression import (
+    DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
+    SALIENCY_THRESHOLD_METRICS_VERSION,
     WEIGHTED_RERANK_ALGORITHM_VERSION,
     WEIGHTED_RERANK_STRATEGY,
     _bootstrap_seed,
@@ -81,11 +83,11 @@ def _retrieval_frame(
         ("sample-2", 0.02, False),
     ):
         for profile in ("pca_128", "pca_64"):
-            for policy, multiplier in (
-                ("frozen_origin", 1.0),
-                ("recalibrated_compressed", 0.5),
+            for policy in (
+                "frozen_origin",
+                "recalibrated_compressed",
             ):
-                compressed_score = 0.70 + drift * multiplier
+                compressed_score = 0.70 + drift
                 rows.append(
                     {
                         "extraction_uid": "extract-1",
@@ -104,8 +106,8 @@ def _retrieval_frame(
                         "origin_top1_score": 0.70,
                         "compressed_top1_score": compressed_score,
                         "compressed_score_at_origin_top1": compressed_score,
-                        "top1_score_drift": drift * multiplier,
-                        "origin_winner_score_drift": drift * multiplier,
+                        "top1_score_drift": drift,
+                        "origin_winner_score_drift": drift,
                         "origin_decision_threshold": 0.60,
                         "compressed_decision_threshold": 0.60,
                         "origin_accepted": True,
@@ -176,6 +178,11 @@ def test_threshold_metrics_separate_maximum_and_fixed_pair_score_shift():
     assert derived.loc[1, "false_accept_loss"] == pytest.approx(1.0)
     assert pd.isna(derived.loc[0, "false_accept_loss"])
     assert derived["threshold_metric_derivation_version"].nunique() == 1
+    assert (
+        derived["threshold_metric_derivation_version"].iat[0]
+        == "saliency-threshold-metrics-v2"
+        == SALIENCY_THRESHOLD_METRICS_VERSION
+    )
 
 
 def test_threshold_metrics_reject_crossing_direction_mismatch():
@@ -424,6 +431,290 @@ def test_threshold_policy_saliency_rho_comparison_uses_paired_queries():
         row["recalibrated_spearman_rho"] - row["frozen_spearman_rho"]
     )
     assert 0 < row["paired_bootstrap_valid_repeats"] <= 20
+
+
+def _paired_threshold_analysis_frame() -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    frozen_events = (0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0)
+    recalibrated_events = (0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+    for policy, events in (
+        ("frozen_origin", frozen_events),
+        ("recalibrated_compressed", recalibrated_events),
+    ):
+        for index, event in enumerate(events, start=1):
+            row: dict[str, object] = {
+                "extraction_uid": "extract-1",
+                "dataset_id": "lfw",
+                "sample_id": f"sample-{index}",
+                "model_uid": "model-a",
+                "compression_family": "pq",
+                "compression_profile": "pq_m128_nbits8",
+                "identity_id": f"identity-{index}",
+                "threshold_policy": policy,
+                "is_mated": True,
+                "search_mode": "pq_reconstruction_cosine",
+                "target_fpir": 0.10,
+                "outside_face_attention": index / 20.0,
+                "saliency_entropy": index / 10.0,
+                "face_attention": 1.0 - index / 20.0,
+                "top_k": 20,
+                "origin_top1_score": 0.70,
+                "compressed_top1_score": 0.68,
+                "compressed_score_at_origin_top1": 0.67,
+                "origin_true_identity_rank": 1,
+                "compressed_true_identity_rank": 1,
+                "origin_true_identity_score": 0.70,
+                "compressed_true_identity_score": 0.68,
+                "score_spaces_comparable": True,
+                "top1_score_drift": -0.02,
+                "origin_winner_score_drift": -0.03,
+                "absolute_top1_score_drift": 0.02,
+                "absolute_origin_winner_score_drift": 0.03,
+                "origin_decision_threshold": 0.60,
+                "origin_accepted": True,
+                "origin_threshold_margin": 0.10,
+                "origin_threshold_distance": 0.10,
+                "agreement_with_origin": True,
+                "reject_to_accept_crossing": event,
+            }
+            row.update(
+                {
+                    event_metric: event
+                    for event_metric in DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS
+                }
+            )
+            rows.append(row)
+    return pd.DataFrame.from_records(rows)
+
+
+def _paired_comparison_kwargs(comparison: object) -> dict[str, object]:
+    kwargs: dict[str, object] = {
+        "event_metrics": ("threshold_crossing",),
+        "bootstrap_repeats": 0,
+    }
+    if comparison is threshold_policy_saliency_rho_comparisons:
+        kwargs.update(
+            {
+                "saliency_features": ("saliency_entropy",),
+                "minimum_event_count": 1,
+            }
+        )
+    return kwargs
+
+
+def test_paired_rho_defaults_include_threshold_crossing_and_pass_support_gate():
+    comparisons = threshold_policy_saliency_rho_comparisons(
+        _paired_threshold_analysis_frame(),
+        bootstrap_repeats=0,
+        minimum_event_count=2,
+    )
+
+    assert "threshold_crossing" in set(comparisons["event_metric"])
+    crossing = comparisons.loc[
+        comparisons["event_metric"].eq("threshold_crossing")
+    ]
+    assert len(crossing) == 2
+    assert crossing["event_support_eligible"].all()
+    assert crossing["analysis_tier"].eq("prespecified_primary").all()
+
+
+def test_paired_rho_minimum_event_gate_suppresses_unsupported_statistics():
+    comparisons = threshold_policy_saliency_rho_comparisons(
+        _paired_threshold_analysis_frame(),
+        saliency_features=("saliency_entropy",),
+        event_metrics=("threshold_crossing",),
+        bootstrap_repeats=20,
+        minimum_event_count=3,
+    )
+
+    row = comparisons.iloc[0]
+    assert not bool(row["event_support_eligible"])
+    assert pd.isna(row["frozen_spearman_rho"])
+    assert pd.isna(row["recalibrated_spearman_rho"])
+    assert pd.isna(row["recalibrated_minus_frozen_rho"])
+    assert row["paired_bootstrap_valid_repeats"] == 0
+
+
+def test_paired_rho_marks_custom_feature_or_event_as_exploratory():
+    comparisons = threshold_policy_saliency_rho_comparisons(
+        _paired_threshold_analysis_frame(),
+        saliency_features=("saliency_entropy", "face_attention"),
+        event_metrics=("threshold_crossing", "reject_to_accept_crossing"),
+        bootstrap_repeats=0,
+        minimum_event_count=1,
+    ).set_index(["saliency_feature", "event_metric"])
+
+    assert (
+        comparisons.loc[
+            ("saliency_entropy", "threshold_crossing"), "analysis_tier"
+        ]
+        == "prespecified_primary"
+    )
+    assert (
+        comparisons.loc[
+            ("face_attention", "threshold_crossing"), "analysis_tier"
+        ]
+        == "exploratory"
+    )
+    assert (
+        comparisons.loc[
+            ("saliency_entropy", "reject_to_accept_crossing"),
+            "analysis_tier",
+        ]
+        == "exploratory"
+    )
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+def test_paired_comparisons_reject_incomplete_query_pairs(comparison):
+    frame = _paired_threshold_analysis_frame()
+    incomplete = frame.loc[
+        ~(
+            frame["threshold_policy"].eq("recalibrated_compressed")
+            & frame["sample_id"].eq("sample-8")
+        )
+    ]
+
+    with pytest.raises(ValueError, match="identical query sets"):
+        comparison(incomplete, **_paired_comparison_kwargs(comparison))
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+def test_paired_comparisons_reject_missing_policy_for_cosine(comparison):
+    frame = _paired_threshold_analysis_frame()
+    recalibrated_only = frame.loc[
+        frame["threshold_policy"].eq("recalibrated_compressed")
+    ]
+
+    with pytest.raises(ValueError, match="require both frozen_origin"):
+        comparison(
+            recalibrated_only,
+            **_paired_comparison_kwargs(comparison),
+        )
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+def test_paired_comparisons_allow_recalibrated_only_adc(comparison):
+    frame = _paired_threshold_analysis_frame()
+    adc = frame.loc[
+        frame["threshold_policy"].eq("recalibrated_compressed")
+    ].assign(search_mode="pq_adc_exhaustive")
+
+    result = comparison(adc, **_paired_comparison_kwargs(comparison))
+
+    assert result.empty
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+def test_paired_comparisons_reject_policy_invariant_score_mismatch(comparison):
+    frame = _paired_threshold_analysis_frame()
+    mismatch = (
+        frame["threshold_policy"].eq("recalibrated_compressed")
+        & frame["sample_id"].eq("sample-1")
+    )
+    frame.loc[mismatch, "top1_score_drift"] = -0.08
+
+    with pytest.raises(ValueError, match="field top1_score_drift"):
+        comparison(frame, **_paired_comparison_kwargs(comparison))
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+def test_paired_comparisons_reject_raw_score_mismatch(comparison):
+    frame = _paired_threshold_analysis_frame()
+    mismatch = (
+        frame["threshold_policy"].eq("recalibrated_compressed")
+        & frame["sample_id"].eq("sample-1")
+    )
+    frame.loc[mismatch, "compressed_top1_score"] = 0.67
+
+    with pytest.raises(ValueError, match="field compressed_top1_score"):
+        comparison(frame, **_paired_comparison_kwargs(comparison))
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+@pytest.mark.parametrize("missing_identity", [None, ""])
+def test_paired_comparisons_reject_missing_bootstrap_identity(
+    comparison,
+    missing_identity,
+):
+    frame = _paired_threshold_analysis_frame()
+    frame["identity_id"] = missing_identity
+
+    with pytest.raises(ValueError, match="non-empty identity_id"):
+        comparison(frame, **_paired_comparison_kwargs(comparison))
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+def test_paired_comparisons_reject_extraction_lineage_mismatch(comparison):
+    frame = _paired_threshold_analysis_frame()
+    frame.loc[
+        frame["threshold_policy"].eq("recalibrated_compressed"),
+        "extraction_uid",
+    ] = "extract-2"
+
+    with pytest.raises(ValueError, match="field extraction_uid"):
+        comparison(frame, **_paired_comparison_kwargs(comparison))
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        threshold_policy_event_comparisons,
+        threshold_policy_saliency_rho_comparisons,
+    ],
+)
+def test_paired_comparisons_reject_event_applicability_mismatch(comparison):
+    frame = _paired_threshold_analysis_frame()
+    mismatch = (
+        frame["threshold_policy"].eq("recalibrated_compressed")
+        & frame["sample_id"].eq("sample-1")
+    )
+    frame.loc[mismatch, "threshold_crossing"] = np.nan
+
+    with pytest.raises(ValueError, match="event applicability"):
+        comparison(frame, **_paired_comparison_kwargs(comparison))
 
 
 def test_combined_join_rejects_multi_policy_geometry_duplication():

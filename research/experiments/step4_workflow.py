@@ -20,6 +20,10 @@ from research.embeddings import (
     select_model_spec_by_profile,
 )
 from research.evaluation import (
+    DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
+    DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES,
+    DEFAULT_SALIENCY_FEATURES,
+    DEFAULT_THRESHOLD_EVENT_METRICS,
     WEIGHTED_RERANK_ALGORITHM_VERSION,
     WEIGHTED_RERANK_STRATEGY,
     SALIENCY_THRESHOLD_METRICS_VERSION,
@@ -33,6 +37,7 @@ from research.evaluation import (
     threshold_policy_event_comparisons,
     threshold_policy_saliency_rho_comparisons,
 )
+from research.evaluation.saliency_compression import DEFAULT_MINIMUM_EVENT_COUNT
 from research.experiments.scope import (
     ExperimentScope,
     select_manifest_fraction,
@@ -85,6 +90,7 @@ from research.runtime.hashing import sha256_file
 ProgressCallback = Callable[[str, dict[str, object]], None]
 STEP4_JOIN_CHUNK_ROWS = 100_000
 STEP4_BOOTSTRAP_BATCH_SIZE = 4
+DEFAULT_PAIRED_CONFIDENCE_LEVEL = 0.95
 SOURCE_SNAPSHOT_FIELDS = (
     "commit",
     "branch",
@@ -92,6 +98,32 @@ SOURCE_SNAPSHOT_FIELDS = (
     "working_tree_diff_sha256",
     "untracked_content_sha256",
 )
+
+
+def _association_metric_list(
+    association_config: Mapping[str, object],
+    *,
+    field: str,
+    default: tuple[str, ...],
+    allowed: tuple[str, ...],
+) -> tuple[str, ...]:
+    raw_values = association_config.get(field, default)
+    if not isinstance(raw_values, (list, tuple)) or not raw_values:
+        raise ValueError(f"{field} must be a non-empty list of strings")
+    if any(
+        not isinstance(value, str) or not value or value != value.strip()
+        for value in raw_values
+    ):
+        raise ValueError(f"{field} must be a non-empty list of strings")
+    values = tuple(raw_values)
+    if len(set(values)) != len(values):
+        raise ValueError(f"{field} must not contain duplicate values")
+    unsupported = sorted(set(values).difference(allowed))
+    if unsupported:
+        raise ValueError(
+            f"{field} contains unsupported values: {unsupported}"
+        )
+    return values
 
 
 def load_step4_config(path: str | Path) -> dict[str, Any]:
@@ -1529,6 +1561,7 @@ def analyze_step4_saliency_compression(
     root = Path(project_root).resolve()
     config = load_step4_config(config_path)
     execution = config["execution"]
+    bootstrap_seed = int(execution["seed"])
     overwrite = bool(execution["overwrite"])
     run, workflow_root, dataset_spec = _open_step4_run(
         config,
@@ -1567,6 +1600,40 @@ def analyze_step4_saliency_compression(
     ):
         raise ValueError("bootstrap_repeats must be a non-negative integer")
     bootstrap = raw_bootstrap
+    paired_saliency_features = _association_metric_list(
+        association_config,
+        field="paired_saliency_features",
+        default=DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES,
+        allowed=DEFAULT_SALIENCY_FEATURES,
+    )
+    paired_event_metrics = _association_metric_list(
+        association_config,
+        field="paired_event_metrics",
+        default=DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
+        allowed=DEFAULT_THRESHOLD_EVENT_METRICS,
+    )
+    raw_minimum_event_count = association_config.get(
+        "paired_minimum_event_count",
+        DEFAULT_MINIMUM_EVENT_COUNT,
+    )
+    if (
+        isinstance(raw_minimum_event_count, bool)
+        or not isinstance(raw_minimum_event_count, int)
+        or raw_minimum_event_count < 1
+    ):
+        raise ValueError("paired_minimum_event_count must be a positive integer")
+    paired_minimum_event_count = raw_minimum_event_count
+    raw_confidence_level = association_config.get(
+        "paired_confidence_level",
+        DEFAULT_PAIRED_CONFIDENCE_LEVEL,
+    )
+    if (
+        isinstance(raw_confidence_level, bool)
+        or not isinstance(raw_confidence_level, (int, float))
+        or not 0.0 < float(raw_confidence_level) < 1.0
+    ):
+        raise ValueError("paired_confidence_level must be between 0 and 1")
+    paired_confidence_level = float(raw_confidence_level)
     output_paths = {
         key: workflow_root / config["workflow"][key]
         for key in (
@@ -1583,6 +1650,39 @@ def analyze_step4_saliency_compression(
         "representative_case_candidates_path",
         "representative_case_candidates.csv",
     )
+    compact_output_keys = (
+        "geometry_association_path",
+        "retrieval_association_path",
+        "threshold_instability_association_path",
+        "threshold_policy_comparison_path",
+        "threshold_policy_saliency_rho_path",
+        "representative_case_candidates_path",
+    )
+    compact_destinations = {
+        (
+            candidate_path
+            if key == "representative_case_candidates_path"
+            else output_paths[key]
+        ).name: (
+            candidate_path
+            if key == "representative_case_candidates_path"
+            else output_paths[key]
+        )
+        for key in compact_output_keys
+    }
+    if len(compact_destinations) != len(compact_output_keys):
+        raise ValueError("Phase05 compact output filenames must be unique")
+    try:
+        compact_relative_paths = {
+            filename: destination.resolve()
+            .relative_to(run.run_dir.resolve())
+            .as_posix()
+            for filename, destination in compact_destinations.items()
+        }
+    except ValueError as error:
+        raise ValueError(
+            "Phase05 compact output paths must remain within the run directory"
+        ) from error
     persist_large_joins = bool(
         config["workflow"].get("persist_large_join_artifacts", True)
     )
@@ -1637,6 +1737,11 @@ def analyze_step4_saliency_compression(
             "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
             "bootstrap_repeats": bootstrap,
             "bootstrap_batch_size": STEP4_BOOTSTRAP_BATCH_SIZE,
+            "bootstrap_seed": bootstrap_seed,
+            "paired_saliency_features": list(paired_saliency_features),
+            "paired_event_metrics": list(paired_event_metrics),
+            "paired_minimum_event_count": paired_minimum_event_count,
+            "paired_confidence_level": paired_confidence_level,
             "join_chunk_rows": STEP4_JOIN_CHUNK_ROWS,
             "source_git_commit": _current_git_commit(root),
             "source_sha256": {
@@ -1700,7 +1805,7 @@ def analyze_step4_saliency_compression(
             geometry_associations = saliency_geometry_associations(
                 geometry_projection,
                 bootstrap_repeats=bootstrap,
-                seed=int(execution["seed"]),
+                seed=bootstrap_seed,
                 bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
                 bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
                 progress=_scoped_progress(
@@ -1734,7 +1839,7 @@ def analyze_step4_saliency_compression(
             retrieval_associations = saliency_retrieval_associations(
                 retrieval_projection,
                 bootstrap_repeats=bootstrap,
-                seed=int(execution["seed"]),
+                seed=bootstrap_seed,
                 bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
                 bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
                 progress=_scoped_progress(
@@ -1751,7 +1856,7 @@ def analyze_step4_saliency_compression(
             instability_associations = threshold_instability_associations(
                 retrieval_projection,
                 bootstrap_repeats=bootstrap,
-                seed=int(execution["seed"]),
+                seed=bootstrap_seed,
                 bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
                 bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
                 progress=_scoped_progress(
@@ -1769,8 +1874,10 @@ def analyze_step4_saliency_compression(
             )
             policy_comparisons = threshold_policy_event_comparisons(
                 retrieval_projection,
+                event_metrics=paired_event_metrics,
+                confidence_level=paired_confidence_level,
                 bootstrap_repeats=bootstrap,
-                seed=int(execution["seed"]),
+                seed=bootstrap_seed,
             )
             _write_csv(
                 staged_threshold_policy_comparison,
@@ -1781,8 +1888,12 @@ def analyze_step4_saliency_compression(
             policy_saliency_rho_comparisons = (
                 threshold_policy_saliency_rho_comparisons(
                     retrieval_projection,
+                    saliency_features=paired_saliency_features,
+                    event_metrics=paired_event_metrics,
+                    minimum_event_count=paired_minimum_event_count,
+                    confidence_level=paired_confidence_level,
                     bootstrap_repeats=bootstrap,
-                    seed=int(execution["seed"]),
+                    seed=bootstrap_seed,
                     bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
                 )
             )
@@ -1815,7 +1926,7 @@ def analyze_step4_saliency_compression(
                 geometry_stream.association_projection_path,
                 threshold_policy=str(case_config["threshold_policy"]),
                 cases_per_group=int(case_config["samples_per_stratum"]),
-                seed=int(execution["seed"]),
+                seed=bootstrap_seed,
                 chunksize=STEP4_JOIN_CHUNK_ROWS,
             )
             _write_csv(
@@ -1873,6 +1984,15 @@ def analyze_step4_saliency_compression(
                 )
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(staged_path, destination)
+
+            phase.details["output_artifacts"] = {
+                filename: {
+                    "path": compact_relative_paths[filename],
+                    "bytes": int(destination.stat().st_size),
+                    "sha256": sha256_file(destination),
+                }
+                for filename, destination in compact_destinations.items()
+            }
 
         phase.record_counts(
             geometry_join_rows=geometry_stream.row_count,

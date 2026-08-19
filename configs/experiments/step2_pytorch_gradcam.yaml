@@ -511,6 +511,17 @@ joint_analysis:
     bootstrap_unit: identity_id
     bootstrap_method: identity_cluster
     bootstrap_repeats: 500
+    paired_saliency_features:
+      - outside_face_attention
+      - saliency_entropy
+    paired_event_metrics:
+      - threshold_crossing
+      - false_accept_gain
+      - tpir_at_rank_k_loss
+      - tpir_threshold_loss
+      - tpir_rank_loss
+    paired_minimum_event_count: 5
+    paired_confidence_level: 0.95
     pool_models: false
     pool_compression_profiles: false
 
