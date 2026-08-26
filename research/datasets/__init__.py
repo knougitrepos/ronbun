@@ -64,6 +64,15 @@ from research.datasets.sources import (
     sha256_file,
     write_source_inventory,
 )
+from research.datasets.tinyface import (
+    TINYFACE_ARTIFACT_TYPE,
+    TINYFACE_DATASET_ID,
+    TINYFACE_OFFICIAL_COUNTS,
+    TINYFACE_PROTOCOL_ID,
+    TinyFaceOfficialBundle,
+    build_tinyface_official_bundle,
+    select_tinyface_protocol_fraction,
+)
 
 __all__ = [
     "BALANCEDFACE_RACE_LABELS",
@@ -84,6 +93,11 @@ __all__ = [
     "SurvFaceOfficialBundle",
     "SurvFaceTrainingBundle",
     "TarInspection",
+    "TINYFACE_ARTIFACT_TYPE",
+    "TINYFACE_DATASET_ID",
+    "TINYFACE_OFFICIAL_COUNTS",
+    "TINYFACE_PROTOCOL_ID",
+    "TinyFaceOfficialBundle",
     "audit_source_identity_overlap",
     "build_balancedface_index_bundle",
     "build_lfw_manifest",
@@ -91,6 +105,7 @@ __all__ = [
     "build_rfw_custom_open_set_bundle",
     "build_survface_official_manifest",
     "build_survface_training_manifest",
+    "build_tinyface_official_bundle",
     "check_rfw_checkpoint_eligibility",
     "inspect_balancedface_sources",
     "inspect_rfw_sources",
@@ -103,6 +118,7 @@ __all__ = [
     "select_balancedface_index_scope",
     "select_rfw_protocol_scope",
     "select_rfw_custom_protocol_fraction",
+    "select_tinyface_protocol_fraction",
     "iter_rfw_aligned_pair_batches",
     "sha256_file",
     "validate_dataset_operation",

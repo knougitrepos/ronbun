@@ -5,6 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import pandas as pd
+
+from research.runtime.hashing import sha256_file
 
 from scripts.run_integrated_postprocessing import (
     REPORT_MODEL_NAMES,
@@ -35,6 +38,56 @@ def _completed_run(
                 "run_id": run_id,
                 "model_uid": model_uid,
                 "fallback_free": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return run_dir
+
+
+def _completed_tinyface_run(
+    root: Path,
+    *,
+    run_id: str,
+    model_uid: str,
+) -> Path:
+    run_dir = root / "tinyface" / run_id
+    output_root = run_dir / "artifacts/tinyface_official"
+    output_root.mkdir(parents=True)
+    (run_dir / "COMPLETED").write_text("completed\n", encoding="utf-8")
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps({"status": "completed", "run_id": run_id}),
+        encoding="utf-8",
+    )
+    summary_path = output_root / "condition_summary.csv"
+    per_query_path = output_root / "per_query.csv"
+    pd.DataFrame(
+        {
+            "model_uid": [model_uid],
+            "fpir_tpir_metrics_applicable": [False],
+            "mean_average_precision": [0.5],
+        }
+    ).to_csv(summary_path, index=False)
+    pd.DataFrame(
+        {"query_image_id": ["probe"], "average_precision": [0.5]}
+    ).to_csv(per_query_path, index=False)
+    outputs = {
+        path.name: {
+            "path": path.name,
+            "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+        for path in (summary_path, per_query_path)
+    }
+    (output_root / "tinyface_evaluation_manifest.json").write_text(
+        json.dumps(
+            {
+                "artifact_type": "tinyface_official_compression_evaluation_v1",
+                "source_run_id": run_id,
+                "dataset_id": "tinyface",
+                "model_uid": model_uid,
+                "open_set_protocol": False,
+                "outputs": outputs,
             }
         ),
         encoding="utf-8",
@@ -144,6 +197,36 @@ def test_report_parameter_source_accepts_verified_matching_rfw_evaluation(
     )
 
     assert f"RFW_EVALUATION_DIR = {str(rfw_dir.resolve())!r}" in source
+
+
+def test_report_parameter_source_accepts_matching_tinyface_supplement(
+    tmp_path: Path,
+) -> None:
+    lfw = _completed_run(
+        tmp_path,
+        dataset_id="lfw",
+        run_id="L001",
+        model_uid="edgeface-test",
+    )
+    tinyface = _completed_tinyface_run(
+        tmp_path,
+        run_id="T001",
+        model_uid="edgeface-test",
+    )
+
+    source, identities = build_report_parameter_source(
+        model_name="edge",
+        selected_runs={"lfw": lfw, "tinyface": tinyface},
+        include_faithfulness=False,
+        write_outputs=False,
+        overwrite_outputs=False,
+    )
+
+    assert f"TINYFACE_EVALUATION_DIR = {str(tinyface.resolve())!r}" in source
+    assert identities["tinyface"]["run_id"] == "T001"
+    assert "tinyface" not in eval(
+        source.split("DATASETS = ", 1)[1].splitlines()[0]
+    )
 
 
 def test_report_parameter_source_rejects_dataset_key_mismatch(tmp_path: Path):

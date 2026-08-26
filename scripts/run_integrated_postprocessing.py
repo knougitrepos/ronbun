@@ -217,12 +217,14 @@ def build_report_parameter_source(
     normalized_model = REPORT_MODEL_NAMES.get(str(model_name).lower())
     if normalized_model is None:
         raise ValueError(f"unsupported model_name: {model_name!r}")
+    selected_run_paths = dict(selected_runs)
+    tinyface_run_dir = selected_run_paths.pop("tinyface", None)
     identities = {
         dataset: _completed_run_identity(run_dir)
-        for dataset, run_dir in selected_runs.items()
+        for dataset, run_dir in selected_run_paths.items()
     }
     if not identities:
-        raise ValueError("at least one completed run is required")
+        raise ValueError("at least one completed open-set run is required")
     if set(identities) - {"lfw", "survface", "rfw_custom"}:
         raise ValueError(f"unsupported dataset keys: {sorted(identities)}")
     for dataset, identity in identities.items():
@@ -261,6 +263,31 @@ def build_report_parameter_source(
                 f"{rfw_model_uid}"
             )
         resolved_rfw_dir = str(rfw_evaluation.root)
+    resolved_tinyface_dir: str | None = None
+    tinyface_identity: dict[str, str] | None = None
+    if tinyface_run_dir is not None:
+        from research.evaluation import load_tinyface_completed_evaluation
+
+        tinyface_evaluation = load_tinyface_completed_evaluation(tinyface_run_dir)
+        tinyface_model_uid = str(tinyface_evaluation.manifest.get("model_uid", ""))
+        tinyface_family = tinyface_model_uid.split("-", 1)[0].lower()
+        if tinyface_family != normalized_model:
+            raise ValueError(
+                f"TinyFace evaluation model mismatch: {tinyface_family} != {normalized_model}"
+            )
+        if tinyface_model_uid not in set(model_uids.values()):
+            raise ValueError(
+                "TinyFace model UID is absent from selected open-set runs: "
+                f"{tinyface_model_uid}"
+            )
+        tinyface_manifest = _read_json(tinyface_evaluation.root / "run_manifest.json")
+        resolved_tinyface_dir = str(tinyface_evaluation.root)
+        tinyface_identity = {
+            "dataset_id": "tinyface",
+            "run_id": str(tinyface_manifest["run_id"]),
+            "model_uid": tinyface_model_uid,
+            "run_dir": resolved_tinyface_dir,
+        }
     resolved_cross_model_matrix: dict[str, dict[str, str]] = {}
     if cross_model_run_matrix:
         for supplied_model, supplied_runs in cross_model_run_matrix.items():
@@ -316,6 +343,7 @@ def build_report_parameter_source(
         "WRITE_OUTPUTS": bool(write_outputs),
         "OVERWRITE_COMMON_OUTPUTS": bool(overwrite_outputs),
         "RFW_EVALUATION_DIR": resolved_rfw_dir,
+        "TINYFACE_EVALUATION_DIR": resolved_tinyface_dir,
         "MODEL_RUN_MATRIX": resolved_cross_model_matrix,
         "REQUIRE_COMPLETE_MODEL_MATRIX": bool(
             resolved_cross_model_matrix
@@ -325,7 +353,10 @@ def build_report_parameter_source(
         f"{name} = {pformat(value, sort_dicts=True)}"
         for name, value in assignments.items()
     ) + "\n"
-    return source, identities
+    returned_identities = dict(identities)
+    if tinyface_identity is not None:
+        returned_identities["tinyface"] = tinyface_identity
+    return source, returned_identities
 
 
 def run_cross_dataset_report_notebook(
@@ -378,10 +409,12 @@ def run_cross_dataset_report_notebook(
     client.execute()
 
     normalized_model = REPORT_MODEL_NAMES[str(model_name).lower()]
-    datasets = tuple(identities)
+    datasets = tuple(dataset for dataset in identities if dataset != "tinyface")
     selection_tag = "__".join(
         f"{dataset}-{identities[dataset]['run_id']}" for dataset in datasets
     )
+    if "tinyface" in identities:
+        selection_tag += f"__tinyface-{identities['tinyface']['run_id']}"
     output_dir = root / "results/paper/common" / normalized_model / selection_tag
     manifest_path = output_dir / "cross_dataset_summary_manifest.json"
     if write_outputs and not manifest_path.is_file():
@@ -391,6 +424,7 @@ def run_cross_dataset_report_notebook(
         "notebook": str(notebook_path),
         "datasets": list(datasets),
         "selected_runs": identities,
+        "tinyface_run": identities.get("tinyface"),
         "output_dir": str(output_dir),
         "manifest": str(manifest_path) if write_outputs else None,
     }

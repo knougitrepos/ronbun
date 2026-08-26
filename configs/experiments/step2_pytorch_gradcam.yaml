@@ -254,6 +254,9 @@ models:
 
 datasets:
   quantitative: [lfw, survface, rfw_custom]
+  # TinyFace is an official closed-set 1:N identification benchmark with a
+  # distractor gallery. It remains outside the open-set FPIR/TPIR matrix.
+  supplementary_quantitative: [tinyface]
   # RFW is an additional 1:1 verification diagnostic, not an open-set test.
   # MS1M checkpoints have known overlap risk, while EdgeFace/WebFace12M lacks
   # verified non-overlap evidence. Therefore RFW is reportable only as a
@@ -305,6 +308,23 @@ datasets:
       enrollment_count: 1
       group_balanced: true
       cross_group_source_identity_policy: exclude_from_custom_protocol
+  tinyface:
+    raw_root: data/raw/tinyface
+    protocol_adapter: tinyface_official_closed_set_v1
+    task: official_closed_set_1_to_n_identification_with_distractors
+    preprocessing_mode: official_face_crop_resize
+    require_full_coverage: true
+    open_set_protocol: false
+    non_mated_probe_count: 0
+    open_set_metrics_forbidden: true
+    compression_fit_role: development_pool
+    evaluation_roles: [gallery_match, gallery_distractor, registered_probe]
+    official_metrics: [mean_average_precision, rank_1, rank_5, rank_10, rank_20]
+    official_counts:
+      development_pool: 7804
+      gallery_match: 4443
+      gallery_distractor: 153428
+      registered_probe: 3728
   balancedface:
     status: deferred_by_step7_scope
     source_config_path: configs/datasets/rfw_balancedface.yaml

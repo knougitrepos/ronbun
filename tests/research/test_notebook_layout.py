@@ -158,12 +158,14 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     source = _source(path)
 
     for phrase in (
-        "DATASET_ID =",
-        "RUN_TIER =",
+        'DATASET_IDS = ("lfw", "survface", "rfw_custom", "tinyface")',
+        'RUN_TIER = "full"',
         "QUICK_DATA_FRACTIONS = {",
         '"lfw":',
         '"survface":',
         '"rfw_custom":',
+        '"tinyface":',
+        "INCLUDE_PQ_SDC = True",
         "TARGET_FPIRS = (0.01, 0.05, 0.10, 0.20, 0.30)",
         "MODEL_NAME =",
         "arcface_ms1mv3_r100",
@@ -177,15 +179,18 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         "FULL_DATA_FRACTION",
         "prepare_common_model_checkpoint",
         "run_smoke_validation=True",
-        "build_common_experiment_plan",
-            "quick_data_fractions=QUICK_DATA_FRACTIONS",
-            'ARTIFACT_STORAGE_MODE = "results_only"',
-            "artifact_storage_mode=ARTIFACT_STORAGE_MODE",
-        "inspect_common_experiment_plan",
-        "run_common_step4_experiment",
+        "build_integrated_experiment_plans",
+        "quick_data_fractions=QUICK_DATA_FRACTIONS",
+        'ARTIFACT_STORAGE_MODE = "results_only"',
+        "artifact_storage_mode=ARTIFACT_STORAGE_MODE",
+        "inspect_integrated_experiment_plans",
+        "run_or_reuse_integrated_experiment",
+        "validate_integrated_dataset_ids",
+        "validate_integrated_quick_data_fractions",
+        "validate_completed_run_overrides",
         "ACKNOWLEDGE_LOCAL_EXECUTION =",
-        'raise RuntimeError(f"preflight 실패: {FAILED_CHECKS}")',
-        "milestone_percent=10",
+        'raise RuntimeError(f"{dataset_id} preflight 실패: {checks}")',
+        'milestone_percent=(5 if dataset_id == "tinyface" else 10)',
         "heartbeat_seconds=None",
     ):
         assert phrase in source
@@ -194,7 +199,6 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     for phrase in (
         "DATASET_IDS = (",
         "postprocess_completed_run",
-        "reuse_completed_run_for_plan",
         "COMPLETED_RUN_OVERRIDES = {",
         "run_cross_dataset_report_notebook",
         "RUN_SEARCH_SPACE_REFRESH = True",
@@ -207,12 +211,19 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
         "rfw_evaluation_dir=",
         "CROSS_MODEL_RUN_MATRIX = {",
         "cross_model_run_matrix=",
+        '"tinyface": "runs/tinyface/',
+        '"tinyface_official": EXECUTION_RESULTS.get(',
     ):
         assert phrase in source
-    assert source.index("for dataset_id, plan in PLANS.items()") < (
-        source.index(
-            "for dataset_id, execution in EXECUTION_RESULTS.items()"
-        )
+    for removed_split_setting in (
+        "RUN_TINYFACE_OFFICIAL",
+        "TINYFACE_QUICK_FRACTION",
+        "TINYFACE_COMPLETED_RUN_OVERRIDE",
+        "tinyface_run_dir=",
+    ):
+        assert removed_split_setting not in source
+    assert source.index("execution = run_or_reuse_integrated_experiment") < (
+        source.index("POSTPROCESS_RESULTS[dataset_id] = postprocess_completed_run")
     )
 
 
@@ -424,6 +435,11 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "load_rfw_frozen_codec_evaluation",
         "RFW_PROFILE_SUMMARY",
         "supplementary_1to1_verification",
+        "TINYFACE_EVALUATION_DIR",
+        "load_tinyface_completed_evaluation",
+        "tinyface_official_compression_summary.csv",
+        "supplementary_closed_set_1toN_identification",
+        '"fpir_tpir_metrics_applicable": False',
         "lfw_survface_fpir_appendix.csv",
         "tpir20_method_columns",
         "RFW-Custom 1:N TPIR20은 retrieval/open-set 표에 유지됩니다",

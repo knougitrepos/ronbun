@@ -51,7 +51,9 @@ from research.runtime.hashing import canonical_sha256, sha256_file
 
 
 SUPPORTED_COMMON_DATASETS = ("lfw", "survface", "rfw_custom")
-SUPPORTED_RUN_TIERS = ("quick", "full")
+SUPPORTED_ORCHESTRATION_DATASETS = (*SUPPORTED_COMMON_DATASETS, "tinyface")
+DEFAULT_RUN_TIER = "full"
+SUPPORTED_RUN_TIERS = ("quick", DEFAULT_RUN_TIER)
 SUPPORTED_MODEL_NAMES = ("arc", "ada", "mag", "edge")
 SUPPORTED_ARTIFACT_STORAGE_MODES = ("results_only", "full")
 MODEL_NAME_TO_FAMILY: Mapping[str, str] = {
@@ -76,6 +78,7 @@ QUICK_DATA_FRACTIONS: Mapping[str, float] = {
     "lfw": 0.10,
     "survface": 0.02,
     "rfw_custom": 0.10,
+    "tinyface": 0.10,
 }
 FULL_DATA_FRACTION = 1.00
 DEFAULT_STEP4_CONFIG_PATH = Path("configs/experiments/step2_pytorch_gradcam.yaml")
@@ -311,12 +314,13 @@ def _validated_quick_data_fractions(
     source = QUICK_DATA_FRACTIONS if values is None else values
     if not isinstance(source, Mapping):
         raise ValueError("quick_data_fractions must be a mapping")
-    if set(source) != set(SUPPORTED_COMMON_DATASETS):
+    if set(source) != set(SUPPORTED_ORCHESTRATION_DATASETS):
         raise ValueError(
-            f"quick_data_fractions must contain exactly {SUPPORTED_COMMON_DATASETS}"
+            "quick_data_fractions must contain exactly "
+            f"{SUPPORTED_ORCHESTRATION_DATASETS}"
         )
     resolved: dict[str, float] = {}
-    for dataset_id in SUPPORTED_COMMON_DATASETS:
+    for dataset_id in SUPPORTED_ORCHESTRATION_DATASETS:
         value = source[dataset_id]
         if isinstance(value, bool):
             raise ValueError("quick data fractions must be numbers in (0, 1]")
@@ -632,6 +636,8 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
         raise ValueError("evaluation execution section must be a mapping")
     if tuple(execution.get("tiers", ())) != SUPPORTED_RUN_TIERS:
         raise ValueError(f"execution tiers must be exactly {SUPPORTED_RUN_TIERS}")
+    if str(execution.get("default_tier", "")).strip().lower() != DEFAULT_RUN_TIER:
+        raise ValueError(f"execution default_tier must be {DEFAULT_RUN_TIER!r}")
     quick = execution.get("quick_data_fractions")
     if not isinstance(quick, Mapping):
         raise ValueError("quick_data_fractions must be a mapping")
@@ -742,6 +748,24 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
         raise ValueError("EdgeFace-RFW overlap status must remain UNKNOWN")
     if rfw.get("strict_unseen_identity_evidence_allowed") is not False:
         raise ValueError("RFW cannot be strict unseen-identity evidence")
+
+    tinyface = contract.get("tinyface")
+    if not isinstance(tinyface, Mapping):
+        raise ValueError("TinyFace supplementary evaluation contract is required")
+    if tinyface.get("open_set_protocol") is not False:
+        raise ValueError("TinyFace official protocol must remain closed-set")
+    if int(tinyface.get("non_mated_probe_count", -1)) != 0:
+        raise ValueError("TinyFace official protocol has no non-mated probes")
+    if tinyface.get("open_set_metrics_forbidden") is not True:
+        raise ValueError("TinyFace official evaluation must forbid FPIR/TPIR metrics")
+    if tuple(tinyface.get("metrics", ())) != (
+        "mean_average_precision",
+        "rank_1",
+        "rank_5",
+        "rank_10",
+        "rank_20",
+    ):
+        raise ValueError("TinyFace official metrics must be mAP and Rank-1/5/10/20")
 
 
 def _effective_step4_config(
@@ -884,7 +908,7 @@ def build_common_experiment_plan(
     *,
     project_root: str | Path,
     dataset_id: str,
-    run_tier: str,
+    run_tier: str = DEFAULT_RUN_TIER,
     seed: int = 42,
     model_name: str | None = None,
     model_profile: str | None = None,

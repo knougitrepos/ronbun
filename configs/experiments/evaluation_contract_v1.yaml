@@ -4,11 +4,13 @@ paper_result_requires_full_coverage: true
 
 execution:
   tiers: [quick, full]
+  default_tier: full
   seed: 42
   quick_data_fractions:
     lfw: 0.10
     survface: 0.02
     rfw_custom: 0.10
+    tinyface: 0.10
   full_data_fraction: 1.00
   quick_paper_eligible: false
 
@@ -17,6 +19,7 @@ comparison:
   interpretation: checkpoint_level_generalization_only
   causal_loss_or_architecture_claim_allowed: false
   open_set_datasets: [lfw, survface, rfw_custom]
+  supplementary_identification_datasets: [tinyface]
   main_profiles:
     - origin_512
     - pca_256
@@ -106,6 +109,37 @@ rfw:
   edgeface_training_identity_overlap_status: UNKNOWN
   strict_unseen_identity_evidence_allowed: false
   reporting_role: supplementary_diagnostic
+
+tinyface:
+  protocol: official_closed_set_1_to_n_identification_with_distractors
+  protocol_uid_family: tinyface_official_closed_set_v1
+  reporting_role: supplementary_identification_generalization
+  open_set_protocol: false
+  non_mated_probe_count: 0
+  open_set_metrics_forbidden: true
+  score_space_calibration: not_applicable_without_non_mated_probes
+  preprocessing: official_face_crop_single_bilinear_resize_to_112
+  compression_fit_role: development_pool
+  gallery_roles: [gallery_match, gallery_distractor]
+  query_role: registered_probe
+  metrics:
+    - mean_average_precision
+    - rank_1
+    - rank_5
+    - rank_10
+    - rank_20
+  confidence_intervals:
+    rank_rates: probe_level_wilson_95
+    compressed_minus_origin: paired_query_bootstrap_95
+    bootstrap_seed: 42
+    bootstrap_repeats: 2000
+  quick_scope:
+    data_fraction: 0.10
+    identity_preserving: true
+    paper_eligible: false
+  full_scope:
+    data_fraction: 1.00
+    official_result_eligible: true
 
 deferred_step7:
   - faiss_ivf_pq

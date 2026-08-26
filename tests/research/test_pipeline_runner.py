@@ -10,6 +10,7 @@ import yaml
 
 from research.experiments import pipeline_runner
 from research.experiments.pipeline_runner import (
+    DEFAULT_RUN_TIER,
     DEFAULT_MODEL_PROFILES,
     DEFAULT_MODEL_WEIGHT_PATHS,
     FULL_DATA_FRACTION,
@@ -138,6 +139,7 @@ def test_common_plan_uses_only_confirmed_quick_full_fractions(
         "lfw": 0.10,
         "survface": 0.02,
         "rfw_custom": 0.10,
+        "tinyface": 0.10,
     }
     assert plan.quick_fraction_override is False
     assert plan.selected_source_rows == expected_selected
@@ -172,8 +174,11 @@ def test_contract_constants_match_user_confirmed_values() -> None:
         "lfw": 0.10,
         "survface": 0.02,
         "rfw_custom": 0.10,
+        "tinyface": 0.10,
     }
     assert FULL_DATA_FRACTION == 1.0
+    assert DEFAULT_RUN_TIER == "full"
+    assert contract["execution"]["default_tier"] == "full"
     assert dict(DEFAULT_MODEL_PROFILES) == {
         "arc": "arcface_ms1mv3_r100",
         "ada": "adaface_ms1mv3_r100",
@@ -303,6 +308,7 @@ def test_notebook_quick_fraction_override_is_recorded(
             "lfw": 0.25,
             "survface": 0.03,
             "rfw_custom": 0.15,
+            "tinyface": 0.20,
         },
         step4_config_path=config_path,
         evaluation_contract_path=contract_path,
@@ -315,6 +321,7 @@ def test_notebook_quick_fraction_override_is_recorded(
             "lfw": 0.25,
             "survface": 0.03,
             "rfw_custom": 0.15,
+            "tinyface": 0.20,
         },
         step4_config_path=config_path,
         evaluation_contract_path=contract_path,
@@ -326,6 +333,7 @@ def test_notebook_quick_fraction_override_is_recorded(
         "lfw": 0.25,
         "survface": 0.03,
         "rfw_custom": 0.15,
+        "tinyface": 0.20,
     }
     assert (
         plan.effective_step4_config["orchestration"]["quick_fraction_override"]

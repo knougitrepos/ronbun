@@ -33,6 +33,14 @@ from research.evaluation.metrics import (
     rank_at_k,
     wilson_score_interval,
 )
+from research.evaluation.tinyface import (
+    TINYFACE_RANKS,
+    TinyFaceCompletedEvaluation,
+    TinyFaceIdentificationResult,
+    evaluate_tinyface_identification,
+    load_tinyface_completed_evaluation,
+    paired_tinyface_deltas,
+)
 from research.evaluation.saliency_compression import (
     DEFAULT_GEOMETRY_METRICS,
     DEFAULT_RETRIEVAL_METRICS,
@@ -111,6 +119,9 @@ __all__ = [
     "SALIENCY_THRESHOLD_METRICS_VERSION",
     "RETRIEVAL_COMPARISON_COLUMNS",
     "RFWVerificationResult",
+    "TINYFACE_RANKS",
+    "TinyFaceCompletedEvaluation",
+    "TinyFaceIdentificationResult",
     "annotate_compression_lineage",
     "derive_saliency_threshold_metrics",
     "apply_retrieval_thresholds",
@@ -123,6 +134,7 @@ __all__ = [
     "expected_calibration_error",
     "evaluate_rfw_10fold",
     "evaluate_rfw_pair_scores",
+    "evaluate_tinyface_identification",
     "join_population_saliency_with_compression",
     "join_population_saliency_with_retrieval",
     "open_set_identification_metrics",
@@ -140,6 +152,8 @@ __all__ = [
     "select_stratified_faithfulness_sample",
     "SelectedFaithfulnessArtifacts",
     "load_selected_faithfulness_artifacts",
+    "load_tinyface_completed_evaluation",
+    "paired_tinyface_deltas",
     "summarize_faithfulness",
     "StreamingJoinResult",
     "WEIGHTED_RERANK_ALGORITHM_VERSION",
