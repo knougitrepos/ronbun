@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import nbformat
@@ -195,6 +196,7 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     ):
         assert phrase in source
     assert "DATA_FRACTION =" not in source
+    assert re.search(r"\bDATASET_ID\b", source) is None
     assert "%run" not in source
     for phrase in (
         "DATASET_IDS = (",
