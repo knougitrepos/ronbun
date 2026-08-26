@@ -82,7 +82,7 @@ def postprocess_completed_run(
     result: dict[str, Any] = {
         "status": "completed",
         "source": identity,
-        "search_space_v5_tpir20_multi_fpir": {"status": "disabled"},
+        "search_space_v6_query_gallery_conditions": {"status": "disabled"},
         "faithfulness": {"status": "disabled"},
     }
     if derive_survface_faithfulness is not None:
@@ -90,7 +90,7 @@ def postprocess_completed_run(
     if refresh_search_spaces:
         from scripts.refresh_step4_search_spaces import refresh
 
-        result["search_space_v5_tpir20_multi_fpir"] = refresh(
+        result["search_space_v6_query_gallery_conditions"] = refresh(
             Path(identity["run_dir"]),
             output_dir=None,
             families=("pca", "pq"),
@@ -312,7 +312,7 @@ def build_report_parameter_source(
         "MODEL_UIDS": model_uids,
         "RUN_IDS": run_ids,
         "INCLUDE_FAITHFULNESS": bool(include_faithfulness),
-        "GENERATE_MISSING_TPIR20_ARTIFACTS": False,
+        "GENERATE_MISSING_SEARCH_CONDITION_ARTIFACTS": False,
         "WRITE_OUTPUTS": bool(write_outputs),
         "OVERWRITE_COMMON_OUTPUTS": bool(overwrite_outputs),
         "RFW_EVALUATION_DIR": resolved_rfw_dir,

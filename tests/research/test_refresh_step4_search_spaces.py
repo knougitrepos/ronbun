@@ -38,41 +38,28 @@ def test_rfw_custom_refresh_rejects_legacy_80_gallery_source_run(
 
 
 def _compact_retrieval(*, family: str) -> pd.DataFrame:
-    modes_and_policies = (
-        (
-            (
-                "pca_direct_cosine",
-                "frozen_origin",
-            ),
-            (
-                "pca_direct_cosine",
-                "recalibrated_compressed",
-            ),
-            (
-                "pca_reconstruction_cosine",
-                "frozen_origin",
-            ),
-            (
-                "pca_reconstruction_cosine",
-                "recalibrated_compressed",
-            ),
-        )
-        if family == "pca"
-        else (
-            ("pq_reconstruction_cosine", "frozen_origin"),
-            ("pq_reconstruction_cosine", "recalibrated_compressed"),
-            ("pq_adc_exhaustive", "recalibrated_compressed"),
-        )
+    modes = module.PCA_SEARCH_MODES if family == "pca" else module.PQ_SEARCH_MODES
+    modes_and_policies = tuple(
+        (mode, policy)
+        for mode in modes
+        for policy in module.threshold_policies_for_search_mode(mode)
     )
     rows = []
     for target in module.DEFAULT_TARGET_FPIRS:
         for search_mode, threshold_policy in modes_and_policies:
-            is_adc = search_mode == "pq_adc_exhaustive"
+            condition = module.search_condition(search_mode)
             rows.append(
                 {
                     "compression_family": family,
                     "compression_profile": f"{family}_test",
                     "search_mode": search_mode,
+                    "query_representation": condition.query_representation,
+                    "gallery_representation": condition.gallery_representation,
+                    "distance_function": condition.distance_function,
+                    "compressed_score_space": condition.compressed_score_space,
+                    "frozen_origin_threshold_applicable": (
+                        condition.frozen_origin_threshold_applicable
+                    ),
                     "threshold_policy": threshold_policy,
                     "target_fpir": target,
                     "origin_dir_rank1_count": 8,
@@ -138,14 +125,14 @@ def _compact_retrieval(*, family: str) -> pd.DataFrame:
                     "threshold_crossing_count": 0,
                     "accept_to_reject_count": 0,
                     "reject_to_accept_count": 0,
-                    "score_spaces_comparable": not is_adc,
+                    "score_spaces_comparable": condition.score_spaces_comparable,
                 }
             )
     return pd.DataFrame.from_records(rows)
 
 
 @pytest.mark.parametrize("family", ["pca", "pq"])
-def test_v5_compact_validation_requires_tpir20_fpir_grid(family: str) -> None:
+def test_v6_compact_validation_requires_tpir20_fpir_grid(family: str) -> None:
     compression = pd.DataFrame(
         {
             "compression_family": [family],
@@ -181,7 +168,7 @@ def test_v5_compact_validation_requires_tpir20_fpir_grid(family: str) -> None:
         )
 
 
-def test_v5_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift():
+def test_v6_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift():
     compression = pd.DataFrame(
         {
             "compression_family": ["pca"],

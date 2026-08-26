@@ -493,6 +493,192 @@ class PQCompressor:
         }
         return distances, indices, metrics
 
+    def search_sdc(
+        self,
+        queries: np.ndarray,
+        gallery_codes: np.ndarray,
+        *,
+        top_k: int = 1,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Run exhaustive symmetric squared-L2 search over PQ codes."""
+
+        distances, indices, _ = self.search_sdc_with_metrics(
+            queries,
+            gallery_codes,
+            top_k=top_k,
+        )
+        return distances, indices
+
+    def search_sdc_with_metrics(
+        self,
+        queries: np.ndarray,
+        gallery_codes: np.ndarray,
+        *,
+        top_k: int = 1,
+        query_batch_size: int = 64,
+        gallery_batch_size: int = 4096,
+    ) -> tuple[np.ndarray, np.ndarray, dict[str, float | int | str]]:
+        """Encode queries and search PQ codes with symmetric codeword distances.
+
+        Faiss provides a native SDC heap search for 8-bit subquantizers. Smaller
+        bit widths use the same Faiss SDC distance table with a bounded NumPy
+        fallback, primarily for smoke tests and legacy codecs.
+        """
+
+        try:
+            import faiss  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError("Faiss is required for PQ SDC search") from exc
+        query_matrix = _as_float_matrix(queries)
+        if query_matrix.shape[1] != self.source_dim:
+            raise ValueError(
+                f"PQ SDC expected {self.source_dim} query dimensions, "
+                f"got {query_matrix.shape[1]}"
+            )
+        codes = np.ascontiguousarray(np.asarray(gallery_codes))
+        index = self._require_fit()
+        expected_code_size = int(index.sa_code_size())
+        if codes.ndim != 2 or codes.shape[0] == 0:
+            raise ValueError("gallery_codes must be a non-empty 2D array")
+        if codes.shape[1] != expected_code_size:
+            raise ValueError(
+                f"PQ SDC expected code size {expected_code_size}, got {codes.shape[1]}"
+            )
+        if codes.dtype != np.uint8:
+            raise ValueError("gallery_codes must use uint8 Faiss standalone codes")
+        top_k_value = int(top_k)
+        if isinstance(top_k, (bool, np.bool_)) or top_k_value <= 0:
+            raise ValueError("top_k must be a positive integer")
+        if top_k_value > len(codes):
+            raise ValueError("top_k must not exceed the gallery code count")
+        if int(index.metric_type) != int(faiss.METRIC_L2):
+            raise ValueError("PQ SDC requires a squared-L2 codebook")
+        if self.nbits > 8:
+            raise ValueError("PQ SDC supports at most 8 bits per subquantizer")
+
+        table_started = perf_counter()
+        index.pq.compute_sdc_table()
+        table_elapsed = perf_counter() - table_started
+        search_started = perf_counter()
+        query_codes = np.ascontiguousarray(self.encode(query_matrix))
+        query_count = int(len(query_codes))
+        if self.nbits == 8:
+            distances = np.empty((query_count, top_k_value), dtype=np.float32)
+            indices = np.empty((query_count, top_k_value), dtype=np.int64)
+            heaps = faiss.float_maxheap_array_t()
+            heaps.k = top_k_value
+            heaps.nh = query_count
+            heaps.val = faiss.swig_ptr(distances)
+            heaps.ids = faiss.swig_ptr(indices)
+            index.pq.search_sdc(
+                faiss.swig_ptr(query_codes),
+                query_count,
+                faiss.swig_ptr(codes),
+                len(codes),
+                heaps,
+            )
+            implementation = "faiss_product_quantizer_search_sdc"
+        else:
+            query_batch = int(query_batch_size)
+            gallery_batch = int(gallery_batch_size)
+            if query_batch <= 0 or gallery_batch <= 0:
+                raise ValueError("SDC batch sizes must be positive")
+            code_count = 1 << self.nbits
+            distance_table = faiss.vector_to_array(index.pq.sdc_table).reshape(
+                self.m,
+                code_count,
+                code_count,
+            )
+            query_subcodes = faiss.unpack_bitstrings(
+                query_codes,
+                self.m,
+                self.nbits,
+            )
+            gallery_subcodes = faiss.unpack_bitstrings(
+                codes,
+                self.m,
+                self.nbits,
+            )
+            distances = np.empty((query_count, top_k_value), dtype=np.float32)
+            indices = np.empty((query_count, top_k_value), dtype=np.int64)
+            for query_start in range(0, query_count, query_batch):
+                query_stop = min(query_start + query_batch, query_count)
+                batch_size = query_stop - query_start
+                best_distances = np.full(
+                    (batch_size, top_k_value),
+                    np.inf,
+                    dtype=np.float32,
+                )
+                best_indices = np.full(
+                    (batch_size, top_k_value),
+                    -1,
+                    dtype=np.int64,
+                )
+                query_batch_codes = query_subcodes[query_start:query_stop]
+                for gallery_start in range(0, len(codes), gallery_batch):
+                    gallery_stop = min(gallery_start + gallery_batch, len(codes))
+                    gallery_chunk_codes = gallery_subcodes[
+                        gallery_start:gallery_stop
+                    ]
+                    block = np.zeros(
+                        (batch_size, gallery_stop - gallery_start),
+                        dtype=np.float32,
+                    )
+                    for subquantizer in range(self.m):
+                        block += distance_table[subquantizer][
+                            query_batch_codes[:, subquantizer, np.newaxis],
+                            gallery_chunk_codes[np.newaxis, :, subquantizer],
+                        ]
+                    chunk_indices = np.broadcast_to(
+                        np.arange(gallery_start, gallery_stop, dtype=np.int64),
+                        block.shape,
+                    )
+                    candidate_distances = np.concatenate(
+                        (best_distances, block), axis=1
+                    )
+                    candidate_indices = np.concatenate(
+                        (best_indices, chunk_indices), axis=1
+                    )
+                    for row in range(batch_size):
+                        order = np.lexsort(
+                            (candidate_indices[row], candidate_distances[row])
+                        )[:top_k_value]
+                        best_distances[row] = candidate_distances[row, order]
+                        best_indices[row] = candidate_indices[row, order]
+                distances[query_start:query_stop] = best_distances
+                indices[query_start:query_stop] = best_indices
+            implementation = "numpy_batched_faiss_sdc_table"
+        search_elapsed = perf_counter() - search_started
+        distances = np.asarray(distances, dtype=np.float32)
+        indices = np.asarray(indices, dtype=np.int64)
+        if distances.shape != indices.shape or distances.shape != (
+            query_count,
+            top_k_value,
+        ):
+            raise RuntimeError("PQ SDC search returned an invalid result shape")
+        if (
+            not np.all(np.isfinite(distances))
+            or np.any(distances < -1e-5)
+            or np.any(indices < 0)
+            or np.any(indices >= len(codes))
+        ):
+            raise RuntimeError("PQ SDC search returned invalid distances or indices")
+        metrics: dict[str, float | int | str] = {
+            "latency_measurement_repeats": 1,
+            "latency_timer": "time.perf_counter",
+            "compressed_index_build_latency_ms": float(table_elapsed * 1000.0),
+            "compressed_gallery_add_latency_ms": 0.0,
+            "compressed_search_latency_ms_total": float(search_elapsed * 1000.0),
+            "compressed_search_latency_ms_per_query": float(
+                search_elapsed * 1000.0 / query_count
+            ),
+            "compressed_search_queries_per_second": float(
+                query_count / search_elapsed if search_elapsed > 0.0 else np.inf
+            ),
+            "sdc_implementation": implementation,
+        }
+        return distances, indices, metrics
+
     def transform_profile(self, vectors: np.ndarray) -> CompressionResult:
         source = _as_float_matrix(vectors)
         codes = self.encode(source)

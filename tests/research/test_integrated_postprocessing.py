@@ -57,7 +57,7 @@ def test_postprocess_can_validate_completed_run_without_derived_work(tmp_path: P
 
     assert result["status"] == "completed"
     assert result["source"]["dataset_id"] == "lfw"
-    assert result["search_space_v5_tpir20_multi_fpir"] == {
+    assert result["search_space_v6_query_gallery_conditions"] == {
         "status": "disabled"
     }
     assert result["faithfulness"] == {"status": "disabled"}
@@ -109,7 +109,7 @@ def test_report_parameter_source_uses_verified_run_identity(tmp_path: Path):
     assert "MODEL_NAME = 'magface'" in source
     assert source.startswith("CROSS_DATASET_REPORT_PARAMETERS_INJECTED = True\n")
     assert "WRITE_OUTPUTS = False" in source
-    assert "GENERATE_MISSING_TPIR20_ARTIFACTS = False" in source
+    assert "GENERATE_MISSING_SEARCH_CONDITION_ARTIFACTS = False" in source
     assert "INCLUDE_FAITHFULNESS = True" in source
     assert "RFW_EVALUATION_DIR = None" in source
 

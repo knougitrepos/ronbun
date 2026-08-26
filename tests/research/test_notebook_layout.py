@@ -265,10 +265,19 @@ def test_experiment_defaults_use_full_data_and_execute() -> None:
                 or 'EXECUTE_STAGE = bool(EXECUTION["execute_stage"])' in source
             )
         if "WRITE_OUTPUTS =" in source:
-            assert (
-                "WRITE_OUTPUTS = True" in source
-                or 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
-            )
+            if path == (
+                NOTEBOOK_ROOT
+                / "common"
+                / "reports"
+                / "00_cross_dataset_results.ipynb"
+            ):
+                assert "WRITE_OUTPUTS = False" in source
+                assert "WRITE_OUTPUTS = bool(WRITE_OUTPUTS)" in source
+            else:
+                assert (
+                    "WRITE_OUTPUTS = True" in source
+                    or 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
+                )
         if "OVERWRITE =" in source:
             assert (
                 "OVERWRITE = True" in source
@@ -388,14 +397,20 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "origin_decision_threshold",
         "compressed_decision_threshold",
         "profile_storage schema mismatch",
-        "PREFER_TPIR20_MULTI_FPIR_SEARCH_SPACE",
+        "PREFER_QUERY_GALLERY_SEARCH_SPACE",
         "REQUIRE_HOMOGENEOUS_POSTPROCESSING",
         "ALLOW_LEGACY_POSTPROCESSING",
-        "GENERATE_MISSING_TPIR20_ARTIFACTS",
+        "GENERATE_MISSING_SEARCH_CONDITION_ARTIFACTS",
         "refresh_tpir20_search_space",
-        "generated_or_resumed_search_space_v5_tpir20_multi_fpir",
-        "search_space_v5_tpir20_multi_fpir",
-        "step4_search_space_tpir20_multi_fpir_v5",
+        "generated_or_resumed_search_space_v6_query_gallery_conditions",
+        "search_space_v6_query_gallery_conditions",
+        "step4_search_space_query_gallery_conditions_v6",
+        "pq_one_sided_cosine",
+        "pq_sdc_exhaustive",
+        "query_representation",
+        "gallery_representation",
+        "distance_function",
+        "pq_query_gallery_operating_points.csv",
         '"target_fpir"',
         "accept_to_reject_count",
         "reject_to_accept_count",

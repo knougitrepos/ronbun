@@ -9,6 +9,8 @@ from typing import Mapping
 
 import pandas as pd
 
+from research.evaluation.search_conditions import CROSS_SCORE_SPACE_SEARCH_MODES
+
 from research.evaluation.saliency_compression import (
     DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
     DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES,
@@ -484,7 +486,7 @@ def _validate_paired_base_grain_coverage(
         )
 
     reference_grains = reference.loc[
-        ~reference["search_mode"].astype(str).eq("pq_adc_exhaustive"),
+        ~reference["search_mode"].astype(str).isin(CROSS_SCORE_SPACE_SEARCH_MODES),
         list(base_grain_columns),
     ].drop_duplicates()
     reference_mated = _strict_boolean_series(

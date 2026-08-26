@@ -22,6 +22,9 @@ from research.evaluation.metrics import (  # noqa: E402
     paired_binary_rate_difference_bootstrap_interval,
     wilson_score_interval,
 )
+from research.evaluation.search_conditions import (  # noqa: E402
+    search_condition_metadata,
+)
 
 
 SCHEMA_VERSION = 5
@@ -57,6 +60,9 @@ RETRIEVAL_FIXED_COLUMNS = (
     "extraction_uid",
     "dataset_id",
     "origin_embedding_artifact_uid",
+    "query_representation",
+    "gallery_representation",
+    "distance_function",
     "origin_score_space",
     "compressed_score_space",
     "score_spaces_comparable",
@@ -75,6 +81,9 @@ RETRIEVAL_FIXED_COLUMNS = (
 OPTIONAL_RETRIEVAL_FIXED_COLUMNS = (
     "codec_parameter_bytes",
     "codec_parameter_bytes_source",
+    "query_representation",
+    "gallery_representation",
+    "distance_function",
     "origin_score_space",
     "compressed_score_space",
     "score_spaces_comparable",
@@ -442,6 +451,17 @@ def summarize_retrieval(
                 "pca_direct_cosine",
                 "pq_reconstruction_cosine",
             )
+        for condition_column in (
+            "query_representation",
+            "gallery_representation",
+            "distance_function",
+        ):
+            if condition_column not in chunk:
+                chunk[condition_column] = chunk["search_mode"].map(
+                    lambda mode: search_condition_metadata(str(mode))[
+                        condition_column
+                    ]
+                )
         if "origin_score_space" not in chunk:
             chunk["origin_score_space"] = "cosine_similarity"
         if "compressed_score_space" not in chunk:
@@ -673,6 +693,9 @@ def summarize_retrieval(
                 "compression_family": family,
                 "compression_profile": profile,
                 "search_mode": search_mode,
+                "query_representation": fixed["query_representation"],
+                "gallery_representation": fixed["gallery_representation"],
+                "distance_function": fixed["distance_function"],
                 "origin_score_space": fixed["origin_score_space"],
                 "compressed_score_space": fixed["compressed_score_space"],
                 "score_spaces_comparable": fixed["score_spaces_comparable"],
@@ -1047,9 +1070,14 @@ def generate(
                 "threshold policy, and target FPIR when present"
             ),
             "score_space_policy": (
-                "cross-space score drift is undefined for PQ ADC; frozen-origin "
-                "threshold is inapplicable outside cosine score space"
+                "cross-space score drift is undefined for PQ ADC/SDC; "
+                "frozen-origin threshold is inapplicable outside cosine score space"
             ),
+            "query_gallery_condition_columns": [
+                "query_representation",
+                "gallery_representation",
+                "distance_function",
+            ],
             "rates": "fractions in [0,1] with explicit numerator and denominator columns",
             "origin_and_compressed_operating_points": "reported separately",
             "rate_confidence_intervals": (

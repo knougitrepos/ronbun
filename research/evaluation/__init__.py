@@ -5,8 +5,20 @@ from research.evaluation.compression_characterization import (
     apply_retrieval_thresholds,
     compare_cosine_retrieval,
     compare_pq_adc_retrieval,
+    compare_pq_sdc_retrieval,
     origin_cosine_retrieval,
     paired_embedding_metrics,
+)
+from research.evaluation.search_conditions import (
+    ALL_SEARCH_MODES,
+    CROSS_SCORE_SPACE_SEARCH_MODES,
+    PCA_SEARCH_MODES,
+    PQ_SEARCH_MODES,
+    SEARCH_CONDITIONS,
+    SearchCondition,
+    search_condition,
+    search_condition_metadata,
+    threshold_policies_for_search_mode,
 )
 from research.evaluation.metrics import (
     PAIRED_BOOTSTRAP_RANDOM_SEED,
@@ -107,6 +119,7 @@ __all__ = [
     "certified_open_set_metrics",
     "compare_cosine_retrieval",
     "compare_pq_adc_retrieval",
+    "compare_pq_sdc_retrieval",
     "expected_calibration_error",
     "evaluate_rfw_10fold",
     "evaluate_rfw_pair_scores",
@@ -138,4 +151,13 @@ __all__ = [
     "load_cross_dataset_saliency_associations",
     "validate_rfw_custom_calibration_contract",
     "wilson_score_interval",
+    "ALL_SEARCH_MODES",
+    "CROSS_SCORE_SPACE_SEARCH_MODES",
+    "PCA_SEARCH_MODES",
+    "PQ_SEARCH_MODES",
+    "SEARCH_CONDITIONS",
+    "SearchCondition",
+    "search_condition",
+    "search_condition_metadata",
+    "threshold_policies_for_search_mode",
 ]

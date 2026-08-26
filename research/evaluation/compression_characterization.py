@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from research.evaluation.search_conditions import search_condition
+
 
 ProgressCallback = Callable[[str, dict[str, object]], None]
 
@@ -34,6 +36,9 @@ RETRIEVAL_COMPARISON_COLUMNS = (
     "compression_profile",
     "top_k",
     "search_mode",
+    "query_representation",
+    "gallery_representation",
+    "distance_function",
     "origin_score_space",
     "compressed_score_space",
     "score_spaces_comparable",
@@ -490,7 +495,7 @@ def compare_cosine_retrieval(
     progress_offset: int = 0,
     progress_total: int | None = None,
     progress_details: dict[str, object] | None = None,
-    search_mode: str = "cosine_search",
+    search_mode: str = "pca_direct_cosine",
 ) -> pd.DataFrame:
     """Compare origin and compressed cosine retrieval without fallback.
 
@@ -512,6 +517,16 @@ def compare_cosine_retrieval(
     search_mode_value = str(search_mode).strip()
     if not search_mode_value:
         raise ValueError("search_mode must not be empty")
+    condition = search_condition(search_mode_value)
+    if condition.compression_family != family:
+        raise ValueError(
+            "search_mode/compression_family mismatch: "
+            f"{search_mode_value!r} != {family!r}"
+        )
+    if condition.distance_function != "cosine_similarity":
+        raise ValueError(
+            f"{search_mode_value!r} is not a cosine retrieval condition"
+        )
     origin_query = _as_float_matrix(original_queries, name="original_queries")
     origin_gallery = _as_float_matrix(original_gallery, name="original_gallery")
     compressed_query = _as_float_matrix(compressed_queries, name="compressed_queries")
@@ -772,10 +787,15 @@ def compare_cosine_retrieval(
                 "compression_profile": profile,
                 "top_k": top_k_value,
                 "search_mode": search_mode_value,
+                "query_representation": condition.query_representation,
+                "gallery_representation": condition.gallery_representation,
+                "distance_function": condition.distance_function,
                 "origin_score_space": "cosine_similarity",
-                "compressed_score_space": "cosine_similarity",
-                "score_spaces_comparable": True,
-                "frozen_origin_threshold_applicable": True,
+                "compressed_score_space": condition.compressed_score_space,
+                "score_spaces_comparable": condition.score_spaces_comparable,
+                "frozen_origin_threshold_applicable": (
+                    condition.frozen_origin_threshold_applicable
+                ),
                 "latency_measurement_repeats": 1,
                 "latency_timer": "time.perf_counter",
                 "compressed_index_build_latency_ms": np.nan,
@@ -864,15 +884,19 @@ def compare_pq_adc_retrieval(
     gallery_identity_ids: Sequence[Any] | np.ndarray,
     compression_profile: str,
     search_metrics: dict[str, object] | None = None,
+    search_mode: str = "pq_adc_exhaustive",
 ) -> pd.DataFrame:
-    """Compare origin cosine ranking with exhaustive PQ ADC squared-L2 ranking.
+    """Compare origin cosine ranking with exhaustive PQ-code squared-L2 ranking.
 
-    ADC distances are transformed to negative squared L2 only so larger values
+    PQ distances are transformed to negative squared L2 only so larger values
     remain better for threshold calibration. They are never treated as cosine,
     and cross-space score drift fields remain missing by construction.
     """
 
     _, profile = _validate_profile("pq", compression_profile)
+    condition = search_condition(search_mode)
+    if condition.compression_family != "pq" or condition.score_spaces_comparable:
+        raise ValueError(f"invalid PQ code-distance search mode: {search_mode!r}")
     query_matrix = _as_float_matrix(original_queries, name="original_queries")
     gallery_matrix = _as_float_matrix(original_gallery, name="original_gallery")
     if query_matrix.shape[1] != gallery_matrix.shape[1]:
@@ -986,11 +1010,16 @@ def compare_pq_adc_retrieval(
                 "compression_family": "pq",
                 "compression_profile": profile,
                 "top_k": top_k_value,
-                "search_mode": "pq_adc_exhaustive",
+                "search_mode": condition.search_mode,
+                "query_representation": condition.query_representation,
+                "gallery_representation": condition.gallery_representation,
+                "distance_function": condition.distance_function,
                 "origin_score_space": "cosine_similarity",
-                "compressed_score_space": "negative_squared_l2_adc",
-                "score_spaces_comparable": False,
-                "frozen_origin_threshold_applicable": False,
+                "compressed_score_space": condition.compressed_score_space,
+                "score_spaces_comparable": condition.score_spaces_comparable,
+                "frozen_origin_threshold_applicable": (
+                    condition.frozen_origin_threshold_applicable
+                ),
                 "latency_measurement_repeats": latency_repeats,
                 "latency_timer": latency_timer,
                 "compressed_index_build_latency_ms": index_build_latency,
@@ -1063,6 +1092,38 @@ def compare_pq_adc_retrieval(
             }
         )
     return pd.DataFrame.from_records(records, columns=RETRIEVAL_COMPARISON_COLUMNS)
+
+
+def compare_pq_sdc_retrieval(
+    origin_comparison: pd.DataFrame,
+    original_queries: np.ndarray,
+    original_gallery: np.ndarray,
+    sdc_distances: np.ndarray,
+    sdc_indices: np.ndarray,
+    *,
+    query_ids: Sequence[Any] | np.ndarray,
+    gallery_ids: Sequence[Any] | np.ndarray,
+    query_identity_ids: Sequence[Any] | np.ndarray,
+    gallery_identity_ids: Sequence[Any] | np.ndarray,
+    compression_profile: str,
+    search_metrics: dict[str, object] | None = None,
+) -> pd.DataFrame:
+    """Compare origin cosine with symmetric PQ-code squared-L2 retrieval."""
+
+    return compare_pq_adc_retrieval(
+        origin_comparison,
+        original_queries,
+        original_gallery,
+        sdc_distances,
+        sdc_indices,
+        query_ids=query_ids,
+        gallery_ids=gallery_ids,
+        query_identity_ids=query_identity_ids,
+        gallery_identity_ids=gallery_identity_ids,
+        compression_profile=compression_profile,
+        search_metrics=search_metrics,
+        search_mode="pq_sdc_exhaustive",
+    )
 
 
 def apply_retrieval_thresholds(

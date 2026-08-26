@@ -27,6 +27,7 @@ from research.evaluation import (
     apply_retrieval_thresholds,
     compare_cosine_retrieval,
     compare_pq_adc_retrieval,
+    compare_pq_sdc_retrieval,
     origin_cosine_retrieval,
     paired_binary_rate_difference_bootstrap_interval,
     paired_embedding_metrics,
@@ -1242,6 +1243,13 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 "compression_family": family,
                 "compression_profile": profile,
                 "search_mode": search_mode,
+                "query_representation": str(
+                    group["query_representation"].iloc[0]
+                ),
+                "gallery_representation": str(
+                    group["gallery_representation"].iloc[0]
+                ),
+                "distance_function": str(group["distance_function"].iloc[0]),
                 "threshold_policy": policy,
                 "target_fpir": operating_target,
                 "query_count": int(len(group)),
@@ -1513,9 +1521,7 @@ def _characterize_population_with_protocols(
     work_per_cosine_mode = 2 * (
         len(calibration["queries"]) + len(evaluation["queries"])
     )
-    cosine_mode_count = sum(
-        2 if family == "pca" else 1 for family, _, _ in compressors
-    )
+    cosine_mode_count = 2 * len(compressors)
     retrieval_work_total = cosine_mode_count * work_per_cosine_mode
     full_matrix = np.stack(population["origin_embedding"]).astype(np.float32)
     paired_frames = []
@@ -1598,6 +1604,7 @@ def _characterize_population_with_protocols(
             for target in operating_targets
         }
         adc_calibration_thresholds: dict[float, float] | None = None
+        sdc_calibration_thresholds: dict[float, float] | None = None
         if family == "pq":
             calibration_gallery_codes = compressor.encode(calibration["gallery"])
             (
@@ -1624,6 +1631,37 @@ def _characterize_population_with_protocols(
             adc_calibration_thresholds = {
                 target: _threshold(
                     adc_calibration_comparison,
+                    score_column="compressed_top1_score",
+                    correct_column="compressed_rank1_correct",
+                    target_fpir=target,
+                    threshold_selection=threshold_selection,
+                )
+                for target in operating_targets
+            }
+            (
+                sdc_calibration_distances,
+                sdc_calibration_indices,
+                _,
+            ) = compressor.search_sdc_with_metrics(
+                calibration["queries"],
+                calibration_gallery_codes,
+                top_k=min(int(top_k), len(calibration["gallery"])),
+            )
+            sdc_calibration_comparison = compare_pq_sdc_retrieval(
+                calibration_comparison,
+                calibration["queries"],
+                calibration["gallery"],
+                sdc_calibration_distances,
+                sdc_calibration_indices,
+                query_ids=calibration["query_ids"],
+                gallery_ids=calibration["gallery_ids"],
+                query_identity_ids=calibration["query_identity_ids"],
+                gallery_identity_ids=calibration["gallery_identity_ids"],
+                compression_profile=profile,
+            )
+            sdc_calibration_thresholds = {
+                target: _threshold(
+                    sdc_calibration_comparison,
                     score_column="compressed_top1_score",
                     correct_column="compressed_rank1_correct",
                     target_fpir=target,
@@ -1710,6 +1748,107 @@ def _characterize_population_with_protocols(
                     _annotate_rfw_custom_query_boundaries(compared, population)
                 )
         progress_offset += work_per_cosine_mode
+
+        if family == "pq":
+            one_sided_calibration_comparison = compare_cosine_retrieval(
+                calibration["queries"],
+                calibration["gallery"],
+                calibration["queries"],
+                _compressed_matrix(family, compressor, calibration["gallery"]),
+                query_ids=calibration["query_ids"],
+                gallery_ids=calibration["gallery_ids"],
+                query_identity_ids=calibration["query_identity_ids"],
+                gallery_identity_ids=calibration["gallery_identity_ids"],
+                compression_family=family,
+                compression_profile=profile,
+                search_mode="pq_one_sided_cosine",
+                top_k=min(int(top_k), len(calibration["gallery"])),
+                progress=progress,
+                progress_message=f"{prepared.dataset_id} compression retrieval",
+                progress_offset=progress_offset,
+                progress_total=retrieval_work_total,
+                progress_details={
+                    "profile": profile,
+                    "split": "calibration",
+                    "search_mode": "pq_one_sided_cosine",
+                },
+            )
+            _assert_same_origin_comparison(
+                origin_calibration_reference,
+                one_sided_calibration_comparison,
+                split_name="calibration",
+            )
+            one_sided_thresholds = {
+                target: _threshold(
+                    one_sided_calibration_comparison,
+                    score_column="compressed_top1_score",
+                    correct_column="compressed_rank1_correct",
+                    target_fpir=target,
+                    threshold_selection=threshold_selection,
+                )
+                for target in operating_targets
+            }
+            one_sided_evaluation_comparison = compare_cosine_retrieval(
+                evaluation["queries"],
+                evaluation["gallery"],
+                evaluation["queries"],
+                evaluation_gallery,
+                query_ids=evaluation["query_ids"],
+                gallery_ids=evaluation["gallery_ids"],
+                query_identity_ids=evaluation["query_identity_ids"],
+                gallery_identity_ids=evaluation["gallery_identity_ids"],
+                compression_family=family,
+                compression_profile=profile,
+                search_mode="pq_one_sided_cosine",
+                top_k=min(int(top_k), len(evaluation["gallery"])),
+                progress=progress,
+                progress_message=f"{prepared.dataset_id} compression retrieval",
+                progress_offset=progress_offset + 2 * len(calibration["queries"]),
+                progress_total=retrieval_work_total,
+                progress_details={
+                    "profile": profile,
+                    "split": "evaluation",
+                    "search_mode": "pq_one_sided_cosine",
+                },
+            )
+            _assert_same_origin_comparison(
+                origin_evaluation_reference,
+                one_sided_evaluation_comparison,
+                split_name="test",
+            )
+            for operating_target in operating_targets:
+                origin_threshold = origin_thresholds[operating_target]
+                for threshold_policy, operating_threshold in (
+                    ("frozen_origin", origin_threshold),
+                    (
+                        "recalibrated_compressed",
+                        one_sided_thresholds[operating_target],
+                    ),
+                ):
+                    one_sided_compared = apply_retrieval_thresholds(
+                        one_sided_evaluation_comparison,
+                        origin_threshold=origin_threshold,
+                        compressed_threshold=operating_threshold,
+                    )
+                    one_sided_compared.insert(0, "dataset", prepared.dataset_id)
+                    one_sided_compared.insert(1, "model_uid", prepared.model_uid)
+                    one_sided_compared["protocol_uid"] = str(protocol_uid)
+                    one_sided_compared["target_fpir"] = float(operating_target)
+                    one_sided_compared["threshold_policy"] = threshold_policy
+                    one_sided_compared["threshold_source_split"] = "calibration"
+                    one_sided_compared["evaluation_split"] = "test"
+                    for column, value in storage.items():
+                        one_sided_compared[column] = value
+                    one_sided_compared["gallery_template_count"] = len(
+                        evaluation["gallery"]
+                    )
+                    retrieval_frames.append(
+                        _annotate_rfw_custom_query_boundaries(
+                            one_sided_compared,
+                            population,
+                        )
+                    )
+            progress_offset += work_per_cosine_mode
 
         if family == "pca":
             reconstructed_calibration = compressor.transform_profile(
@@ -1840,6 +1979,8 @@ def _characterize_population_with_protocols(
         if family == "pq":
             if adc_calibration_thresholds is None:
                 raise RuntimeError("PQ ADC calibration threshold was not initialized")
+            if sdc_calibration_thresholds is None:
+                raise RuntimeError("PQ SDC calibration threshold was not initialized")
             gallery_encode_started = perf_counter()
             evaluation_gallery_codes = compressor.encode(evaluation["gallery"])
             gallery_encode_elapsed = perf_counter() - gallery_encode_started
@@ -1891,6 +2032,57 @@ def _characterize_population_with_protocols(
                 retrieval_frames.append(
                     _annotate_rfw_custom_query_boundaries(
                         adc_compared,
+                        population,
+                    )
+                )
+            (
+                sdc_evaluation_distances,
+                sdc_evaluation_indices,
+                sdc_search_metrics,
+            ) = compressor.search_sdc_with_metrics(
+                evaluation["queries"],
+                evaluation_gallery_codes,
+                top_k=min(int(top_k), len(evaluation["gallery"])),
+            )
+            sdc_search_metrics["compressed_gallery_encode_latency_ms"] = float(
+                gallery_encode_elapsed * 1000.0
+            )
+            sdc_evaluation_comparison = compare_pq_sdc_retrieval(
+                evaluation_comparison,
+                evaluation["queries"],
+                evaluation["gallery"],
+                sdc_evaluation_distances,
+                sdc_evaluation_indices,
+                query_ids=evaluation["query_ids"],
+                gallery_ids=evaluation["gallery_ids"],
+                query_identity_ids=evaluation["query_identity_ids"],
+                gallery_identity_ids=evaluation["gallery_identity_ids"],
+                compression_profile=profile,
+                search_metrics=sdc_search_metrics,
+            )
+            for operating_target in operating_targets:
+                sdc_compared = apply_retrieval_thresholds(
+                    sdc_evaluation_comparison,
+                    origin_threshold=origin_thresholds[operating_target],
+                    compressed_threshold=sdc_calibration_thresholds[
+                        operating_target
+                    ],
+                )
+                sdc_compared.insert(0, "dataset", prepared.dataset_id)
+                sdc_compared.insert(1, "model_uid", prepared.model_uid)
+                sdc_compared["protocol_uid"] = str(protocol_uid)
+                sdc_compared["target_fpir"] = float(operating_target)
+                sdc_compared["threshold_policy"] = "recalibrated_compressed"
+                sdc_compared["threshold_source_split"] = "calibration"
+                sdc_compared["evaluation_split"] = "test"
+                for column, value in storage.items():
+                    sdc_compared[column] = value
+                sdc_compared["gallery_template_count"] = len(
+                    evaluation["gallery"]
+                )
+                retrieval_frames.append(
+                    _annotate_rfw_custom_query_boundaries(
+                        sdc_compared,
                         population,
                     )
                 )

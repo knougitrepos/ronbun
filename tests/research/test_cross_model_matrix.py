@@ -8,6 +8,12 @@ from typing import Any
 import pandas as pd
 import pytest
 
+from research.evaluation import (
+    ALL_SEARCH_MODES,
+    search_condition,
+    threshold_policies_for_search_mode,
+)
+
 from research.experiments.cross_model_matrix import (
     FAMILY_ARTIFACT_TYPE,
     MATRIX_ARTIFACT_TYPE,
@@ -90,6 +96,7 @@ def _retrieval_record(
     compressed_false_accepts = max(0, origin_false_accepts - 1)
     origin_fpir = origin_false_accepts / 100
     compressed_fpir = compressed_false_accepts / 100
+    condition = search_condition(search_mode)
     return {
         "dataset": dataset,
         "model_uid": model_uid,
@@ -99,6 +106,14 @@ def _retrieval_record(
         "compression_family": family,
         "compression_profile": profile,
         "search_mode": search_mode,
+        "query_representation": condition.query_representation,
+        "gallery_representation": condition.gallery_representation,
+        "distance_function": condition.distance_function,
+        "compressed_score_space": condition.compressed_score_space,
+        "score_spaces_comparable": condition.score_spaces_comparable,
+        "frozen_origin_threshold_applicable": (
+            condition.frozen_origin_threshold_applicable
+        ),
         "threshold_policy": threshold_policy,
         "target_fpir": target_fpir,
         "origin_fallback_count": 0,
@@ -166,19 +181,21 @@ def _retrieval_rows(
     origin_uid: str,
     bootstrap_resamples: int,
 ) -> pd.DataFrame:
-    specs = (
-        ("pca", "pca_128", "pca_direct_cosine"),
-        ("pca", "pca_128", "pca_reconstruction_cosine"),
-        ("pq", "pq_m16_nbits8", "pq_reconstruction_cosine"),
-        ("pq", "pq_m16_nbits8", "pq_adc_exhaustive"),
+    specs = tuple(
+        (
+            search_condition(mode).compression_family,
+            (
+                "pca_128"
+                if search_condition(mode).compression_family == "pca"
+                else "pq_m16_nbits8"
+            ),
+            mode,
+        )
+        for mode in ALL_SEARCH_MODES
     )
     records: list[dict[str, object]] = []
     for family, profile, search_mode in specs:
-        policies = (
-            ("recalibrated_compressed",)
-            if search_mode == "pq_adc_exhaustive"
-            else ("frozen_origin", "recalibrated_compressed")
-        )
+        policies = threshold_policies_for_search_mode(search_mode)
         for policy in policies:
             for target in TARGET_FPIRS:
                 records.append(
@@ -398,8 +415,8 @@ def test_loads_complete_explicit_4_by_3_matrix_with_claim_boundaries(
     result = load_cross_model_open_set_matrix(selections, project_root=tmp_path)
 
     assert len(result.compression_summary) == 24
-    assert len(result.retrieval_summary) == 420
-    assert len(result.joined_summary) == 420
+    assert len(result.retrieval_summary) == 600
+    assert len(result.joined_summary) == 600
     assert result.selection_manifest["complete_matrix"] is True
     assert result.selection_manifest["matrix_shape"] == {
         "model_count": 4,

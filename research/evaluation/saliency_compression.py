@@ -7,6 +7,8 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from research.evaluation.search_conditions import CROSS_SCORE_SPACE_SEARCH_MODES
+
 
 JOIN_KEYS = (
     "extraction_uid",
@@ -1705,7 +1707,7 @@ def _paired_threshold_policy_frames(
     *,
     identity_column: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
-    """Return aligned policy frames, or ``None`` for valid ADC-only groups."""
+    """Return aligned policy frames, or ``None`` for cross-score-space groups."""
 
     for column in ("sample_id", identity_column, "extraction_uid", *LINEAGE_COLUMNS):
         if column not in group:
@@ -1725,17 +1727,17 @@ def _paired_threshold_policy_frames(
     search_mode = (
         str(group["search_mode"].iloc[0]) if "search_mode" in group else None
     )
-    if search_mode == "pq_adc_exhaustive":
+    if search_mode in CROSS_SCORE_SPACE_SEARCH_MODES:
         if policies == {RECALIBRATED_COMPRESSED_THRESHOLD_POLICY}:
             return None
         raise ValueError(
-            "pq_adc_exhaustive threshold comparisons require exactly the "
+            f"{search_mode} threshold comparisons require exactly the "
             "recalibrated_compressed policy"
         )
     if policies != required_policies:
         raise ValueError(
             "paired threshold comparisons require both frozen_origin and "
-            "recalibrated_compressed policies for non-ADC score spaces"
+            "recalibrated_compressed policies for comparable score spaces"
         )
 
     policy_frames = {

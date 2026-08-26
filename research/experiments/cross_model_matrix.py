@@ -13,6 +13,11 @@ import numpy as np
 import pandas as pd
 
 from research.evaluation.metrics import rate_ratio_matches_counts_or_compact_csv
+from research.evaluation.search_conditions import (
+    ALL_SEARCH_MODES,
+    search_condition,
+    threshold_policies_for_search_mode,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -21,13 +26,13 @@ SUPPORTED_MODEL_FAMILIES = ("arcface", "adaface", "magface", "edgeface")
 SUPPORTED_OPEN_SET_DATASETS = ("lfw", "survface", "rfw_custom")
 TARGET_FPIRS = (0.01, 0.05, 0.10, 0.20, 0.30)
 
-SEARCH_SPACE_DIRECTORY = "search_space_v5_tpir20_multi_fpir"
-SEARCH_SPACE_SCHEMA_VERSION = 5
-SEARCH_SPACE_ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_v5"
-FAMILY_ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_family_v5"
+SEARCH_SPACE_DIRECTORY = "search_space_v6_query_gallery_conditions"
+SEARCH_SPACE_SCHEMA_VERSION = 6
+SEARCH_SPACE_ARTIFACT_TYPE = "step4_search_space_query_gallery_conditions_v6"
+FAMILY_ARTIFACT_TYPE = "step4_search_space_query_gallery_conditions_family_v6"
 
-MATRIX_SCHEMA_VERSION = 2
-MATRIX_ARTIFACT_TYPE = "cross_model_open_set_completed_run_matrix_v2"
+MATRIX_SCHEMA_VERSION = 3
+MATRIX_ARTIFACT_TYPE = "cross_model_open_set_completed_run_matrix_v3"
 
 REQUIRED_SOURCE_FILES = {
     "run_manifest.json",
@@ -36,12 +41,7 @@ REQUIRED_SOURCE_FILES = {
     "selected_manifest.csv",
 }
 REQUIRED_FAMILIES = {"pca", "pq"}
-REQUIRED_SEARCH_MODES = {
-    "pca_direct_cosine",
-    "pca_reconstruction_cosine",
-    "pq_reconstruction_cosine",
-    "pq_adc_exhaustive",
-}
+REQUIRED_SEARCH_MODES = set(ALL_SEARCH_MODES)
 REQUIRED_THRESHOLD_POLICIES = {
     "frozen_origin",
     "recalibrated_compressed",
@@ -70,6 +70,12 @@ REQUIRED_COMPRESSION_COLUMNS = {
 }
 REQUIRED_RETRIEVAL_COLUMNS = {
     *RETRIEVAL_IDENTITY_COLUMNS,
+    "query_representation",
+    "gallery_representation",
+    "distance_function",
+    "compressed_score_space",
+    "score_spaces_comparable",
+    "frozen_origin_threshold_applicable",
     "origin_fallback_count",
     "origin_dir_rank1_count",
     "origin_dir_rank1_denominator",
@@ -680,11 +686,20 @@ def _validate_mode_coverage(frame: pd.DataFrame, *, label: str) -> None:
             raise ValueError(f"{label} compression family/search mode mismatch")
         if mode.startswith("pq_") != (family == "pq"):
             raise ValueError(f"{label} compression family/search mode mismatch")
-        expected_policies = (
-            {"recalibrated_compressed"}
-            if mode == "pq_adc_exhaustive"
-            else REQUIRED_THRESHOLD_POLICIES
-        )
+        expected_policies = set(threshold_policies_for_search_mode(mode))
+        condition = search_condition(mode)
+        for column, expected in {
+            "query_representation": condition.query_representation,
+            "gallery_representation": condition.gallery_representation,
+            "distance_function": condition.distance_function,
+            "compressed_score_space": condition.compressed_score_space,
+            "score_spaces_comparable": condition.score_spaces_comparable,
+            "frozen_origin_threshold_applicable": (
+                condition.frozen_origin_threshold_applicable
+            ),
+        }.items():
+            if set(group[column].tolist()) != {expected}:
+                raise ValueError(f"{label} {mode} {column} mismatch")
         observed_pairs = {
             (str(row.threshold_policy), float(row.target_fpir))
             for row in group[["threshold_policy", "target_fpir"]].itertuples(

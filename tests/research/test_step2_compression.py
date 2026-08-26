@@ -86,6 +86,28 @@ class _FakePQ:
             "compressed_search_queries_per_second": 666.0,
         }
 
+    def search_sdc_with_metrics(
+        self,
+        queries: np.ndarray,
+        gallery_codes: np.ndarray,
+        *,
+        top_k: int,
+    ) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
+        distances, indices = self.search_adc(
+            queries,
+            gallery_codes,
+            top_k=top_k,
+        )
+        return distances, indices, {
+            "latency_measurement_repeats": 1,
+            "latency_timer": "test_clock",
+            "compressed_index_build_latency_ms": 0.5,
+            "compressed_gallery_add_latency_ms": 0.0,
+            "compressed_search_latency_ms_total": 4.0,
+            "compressed_search_latency_ms_per_query": 2.0,
+            "compressed_search_queries_per_second": 500.0,
+        }
+
 
 class _FakePCA:
     def transform(self, vectors: np.ndarray) -> np.ndarray:
@@ -232,7 +254,9 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
         "pca_direct_cosine",
         "pca_reconstruction_cosine",
         "pq_reconstruction_cosine",
+        "pq_one_sided_cosine",
         "pq_adc_exhaustive",
+        "pq_sdc_exhaustive",
     }
     adc = result.retrieval_metrics.loc[
         result.retrieval_metrics["search_mode"].eq("pq_adc_exhaustive")
@@ -245,7 +269,7 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
     assert adc["top1_score_drift"].isna().all()
     assert adc["compressed_search_latency_ms_total"].eq(3.0).all()
     assert adc["compressed_gallery_encode_latency_ms"].notna().all()
-    assert len(result.summary) == 7
+    assert len(result.summary) == 10
     assert result.summary["gallery_template_count"].eq(1).all()
     assert result.summary["origin_gallery_storage_bytes"].eq(2048).all()
     pq_summary = result.summary.loc[
@@ -335,10 +359,10 @@ def test_step2_runner_reuses_search_scores_for_multiple_fpir_targets(
     )
 
     assert set(result.retrieval_metrics["target_fpir"]) == {1.0, 0.5}
-    assert len(result.summary) == 14
+    assert len(result.summary) == 20
     assert set(result.summary["target_fpir"]) == {1.0, 0.5}
     assert set(result.calibration_diagnostics_by_target) == {"1", "0.5"}
-    assert call_counts == {"cosine": 6, "adc": 2}
+    assert call_counts == {"cosine": 8, "adc": 2}
     assert not result.origin_score_audit.duplicated(
         ["target_fpir", "evaluation_split", "query_id"]
     ).any()
@@ -376,7 +400,12 @@ def test_step2_runner_rejects_manifest_order_mismatch() -> None:
             [],
             [(8, 1)],
             "pq",
-            {"pq_reconstruction_cosine", "pq_adc_exhaustive"},
+            {
+                "pq_reconstruction_cosine",
+                "pq_one_sided_cosine",
+                "pq_adc_exhaustive",
+                "pq_sdc_exhaustive",
+            },
         ),
     ],
 )
@@ -414,7 +443,7 @@ def test_step2_runner_supports_one_compression_family_for_bounded_refresh(
         expected_family
     }
     assert set(result.retrieval_metrics["search_mode"]) == expected_modes
-    assert len(result.summary) == (4 if expected_family == "pca" else 3)
+    assert len(result.summary) == (4 if expected_family == "pca" else 6)
 
 
 def test_step2_runner_rejects_empty_profile_selection() -> None:

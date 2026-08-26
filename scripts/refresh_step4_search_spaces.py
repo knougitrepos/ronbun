@@ -21,8 +21,12 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from research.evaluation import (  # noqa: E402
+    PCA_SEARCH_MODES,
+    PQ_SEARCH_MODES,
     annotate_compression_lineage,
     rate_ratio_matches_counts_or_compact_csv,
+    search_condition,
+    threshold_policies_for_search_mode,
 )
 from research.experiments import (  # noqa: E402
     characterize_step2_compression,
@@ -39,9 +43,10 @@ from scripts.generate_step4_compact_summaries import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = 5
-ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_v5"
-FAMILY_ARTIFACT_TYPE = "step4_search_space_tpir20_multi_fpir_family_v5"
+SCHEMA_VERSION = 6
+ARTIFACT_TYPE = "step4_search_space_query_gallery_conditions_v6"
+FAMILY_ARTIFACT_TYPE = "step4_search_space_query_gallery_conditions_family_v6"
+SEARCH_SPACE_DIRECTORY = "search_space_v6_query_gallery_conditions"
 SUPPORTED_FAMILIES = ("pca", "pq")
 DEFAULT_TARGET_FPIRS = (0.01, 0.05, 0.10, 0.20, 0.30)
 # Compact CSVs use ``%.12g``. Origin, compressed, and their independently
@@ -312,7 +317,7 @@ def _validate_compact_frames(
         )
     expected_retrieval_rows = (
         expected_profiles
-        * (4 if family == "pca" else 3)
+        * (4 if family == "pca" else 6)
         * len(target_fpirs)
     )
     if len(retrieval) != expected_retrieval_rows:
@@ -462,20 +467,34 @@ def _validate_compact_frames(
     if not crossing.equals(directional):
         raise ValueError("directional threshold crossing counts do not reconcile")
     if family == "pca":
-        expected_modes = {"pca_direct_cosine", "pca_reconstruction_cosine"}
+        expected_modes = set(PCA_SEARCH_MODES)
         if set(retrieval["search_mode"].astype(str)) != expected_modes:
             raise ValueError("PCA search modes are incomplete")
     else:
-        expected_modes = {"pq_reconstruction_cosine", "pq_adc_exhaustive"}
+        expected_modes = set(PQ_SEARCH_MODES)
         if set(retrieval["search_mode"].astype(str)) != expected_modes:
             raise ValueError("PQ search modes are incomplete")
-        adc = retrieval["search_mode"].eq("pq_adc_exhaustive")
-        if retrieval.loc[adc, "threshold_policy"].ne(
-            "recalibrated_compressed"
-        ).any():
-            raise ValueError("PQ ADC must use recalibrated-compressed only")
-        if retrieval.loc[adc, "score_spaces_comparable"].astype(bool).any():
-            raise ValueError("PQ ADC cannot be cosine-score comparable")
+    for mode, group in retrieval.groupby("search_mode", sort=False):
+        condition = search_condition(str(mode))
+        expected_policies = set(threshold_policies_for_search_mode(str(mode)))
+        if set(group["threshold_policy"].astype(str)) != expected_policies:
+            raise ValueError(f"{mode} threshold policies are incomplete")
+        expected_metadata = {
+            "query_representation": condition.query_representation,
+            "gallery_representation": condition.gallery_representation,
+            "distance_function": condition.distance_function,
+            "compressed_score_space": condition.compressed_score_space,
+            "score_spaces_comparable": condition.score_spaces_comparable,
+            "frozen_origin_threshold_applicable": (
+                condition.frozen_origin_threshold_applicable
+            ),
+        }
+        for column, expected in expected_metadata.items():
+            observed = set(group[column].tolist())
+            if observed != {expected}:
+                raise ValueError(
+                    f"{mode} {column} mismatch: {sorted(map(str, observed))}"
+                )
 
 
 def _run_family(
@@ -875,6 +894,7 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
                 "search_space_v3_matched_calibration",
                 "search_space_v4_multi_fpir",
                 "search_space_v5_tpir20_multi_fpir",
+                SEARCH_SPACE_DIRECTORY,
             }
         )
         else _legacy_consistency(context, compression, retrieval)
@@ -976,7 +996,16 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
                 "mated probe true identity is within top 20 without thresholding"
             ),
             "search_modes": sorted(retrieval["search_mode"].astype(str).unique()),
-            "pq_adc_frozen_origin": "not_applicable",
+            "cross_score_space_frozen_origin": {
+                "pq_adc_exhaustive": "not_applicable",
+                "pq_sdc_exhaustive": "not_applicable",
+            },
+            "query_gallery_condition_columns": [
+                "query_representation",
+                "gallery_representation",
+                "distance_function",
+                "compressed_score_space",
+            ],
             "threshold_crossing_directions": [
                 "accept_to_reject",
                 "reject_to_accept",
@@ -1073,7 +1102,7 @@ def refresh(
         / "paper"
         / context["dataset_id"]
         / context["run_id"]
-        / "search_space_v5_tpir20_multi_fpir"
+        / SEARCH_SPACE_DIRECTORY
     )
     output_root.mkdir(parents=True, exist_ok=True)
     merged_manifest_path = output_root / "summary_manifest.json"
