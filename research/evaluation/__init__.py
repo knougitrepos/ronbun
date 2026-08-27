@@ -85,6 +85,23 @@ from research.evaluation.saliency_streaming import (
     stream_join_population_saliency_with_retrieval,
     stream_select_population_representative_cases,
 )
+from research.evaluation.retrieval_ledger import (
+    RETRIEVAL_LEDGER_ARTIFACT_TYPE,
+    RETRIEVAL_LEDGER_SCHEMA_VERSION,
+    RetrievalLedgerWriter,
+    is_retrieval_ledger,
+    iter_retrieval_source_batches,
+    load_retrieval_ledger_manifest,
+    retrieval_source_columns,
+    retrieval_source_row_count,
+)
+from research.evaluation.saliency_partitioned import (
+    PARTITIONED_ASSOCIATION_ALGORITHM_VERSION,
+    PartitionedAssociationResult,
+    compute_partitioned_retrieval_associations,
+    iter_partitioned_projection_batches,
+    stream_partition_saliency_retrieval_projection,
+)
 from research.evaluation.cross_dataset_saliency import (
     CrossDatasetSaliencyAssociations,
     load_cross_dataset_saliency_associations,
@@ -161,6 +178,19 @@ __all__ = [
     "stream_join_population_saliency_with_compression",
     "stream_join_population_saliency_with_retrieval",
     "stream_select_population_representative_cases",
+    "RETRIEVAL_LEDGER_ARTIFACT_TYPE",
+    "RETRIEVAL_LEDGER_SCHEMA_VERSION",
+    "RetrievalLedgerWriter",
+    "is_retrieval_ledger",
+    "iter_retrieval_source_batches",
+    "load_retrieval_ledger_manifest",
+    "retrieval_source_columns",
+    "retrieval_source_row_count",
+    "PARTITIONED_ASSOCIATION_ALGORITHM_VERSION",
+    "PartitionedAssociationResult",
+    "compute_partitioned_retrieval_associations",
+    "iter_partitioned_projection_batches",
+    "stream_partition_saliency_retrieval_projection",
     "CrossDatasetSaliencyAssociations",
     "load_cross_dataset_saliency_associations",
     "validate_rfw_custom_calibration_contract",

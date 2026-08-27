@@ -363,6 +363,8 @@ def _prepare_join_workflow(
             "saliency_population_dir": "saliency",
             "paired_metrics_path": "paired.csv",
             "retrieval_metrics_path": "retrieval.csv",
+            "retrieval_ledger_manifest_path": "retrieval_ledger/manifest.json",
+            "artifact_storage_mode": "results_only",
             **output_names,
         },
         "joint_analysis": {
@@ -474,6 +476,8 @@ def test_compression_phase_persists_origin_calibration_audit(
             "selected_manifest_path": "selected.csv",
             "paired_metrics_path": "paired.csv",
             "retrieval_metrics_path": "retrieval.csv",
+            "retrieval_ledger_manifest_path": "retrieval_ledger/manifest.json",
+            "artifact_storage_mode": "results_only",
             "origin_score_audit_path": "origin_score_audit.csv",
             "calibration_diagnostics_path": "calibration_diagnostics.json",
         },
@@ -491,7 +495,7 @@ def test_compression_phase_persists_origin_calibration_audit(
             "top_k": 1,
         },
     }
-    run = _FakeCompressionRun(tmp_path / "run")
+    run = _FakeCompressionRun(tmp_path)
     prepared = SimpleNamespace(
         extraction_uid="extract-a",
         dataset_id="survface",
@@ -501,8 +505,10 @@ def test_compression_phase_persists_origin_calibration_audit(
     paired = pd.DataFrame(
         {"sample_id": ["sample-1"], "value": [1.0]}
     )
-    retrieval = pd.DataFrame(
-        {"query_id": ["sample-1"], "value": [2.0]}
+    retrieval = _retrieval_frame().assign(
+        search_mode="pca_reconstruction_cosine",
+        target_fpir=0.10,
+        extraction_uid="extract-a",
     )
     origin_audit = pd.DataFrame(
         {
@@ -540,16 +546,23 @@ def test_compression_phase_persists_origin_calibration_audit(
         "read_prepared_population_artifact",
         lambda path: prepared,
     )
-    monkeypatch.setattr(
-        step4_workflow,
-        "characterize_step2_survface_compression",
-        lambda *args, **kwargs: SimpleNamespace(
+    def fake_characterize(*args: object, **kwargs: object) -> SimpleNamespace:
+        sink = kwargs["retrieval_sink"]
+        for _, batch in retrieval.groupby("threshold_policy", sort=True):
+            sink(batch.reset_index(drop=True))
+        return SimpleNamespace(
             paired_metrics=paired,
-            retrieval_metrics=retrieval,
+            retrieval_metrics=pd.DataFrame(),
+            retrieval_row_count=len(retrieval),
             origin_score_audit=origin_audit,
             calibration_diagnostics=diagnostics,
             fitted_codecs=(("pca", "pca_2", fake_codec),),
-        ),
+        )
+
+    monkeypatch.setattr(
+        step4_workflow,
+        "characterize_step2_survface_compression",
+        fake_characterize,
     )
 
     result = step4_workflow.characterize_step4_compression(
@@ -564,6 +577,12 @@ def test_compression_phase_persists_origin_calibration_audit(
     assert result["test_origin_fpir"] == pytest.approx(0.50)
     assert result["origin_calibration_transfer_status"] == "failed_target_fpir"
     assert result["frozen_codec_count"] == 1
+    assert result["retrieval_rows"] == len(retrieval)
+    assert result["retrieval_ledger_condition_count"] == 1
+    assert result["retrieval_ledger_decision_partition_count"] == 2
+    assert result["retrieval_topk_detail_retained"] is False
+    assert (workflow_root / "retrieval_ledger" / "manifest.json").is_file()
+    assert not (workflow_root / "retrieval.csv").exists()
     assert (workflow_root / "origin_score_audit.csv").is_file()
     payload = json.loads(
         (workflow_root / "calibration_diagnostics.json").read_text(
@@ -586,6 +605,9 @@ def test_compression_phase_persists_origin_calibration_audit(
     assert codec_manifest["codecs"][0]["fit_seed"] == 42
     assert run.last_phase is not None
     assert run.last_phase.details["counts"]["origin_score_audit_rows"] == 2
+    assert run.last_phase.details["retrieval_ledger"]["logical_row_count"] == (
+        len(retrieval)
+    )
 
 
 def test_saliency_compression_workflow_streams_and_publishes_after_success(
@@ -594,54 +616,6 @@ def test_saliency_compression_workflow_streams_and_publishes_after_success(
 ):
     config_path, run, outputs = _prepare_join_workflow(tmp_path, monkeypatch)
     progress: list[tuple[str, dict[str, object]]] = []
-    observed_paired_arguments: dict[str, object] = {}
-    original_event_analysis = step4_workflow.threshold_policy_event_comparisons
-    original_paired_analysis = (
-        step4_workflow.threshold_policy_saliency_rho_comparisons
-    )
-
-    def observe_event_analysis(
-        joined_retrieval: pd.DataFrame,
-        **kwargs: object,
-    ) -> pd.DataFrame:
-        observed_paired_arguments["event_comparison_metrics"] = tuple(
-            kwargs["event_metrics"]  # type: ignore[arg-type]
-        )
-        observed_paired_arguments["event_confidence_level"] = kwargs[
-            "confidence_level"
-        ]
-        observed_paired_arguments["event_seed"] = kwargs["seed"]
-        return original_event_analysis(joined_retrieval, **kwargs)
-
-    def observe_paired_analysis(
-        joined_retrieval: pd.DataFrame,
-        **kwargs: object,
-    ) -> pd.DataFrame:
-        observed_paired_arguments["rho_saliency_features"] = tuple(
-            kwargs["saliency_features"]  # type: ignore[arg-type]
-        )
-        observed_paired_arguments["rho_event_metrics"] = tuple(
-            kwargs["event_metrics"]  # type: ignore[arg-type]
-        )
-        observed_paired_arguments["minimum_event_count"] = kwargs[
-            "minimum_event_count"
-        ]
-        observed_paired_arguments["rho_confidence_level"] = kwargs[
-            "confidence_level"
-        ]
-        observed_paired_arguments["rho_seed"] = kwargs["seed"]
-        return original_paired_analysis(joined_retrieval, **kwargs)
-
-    monkeypatch.setattr(
-        step4_workflow,
-        "threshold_policy_event_comparisons",
-        observe_event_analysis,
-    )
-    monkeypatch.setattr(
-        step4_workflow,
-        "threshold_policy_saliency_rho_comparisons",
-        observe_paired_analysis,
-    )
 
     result = analyze_step4_saliency_compression(
         config_path,
@@ -668,16 +642,11 @@ def test_saliency_compression_workflow_streams_and_publishes_after_success(
     assert implementation["paired_minimum_event_count"] == 5
     assert implementation["paired_confidence_level"] == pytest.approx(0.95)
     assert implementation["bootstrap_seed"] == 1701
-    assert observed_paired_arguments == {
-        "event_comparison_metrics": DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
-        "event_confidence_level": 0.95,
-        "event_seed": 1701,
-        "rho_saliency_features": DEFAULT_PRIMARY_THRESHOLD_SALIENCY_FEATURES,
-        "rho_event_metrics": DEFAULT_PRIMARY_THRESHOLD_EVENT_METRICS,
-        "minimum_event_count": 5,
-        "rho_confidence_level": 0.95,
-        "rho_seed": 1701,
-    }
+    assert implementation["association_workers"] == 4
+    assert implementation["association_max_in_flight"] == 8
+    assert implementation["partitioned_association_algorithm_version"] == (
+        "condition-partitioned-identity-bootstrap-v1"
+    )
     assert (
         implementation["threshold_metric_derivation_version"]
         == "saliency-threshold-metrics-v2"
@@ -685,6 +654,7 @@ def test_saliency_compression_workflow_streams_and_publishes_after_success(
     assert len(implementation["source_git_commit"]) == 40
     assert set(implementation["source_sha256"]) == {
         "association",
+        "partitioned_association",
         "streaming_join",
         "workflow",
     }
@@ -751,47 +721,6 @@ def test_saliency_compression_workflow_records_explicit_paired_metrics(
         yaml.safe_dump(config, sort_keys=False),
         encoding="utf-8",
     )
-    observed: dict[str, object] = {}
-    original_event_analysis = step4_workflow.threshold_policy_event_comparisons
-    original_paired_analysis = (
-        step4_workflow.threshold_policy_saliency_rho_comparisons
-    )
-
-    def observe_event_analysis(
-        joined_retrieval: pd.DataFrame,
-        **kwargs: object,
-    ) -> pd.DataFrame:
-        observed["event_comparison_metrics"] = tuple(
-            kwargs["event_metrics"]  # type: ignore[arg-type]
-        )
-        observed["event_confidence_level"] = kwargs["confidence_level"]
-        return original_event_analysis(joined_retrieval, **kwargs)
-
-    def observe_paired_analysis(
-        joined_retrieval: pd.DataFrame,
-        **kwargs: object,
-    ) -> pd.DataFrame:
-        observed["rho_saliency_features"] = tuple(
-            kwargs["saliency_features"]  # type: ignore[arg-type]
-        )
-        observed["rho_event_metrics"] = tuple(
-            kwargs["event_metrics"]  # type: ignore[arg-type]
-        )
-        observed["minimum_event_count"] = kwargs["minimum_event_count"]
-        observed["rho_confidence_level"] = kwargs["confidence_level"]
-        return original_paired_analysis(joined_retrieval, **kwargs)
-
-    monkeypatch.setattr(
-        step4_workflow,
-        "threshold_policy_event_comparisons",
-        observe_event_analysis,
-    )
-    monkeypatch.setattr(
-        step4_workflow,
-        "threshold_policy_saliency_rho_comparisons",
-        observe_paired_analysis,
-    )
-
     analyze_step4_saliency_compression(
         config_path,
         project_root=PROJECT_ROOT,
@@ -799,14 +728,6 @@ def test_saliency_compression_workflow_records_explicit_paired_metrics(
         execution_acknowledged=True,
     )
 
-    assert observed == {
-        "event_comparison_metrics": ("threshold_crossing",),
-        "event_confidence_level": 0.90,
-        "rho_saliency_features": ("face_attention",),
-        "rho_event_metrics": ("threshold_crossing",),
-        "minimum_event_count": 2,
-        "rho_confidence_level": 0.90,
-    }
     assert run.last_phase is not None
     implementation = run.last_phase.details["implementation"]
     assert implementation["paired_saliency_features"] == ["face_attention"]

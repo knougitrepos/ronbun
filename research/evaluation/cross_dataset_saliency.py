@@ -19,6 +19,9 @@ from research.evaluation.saliency_compression import (
     SALIENCY_THRESHOLD_METRICS_VERSION,
     WEIGHTED_RERANK_STRATEGY,
 )
+from research.evaluation.saliency_partitioned import (
+    PARTITIONED_ASSOCIATION_ALGORITHM_VERSION,
+)
 from research.runtime.hashing import sha256_file
 
 
@@ -262,12 +265,28 @@ def _phase05_implementation_fingerprint(
             f"{dataset}: Phase05 source_git_commit is invalid"
         ) from exc
     raw_source_sha256 = implementation.get("source_sha256")
-    if not isinstance(raw_source_sha256, Mapping) or set(raw_source_sha256) != {
-        "association",
-        "streaming_join",
-        "workflow",
-    }:
+    legacy_sources = {"association", "streaming_join", "workflow"}
+    partitioned_sources = {
+        *legacy_sources,
+        "partitioned_association",
+    }
+    if (
+        not isinstance(raw_source_sha256, Mapping)
+        or set(raw_source_sha256) not in (legacy_sources, partitioned_sources)
+    ):
         raise ValueError(f"{dataset}: Phase05 source_sha256 is missing")
+    partitioned_version = implementation.get(
+        "partitioned_association_algorithm_version"
+    )
+    if set(raw_source_sha256) == partitioned_sources:
+        if partitioned_version != PARTITIONED_ASSOCIATION_ALGORITHM_VERSION:
+            raise ValueError(
+                f"{dataset}: Phase05 partitioned association version is invalid"
+            )
+    elif partitioned_version is not None:
+        raise ValueError(
+            f"{dataset}: legacy Phase05 unexpectedly declares partitioned analysis"
+        )
     source_sha256: list[tuple[str, str]] = []
     for raw_name, raw_digest in raw_source_sha256.items():
         if not isinstance(raw_name, str) or not raw_name:
@@ -289,6 +308,7 @@ def _phase05_implementation_fingerprint(
         sequences["paired_event_metrics"],
         integers["paired_minimum_event_count"],
         float(paired_confidence_level),
+        partitioned_version,
         commit.lower(),
         tuple(sorted(source_sha256)),
     )

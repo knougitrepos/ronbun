@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from research.evaluation.retrieval_ledger import RetrievalLedgerWriter
 from scripts.generate_step4_compact_summaries import summarize_retrieval
 
 
@@ -167,3 +168,39 @@ def test_retrieval_summary_keeps_fpir_targets_separate() -> None:
     assert row_count == 4
     assert len(summary) == 2
     assert set(summary["target_fpir"]) == {0.10, 0.01}
+
+
+def test_retrieval_summary_reads_normalized_ledger(tmp_path) -> None:
+    rows = _retrieval_rows(include_search_schema=True).assign(
+        model_uid="model-a",
+        target_fpir=0.10,
+    )
+    manifest_path = tmp_path / "retrieval_ledger" / "manifest.json"
+    with RetrievalLedgerWriter(
+        manifest_path,
+        lineage={
+            "dataset_id": "survface",
+            "extraction_uid": "extract-1",
+            "origin_embedding_artifact_uid": "origin-1",
+        },
+        include_topk_detail=False,
+    ) as writer:
+        for _, condition in rows.groupby("search_mode", sort=True):
+            writer.write(condition.reset_index(drop=True))
+
+    ledger_summary, ledger_rows = summarize_retrieval(
+        manifest_path,
+        chunksize=1,
+    )
+    frame_summary, frame_rows = summarize_retrieval(
+        None,
+        chunksize=1,
+        source_frame=rows,
+    )
+
+    assert ledger_rows == frame_rows == len(rows)
+    pd.testing.assert_frame_equal(
+        ledger_summary.sort_values("search_mode").reset_index(drop=True),
+        frame_summary.sort_values("search_mode").reset_index(drop=True),
+        check_exact=True,
+    )

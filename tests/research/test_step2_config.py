@@ -272,5 +272,16 @@ def test_step2_joint_analysis_requires_strict_keys_and_origin_lineage() -> None:
     assert association["bootstrap_unit"] == "identity_id"
     assert association["bootstrap_method"] == "identity_cluster"
     assert association["bootstrap_repeats"] == 500
+    assert association["max_workers"] == 4
+    assert association["max_in_flight"] == 8
     assert association["pool_models"] is False
     assert association["pool_compression_profiles"] is False
+
+
+def test_step2_workflow_uses_normalized_retrieval_ledger() -> None:
+    workflow = _load_config()["workflow"]
+
+    assert workflow["retrieval_ledger_manifest_path"] == (
+        "retrieval_ledger/manifest.json"
+    )
+    assert workflow["retrieval_metrics_path"] == "retrieval_metrics.csv"

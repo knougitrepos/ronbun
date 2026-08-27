@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +24,10 @@ from research.evaluation.saliency_compression import (
     _strict_false,
     _validate_unique,
     derive_saliency_threshold_metrics,
+)
+from research.evaluation.retrieval_ledger import (
+    iter_retrieval_source_batches,
+    retrieval_source_columns,
 )
 from research.explainability.gradcam.cases import (
     select_population_representative_cases,
@@ -51,7 +56,7 @@ def _emit(
 
 
 def _source_columns(path: Path) -> tuple[str, ...]:
-    return tuple(pd.read_csv(path, nrows=0).columns.astype(str))
+    return retrieval_source_columns(path)
 
 
 def _csv_dtype_overrides(columns: Sequence[str]) -> dict[str, str]:
@@ -114,12 +119,11 @@ def _verify_cross_chunk_uniqueness(
         for key in keys
     ]
     candidates: list[pd.DataFrame] = []
-    for chunk in pd.read_csv(
+    for chunk in iter_retrieval_source_batches(
         path,
-        usecols=source_keys,
+        columns=source_keys,
         dtype=_csv_dtype_overrides(source_keys),
         chunksize=chunksize,
-        low_memory=False,
     ):
         normalized = normalize(chunk) if normalize is not None else chunk
         hashes = _key_hashes(normalized, keys)
@@ -251,6 +255,24 @@ def _case_source_chunks(
     columns: Sequence[str],
     chunksize: int,
 ) -> Iterator[pd.DataFrame]:
+    if path.suffix.lower() == ".json":
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            payload = {}
+        if payload.get("artifact_type") == (
+            "partitioned_saliency_retrieval_projection"
+        ):
+            from research.evaluation.saliency_partitioned import (
+                iter_partitioned_projection_batches,
+            )
+
+            yield from iter_partitioned_projection_batches(
+                path,
+                columns=columns,
+                chunksize=chunksize,
+            )
+            return
     if path.suffix.lower() == ".parquet":
         parquet = pq.ParquetFile(path)
         for batch in parquet.iter_batches(
@@ -306,11 +328,30 @@ def stream_select_population_representative_cases(
     geometry_lookup = geometry.set_index(geometry_keys)["angular_error_rad"]
     del geometry
 
-    source_columns = (
-        tuple(pq.ParquetFile(retrieval_source).schema.names)
-        if retrieval_source.suffix.lower() == ".parquet"
-        else _source_columns(retrieval_source)
-    )
+    if retrieval_source.suffix.lower() == ".parquet":
+        source_columns = tuple(pq.ParquetFile(retrieval_source).schema.names)
+    elif retrieval_source.suffix.lower() == ".json":
+        try:
+            projection_manifest = json.loads(
+                retrieval_source.read_text(encoding="utf-8")
+            )
+        except json.JSONDecodeError:
+            projection_manifest = {}
+        if projection_manifest.get("artifact_type") == (
+            "partitioned_saliency_retrieval_projection"
+        ):
+            source_columns = tuple(
+                dict.fromkeys(
+                    (
+                        *projection_manifest["projection_columns"],
+                        *projection_manifest["feature_columns"],
+                    )
+                )
+            )
+        else:
+            source_columns = _source_columns(retrieval_source)
+    else:
+        source_columns = _source_columns(retrieval_source)
     optional = tuple(
         column
         for column in ("search_mode", "target_fpir", "is_mated")
@@ -617,11 +658,11 @@ def stream_join_population_saliency_with_retrieval(
     key_hashes: list[np.ndarray] = []
     writer: pq.ParquetWriter | None = None
     try:
-        for raw_chunk in pd.read_csv(
+        for raw_chunk in iter_retrieval_source_batches(
             source_path,
+            columns=source_columns,
             dtype=_csv_dtype_overrides(source_columns),
             chunksize=int(chunksize),
-            low_memory=False,
         ):
             chunk = _normalize_retrieval_chunk(raw_chunk)
             _require_columns(chunk, required, name="retrieval_sensitivity")

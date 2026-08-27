@@ -29,15 +29,22 @@ from research.evaluation import (
     SALIENCY_THRESHOLD_METRICS_VERSION,
     annotate_compression_lineage,
     saliency_geometry_associations,
-    saliency_retrieval_associations,
     stream_join_population_saliency_with_compression,
-    stream_join_population_saliency_with_retrieval,
     stream_select_population_representative_cases,
-    threshold_instability_associations,
-    threshold_policy_event_comparisons,
-    threshold_policy_saliency_rho_comparisons,
 )
 from research.evaluation.saliency_compression import DEFAULT_MINIMUM_EVENT_COUNT
+from research.evaluation.retrieval_ledger import (
+    RETRIEVAL_LEDGER_ARTIFACT_TYPE,
+    RETRIEVAL_LEDGER_MANIFEST_NAME,
+    RETRIEVAL_LEDGER_SCHEMA_VERSION,
+    RetrievalLedgerWriter,
+    load_retrieval_ledger_manifest,
+)
+from research.evaluation.saliency_partitioned import (
+    PARTITIONED_ASSOCIATION_ALGORITHM_VERSION,
+    compute_partitioned_retrieval_associations,
+    stream_partition_saliency_retrieval_projection,
+)
 from research.experiments.scope import (
     ExperimentScope,
     select_manifest_fraction,
@@ -90,6 +97,8 @@ from research.runtime.hashing import sha256_file
 ProgressCallback = Callable[[str, dict[str, object]], None]
 STEP4_JOIN_CHUNK_ROWS = 100_000
 STEP4_BOOTSTRAP_BATCH_SIZE = 4
+STEP4_ASSOCIATION_WORKERS = 4
+STEP4_ASSOCIATION_MAX_IN_FLIGHT = 8
 DEFAULT_PAIRED_CONFIDENCE_LEVEL = 0.95
 SOURCE_SNAPSHOT_FIELDS = (
     "commit",
@@ -1299,7 +1308,32 @@ def characterize_step4_compression(
         )
         configured_targets = (config["evaluation"][primary_target_key],)
     reported_target_fpirs = tuple(float(value) for value in configured_targets)
-    with run.phase("04_step2_compression_characterization") as phase:
+    lineage = {
+        "extraction_uid": prepared.extraction_uid,
+        "dataset_id": prepared.dataset_id,
+        "model_uid": prepared.model_uid,
+        "origin_embedding_artifact_uid": (
+            prepared.origin_embedding_artifact_uid
+        ),
+    }
+    retrieval_ledger_path = workflow_root / config["workflow"].get(
+        "retrieval_ledger_manifest_path",
+        f"retrieval_ledger/{RETRIEVAL_LEDGER_MANIFEST_NAME}",
+    )
+    artifact_storage_mode = str(
+        config["workflow"].get("artifact_storage_mode", "full")
+    ).strip().lower()
+    if artifact_storage_mode not in {"full", "results_only"}:
+        raise ValueError("workflow.artifact_storage_mode must be full or results_only")
+    with (
+        run.phase("04_step2_compression_characterization") as phase,
+        RetrievalLedgerWriter(
+            retrieval_ledger_path,
+            lineage=lineage,
+            include_topk_detail=artifact_storage_mode == "full",
+            overwrite=overwrite,
+        ) as retrieval_ledger,
+    ):
         if execution_context is not None:
             phase.details["execution_context"] = dict(execution_context)
             phase.record(
@@ -1340,6 +1374,8 @@ def characterize_step4_compression(
                     ]
                 ),
                 top_k=int(config["evaluation"]["top_k"]),
+                retrieval_sink=retrieval_ledger.write,
+                collect_retrieval_metrics=False,
                 progress=progress,
             )
         elif dataset_spec.dataset_id == "rfw_custom":
@@ -1354,6 +1390,8 @@ def characterize_step4_compression(
                 ),
                 target_fpirs=reported_target_fpirs,
                 top_k=int(config["evaluation"]["top_k"]),
+                retrieval_sink=retrieval_ledger.write,
+                collect_retrieval_metrics=False,
                 progress=progress,
             )
         else:
@@ -1385,22 +1423,28 @@ def characterize_step4_compression(
                     config["evaluation"]["calibration_gallery_identities"]
                 ),
                 top_k=int(config["evaluation"]["top_k"]),
+                retrieval_sink=retrieval_ledger.write,
+                collect_retrieval_metrics=False,
                 progress=progress,
             )
-        lineage = {
-            "extraction_uid": prepared.extraction_uid,
-            "dataset_id": prepared.dataset_id,
-            "model_uid": prepared.model_uid,
-            "origin_embedding_artifact_uid": (
-                prepared.origin_embedding_artifact_uid
-            ),
-        }
+        streaming_retrieval_rows = getattr(
+            compression,
+            "retrieval_row_count",
+            None,
+        )
+        using_retrieval_ledger = streaming_retrieval_rows is not None
+        legacy_retrieval = pd.DataFrame()
+        if streaming_retrieval_rows is None:
+            # Compatibility for injected/legacy characterizers. Canonical new
+            # runs always provide retrieval_row_count and populate the ledger.
+            retrieval_ledger.abort()
+            legacy_retrieval = annotate_compression_lineage(
+                compression.retrieval_metrics,
+                **lineage,
+            )
+            streaming_retrieval_rows = int(len(legacy_retrieval))
         paired = annotate_compression_lineage(
             compression.paired_metrics,
-            **lineage,
-        )
-        retrieval = annotate_compression_lineage(
-            compression.retrieval_metrics,
             **lineage,
         )
         demographic_summary = getattr(
@@ -1426,10 +1470,19 @@ def characterize_step4_compression(
         )
         calibration_diagnostics = dict(compression.calibration_diagnostics)
         calibration_diagnostics["lineage"] = dict(lineage)
+        diagnostics_by_target = getattr(
+            compression,
+            "calibration_diagnostics_by_target",
+            {f"{float(reported_target_fpirs[0]):.12g}": calibration_diagnostics},
+        )
+        calibration_diagnostics["diagnostics_by_target"] = {
+            str(target): dict(payload)
+            for target, payload in diagnostics_by_target.items()
+        }
         paired_path = (
             workflow_root / config["workflow"]["paired_metrics_path"]
         )
-        retrieval_path = (
+        legacy_retrieval_path = (
             workflow_root / config["workflow"]["retrieval_metrics_path"]
         )
         origin_score_audit_path = (
@@ -1493,7 +1546,12 @@ def characterize_step4_compression(
             "codecs": codec_entries,
         }
         _write_csv(paired_path, paired, overwrite=overwrite)
-        _write_csv(retrieval_path, retrieval, overwrite=overwrite)
+        if not legacy_retrieval.empty:
+            _write_csv(
+                legacy_retrieval_path,
+                legacy_retrieval,
+                overwrite=overwrite,
+            )
         if not demographic_summary.empty:
             _write_csv(
                 demographic_summary_path,
@@ -1515,18 +1573,80 @@ def characterize_step4_compression(
             frozen_codec_manifest,
             overwrite=overwrite,
         )
+        if using_retrieval_ledger:
+            phase04_ledger_manifest = retrieval_ledger.finalize()
+            if int(phase04_ledger_manifest["logical_row_count"]) != int(
+                streaming_retrieval_rows
+            ):
+                raise RuntimeError(
+                    "retrieval ledger logical row count differs from the "
+                    "characterization accumulator"
+                )
+            phase.details["retrieval_ledger"] = {
+                "schema_version": RETRIEVAL_LEDGER_SCHEMA_VERSION,
+                "artifact_type": RETRIEVAL_LEDGER_ARTIFACT_TYPE,
+                "manifest_path": retrieval_ledger_path.resolve()
+                .relative_to(run.run_dir.resolve())
+                .as_posix(),
+                "manifest_sha256": sha256_file(retrieval_ledger_path),
+                "logical_row_count": int(
+                    phase04_ledger_manifest["logical_row_count"]
+                ),
+                "core_row_count": int(
+                    phase04_ledger_manifest["core_row_count"]
+                ),
+                "condition_count": int(
+                    phase04_ledger_manifest["condition_count"]
+                ),
+                "decision_partition_count": int(
+                    phase04_ledger_manifest["decision_partition_count"]
+                ),
+                "topk_detail_retained": bool(
+                    phase04_ledger_manifest["topk_detail_retained"]
+                ),
+            }
         phase.record_counts(
             paired_rows=len(paired),
-            retrieval_rows=len(retrieval),
+            retrieval_rows=int(streaming_retrieval_rows),
             demographic_summary_rows=len(demographic_summary),
             origin_score_audit_rows=len(origin_score_audit),
             frozen_codec_count=len(codec_entries),
         )
+    retrieval_ledger_manifest = (
+        load_retrieval_ledger_manifest(retrieval_ledger_path)
+        if retrieval_ledger_path.is_file()
+        else None
+    )
+    retrieval_rows = (
+        int(retrieval_ledger_manifest["logical_row_count"])
+        if retrieval_ledger_manifest is not None
+        else int(streaming_retrieval_rows)
+    )
     return {
         "run_id": run.run_id,
         "dataset_id": dataset_spec.dataset_id,
         "paired_rows": int(len(paired)),
-        "retrieval_rows": int(len(retrieval)),
+        "retrieval_rows": retrieval_rows,
+        "retrieval_ledger_manifest_path": (
+            str(retrieval_ledger_path)
+            if retrieval_ledger_manifest is not None
+            else None
+        ),
+        "retrieval_ledger_condition_count": (
+            int(retrieval_ledger_manifest["condition_count"])
+            if retrieval_ledger_manifest is not None
+            else 0
+        ),
+        "retrieval_ledger_decision_partition_count": (
+            int(retrieval_ledger_manifest["decision_partition_count"])
+            if retrieval_ledger_manifest is not None
+            else 0
+        ),
+        "retrieval_topk_detail_retained": (
+            bool(retrieval_ledger_manifest["topk_detail_retained"])
+            if retrieval_ledger_manifest is not None
+            else True
+        ),
         "demographic_summary_rows": int(len(demographic_summary)),
         "origin_score_audit_rows": int(len(origin_score_audit)),
         "frozen_codec_count": int(len(codec_entries)),
@@ -1572,8 +1692,17 @@ def analyze_step4_saliency_compression(
         workflow_root / config["workflow"]["saliency_population_dir"]
     )
     paired_path = workflow_root / config["workflow"]["paired_metrics_path"]
-    retrieval_path = (
+    legacy_retrieval_path = (
         workflow_root / config["workflow"]["retrieval_metrics_path"]
+    )
+    retrieval_ledger_path = workflow_root / config["workflow"].get(
+        "retrieval_ledger_manifest_path",
+        f"retrieval_ledger/{RETRIEVAL_LEDGER_MANIFEST_NAME}",
+    )
+    retrieval_path = (
+        retrieval_ledger_path
+        if retrieval_ledger_path.is_file()
+        else legacy_retrieval_path
     )
     for path in (paired_path, retrieval_path):
         if not path.is_file():
@@ -1634,6 +1763,31 @@ def analyze_step4_saliency_compression(
     ):
         raise ValueError("paired_confidence_level must be between 0 and 1")
     paired_confidence_level = float(raw_confidence_level)
+    raw_association_workers = association_config.get(
+        "max_workers",
+        STEP4_ASSOCIATION_WORKERS,
+    )
+    if (
+        isinstance(raw_association_workers, bool)
+        or not isinstance(raw_association_workers, int)
+        or raw_association_workers < 1
+    ):
+        raise ValueError("association.max_workers must be a positive integer")
+    association_workers = int(raw_association_workers)
+    raw_max_in_flight = association_config.get(
+        "max_in_flight",
+        max(
+            STEP4_ASSOCIATION_MAX_IN_FLIGHT,
+            association_workers * 2,
+        ),
+    )
+    if (
+        isinstance(raw_max_in_flight, bool)
+        or not isinstance(raw_max_in_flight, int)
+        or raw_max_in_flight < 1
+    ):
+        raise ValueError("association.max_in_flight must be a positive integer")
+    association_max_in_flight = int(raw_max_in_flight)
     output_paths = {
         key: workflow_root / config["workflow"][key]
         for key in (
@@ -1723,6 +1877,9 @@ def analyze_step4_saliency_compression(
             "streaming_join": (
                 root / "research/evaluation/saliency_streaming.py"
             ),
+            "partitioned_association": (
+                root / "research/evaluation/saliency_partitioned.py"
+            ),
             "workflow": root / "research/experiments/step4_workflow.py",
         }
         phase.details["implementation"] = {
@@ -1737,6 +1894,11 @@ def analyze_step4_saliency_compression(
             "bootstrap_rank_strategy": WEIGHTED_RERANK_STRATEGY,
             "bootstrap_repeats": bootstrap,
             "bootstrap_batch_size": STEP4_BOOTSTRAP_BATCH_SIZE,
+            "partitioned_association_algorithm_version": (
+                PARTITIONED_ASSOCIATION_ALGORITHM_VERSION
+            ),
+            "association_workers": association_workers,
+            "association_max_in_flight": association_max_in_flight,
             "bootstrap_seed": bootstrap_seed,
             "paired_saliency_features": list(paired_saliency_features),
             "paired_event_metrics": list(paired_event_metrics),
@@ -1768,7 +1930,9 @@ def analyze_step4_saliency_compression(
             )
             staged_retrieval_join = staging / "saliency_retrieval_join.csv"
             staged_retrieval_projection = (
-                staging / "saliency_retrieval_projection.parquet"
+                staging
+                / "saliency_retrieval_projection"
+                / "manifest.json"
             )
             staged_retrieval_association = (
                 staging / "saliency_retrieval_associations.csv"
@@ -1822,30 +1986,38 @@ def analyze_step4_saliency_compression(
             del geometry_projection, geometry_associations
             gc.collect()
 
-            retrieval_stream = stream_join_population_saliency_with_retrieval(
+            retrieval_stream = stream_partition_saliency_retrieval_projection(
                 features,
                 retrieval_path,
                 joined_output_path=(
                     staged_retrieval_join if persist_large_joins else None
                 ),
-                association_projection_path=staged_retrieval_projection,
+                projection_manifest_path=staged_retrieval_projection,
                 chunksize=STEP4_JOIN_CHUNK_ROWS,
                 expected_rows=expected_retrieval_rows,
                 progress=_scoped_progress(progress, "retrieval"),
             )
-            retrieval_projection = pd.read_parquet(
-                retrieval_stream.association_projection_path
+            partitioned_associations = (
+                compute_partitioned_retrieval_associations(
+                    retrieval_stream.association_projection_path,
+                    bootstrap_repeats=bootstrap,
+                    seed=bootstrap_seed,
+                    bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
+                    bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
+                    paired_saliency_features=paired_saliency_features,
+                    paired_event_metrics=paired_event_metrics,
+                    paired_minimum_event_count=paired_minimum_event_count,
+                    paired_confidence_level=paired_confidence_level,
+                    max_workers=association_workers,
+                    max_in_flight=association_max_in_flight,
+                    progress=_scoped_progress(
+                        progress,
+                        "retrieval association",
+                    ),
+                )
             )
-            retrieval_associations = saliency_retrieval_associations(
-                retrieval_projection,
-                bootstrap_repeats=bootstrap,
-                seed=bootstrap_seed,
-                bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
-                bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
-                progress=_scoped_progress(
-                    progress,
-                    "retrieval association",
-                ),
+            retrieval_associations = (
+                partitioned_associations.retrieval_associations
             )
             _write_csv(
                 staged_retrieval_association,
@@ -1853,16 +2025,8 @@ def analyze_step4_saliency_compression(
                 overwrite=False,
             )
             retrieval_association_rows = int(len(retrieval_associations))
-            instability_associations = threshold_instability_associations(
-                retrieval_projection,
-                bootstrap_repeats=bootstrap,
-                seed=bootstrap_seed,
-                bootstrap_rank_strategy=WEIGHTED_RERANK_STRATEGY,
-                bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
-                progress=_scoped_progress(
-                    progress,
-                    "threshold instability association",
-                ),
+            instability_associations = (
+                partitioned_associations.threshold_instability_associations
             )
             _write_csv(
                 staged_threshold_instability_association,
@@ -1872,12 +2036,8 @@ def analyze_step4_saliency_compression(
             threshold_instability_association_rows = int(
                 len(instability_associations)
             )
-            policy_comparisons = threshold_policy_event_comparisons(
-                retrieval_projection,
-                event_metrics=paired_event_metrics,
-                confidence_level=paired_confidence_level,
-                bootstrap_repeats=bootstrap,
-                seed=bootstrap_seed,
+            policy_comparisons = (
+                partitioned_associations.threshold_policy_comparisons
             )
             _write_csv(
                 staged_threshold_policy_comparison,
@@ -1886,16 +2046,7 @@ def analyze_step4_saliency_compression(
             )
             threshold_policy_comparison_rows = int(len(policy_comparisons))
             policy_saliency_rho_comparisons = (
-                threshold_policy_saliency_rho_comparisons(
-                    retrieval_projection,
-                    saliency_features=paired_saliency_features,
-                    event_metrics=paired_event_metrics,
-                    minimum_event_count=paired_minimum_event_count,
-                    confidence_level=paired_confidence_level,
-                    bootstrap_repeats=bootstrap,
-                    seed=bootstrap_seed,
-                    bootstrap_batch_size=STEP4_BOOTSTRAP_BATCH_SIZE,
-                )
+                partitioned_associations.threshold_policy_saliency_rho_comparisons
             )
             _write_csv(
                 staged_threshold_policy_saliency_rho,
@@ -1905,12 +2056,21 @@ def analyze_step4_saliency_compression(
             threshold_policy_saliency_rho_rows = int(
                 len(policy_saliency_rho_comparisons)
             )
+            retrieval_partition_count = int(
+                partitioned_associations.partition_count
+            )
+            retrieval_association_worker_count = int(
+                partitioned_associations.worker_count
+            )
+            retrieval_association_max_in_flight = int(
+                partitioned_associations.max_in_flight
+            )
             del (
-                retrieval_projection,
                 retrieval_associations,
                 instability_associations,
                 policy_comparisons,
                 policy_saliency_rho_comparisons,
+                partitioned_associations,
                 features,
             )
             gc.collect()
@@ -2011,6 +2171,13 @@ def analyze_step4_saliency_compression(
             representative_candidate_rows=representative_candidate_rows,
             geometry_join_chunks=geometry_stream.chunk_count,
             retrieval_join_chunks=retrieval_stream.chunk_count,
+            retrieval_partition_count=retrieval_partition_count,
+            retrieval_association_worker_count=(
+                retrieval_association_worker_count
+            ),
+            retrieval_association_max_in_flight=(
+                retrieval_association_max_in_flight
+            ),
         )
         phase.record(
             "saliency_compression_analysis_completed",
@@ -2034,8 +2201,18 @@ def analyze_step4_saliency_compression(
         "threshold_policy_comparison_rows": threshold_policy_comparison_rows,
         "threshold_policy_saliency_rho_rows": threshold_policy_saliency_rho_rows,
         "representative_candidate_rows": representative_candidate_rows,
+        "retrieval_partition_count": retrieval_partition_count,
+        "retrieval_association_worker_count": (
+            retrieval_association_worker_count
+        ),
+        "retrieval_association_max_in_flight": (
+            retrieval_association_max_in_flight
+        ),
         "persisted_large_join_artifacts": persist_large_joins,
         "association_algorithm_version": WEIGHTED_RERANK_ALGORITHM_VERSION,
+        "partitioned_association_algorithm_version": (
+            PARTITIONED_ASSOCIATION_ALGORITHM_VERSION
+        ),
         "threshold_metric_derivation_version": (
             SALIENCY_THRESHOLD_METRICS_VERSION
         ),

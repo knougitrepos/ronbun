@@ -28,6 +28,9 @@ from research.evaluation import (  # noqa: E402
     search_condition,
     threshold_policies_for_search_mode,
 )
+from research.evaluation.retrieval_ledger import (  # noqa: E402
+    RetrievalLedgerWriter,
+)
 from research.experiments import (  # noqa: E402
     characterize_step2_compression,
     characterize_step2_rfw_custom_compression,
@@ -497,6 +500,80 @@ def _validate_compact_frames(
                 )
 
 
+def _phase04_compact_cache(
+    context: dict[str, Any],
+    *,
+    target_fpirs: tuple[float, ...],
+) -> dict[str, Any] | None:
+    """Reuse a completed normalized Phase 04 ledger without recomputation."""
+
+    cached = context.get("_phase04_compact_cache")
+    if isinstance(cached, dict):
+        if tuple(cached["target_fpirs"]) != target_fpirs:
+            raise ValueError("Phase 04 compact cache target FPIRs changed")
+        return cached
+    workflow = context["step4"]["workflow"]
+    workflow_root = Path(context["workflow_root"])
+    ledger_path = workflow_root / str(
+        workflow.get(
+            "retrieval_ledger_manifest_path",
+            "retrieval_ledger/manifest.json",
+        )
+    )
+    paired_path = workflow_root / str(workflow["paired_metrics_path"])
+    diagnostics_path = workflow_root / str(
+        workflow["calibration_diagnostics_path"]
+    )
+    if not (
+        ledger_path.is_file()
+        and paired_path.is_file()
+        and diagnostics_path.is_file()
+    ):
+        return None
+    diagnostics = _read_json(diagnostics_path)
+    raw_by_target = diagnostics.get("diagnostics_by_target")
+    if not isinstance(raw_by_target, dict):
+        return None
+    by_target = {
+        f"{float(target):.12g}": dict(payload)
+        for target, payload in raw_by_target.items()
+        if isinstance(payload, dict)
+    }
+    requested = {f"{float(target):.12g}" for target in target_fpirs}
+    if set(by_target) != requested:
+        return None
+
+    compression, _ = summarize_compression(
+        paired_path,
+        chunksize=100_000,
+    )
+    retrieval, _ = summarize_retrieval(
+        ledger_path,
+        chunksize=100_000,
+    )
+    selected_count = sum(
+        len(chunk)
+        for chunk in pd.read_csv(
+            context["selected_path"],
+            usecols=["sample_id"],
+            chunksize=100_000,
+        )
+    )
+    cached = {
+        "target_fpirs": target_fpirs,
+        "compression": compression,
+        "retrieval": retrieval,
+        "diagnostics_by_target": by_target,
+        "selected_count": int(selected_count),
+        "origin_embedding_artifact_uid": str(
+            context["prepared_manifest"]["origin_embedding_artifact_uid"]
+        ),
+        "retrieval_ledger_path": ledger_path,
+    }
+    context["_phase04_compact_cache"] = cached
+    return cached
+
+
 def _run_family(
     context: dict[str, Any],
     *,
@@ -532,68 +609,129 @@ def _run_family(
     requested_pca = pca_dimensions if family == "pca" else ()
     requested_pq = pq_settings if family == "pq" else ()
     expected_profiles = len(requested_pca or requested_pq)
-    prepared = read_prepared_population_artifact(context["prepared_dir"])
-    selected = pd.read_csv(context["selected_path"])
-    evaluation = step4["evaluation"]
-    execution = step4["execution"]
-    common = {
-        "pca_dimensions": requested_pca,
-        "pq_settings": requested_pq,
-        "seed": int(execution["seed"]),
-        "top_k": int(evaluation["top_k"]),
-        "progress": _progress,
-        "target_fpirs": target_fpirs,
-    }
-    if context["dataset_id"] == "survface":
-        result = characterize_step2_survface_compression(
-            prepared,
-            selected,
-            target_fpir=float(evaluation["survface_target_fpir"]),
-            calibration_gallery_identities=3000,
-            **common,
+    phase04_cache = _phase04_compact_cache(
+        context,
+        target_fpirs=target_fpirs,
+    )
+    if phase04_cache is not None:
+        compression_summary = phase04_cache["compression"].loc[
+            phase04_cache["compression"]["compression_family"].eq(family)
+        ].copy()
+        retrieval_summary = phase04_cache["retrieval"].loc[
+            phase04_cache["retrieval"]["compression_family"].eq(family)
+        ].copy()
+        paired_count = int(compression_summary["sample_count"].sum())
+        retrieval_count = int(retrieval_summary["query_count"].sum())
+        selected_count = int(phase04_cache["selected_count"])
+        origin_embedding_artifact_uid = str(
+            phase04_cache["origin_embedding_artifact_uid"]
         )
-    elif context["dataset_id"] == "rfw_custom":
-        result = characterize_step2_rfw_custom_compression(
-            prepared,
-            selected,
-            target_fpir=float(evaluation["rfw_custom_target_fpir"]),
-            **common,
+        diagnostics_by_target = dict(
+            phase04_cache["diagnostics_by_target"]
         )
+        retrieval_source_contract = {
+            "mode": "reuse_phase04_normalized_ledger",
+            "path": str(phase04_cache["retrieval_ledger_path"]),
+        }
     else:
-        result = characterize_step2_compression(
-            prepared,
-            selected,
-            gallery_identities=_read_lfw_ids(
-                step4, "gallery_identities_path"
+        prepared = read_prepared_population_artifact(context["prepared_dir"])
+        selected = pd.read_csv(context["selected_path"])
+        evaluation = step4["evaluation"]
+        execution = step4["execution"]
+        lineage = {
+            "extraction_uid": prepared.extraction_uid,
+            "dataset_id": prepared.dataset_id,
+            "model_uid": prepared.model_uid,
+            "origin_embedding_artifact_uid": (
+                prepared.origin_embedding_artifact_uid
             ),
-            unknown_unknown_identities=_read_lfw_ids(
-                step4, "unknown_unknown_identities_path"
-            ),
-            target_fpir=float(evaluation["target_fpir"]),
-            enrollment_count=int(evaluation["lfw_enrollment_count"]),
-            calibration_gallery_identities=int(
-                evaluation["calibration_gallery_identities"]
-            ),
-            **common,
+        }
+        with tempfile.TemporaryDirectory(
+            prefix=f".{family}.retrieval-ledger-",
+            dir=str(output_root),
+        ) as ledger_staging:
+            ledger_manifest_path = (
+                Path(ledger_staging) / "retrieval_ledger" / "manifest.json"
+            )
+            with RetrievalLedgerWriter(
+                ledger_manifest_path,
+                lineage=lineage,
+                include_topk_detail=False,
+            ) as retrieval_ledger:
+                common = {
+                    "pca_dimensions": requested_pca,
+                    "pq_settings": requested_pq,
+                    "seed": int(execution["seed"]),
+                    "top_k": int(evaluation["top_k"]),
+                    "progress": _progress,
+                    "target_fpirs": target_fpirs,
+                    "retrieval_sink": retrieval_ledger.write,
+                    "collect_retrieval_metrics": False,
+                }
+                if context["dataset_id"] == "survface":
+                    result = characterize_step2_survface_compression(
+                        prepared,
+                        selected,
+                        target_fpir=float(
+                            evaluation["survface_target_fpir"]
+                        ),
+                        calibration_gallery_identities=3000,
+                        **common,
+                    )
+                elif context["dataset_id"] == "rfw_custom":
+                    result = characterize_step2_rfw_custom_compression(
+                        prepared,
+                        selected,
+                        target_fpir=float(
+                            evaluation["rfw_custom_target_fpir"]
+                        ),
+                        **common,
+                    )
+                else:
+                    result = characterize_step2_compression(
+                        prepared,
+                        selected,
+                        gallery_identities=_read_lfw_ids(
+                            step4,
+                            "gallery_identities_path",
+                        ),
+                        unknown_unknown_identities=_read_lfw_ids(
+                            step4,
+                            "unknown_unknown_identities_path",
+                        ),
+                        target_fpir=float(evaluation["target_fpir"]),
+                        enrollment_count=int(
+                            evaluation["lfw_enrollment_count"]
+                        ),
+                        calibration_gallery_identities=int(
+                            evaluation["calibration_gallery_identities"]
+                        ),
+                        **common,
+                    )
+            paired = annotate_compression_lineage(
+                result.paired_metrics,
+                **lineage,
+            )
+            compression_summary, paired_count = summarize_compression(
+                None,
+                chunksize=max(1, len(paired)),
+                source_frame=paired,
+            )
+            retrieval_summary, retrieval_count = summarize_retrieval(
+                ledger_manifest_path,
+                chunksize=100_000,
+            )
+        selected_count = int(len(selected))
+        origin_embedding_artifact_uid = str(
+            prepared.origin_embedding_artifact_uid
         )
-    lineage = {
-        "extraction_uid": prepared.extraction_uid,
-        "dataset_id": prepared.dataset_id,
-        "model_uid": prepared.model_uid,
-        "origin_embedding_artifact_uid": prepared.origin_embedding_artifact_uid,
-    }
-    paired = annotate_compression_lineage(result.paired_metrics, **lineage)
-    retrieval_rows = annotate_compression_lineage(result.retrieval_metrics, **lineage)
-    compression_summary, paired_count = summarize_compression(
-        None,
-        chunksize=max(1, len(paired)),
-        source_frame=paired,
-    )
-    retrieval_summary, retrieval_count = summarize_retrieval(
-        None,
-        chunksize=max(1, len(retrieval_rows)),
-        source_frame=retrieval_rows,
-    )
+        diagnostics_by_target = dict(
+            result.calibration_diagnostics_by_target
+        )
+        retrieval_source_contract = {
+            "mode": "bounded_recomputation_normalized_ledger",
+            "path": "temporary",
+        }
     for frame in (compression_summary, retrieval_summary):
         frame.loc[:, "model_uid"] = context["model_uid"]
         frame.loc[:, "run_id"] = context["run_id"]
@@ -622,7 +760,7 @@ def _run_family(
             "schema_version": 1,
             "artifact_type": "origin_open_set_multi_fpir_diagnostics",
             "target_fpirs": list(target_fpirs),
-            "diagnostics_by_target": result.calibration_diagnostics_by_target,
+            "diagnostics_by_target": diagnostics_by_target,
         },
     )
     family_manifest_path = temporary / "family_manifest.json"
@@ -635,10 +773,12 @@ def _run_family(
         "model_uid": context["model_uid"],
         "source_run_id": context["run_id"],
         "target_fpirs": list(target_fpirs),
-        "source_origin_embedding_artifact_uid": prepared.origin_embedding_artifact_uid,
+        "source_origin_embedding_artifact_uid": (
+            origin_embedding_artifact_uid
+        ),
         "profile_count": expected_profiles,
         "source_row_counts": {
-            "selected_samples": int(len(selected)),
+            "selected_samples": selected_count,
             "paired_rows": int(paired_count),
             "retrieval_rows": int(retrieval_count),
         },
@@ -648,8 +788,9 @@ def _run_family(
         },
         "origin_calibration_signatures": {
             target: _diagnostic_signature(dict(payload))
-            for target, payload in result.calibration_diagnostics_by_target.items()
+            for target, payload in diagnostics_by_target.items()
         },
+        "retrieval_source_contract": retrieval_source_contract,
         "outputs": {
             "compression_summary.csv": _named_file_entry(
                 compression_path, name="compression_summary.csv"
@@ -664,8 +805,7 @@ def _run_family(
     }
     _write_json(family_manifest_path, family_manifest)
     os.replace(temporary, family_dir)
-    del result, paired, retrieval_rows, compression_summary, retrieval_summary
-    del prepared, selected
+    del compression_summary, retrieval_summary
     gc.collect()
     return {"family": family, "status": "completed", "path": str(family_dir)}
 

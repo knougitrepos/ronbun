@@ -316,6 +316,46 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
     assert result.summary["confidence_interval_unit"].eq("probe").all()
 
 
+def test_step2_runner_streams_retrieval_without_full_concat(monkeypatch) -> None:
+    monkeypatch.setattr(module, "PQCompressor", _FakePQ)
+    monkeypatch.setattr(
+        module,
+        "fit_pca_family",
+        lambda development_vectors, dimensions, random_state: {
+            "pca_2": _FakePCA()
+        },
+    )
+    prepared, selected = _prepared()
+    batches: list[pd.DataFrame] = []
+
+    result = module.characterize_step2_compression(
+        prepared,
+        selected,
+        gallery_identities=["test-gallery"],
+        unknown_unknown_identities=["test-unknown-unknown"],
+        pca_dimensions=[2],
+        pq_settings=[(8, 1)],
+        seed=42,
+        target_fpir=1.0,
+        target_fpirs=(1.0, 0.5),
+        enrollment_count=1,
+        calibration_gallery_identities=1,
+        top_k=1,
+        retrieval_sink=lambda frame: batches.append(frame.copy()),
+        collect_retrieval_metrics=False,
+    )
+
+    restored = pd.concat(batches, ignore_index=True)
+    assert result.retrieval_metrics.empty
+    assert result.retrieval_row_count == len(restored)
+    assert len(batches) == 20
+    pd.testing.assert_frame_equal(
+        result.summary.reset_index(drop=True),
+        module._summarize(result.paired_metrics, restored).reset_index(drop=True),
+        check_exact=True,
+    )
+
+
 def test_step2_runner_reuses_search_scores_for_multiple_fpir_targets(
     monkeypatch,
 ) -> None:
@@ -783,3 +823,28 @@ def test_rfw_custom_runner_uses_persisted_open_set_roles_and_multi_fpir(
     diagnostics = result.calibration_diagnostics["splits"]
     assert diagnostics["calibration"]["template_count"] == 8
     assert diagnostics["test"]["template_count"] == 8
+
+    streamed_batches: list[pd.DataFrame] = []
+    streamed = module.characterize_step2_rfw_custom_compression(
+        prepared,
+        selected,
+        pca_dimensions=[2],
+        pq_settings=[],
+        seed=42,
+        target_fpir=1.0,
+        target_fpirs=(0.5,),
+        top_k=2,
+        retrieval_sink=lambda frame: streamed_batches.append(frame.copy()),
+        collect_retrieval_metrics=False,
+    )
+    restored = pd.concat(streamed_batches, ignore_index=True)
+    expected_demographic = module._summarize_rfw_custom_demographics(
+        streamed.paired_metrics,
+        restored,
+    )
+    assert streamed.retrieval_row_count == len(restored)
+    pd.testing.assert_frame_equal(
+        streamed.demographic_summary.reset_index(drop=True),
+        expected_demographic.reset_index(drop=True),
+        check_exact=True,
+    )

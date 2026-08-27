@@ -68,6 +68,7 @@ class Step2CompressionResult:
     fitted_codecs: tuple[tuple[str, str, Any], ...]
     calibration_diagnostics_by_target: dict[str, dict[str, object]]
     demographic_summary: pd.DataFrame
+    retrieval_row_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -1087,8 +1088,8 @@ def _normalize_target_fpirs(
     return normalized
 
 
-def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
-    paired_summary = (
+def _paired_summary(paired: pd.DataFrame) -> pd.DataFrame:
+    return (
         paired.groupby(
             ["compression_family", "compression_profile"],
             sort=True,
@@ -1110,6 +1111,9 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
         )
         .reset_index()
     )
+
+
+def _summarize_retrieval(retrieval: pd.DataFrame) -> pd.DataFrame:
     records = []
     retrieval_group_columns = [
         "compression_family",
@@ -1391,12 +1395,37 @@ def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
                 ),
             }
         )
-    return pd.DataFrame.from_records(records).merge(
-        paired_summary,
+    return pd.DataFrame.from_records(records)
+
+
+def _merge_paired_summary(
+    paired: pd.DataFrame,
+    retrieval_summary: pd.DataFrame,
+) -> pd.DataFrame:
+    if retrieval_summary.empty:
+        return retrieval_summary.copy()
+    group_columns = [
+        "compression_family",
+        "compression_profile",
+        "search_mode",
+        "threshold_policy",
+    ]
+    if "target_fpir" in retrieval_summary:
+        group_columns.append("target_fpir")
+    ordered = retrieval_summary.sort_values(
+        group_columns,
+        kind="stable",
+    ).reset_index(drop=True)
+    return ordered.merge(
+        _paired_summary(paired),
         on=["compression_family", "compression_profile"],
         how="left",
         validate="many_to_one",
     )
+
+
+def _summarize(paired: pd.DataFrame, retrieval: pd.DataFrame) -> pd.DataFrame:
+    return _merge_paired_summary(paired, _summarize_retrieval(retrieval))
 
 
 def _annotate_rfw_custom_query_boundaries(
@@ -1465,6 +1494,8 @@ def _characterize_population_with_protocols(
     top_k: int,
     threshold_selection: str = "maximize_dir",
     calibration_contract: dict[str, object] | None = None,
+    retrieval_sink: Callable[[pd.DataFrame], None] | None = None,
+    collect_retrieval_metrics: bool = True,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
     operating_targets = _normalize_target_fpirs(target_fpir, target_fpirs)
@@ -1524,8 +1555,38 @@ def _characterize_population_with_protocols(
     cosine_mode_count = 2 * len(compressors)
     retrieval_work_total = cosine_mode_count * work_per_cosine_mode
     full_matrix = np.stack(population["origin_embedding"]).astype(np.float32)
-    paired_frames = []
-    retrieval_frames = []
+    paired_frames: list[pd.DataFrame] = []
+    retrieval_summary_parts: list[pd.DataFrame] = []
+    demographic_summary_parts: list[pd.DataFrame] = []
+    retrieval_schema: tuple[str, ...] | None = None
+    retrieval_row_count = 0
+
+    class _RetrievalBatchCollector(list[pd.DataFrame]):
+        def append(self, frame: pd.DataFrame) -> None:
+            nonlocal retrieval_schema, retrieval_row_count
+            if frame.empty:
+                raise ValueError("retrieval result batch must not be empty")
+            schema = tuple(str(column) for column in frame.columns)
+            if retrieval_schema is None:
+                retrieval_schema = schema
+            elif schema != retrieval_schema:
+                raise ValueError("retrieval result schema drifted between batches")
+            if frame["origin_fallback_used"].astype(bool).any():
+                raise RuntimeError("retrieval metrics contain origin fallback rows")
+            if retrieval_sink is not None:
+                retrieval_sink(frame)
+            retrieval_row_count += int(len(frame))
+            if collect_retrieval_metrics:
+                super().append(frame)
+                return
+            retrieval_summary_parts.append(_summarize_retrieval(frame))
+            if "rfw_group" in frame:
+                for group_name, group in frame.groupby("rfw_group", sort=True):
+                    part = _summarize_retrieval(group)
+                    part.insert(0, "rfw_group", str(group_name))
+                    demographic_summary_parts.append(part)
+
+    retrieval_frames = _RetrievalBatchCollector()
     origin_calibration_reference: pd.DataFrame | None = None
     origin_evaluation_reference: pd.DataFrame | None = None
     origin_thresholds: dict[float, float] | None = None
@@ -2088,10 +2149,51 @@ def _characterize_population_with_protocols(
                 )
 
     paired_metrics = pd.concat(paired_frames, ignore_index=True)
-    retrieval_metrics = pd.concat(retrieval_frames, ignore_index=True)
+    if collect_retrieval_metrics:
+        retrieval_metrics = pd.concat(retrieval_frames, ignore_index=True)
+        summary = _summarize(paired_metrics, retrieval_metrics)
+        demographic_summary = _summarize_rfw_custom_demographics(
+            paired_metrics,
+            retrieval_metrics,
+        )
+    else:
+        if retrieval_schema is None or not retrieval_summary_parts:
+            raise RuntimeError("retrieval characterization produced no batches")
+        retrieval_metrics = pd.DataFrame(columns=list(retrieval_schema))
+        summary = _merge_paired_summary(
+            paired_metrics,
+            pd.concat(retrieval_summary_parts, ignore_index=True),
+        )
+        demographic_outputs: list[pd.DataFrame] = []
+        if demographic_summary_parts:
+            demographic_retrieval = pd.concat(
+                demographic_summary_parts,
+                ignore_index=True,
+            )
+            for group_name, group in demographic_retrieval.groupby(
+                "rfw_group",
+                sort=True,
+            ):
+                merged = _merge_paired_summary(
+                    paired_metrics,
+                    group.drop(columns="rfw_group"),
+                )
+                merged.insert(0, "rfw_group", str(group_name))
+                merged["checkpoint_training_identity_overlap_status"] = (
+                    "UNKNOWN"
+                )
+                merged["strict_unseen_identity_evidence"] = False
+                demographic_outputs.append(merged)
+        demographic_summary = (
+            pd.concat(demographic_outputs, ignore_index=True)
+            if demographic_outputs
+            else pd.DataFrame()
+        )
     if paired_metrics["origin_fallback_used"].astype(bool).any():
         raise RuntimeError("paired metrics contain origin fallback rows")
-    if retrieval_metrics["origin_fallback_used"].astype(bool).any():
+    if collect_retrieval_metrics and retrieval_metrics[
+        "origin_fallback_used"
+    ].astype(bool).any():
         raise RuntimeError("retrieval metrics contain origin fallback rows")
     if (
         origin_calibration_reference is None
@@ -2127,13 +2229,11 @@ def _characterize_population_with_protocols(
         retrieval_metrics=retrieval_metrics,
         origin_score_audit=origin_score_audit,
         calibration_diagnostics=calibration_diagnostics,
-        summary=_summarize(paired_metrics, retrieval_metrics),
+        summary=summary,
         fitted_codecs=tuple(compressors),
         calibration_diagnostics_by_target=diagnostics_by_target,
-        demographic_summary=_summarize_rfw_custom_demographics(
-            paired_metrics,
-            retrieval_metrics,
-        ),
+        demographic_summary=demographic_summary,
+        retrieval_row_count=retrieval_row_count,
     )
 
 
@@ -2151,6 +2251,8 @@ def characterize_step2_compression(
     enrollment_count: int = 5,
     calibration_gallery_identities: int = 20,
     top_k: int = 20,
+    retrieval_sink: Callable[[pd.DataFrame], None] | None = None,
+    collect_retrieval_metrics: bool = True,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
     """Fit on development, calibrate on calibration, and evaluate on test."""
@@ -2207,6 +2309,8 @@ def characterize_step2_compression(
         target_fpir=target_fpir,
         target_fpirs=target_fpirs,
         top_k=top_k,
+        retrieval_sink=retrieval_sink,
+        collect_retrieval_metrics=collect_retrieval_metrics,
         progress=progress,
     )
 
@@ -2222,6 +2326,8 @@ def characterize_step2_survface_compression(
     target_fpirs: Sequence[float] | None = None,
     calibration_gallery_identities: int = 3000,
     top_k: int = 20,
+    retrieval_sink: Callable[[pd.DataFrame], None] | None = None,
+    collect_retrieval_metrics: bool = True,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
     """Fit on a matched training watch-list and evaluate the official protocol.
@@ -2327,6 +2433,8 @@ def characterize_step2_survface_compression(
             "compressor_fit_image_count": int(len(fit_rows)),
             "official_test_used_for_threshold": False,
         },
+        retrieval_sink=retrieval_sink,
+        collect_retrieval_metrics=collect_retrieval_metrics,
         progress=progress,
     )
 
@@ -2341,6 +2449,8 @@ def characterize_step2_rfw_custom_compression(
     target_fpir: float = 0.10,
     target_fpirs: Sequence[float] | None = None,
     top_k: int = 20,
+    retrieval_sink: Callable[[pd.DataFrame], None] | None = None,
+    collect_retrieval_metrics: bool = True,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
     """Evaluate the identity-disjoint RFW-Custom 1:N open-set protocol.
@@ -2468,5 +2578,7 @@ def characterize_step2_rfw_custom_compression(
             "strict_unseen_identity_evidence": False,
             "evaluation_identity_counts_by_group": group_counts,
         },
+        retrieval_sink=retrieval_sink,
+        collect_retrieval_metrics=collect_retrieval_metrics,
         progress=progress,
     )

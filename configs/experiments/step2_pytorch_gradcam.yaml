@@ -56,6 +56,10 @@ workflow:
   saliency_population_dir: saliency_population
   saliency_validation_path: saliency_validation.json
   paired_metrics_path: paired_embedding_metrics.csv
+  # Normalized Parquet ledger used by new runs. It stores threshold-invariant
+  # retrieval rows once and keeps decisions in narrow partitions.
+  retrieval_ledger_manifest_path: retrieval_ledger/manifest.json
+  # Kept only as a read fallback for completed legacy runs.
   retrieval_metrics_path: retrieval_metrics.csv
   rfw_custom_demographic_summary_path: rfw_custom_demographic_summary.csv
   origin_score_audit_path: origin_open_set_score_audit.csv
@@ -531,6 +535,10 @@ joint_analysis:
     bootstrap_unit: identity_id
     bootstrap_method: identity_cluster
     bootstrap_repeats: 500
+    # Each worker loads one complete search-condition partition. BLAS threads
+    # are capped at one inside workers so parallelism is bounded and explicit.
+    max_workers: 4
+    max_in_flight: 8
     paired_saliency_features:
       - outside_face_attention
       - saliency_entropy

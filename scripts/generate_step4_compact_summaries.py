@@ -25,6 +25,10 @@ from research.evaluation.metrics import (  # noqa: E402
 from research.evaluation.search_conditions import (  # noqa: E402
     search_condition_metadata,
 )
+from research.evaluation.retrieval_ledger import (  # noqa: E402
+    iter_retrieval_source_batches,
+    retrieval_source_columns,
+)
 
 
 SCHEMA_VERSION = 5
@@ -402,7 +406,7 @@ def summarize_retrieval(
     source_columns = set(
         source_frame.columns
         if source_frame is not None
-        else pd.read_csv(source_path, nrows=0).columns
+        else retrieval_source_columns(source_path)
     )
     usecols = tuple(
         column for column in requested_usecols if column in source_columns
@@ -441,7 +445,11 @@ def summarize_retrieval(
     chunks = (
         (source_frame.loc[:, usecols].copy(),)
         if source_frame is not None
-        else pd.read_csv(source_path, usecols=usecols, chunksize=chunksize)
+        else iter_retrieval_source_batches(
+            source_path,
+            columns=usecols,
+            chunksize=chunksize,
+        )
     )
     for chunk in chunks:
         row_count += int(len(chunk))
@@ -942,7 +950,13 @@ def generate(
     freeze_manifest_path = workflow_dir / "freeze_manifest.json"
     step4_summary_path = workflow_dir / "step4_summary.json"
     paired_path = workflow_dir / "paired_embedding_metrics.csv"
-    retrieval_path = workflow_dir / "retrieval_metrics.csv"
+    retrieval_ledger_path = workflow_dir / "retrieval_ledger" / "manifest.json"
+    legacy_retrieval_path = workflow_dir / "retrieval_metrics.csv"
+    retrieval_path = (
+        retrieval_ledger_path
+        if retrieval_ledger_path.is_file()
+        else legacy_retrieval_path
+    )
     required = (
         run_manifest_path,
         freeze_manifest_path,
@@ -1029,7 +1043,11 @@ def generate(
         "freeze_manifest.json": freeze_manifest_path,
         "step4_summary.json": step4_summary_path,
         "paired_embedding_metrics.csv": paired_path,
-        "retrieval_metrics.csv": retrieval_path,
+        (
+            "retrieval_ledger/manifest.json"
+            if retrieval_path == retrieval_ledger_path
+            else "retrieval_metrics.csv"
+        ): retrieval_path,
     }
     output_files = {
         "compression_summary.csv": compression_path,

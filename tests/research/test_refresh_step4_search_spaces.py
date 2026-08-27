@@ -234,3 +234,87 @@ def test_refresh_passes_explicit_targets_to_each_family(
 
     assert observed == [("pca", module.DEFAULT_TARGET_FPIRS)]
     assert result["output_dir"] == str((tmp_path / "derived").resolve())
+
+
+def test_phase04_compact_cache_reuses_normalized_ledger_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workflow_root = tmp_path / "artifacts" / "step2_workflow"
+    ledger_path = workflow_root / "retrieval_ledger" / "manifest.json"
+    ledger_path.parent.mkdir(parents=True)
+    ledger_path.write_text("{}\n", encoding="utf-8")
+    paired_path = workflow_root / "paired.csv"
+    paired_path.write_text("placeholder\n", encoding="utf-8")
+    diagnostics_path = workflow_root / "diagnostics.json"
+    diagnostics_path.write_text(
+        json.dumps(
+            {
+                "diagnostics_by_target": {
+                    f"{target:.12g}": {"target_fpir": target}
+                    for target in module.DEFAULT_TARGET_FPIRS
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    selected_path = workflow_root / "selected.csv"
+    pd.DataFrame({"sample_id": ["s1", "s2"]}).to_csv(
+        selected_path,
+        index=False,
+    )
+    compression = pd.DataFrame(
+        {
+            "compression_family": ["pca", "pq"],
+            "sample_count": [2, 2],
+        }
+    )
+    retrieval = pd.DataFrame(
+        {
+            "compression_family": ["pca", "pq"],
+            "query_count": [4, 6],
+        }
+    )
+    calls = {"compression": 0, "retrieval": 0}
+
+    def fake_compression(*args: object, **kwargs: object):
+        calls["compression"] += 1
+        return compression, 4
+
+    def fake_retrieval(*args: object, **kwargs: object):
+        calls["retrieval"] += 1
+        return retrieval, 10
+
+    monkeypatch.setattr(module, "summarize_compression", fake_compression)
+    monkeypatch.setattr(module, "summarize_retrieval", fake_retrieval)
+    context = {
+        "step4": {
+            "workflow": {
+                "retrieval_ledger_manifest_path": (
+                    "retrieval_ledger/manifest.json"
+                ),
+                "paired_metrics_path": "paired.csv",
+                "calibration_diagnostics_path": "diagnostics.json",
+            }
+        },
+        "workflow_root": workflow_root,
+        "selected_path": selected_path,
+        "prepared_manifest": {
+            "origin_embedding_artifact_uid": "origin-a"
+        },
+    }
+
+    first = module._phase04_compact_cache(
+        context,
+        target_fpirs=module.DEFAULT_TARGET_FPIRS,
+    )
+    second = module._phase04_compact_cache(
+        context,
+        target_fpirs=module.DEFAULT_TARGET_FPIRS,
+    )
+
+    assert first is second
+    assert first is not None
+    assert first["selected_count"] == 2
+    assert first["origin_embedding_artifact_uid"] == "origin-a"
+    assert calls == {"compression": 1, "retrieval": 1}
