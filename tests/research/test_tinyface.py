@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from io import StringIO
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -18,6 +20,8 @@ from research.evaluation import (
     load_tinyface_completed_evaluation,
     paired_tinyface_deltas,
 )
+from research.experiments import tinyface_pipeline
+from research.runtime import ProgressReporter
 from research.runtime.hashing import sha256_file
 
 
@@ -170,6 +174,82 @@ def test_tinyface_paired_deltas_preserve_query_pairing() -> None:
     assert result["compressed_minus_origin_map"] == pytest.approx(0.25)
     assert result["compressed_minus_origin_rank_20"] == pytest.approx(0.5)
     assert result["paired_bootstrap_resamples"] == 100
+
+
+def test_tinyface_embedding_extraction_uses_common_progress_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image_paths = [tmp_path / "a.jpg", tmp_path / "b.jpg"]
+    for index, path in enumerate(image_paths, start=1):
+        _image(path, index * 10)
+    selected = pd.DataFrame(
+        {
+            "image_id": ["a", "b"],
+            "identity_id": ["one", "two"],
+            "split": ["development", "test"],
+            "protocol_role": ["development_pool", "registered_probe"],
+            "protocol_index": [0, 1],
+            "source_relative_path": ["a.jpg", "b.jpg"],
+            "official_result_eligible": [False, False],
+            "protocol_uid": ["tinyface-test", "tinyface-test"],
+            "image_path": [str(path) for path in image_paths],
+        }
+    )
+    spec = SimpleNamespace(
+        embedding_dim=2,
+        preprocessing=SimpleNamespace(input_height=8, input_width=8),
+    )
+
+    class Adapter:
+        def embed(self, faces: np.ndarray) -> SimpleNamespace:
+            embeddings = np.tile(
+                np.asarray([[1.0, 0.0]], dtype=np.float32),
+                (len(faces), 1),
+            )
+            return SimpleNamespace(normalized_embedding=embeddings)
+
+    model_spec_path = tmp_path / "model_spec.json"
+    model_spec_path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        tinyface_pipeline,
+        "read_model_spec",
+        lambda *args, **kwargs: spec,
+    )
+    monkeypatch.setattr(
+        tinyface_pipeline,
+        "create_pytorch_adapter_from_spec",
+        lambda *args, **kwargs: Adapter(),
+    )
+    plan = SimpleNamespace(
+        model_spec_path=model_spec_path,
+        device="cpu",
+        embedding_batch_size=1,
+        model_uid="tinyface-test-model",
+        protocol_uid="tinyface-test",
+        plan_id="tinyface-test-plan",
+    )
+    output = StringIO()
+    reporter = ProgressReporter(
+        "tinyface/full/test",
+        heartbeat_seconds=None,
+        milestone_percent=50,
+        stream=output,
+    )
+
+    embeddings, rows = tinyface_pipeline._extract_embeddings(
+        plan,
+        selected,
+        artifact_root=tmp_path / "artifacts",
+        progress=reporter.callback(key_prefix="tinyface:full:"),
+    )
+
+    assert embeddings.shape == (2, 2)
+    assert rows["image_id"].tolist() == ["a", "b"]
+    log = output.getvalue()
+    assert "TinyFace embedding extraction" in log
+    assert "progress=50%" in log
+    assert "progress=100%" in log
 
 
 def test_load_tinyface_completed_evaluation_validates_closed_set_artifact(

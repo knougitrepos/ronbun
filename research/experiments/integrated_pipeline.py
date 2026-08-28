@@ -28,6 +28,7 @@ from research.experiments.tinyface_pipeline import (
 OPEN_SET_DATASET_IDS = tuple(SUPPORTED_COMMON_DATASETS)
 INTEGRATED_DATASET_IDS = tuple(SUPPORTED_ORCHESTRATION_DATASETS)
 IntegratedExperimentPlan: TypeAlias = CommonExperimentPlan | TinyFaceExperimentPlan
+ProgressCallback: TypeAlias = Callable[[str, dict[str, object]], None]
 
 
 def validate_integrated_dataset_ids(dataset_ids: Sequence[str]) -> tuple[str, ...]:
@@ -166,7 +167,7 @@ def run_or_reuse_integrated_experiment(
     execution_acknowledged: bool,
     start_new_run: bool,
     completed_run_override: str | Path | None = None,
-    progress: Callable[[dict[str, Any]], None] | None = None,
+    progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """Dispatch one selected dataset to its protocol-specific canonical runner."""
 

@@ -50,6 +50,7 @@ TINYFACE_DEFAULT_PQ_SETTINGS = (
     {"m": 64, "nbits": 8},
     {"m": 128, "nbits": 8},
 )
+ProgressCallback = Callable[[str, dict[str, object]], None]
 
 
 @dataclass(frozen=True)
@@ -336,7 +337,7 @@ def _extract_embeddings(
     selected: pd.DataFrame,
     *,
     artifact_root: Path,
-    progress: Callable[[dict[str, Any]], None] | None,
+    progress: ProgressCallback | None,
 ) -> tuple[np.ndarray, pd.DataFrame]:
     embeddings_path = artifact_root / "origin_embeddings.npy"
     rows_path = artifact_root / "embedding_rows.csv"
@@ -387,6 +388,7 @@ def _extract_embeddings(
         matrix.flush()
         if progress is not None:
             progress(
+                "TinyFace embedding extraction",
                 {
                     "phase": "tinyface_embedding_extraction",
                     "completed": stop,
@@ -738,7 +740,7 @@ def run_tinyface_experiment(
     *,
     execution_acknowledged: bool,
     start_new_run: bool = False,
-    progress: Callable[[dict[str, Any]], None] | None = None,
+    progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     if execution_acknowledged is not True:
         raise RuntimeError("TinyFace execution requires explicit acknowledgement")
