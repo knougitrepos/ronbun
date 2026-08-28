@@ -176,6 +176,75 @@ def test_tinyface_paired_deltas_preserve_query_pairing() -> None:
     assert result["paired_bootstrap_resamples"] == 100
 
 
+def test_tinyface_native_pq_audit_records_tie_rank_drift_without_hiding_it() -> None:
+    query = np.asarray([[1.0, 0.0]], dtype=np.float32)
+    decoded_gallery = np.zeros((24, 2), dtype=np.float32)
+    native_indices = np.arange(20, dtype=np.int64).reshape(1, -1)
+    native_distances = np.ones((1, 20), dtype=np.float32)
+    gallery_ids = np.asarray(
+        ["other", "target", *(f"distractor-{index}" for index in range(22))],
+        dtype=object,
+    )
+    decoded_ledger = pd.DataFrame(
+        {
+            "query_image_id": ["probe"],
+            "rank_1_success": [False],
+            "rank_5_success": [False],
+            "rank_10_success": [False],
+            "rank_20_success": [False],
+        }
+    )
+
+    audited, summary = tinyface_pipeline._audit_native_pq_search(
+        search_mode="pq_adc_exhaustive",
+        native_query_vectors=query,
+        decoded_gallery_vectors=decoded_gallery,
+        native_distances=native_distances,
+        native_indices=native_indices,
+        query_ids=np.asarray(["target"], dtype=object),
+        gallery_ids=gallery_ids,
+        decoded_ledger=decoded_ledger,
+    )
+
+    assert summary["native_score_equivalence_passed"] is True
+    assert summary["native_score_equivalence_checked_count"] == 20
+    assert summary["native_rank_20"] == pytest.approx(1.0)
+    assert summary["decoded_native_rank_20_mismatch_count"] == 1
+    assert summary["decoded_native_rank_20_native_only_count"] == 1
+    assert summary["decoded_native_rank_exact_match_required"] is False
+    assert audited["native_rank_20_success"].tolist() == [True]
+    assert audited["decoded_native_rank_20_mismatch"].tolist() == [True]
+
+
+def test_tinyface_native_pq_audit_rejects_non_equivalent_scores() -> None:
+    query = np.asarray([[1.0, 0.0]], dtype=np.float32)
+    decoded_gallery = np.zeros((20, 2), dtype=np.float32)
+    native_indices = np.arange(20, dtype=np.int64).reshape(1, -1)
+    corrupted_distances = np.ones((1, 20), dtype=np.float32)
+    corrupted_distances[0, 0] = 1.1
+    decoded_ledger = pd.DataFrame(
+        {
+            f"rank_{rank}_success": [False]
+            for rank in (1, 5, 10, 20)
+        }
+    )
+
+    with pytest.raises(RuntimeError, match="not decoded-centroid score-equivalent"):
+        tinyface_pipeline._audit_native_pq_search(
+            search_mode="pq_adc_exhaustive",
+            native_query_vectors=query,
+            decoded_gallery_vectors=decoded_gallery,
+            native_distances=corrupted_distances,
+            native_indices=native_indices,
+            query_ids=np.asarray(["target"], dtype=object),
+            gallery_ids=np.asarray(
+                [f"distractor-{index}" for index in range(20)],
+                dtype=object,
+            ),
+            decoded_ledger=decoded_ledger,
+        )
+
+
 def test_tinyface_embedding_extraction_uses_common_progress_contract(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

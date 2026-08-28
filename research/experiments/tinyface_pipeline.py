@@ -51,6 +51,7 @@ TINYFACE_DEFAULT_PQ_SETTINGS = (
     {"m": 128, "nbits": 8},
 )
 ProgressCallback = Callable[[str, dict[str, object]], None]
+TINYFACE_NATIVE_PQ_AUDIT_VERSION = "native_decoded_top20_score_audit_v1"
 
 
 @dataclass(frozen=True)
@@ -483,13 +484,164 @@ def _evaluate_condition(
 
 
 def _native_top20_success(indices: np.ndarray, query_ids: np.ndarray, gallery_ids: np.ndarray) -> np.ndarray:
-    return np.asarray(
-        [
-            bool(np.any(gallery_ids[row] == query_ids[index]))
-            for index, row in enumerate(np.asarray(indices, dtype=np.int64))
-        ],
-        dtype=bool,
+    return _native_rank_successes(indices, query_ids, gallery_ids)[20]
+
+
+def _native_rank_successes(
+    indices: np.ndarray,
+    query_ids: np.ndarray,
+    gallery_ids: np.ndarray,
+) -> dict[int, np.ndarray]:
+    ranked = np.asarray(indices, dtype=np.int64)
+    queries = np.asarray(query_ids, dtype=object).reshape(-1)
+    gallery = np.asarray(gallery_ids, dtype=object).reshape(-1)
+    if ranked.ndim != 2 or len(ranked) != len(queries):
+        raise ValueError("native PQ indices must be a query-aligned 2D matrix")
+    if ranked.shape[1] < max(TINYFACE_RANKS):
+        raise ValueError("native PQ audit requires at least the official top-20")
+    if np.any(ranked < 0) or np.any(ranked >= len(gallery)):
+        raise ValueError("native PQ indices escaped the gallery range")
+    matches = gallery[ranked] == queries[:, None]
+    return {
+        rank: np.any(matches[:, :rank], axis=1)
+        for rank in TINYFACE_RANKS
+    }
+
+
+def _native_decoded_score_equivalence_audit(
+    *,
+    search_mode: str,
+    native_query_vectors: np.ndarray,
+    decoded_gallery_vectors: np.ndarray,
+    native_distances: np.ndarray,
+    native_indices: np.ndarray,
+    batch_size: int = 64,
+) -> dict[str, Any]:
+    queries = np.asarray(native_query_vectors, dtype=np.float32)
+    gallery = np.asarray(decoded_gallery_vectors, dtype=np.float32)
+    distances = np.asarray(native_distances, dtype=np.float32)
+    indices = np.asarray(native_indices, dtype=np.int64)
+    if queries.ndim != 2 or gallery.ndim != 2 or queries.shape[1] != gallery.shape[1]:
+        raise ValueError("native PQ audit vectors must be compatible 2D matrices")
+    if distances.ndim != 2 or indices.shape != distances.shape:
+        raise ValueError("native PQ audit distances and indices must have equal 2D shape")
+    if len(distances) != len(queries) or np.any(indices < 0) or np.any(indices >= len(gallery)):
+        raise ValueError("native PQ audit result rows or gallery indices are invalid")
+    if not np.isfinite(distances).all() or np.any(distances < -1e-5):
+        raise ValueError("native PQ audit distances must be finite squared L2 values")
+    batch = int(batch_size)
+    if isinstance(batch_size, bool) or batch < 1:
+        raise ValueError("native PQ audit batch_size must be a positive integer")
+
+    float32_epsilon = float(np.finfo(np.float32).eps)
+    dimension = int(queries.shape[1])
+    accumulation_bound = dimension * float32_epsilon
+    relative_tolerance = float(
+        2.0 * accumulation_bound / (1.0 - accumulation_bound)
     )
+    absolute_tolerance = float(8.0 * float32_epsilon)
+    maximum_absolute_error = 0.0
+    maximum_relative_error = 0.0
+    violation_count = 0
+    checked_count = int(distances.size)
+    for start in range(0, len(queries), batch):
+        stop = min(len(queries), start + batch)
+        selected = gallery[indices[start:stop]].astype(np.float64, copy=False)
+        query = queries[start:stop].astype(np.float64, copy=False)[:, None, :]
+        difference = query - selected
+        reference = np.einsum(
+            "qkd,qkd->qk",
+            difference,
+            difference,
+            dtype=np.float64,
+            optimize=True,
+        )
+        observed = distances[start:stop].astype(np.float64, copy=False)
+        absolute_error = np.abs(observed - reference)
+        allowed_error = absolute_tolerance + relative_tolerance * np.abs(reference)
+        violation_count += int(np.count_nonzero(absolute_error > allowed_error))
+        maximum_absolute_error = max(
+            maximum_absolute_error,
+            float(np.max(absolute_error, initial=0.0)),
+        )
+        relative_error = absolute_error / np.maximum(
+            np.abs(reference),
+            absolute_tolerance,
+        )
+        maximum_relative_error = max(
+            maximum_relative_error,
+            float(np.max(relative_error, initial=0.0)),
+        )
+    if violation_count:
+        raise RuntimeError(
+            f"TinyFace {search_mode} native distances are not decoded-centroid "
+            f"score-equivalent: violations={violation_count}/{checked_count}, "
+            f"max_abs={maximum_absolute_error:.9g}"
+        )
+    return {
+        "native_score_equivalence_audit_version": TINYFACE_NATIVE_PQ_AUDIT_VERSION,
+        "native_score_equivalence_checked_count": checked_count,
+        "native_score_equivalence_violation_count": 0,
+        "native_score_equivalence_max_absolute_error": maximum_absolute_error,
+        "native_score_equivalence_max_relative_error": maximum_relative_error,
+        "native_score_equivalence_relative_tolerance": relative_tolerance,
+        "native_score_equivalence_absolute_tolerance": absolute_tolerance,
+        "native_score_equivalence_passed": True,
+    }
+
+
+def _audit_native_pq_search(
+    *,
+    search_mode: str,
+    native_query_vectors: np.ndarray,
+    decoded_gallery_vectors: np.ndarray,
+    native_distances: np.ndarray,
+    native_indices: np.ndarray,
+    query_ids: np.ndarray,
+    gallery_ids: np.ndarray,
+    decoded_ledger: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if len(decoded_ledger) != len(query_ids):
+        raise ValueError("decoded TinyFace ledger is not query-aligned")
+    summary = _native_decoded_score_equivalence_audit(
+        search_mode=search_mode,
+        native_query_vectors=native_query_vectors,
+        decoded_gallery_vectors=decoded_gallery_vectors,
+        native_distances=native_distances,
+        native_indices=native_indices,
+    )
+    native_by_rank = _native_rank_successes(
+        native_indices,
+        query_ids,
+        gallery_ids,
+    )
+    audited = decoded_ledger.copy()
+    denominator = int(len(audited))
+    summary["native_rank_tie_policy"] = "faiss_native_index_order"
+    summary["decoded_rank_tie_policy"] = "stable_gallery_index"
+    summary["decoded_native_rank_exact_match_required"] = False
+    for rank, native_success in native_by_rank.items():
+        column = f"rank_{rank}_success"
+        if column not in audited.columns:
+            raise ValueError(f"decoded TinyFace ledger is missing {column}")
+        decoded_success = audited[column].astype(bool).to_numpy()
+        mismatch = native_success != decoded_success
+        native_only = native_success & ~decoded_success
+        decoded_only = ~native_success & decoded_success
+        audited[f"native_rank_{rank}_success"] = native_success
+        audited[f"decoded_native_rank_{rank}_mismatch"] = mismatch
+        summary.update(
+            {
+                f"native_rank_{rank}": float(native_success.mean()),
+                f"native_rank_{rank}_success_count": int(native_success.sum()),
+                f"native_rank_{rank}_denominator": denominator,
+                f"decoded_native_rank_{rank}_mismatch_count": int(mismatch.sum()),
+                f"decoded_native_rank_{rank}_native_only_count": int(native_only.sum()),
+                f"decoded_native_rank_{rank}_decoded_only_count": int(decoded_only.sum()),
+                f"decoded_native_rank_{rank}_agreement_rate": float(1.0 - mismatch.mean()),
+            }
+        )
+    return audited, summary
 
 
 def _run_compression_evaluation(
@@ -632,7 +784,7 @@ def _run_compression_evaluation(
                 "query_payload_bytes_per_vector": query_bytes,
                 "native_compressed_search": mode in {"pq_adc_exhaustive", "pq_sdc_exhaustive"},
                 "official_metric_implementation": (
-                    "decoded_centroid_equivalent_exact_ranking"
+                    "decoded_centroid_exact_ranking_with_native_top20_audit"
                     if mode in {"pq_adc_exhaustive", "pq_sdc_exhaustive"}
                     else "exact_reconstructed_vector_ranking"
                 ),
@@ -648,23 +800,43 @@ def _run_compression_evaluation(
                 score_kind=score_kind,
             )
             if mode == "pq_adc_exhaustive":
-                _, native_indices, native_metrics = compressor.search_adc_with_metrics(
+                native_distances, native_indices, native_metrics = compressor.search_adc_with_metrics(
                     queries, np.asarray(gallery_profile.codes), top_k=20
                 )
-                native_success = _native_top20_success(native_indices, query_ids, gallery_ids)
-                exact_success = pq_ledger["rank_20_success"].astype(bool).to_numpy()
-                if not np.array_equal(native_success, exact_success):
-                    raise RuntimeError("TinyFace native ADC and exact score-equivalent Rank-20 differ")
+                pq_ledger, native_audit = _audit_native_pq_search(
+                    search_mode=mode,
+                    native_query_vectors=queries,
+                    decoded_gallery_vectors=np.asarray(
+                        gallery_profile.reconstructed_vectors
+                    ),
+                    native_distances=native_distances,
+                    native_indices=native_indices,
+                    query_ids=query_ids,
+                    gallery_ids=gallery_ids,
+                    decoded_ledger=pq_ledger,
+                )
                 pq_summary.update({f"native_{key}": value for key, value in native_metrics.items()})
+                pq_summary.update(native_audit)
             elif mode == "pq_sdc_exhaustive":
-                _, native_indices, native_metrics = compressor.search_sdc_with_metrics(
+                native_distances, native_indices, native_metrics = compressor.search_sdc_with_metrics(
                     queries, np.asarray(gallery_profile.codes), top_k=20
                 )
-                native_success = _native_top20_success(native_indices, query_ids, gallery_ids)
-                exact_success = pq_ledger["rank_20_success"].astype(bool).to_numpy()
-                if not np.array_equal(native_success, exact_success):
-                    raise RuntimeError("TinyFace native SDC and exact score-equivalent Rank-20 differ")
+                pq_ledger, native_audit = _audit_native_pq_search(
+                    search_mode=mode,
+                    native_query_vectors=np.asarray(
+                        query_profile.reconstructed_vectors
+                    ),
+                    decoded_gallery_vectors=np.asarray(
+                        gallery_profile.reconstructed_vectors
+                    ),
+                    native_distances=native_distances,
+                    native_indices=native_indices,
+                    query_ids=query_ids,
+                    gallery_ids=gallery_ids,
+                    decoded_ledger=pq_ledger,
+                )
                 pq_summary.update({f"native_{key}": value for key, value in native_metrics.items()})
+                pq_summary.update(native_audit)
             pq_summary.update(paired_tinyface_deltas(origin_ledger, pq_ledger))
             summaries.append(pq_summary)
             ledgers.append(pq_ledger)
@@ -709,7 +881,7 @@ def _run_compression_evaluation(
         for path in (summary_path, per_query_path)
     }
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "artifact_type": "tinyface_official_compression_evaluation_v1",
         "source_run_id": run_id,
         "dataset_id": TINYFACE_DATASET_ID,
@@ -726,6 +898,18 @@ def _run_compression_evaluation(
         "compression_fit_role": "development_pool",
         "score_spaces_calibrated": False,
         "score_space_calibration_reason": "official protocol has no non-mated probe/FPIR operating point",
+        "native_pq_validation_contract": {
+            "version": TINYFACE_NATIVE_PQ_AUDIT_VERSION,
+            "score_equivalence": (
+                "native top-20 squared-L2 distances versus float64 direct "
+                "distance over decoded centroids"
+            ),
+            "rank_agreement": (
+                "reported as an audit because native Faiss and decoded GPU "
+                "ranking can resolve quantization ties differently"
+            ),
+            "rank_exact_match_required": False,
+        },
         "condition_count": len(summary_frame),
         "query_count": len(queries),
         "gallery_count": len(gallery),
