@@ -16,6 +16,7 @@ from research.compression.profiles import (
     PCACompressor,
     PQCompressor,
     pq_profile_name,
+    validate_pq_sdc_settings,
 )
 from research.datasets.tinyface import (
     TINYFACE_DATASET_ID,
@@ -50,8 +51,51 @@ TINYFACE_DEFAULT_PQ_SETTINGS = (
     {"m": 64, "nbits": 8},
     {"m": 128, "nbits": 8},
 )
+TINYFACE_DEFAULT_PQ_SDC_SETTINGS = ((128, 8),)
 ProgressCallback = Callable[[str, dict[str, object]], None]
 TINYFACE_NATIVE_PQ_AUDIT_VERSION = "native_decoded_top20_score_audit_v1"
+
+
+def tinyface_condition_keys(
+    *,
+    pca_dimensions: tuple[int, ...],
+    pq_settings: tuple[Mapping[str, int], ...],
+    pq_sdc_settings: tuple[tuple[int, int], ...],
+) -> tuple[tuple[str, str], ...]:
+    """Return the exact profile/search-mode contract for a TinyFace run."""
+
+    normalized_pq = tuple(
+        (int(setting["m"]), int(setting["nbits"])) for setting in pq_settings
+    )
+    normalized_sdc = validate_pq_sdc_settings(
+        normalized_pq,
+        pq_sdc_settings,
+        source_dim=512,
+    )
+    selected_sdc = set(normalized_sdc)
+    keys: list[tuple[str, str]] = [(ORIGIN_512, "origin_cosine")]
+    for dimension in pca_dimensions:
+        profile = f"pca_{int(dimension)}"
+        keys.extend(
+            (
+                (profile, "pca_direct_cosine"),
+                (profile, "pca_reconstruction_cosine"),
+            )
+        )
+    for m, nbits in normalized_pq:
+        profile = pq_profile_name(m, nbits)
+        keys.extend(
+            (
+                (profile, "pq_reconstruction_cosine"),
+                (profile, "pq_one_sided_cosine"),
+                (profile, "pq_adc_exhaustive"),
+            )
+        )
+        if (m, nbits) in selected_sdc:
+            keys.append((profile, "pq_sdc_exhaustive"))
+    if len(set(keys)) != len(keys):
+        raise ValueError("TinyFace condition keys must be unique")
+    return tuple(keys)
 
 
 @dataclass(frozen=True)
@@ -72,7 +116,7 @@ class TinyFaceExperimentPlan:
     gallery_batch_size: int
     pca_dimensions: tuple[int, ...]
     pq_settings: tuple[dict[str, int], ...]
-    include_sdc: bool
+    pq_sdc_settings: tuple[tuple[int, int], ...]
     source_protocol_uid: str
     protocol_uid: str
     selected_role_counts: dict[str, int]
@@ -84,6 +128,11 @@ class TinyFaceExperimentPlan:
         return TINYFACE_DATASET_ID
 
     def config(self) -> dict[str, Any]:
+        condition_keys = tinyface_condition_keys(
+            pca_dimensions=self.pca_dimensions,
+            pq_settings=self.pq_settings,
+            pq_sdc_settings=self.pq_sdc_settings,
+        )
         return {
             "pipeline_id": "tinyface_official_compression_pipeline_v1",
             "dataset_id": TINYFACE_DATASET_ID,
@@ -106,12 +155,16 @@ class TinyFaceExperimentPlan:
             "gallery_batch_size": self.gallery_batch_size,
             "pca_dimensions": list(self.pca_dimensions),
             "pq_settings": [dict(value) for value in self.pq_settings],
+            "pq_sdc_settings": [
+                {"m": m, "nbits": nbits} for m, nbits in self.pq_sdc_settings
+            ],
             "pq_search_modes": [
                 "pq_reconstruction_cosine",
                 "pq_one_sided_cosine",
                 "pq_adc_exhaustive",
-                *(["pq_sdc_exhaustive"] if self.include_sdc else []),
+                *(["pq_sdc_exhaustive"] if self.pq_sdc_settings else []),
             ],
+            "expected_condition_count": len(condition_keys),
             "selected_role_counts": dict(self.selected_role_counts),
             "paper_eligible": self.paper_eligible,
             "official_metrics": ["mean_average_precision", "rank_1", "rank_5", "rank_10", "rank_20"],
@@ -180,7 +233,9 @@ def build_tinyface_experiment_plan(
     gallery_batch_size: int = 8_192,
     pca_dimensions: tuple[int, ...] = TINYFACE_DEFAULT_PCA_DIMENSIONS,
     pq_settings: tuple[Mapping[str, int], ...] = TINYFACE_DEFAULT_PQ_SETTINGS,
-    include_sdc: bool = True,
+    pq_sdc_settings: tuple[tuple[int, int], ...] = (
+        TINYFACE_DEFAULT_PQ_SDC_SETTINGS
+    ),
 ) -> TinyFaceExperimentPlan:
     root = Path(project_root).expanduser().resolve()
     tier = str(run_tier).strip().lower()
@@ -219,6 +274,16 @@ def build_tinyface_experiment_plan(
     for setting in normalized_pq:
         if 512 % setting["m"] != 0 or setting["nbits"] < 1:
             raise ValueError(f"invalid TinyFace PQ setting: {setting}")
+    normalized_pq_sdc = validate_pq_sdc_settings(
+        ((value["m"], value["nbits"]) for value in normalized_pq),
+        pq_sdc_settings,
+        source_dim=512,
+    )
+    tinyface_condition_keys(
+        pca_dimensions=dimensions,
+        pq_settings=normalized_pq,
+        pq_sdc_settings=normalized_pq_sdc,
+    )
     plan_payload = {
         "dataset": TINYFACE_DATASET_ID,
         "source_protocol_uid": bundle.protocol_uid,
@@ -232,7 +297,7 @@ def build_tinyface_experiment_plan(
         "selected_role_counts": selected_counts,
         "pca_dimensions": dimensions,
         "pq_settings": normalized_pq,
-        "include_sdc": bool(include_sdc),
+        "pq_sdc_settings": normalized_pq_sdc,
     }
     return TinyFaceExperimentPlan(
         project_root=root,
@@ -251,7 +316,7 @@ def build_tinyface_experiment_plan(
         gallery_batch_size=_positive_integer(gallery_batch_size, name="gallery_batch_size"),
         pca_dimensions=dimensions,
         pq_settings=normalized_pq,
-        include_sdc=bool(include_sdc),
+        pq_sdc_settings=normalized_pq_sdc,
         source_protocol_uid=bundle.protocol_uid,
         protocol_uid=selected_protocol_uid,
         selected_role_counts=selected_counts,
@@ -729,6 +794,7 @@ def _run_compression_evaluation(
     for setting in plan.pq_settings:
         m = int(setting["m"])
         nbits = int(setting["nbits"])
+        sdc_selected = (m, nbits) in set(plan.pq_sdc_settings)
         compressor = PQCompressor(
             source_dim=queries.shape[1],
             m=m,
@@ -764,7 +830,7 @@ def _run_compression_evaluation(
                 "origin_float32", "pq_codes", "negative_squared_l2", int(queries.shape[1] * 4),
             ),
         ]
-        if plan.include_sdc:
+        if sdc_selected:
             pq_conditions.append(
                 (
                     "pq_sdc_exhaustive", query_profile.reconstructed_vectors,
@@ -850,6 +916,28 @@ def _run_compression_evaluation(
     summary_frame["paper_eligible"] = plan.paper_eligible
     summary_frame["official_result_eligible"] = plan.paper_eligible
     summary_frame["fpir_tpir_metrics_applicable"] = False
+    expected_condition_keys = set(
+        tinyface_condition_keys(
+            pca_dimensions=plan.pca_dimensions,
+            pq_settings=plan.pq_settings,
+            pq_sdc_settings=plan.pq_sdc_settings,
+        )
+    )
+    observed_condition_keys = set(
+        zip(
+            summary_frame["compression_profile"].astype(str),
+            summary_frame["search_mode"].astype(str),
+        )
+    )
+    if (
+        observed_condition_keys != expected_condition_keys
+        or len(summary_frame) != len(expected_condition_keys)
+    ):
+        raise RuntimeError(
+            "TinyFace condition contract mismatch: "
+            f"expected={sorted(expected_condition_keys)}, "
+            f"observed={sorted(observed_condition_keys)}"
+        )
     summary_frame["gallery_payload_bytes_total"] = (
         summary_frame["gallery_payload_bytes_per_vector"] * len(gallery)
     )
@@ -910,6 +998,9 @@ def _run_compression_evaluation(
             ),
             "rank_exact_match_required": False,
         },
+        "pq_sdc_settings": [
+            {"m": m, "nbits": nbits} for m, nbits in plan.pq_sdc_settings
+        ],
         "condition_count": len(summary_frame),
         "query_count": len(queries),
         "gallery_count": len(gallery),

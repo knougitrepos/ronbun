@@ -51,7 +51,11 @@ def _compact_retrieval(*, family: str) -> pd.DataFrame:
             rows.append(
                 {
                     "compression_family": family,
-                    "compression_profile": f"{family}_test",
+                    "compression_profile": (
+                        module.REQUIRED_PQ_SDC_PROFILE
+                        if family == "pq"
+                        else f"{family}_test"
+                    ),
                     "search_mode": search_mode,
                     "query_representation": condition.query_representation,
                     "gallery_representation": condition.gallery_representation,
@@ -136,7 +140,11 @@ def test_v6_compact_validation_requires_tpir20_fpir_grid(family: str) -> None:
     compression = pd.DataFrame(
         {
             "compression_family": [family],
-            "compression_profile": [f"{family}_test"],
+            "compression_profile": [
+                module.REQUIRED_PQ_SDC_PROFILE
+                if family == "pq"
+                else f"{family}_test"
+            ],
         }
     )
     retrieval = _compact_retrieval(family=family)
@@ -163,6 +171,29 @@ def test_v6_compact_validation_requires_tpir20_fpir_grid(family: str) -> None:
             compression,
             retrieval.loc[retrieval["target_fpir"].eq(0.10)],
             family=family,
+            expected_profiles=1,
+            target_fpirs=module.DEFAULT_TARGET_FPIRS,
+        )
+
+
+def test_v6_compact_validation_rejects_sdc_outside_m128() -> None:
+    compression = pd.DataFrame(
+        {
+            "compression_family": ["pq"],
+            "compression_profile": [module.REQUIRED_PQ_SDC_PROFILE],
+        }
+    )
+    retrieval = _compact_retrieval(family="pq")
+    retrieval.loc[
+        retrieval["search_mode"].eq("pq_sdc_exhaustive"),
+        "compression_profile",
+    ] = "pq_origin_512_m64_b8"
+
+    with pytest.raises(ValueError, match="profile/search-mode coverage mismatch"):
+        module._validate_compact_frames(
+            compression,
+            retrieval,
+            family="pq",
             expected_profiles=1,
             target_fpirs=module.DEFAULT_TARGET_FPIRS,
         )

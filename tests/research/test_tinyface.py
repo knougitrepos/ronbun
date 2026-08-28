@@ -30,6 +30,70 @@ def _image(path: Path, value: int) -> None:
     Image.new("RGB", (8, 6), color=(value, value, value)).save(path)
 
 
+def test_tinyface_default_condition_contract_has_27_rows_and_m128_only_sdc() -> None:
+    keys = tinyface_pipeline.tinyface_condition_keys(
+        pca_dimensions=tinyface_pipeline.TINYFACE_DEFAULT_PCA_DIMENSIONS,
+        pq_settings=tinyface_pipeline.TINYFACE_DEFAULT_PQ_SETTINGS,
+        pq_sdc_settings=tinyface_pipeline.TINYFACE_DEFAULT_PQ_SDC_SETTINGS,
+    )
+
+    assert len(keys) == 27
+    assert {
+        profile for profile, mode in keys if mode == "pq_sdc_exhaustive"
+    } == {"pq_512_m128_b8"}
+    for mode in (
+        "pq_reconstruction_cosine",
+        "pq_one_sided_cosine",
+        "pq_adc_exhaustive",
+    ):
+        assert len([key for key in keys if key[1] == mode]) == 5
+
+
+def test_tinyface_plan_hash_and_config_include_sdc_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bundle = build_tinyface_official_bundle(
+        _tinyface_fixture(tmp_path), strict_official=False
+    )
+    monkeypatch.setattr(
+        tinyface_pipeline,
+        "build_tinyface_official_bundle",
+        lambda *args, **kwargs: bundle,
+    )
+    monkeypatch.setattr(
+        tinyface_pipeline,
+        "read_model_spec",
+        lambda *args, **kwargs: SimpleNamespace(model_uid="tinyface-model"),
+    )
+    model_spec_path = tmp_path / "model_spec.json"
+    model_spec_path.write_text("{}\n", encoding="utf-8")
+    common = {
+        "project_root": tmp_path,
+        "run_tier": "full",
+        "seed": 42,
+        "model_name": "arc",
+        "model_profile": "arcface_registered",
+        "model_uid": "tinyface-model",
+        "model_spec_path": model_spec_path,
+        "device": "cpu",
+    }
+
+    selected = tinyface_pipeline.build_tinyface_experiment_plan(
+        **common,
+        pq_sdc_settings=((128, 8),),
+    )
+    disabled = tinyface_pipeline.build_tinyface_experiment_plan(
+        **common,
+        pq_sdc_settings=(),
+    )
+
+    assert selected.plan_id != disabled.plan_id
+    assert selected.config()["pq_sdc_settings"] == [{"m": 128, "nbits": 8}]
+    assert selected.config()["expected_condition_count"] == 27
+    assert disabled.config()["expected_condition_count"] == 26
+
+
 def _tinyface_fixture(root: Path) -> Path:
     source = root / "tinyface"
     _image(source / "Training_Set/1/train_1.jpg", 10)

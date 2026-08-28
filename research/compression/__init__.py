@@ -26,6 +26,7 @@ from research.compression.profiles import (
     pca_profile_dimension,
     pca_profile_name,
     pq_profile_name,
+    validate_pq_sdc_settings,
 )
 
 __all__ = [
@@ -56,4 +57,5 @@ __all__ = [
     "pca_profile_dimension",
     "pca_profile_name",
     "pq_profile_name",
+    "validate_pq_sdc_settings",
 ]

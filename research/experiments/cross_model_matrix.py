@@ -12,6 +12,7 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
+from research.compression import pq_profile_name
 from research.evaluation.metrics import rate_ratio_matches_counts_or_compact_csv
 from research.evaluation.search_conditions import (
     ALL_SEARCH_MODES,
@@ -42,6 +43,7 @@ REQUIRED_SOURCE_FILES = {
 }
 REQUIRED_FAMILIES = {"pca", "pq"}
 REQUIRED_SEARCH_MODES = set(ALL_SEARCH_MODES)
+REQUIRED_PQ_SDC_PROFILE = pq_profile_name(128, 8)
 REQUIRED_THRESHOLD_POLICIES = {
     "frozen_origin",
     "recalibrated_compressed",
@@ -669,6 +671,57 @@ def _validate_mode_coverage(frame: pd.DataFrame, *, label: str) -> None:
     if observed_policies != REQUIRED_THRESHOLD_POLICIES:
         raise ValueError(
             f"{label} threshold-policy coverage mismatch: {sorted(observed_policies)}"
+        )
+    observed_sdc_profiles = set(
+        frame.loc[
+            frame["search_mode"].astype(str) == "pq_sdc_exhaustive",
+            "compression_profile",
+        ].astype(str)
+    )
+    if observed_sdc_profiles != {REQUIRED_PQ_SDC_PROFILE}:
+        raise ValueError(
+            f"{label} PQ SDC profile mismatch: "
+            f"expected={[REQUIRED_PQ_SDC_PROFILE]}, "
+            f"observed={sorted(observed_sdc_profiles)}"
+        )
+    pca_profiles = set(
+        frame.loc[
+            frame["compression_family"].astype(str) == "pca",
+            "compression_profile",
+        ].astype(str)
+    )
+    pq_profiles = set(
+        frame.loc[
+            frame["compression_family"].astype(str) == "pq",
+            "compression_profile",
+        ].astype(str)
+    )
+    expected_condition_keys = {
+        (profile, mode)
+        for profile in pca_profiles
+        for mode in REQUIRED_SEARCH_MODES
+        if mode.startswith("pca_")
+    }
+    expected_condition_keys.update(
+        (profile, mode)
+        for profile in pq_profiles
+        for mode in REQUIRED_SEARCH_MODES
+        if mode.startswith("pq_") and mode != "pq_sdc_exhaustive"
+    )
+    expected_condition_keys.add(
+        (REQUIRED_PQ_SDC_PROFILE, "pq_sdc_exhaustive")
+    )
+    observed_condition_keys = set(
+        zip(
+            frame["compression_profile"].astype(str),
+            frame["search_mode"].astype(str),
+        )
+    )
+    if observed_condition_keys != expected_condition_keys:
+        raise ValueError(
+            f"{label} profile/search-mode coverage mismatch: "
+            f"expected={sorted(expected_condition_keys)}, "
+            f"observed={sorted(observed_condition_keys)}"
         )
     _validate_target_fpirs(
         sorted(set(_numeric(frame, "target_fpir", label=label))),

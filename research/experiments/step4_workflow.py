@@ -1297,6 +1297,13 @@ def characterize_step4_compression(
         (int(item["m"]), int(item["nbits"]))
         for item in config["compression"]["families"]["pq"]["settings"]
     )
+    pq_sdc_settings = tuple(
+        (int(item["m"]), int(item["nbits"]))
+        for item in config["compression"]["families"]["pq"].get(
+            "sdc_settings",
+            (),
+        )
+    )
     configured_targets = config["evaluation"].get("reported_target_fpirs")
     if configured_targets is None:
         primary_target_key = (
@@ -1363,6 +1370,7 @@ def characterize_step4_compression(
                 selected,
                 pca_dimensions=pca_dimensions,
                 pq_settings=pq_settings,
+                pq_sdc_settings=pq_sdc_settings,
                 seed=int(execution["seed"]),
                 target_fpir=float(
                     config["evaluation"]["survface_target_fpir"]
@@ -1384,6 +1392,7 @@ def characterize_step4_compression(
                 selected,
                 pca_dimensions=pca_dimensions,
                 pq_settings=pq_settings,
+                pq_sdc_settings=pq_sdc_settings,
                 seed=int(execution["seed"]),
                 target_fpir=float(
                     config["evaluation"]["rfw_custom_target_fpir"]
@@ -1413,6 +1422,7 @@ def characterize_step4_compression(
                 ),
                 pca_dimensions=pca_dimensions,
                 pq_settings=pq_settings,
+                pq_sdc_settings=pq_sdc_settings,
                 seed=int(execution["seed"]),
                 target_fpir=float(config["evaluation"]["target_fpir"]),
                 target_fpirs=reported_target_fpirs,

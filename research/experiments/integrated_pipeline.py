@@ -96,7 +96,7 @@ def build_integrated_experiment_plans(
     model_name: str,
     artifact_storage_mode: str = "results_only",
     device: str = "cuda",
-    include_pq_sdc: bool = True,
+    pq_sdc_settings: Sequence[tuple[int, int]] = ((128, 8),),
 ) -> dict[str, IntegratedExperimentPlan]:
     """Build every selected dataset plan from one visible notebook contract."""
 
@@ -115,7 +115,7 @@ def build_integrated_experiment_plans(
                 model_spec_path=model_preparation.model_spec_path,
                 device=device,
                 quick_data_fraction=fractions[dataset_id],
-                include_sdc=include_pq_sdc,
+                pq_sdc_settings=pq_sdc_settings,
             )
         else:
             plan = build_common_experiment_plan(
@@ -129,6 +129,7 @@ def build_integrated_experiment_plans(
                 model_checkpoint_path=model_preparation.checkpoint_path,
                 quick_data_fractions=fractions,
                 artifact_storage_mode=artifact_storage_mode,
+                pq_sdc_settings=pq_sdc_settings,
             )
         if plan.dataset_id != dataset_id:
             raise RuntimeError(

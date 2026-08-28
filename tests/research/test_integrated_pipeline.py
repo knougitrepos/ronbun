@@ -107,7 +107,7 @@ def test_plan_builder_uses_one_contract_and_full_default(
         seed=42,
         model_preparation=preparation,
         model_name="edge",
-        include_pq_sdc=False,
+        pq_sdc_settings=((128, 8),),
     )
 
     assert tuple(plans) == INTEGRATED_DATASET_IDS
@@ -121,9 +121,13 @@ def test_plan_builder_uses_one_contract_and_full_default(
         kwargs["quick_data_fractions"] == EXPECTED_FRACTIONS
         for kwargs in common_calls
     )
+    assert all(
+        kwargs["pq_sdc_settings"] == ((128, 8),)
+        for kwargs in common_calls
+    )
     tinyface_call = [kwargs for kind, kwargs in calls if kind == "tinyface"][0]
     assert tinyface_call["quick_data_fraction"] == 0.10
-    assert tinyface_call["include_sdc"] is False
+    assert tinyface_call["pq_sdc_settings"] == ((128, 8),)
 
 
 def test_tinyface_execution_uses_integrated_override_path(

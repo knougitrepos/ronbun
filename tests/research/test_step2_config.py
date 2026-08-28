@@ -129,6 +129,13 @@ def test_step2_config_preserves_independent_pca_and_pq_families() -> None:
     assert pca["dimensions"] == [384, 256, 128, 64, 32]
     assert pq["source_profile"] == "origin_512"
     assert pq["source_dimension"] == 512
+    assert [
+        (setting["m"], setting["nbits"]) for setting in pq["settings"]
+    ] == [(8, 8), (16, 8), (32, 8), (64, 8), (128, 8)]
+    assert [
+        (setting["m"], setting["nbits"])
+        for setting in pq["sdc_settings"]
+    ] == [(128, 8)]
     assert "pca_pq" not in compression["families"]
     assert config["evaluation"]["exact_fallback"] is False
 

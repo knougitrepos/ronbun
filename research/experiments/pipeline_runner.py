@@ -7,12 +7,13 @@ import math
 import os
 from pathlib import Path
 import tempfile
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 import yaml
 
+from research.compression import validate_pq_sdc_settings
 from research.embeddings import (
     CheckpointProvenance,
     ModelSpec,
@@ -214,6 +215,7 @@ class CommonExperimentPlan:
     model_profile: str
     model_uid: str | None
     model_checkpoint_path: Path | None
+    pq_sdc_settings: tuple[tuple[int, int], ...]
     pipeline_id: str
     evaluation_contract_id: str
     base_step4_config_path: Path
@@ -249,6 +251,7 @@ class CommonExperimentPlan:
                 if self.model_checkpoint_path is None
                 else str(self.model_checkpoint_path)
             ),
+            "pq_sdc_settings": [list(value) for value in self.pq_sdc_settings],
             "evaluation_contract_id": self.evaluation_contract_id,
             "evaluation_contract_path": str(self.evaluation_contract_path),
             "evaluation_contract_sha256": self.evaluation_contract_sha256,
@@ -785,6 +788,7 @@ def _effective_step4_config(
     contract_id: str,
     contract_sha256: str,
     artifact_storage_mode: str,
+    pq_sdc_settings: Sequence[tuple[int, int]],
 ) -> dict[str, Any]:
     config = deepcopy(dict(base_config))
     execution = config.get("execution")
@@ -841,6 +845,21 @@ def _effective_step4_config(
     workflow["persist_large_join_artifacts"] = (
         storage_mode == "full"
     )
+    pq_config = config.get("compression", {}).get("families", {}).get("pq")
+    if not isinstance(pq_config, dict):
+        raise ValueError("Step 4 PQ compression config must be a mapping")
+    configured_pq_settings = tuple(
+        (int(item["m"]), int(item["nbits"]))
+        for item in pq_config.get("settings", ())
+    )
+    normalized_pq_sdc = validate_pq_sdc_settings(
+        configured_pq_settings,
+        pq_sdc_settings,
+        source_dim=int(pq_config.get("source_dimension", 512)),
+    )
+    pq_config["sdc_settings"] = [
+        {"m": m, "nbits": nbits} for m, nbits in normalized_pq_sdc
+    ]
     gradcam = config.setdefault("gradcam", {})
     persistence = gradcam.setdefault("persistence", {})
     if storage_mode == "results_only":
@@ -916,6 +935,7 @@ def build_common_experiment_plan(
     model_checkpoint_path: str | Path | None = None,
     quick_data_fractions: Mapping[str, float] | None = None,
     artifact_storage_mode: str = "full",
+    pq_sdc_settings: Sequence[tuple[int, int]] = (),
     step4_config_path: str | Path = DEFAULT_STEP4_CONFIG_PATH,
     evaluation_contract_path: str | Path = (DEFAULT_EVALUATION_CONTRACT_PATH),
 ) -> CommonExperimentPlan:
@@ -1006,6 +1026,7 @@ def build_common_experiment_plan(
         contract_id=contract_id,
         contract_sha256=contract_sha256,
         artifact_storage_mode=artifact_storage_mode,
+        pq_sdc_settings=pq_sdc_settings,
     )
     effective_config["orchestration"]["source_snapshot"] = (
         _source_snapshot(source_provenance)
@@ -1066,6 +1087,12 @@ def build_common_experiment_plan(
             None
             if selected_checkpoint_value is None
             else Path(str(selected_checkpoint_value)).resolve()
+        ),
+        pq_sdc_settings=tuple(
+            (int(item["m"]), int(item["nbits"]))
+            for item in effective_config["compression"]["families"]["pq"][
+                "sdc_settings"
+            ]
         ),
         pipeline_id="common_step4_gradcam_v1",
         evaluation_contract_id=contract_id,

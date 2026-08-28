@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
+from research.compression import pq_profile_name
 from research.evaluation import (
     ALL_SEARCH_MODES,
     search_condition,
@@ -23,6 +24,7 @@ from research.experiments.cross_model_matrix import (
     SUPPORTED_MODEL_FAMILIES,
     SUPPORTED_OPEN_SET_DATASETS,
     TARGET_FPIRS,
+    _validate_mode_coverage,
     load_cross_model_open_set_matrix,
     write_cross_model_open_set_matrix,
 )
@@ -72,7 +74,7 @@ def _compression_rows(
             }
             for family, profile, angular_error in (
                 ("pca", "pca_128", 0.02),
-                ("pq", "pq_m16_nbits8", 0.03),
+                ("pq", pq_profile_name(128, 8), 0.03),
             )
         ]
     )
@@ -187,7 +189,7 @@ def _retrieval_rows(
             (
                 "pca_128"
                 if search_condition(mode).compression_family == "pca"
-                else "pq_m16_nbits8"
+                else pq_profile_name(128, 8)
             ),
             mode,
         )
@@ -214,6 +216,24 @@ def _retrieval_rows(
                     )
                 )
     return pd.DataFrame.from_records(records)
+
+
+def test_matrix_validation_rejects_sdc_outside_m128() -> None:
+    retrieval = _retrieval_rows(
+        dataset="lfw",
+        model_uid="arcface-test",
+        run_id="run-test",
+        extraction_uid="extract-test",
+        origin_uid="origin-test",
+        bootstrap_resamples=2_000,
+    )
+    retrieval.loc[
+        retrieval["search_mode"].eq("pq_sdc_exhaustive"),
+        "compression_profile",
+    ] = pq_profile_name(64, 8)
+
+    with pytest.raises(ValueError, match="PQ SDC profile mismatch"):
+        _validate_mode_coverage(retrieval, label="test")
 
 
 def _build_run(

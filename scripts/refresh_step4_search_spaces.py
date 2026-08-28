@@ -20,6 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from research.compression import pq_profile_name  # noqa: E402
 from research.evaluation import (  # noqa: E402
     PCA_SEARCH_MODES,
     PQ_SEARCH_MODES,
@@ -52,6 +53,7 @@ FAMILY_ARTIFACT_TYPE = "step4_search_space_query_gallery_conditions_family_v6"
 SEARCH_SPACE_DIRECTORY = "search_space_v6_query_gallery_conditions"
 SUPPORTED_FAMILIES = ("pca", "pq")
 DEFAULT_TARGET_FPIRS = (0.01, 0.05, 0.10, 0.20, 0.30)
+REQUIRED_PQ_SDC_PROFILE = pq_profile_name(128, 8)
 # Compact CSVs use ``%.12g``. Origin, compressed, and their independently
 # rounded delta can differ from recomputation by at most about 1.5e-12 for
 # rates in [0, 1]; keep the check strict enough to reject scientific drift.
@@ -318,10 +320,34 @@ def _validate_compact_frames(
             f"{family} compression summary row mismatch: "
             f"{len(compression)} != {expected_profiles}"
         )
-    expected_retrieval_rows = (
-        expected_profiles
-        * (4 if family == "pca" else 6)
-        * len(target_fpirs)
+    compression_profiles = tuple(compression["compression_profile"].astype(str))
+    if len(set(compression_profiles)) != expected_profiles:
+        raise ValueError(f"{family} compression profiles must be unique")
+    if family == "pca":
+        expected_condition_keys = {
+            (profile, mode)
+            for profile in compression_profiles
+            for mode in PCA_SEARCH_MODES
+        }
+    else:
+        if REQUIRED_PQ_SDC_PROFILE not in set(compression_profiles):
+            raise ValueError(
+                f"PQ compression profiles must include {REQUIRED_PQ_SDC_PROFILE}"
+            )
+        base_modes = tuple(
+            mode for mode in PQ_SEARCH_MODES if mode != "pq_sdc_exhaustive"
+        )
+        expected_condition_keys = {
+            (profile, mode)
+            for profile in compression_profiles
+            for mode in base_modes
+        }
+        expected_condition_keys.add(
+            (REQUIRED_PQ_SDC_PROFILE, "pq_sdc_exhaustive")
+        )
+    expected_retrieval_rows = len(target_fpirs) * sum(
+        len(threshold_policies_for_search_mode(mode))
+        for _, mode in expected_condition_keys
     )
     if len(retrieval) != expected_retrieval_rows:
         raise ValueError(
@@ -332,6 +358,18 @@ def _validate_compact_frames(
         raise ValueError("compression family escaped the requested family")
     if not retrieval["compression_family"].eq(family).all():
         raise ValueError("retrieval family escaped the requested family")
+    observed_condition_keys = set(
+        zip(
+            retrieval["compression_profile"].astype(str),
+            retrieval["search_mode"].astype(str),
+        )
+    )
+    if observed_condition_keys != expected_condition_keys:
+        raise ValueError(
+            f"{family} profile/search-mode coverage mismatch: "
+            f"expected={sorted(expected_condition_keys)}, "
+            f"observed={sorted(observed_condition_keys)}"
+        )
     observed_targets = set(
         pd.to_numeric(retrieval["target_fpir"], errors="raise").astype(float)
     )
@@ -477,6 +515,18 @@ def _validate_compact_frames(
         expected_modes = set(PQ_SEARCH_MODES)
         if set(retrieval["search_mode"].astype(str)) != expected_modes:
             raise ValueError("PQ search modes are incomplete")
+        observed_sdc_profiles = set(
+            retrieval.loc[
+                retrieval["search_mode"].astype(str) == "pq_sdc_exhaustive",
+                "compression_profile",
+            ].astype(str)
+        )
+        if observed_sdc_profiles != {REQUIRED_PQ_SDC_PROFILE}:
+            raise ValueError(
+                "PQ SDC profile mismatch: "
+                f"expected={[REQUIRED_PQ_SDC_PROFILE]}, "
+                f"observed={sorted(observed_sdc_profiles)}"
+            )
     for mode, group in retrieval.groupby("search_mode", sort=False):
         condition = search_condition(str(mode))
         expected_policies = set(threshold_policies_for_search_mode(str(mode)))
@@ -608,6 +658,11 @@ def _run_family(
     )
     requested_pca = pca_dimensions if family == "pca" else ()
     requested_pq = pq_settings if family == "pq" else ()
+    configured_pq_sdc = tuple(
+        (int(item["m"]), int(item["nbits"]))
+        for item in compression_config["pq"].get("sdc_settings", ())
+    )
+    requested_pq_sdc = configured_pq_sdc if family == "pq" else ()
     expected_profiles = len(requested_pca or requested_pq)
     phase04_cache = _phase04_compact_cache(
         context,
@@ -661,6 +716,7 @@ def _run_family(
                 common = {
                     "pca_dimensions": requested_pca,
                     "pq_settings": requested_pq,
+                    "pq_sdc_settings": requested_pq_sdc,
                     "seed": int(execution["seed"]),
                     "top_k": int(evaluation["top_k"]),
                     "progress": _progress,

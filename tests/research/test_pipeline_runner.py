@@ -55,6 +55,19 @@ def _write_plan_inputs(tmp_path: Path) -> tuple[Path, Path]:
                         }
                     }
                 },
+                "compression": {
+                    "families": {
+                        "pq": {
+                            "settings": [
+                                {"m": 8, "nbits": 8},
+                                {"m": 16, "nbits": 8},
+                                {"m": 32, "nbits": 8},
+                                {"m": 64, "nbits": 8},
+                                {"m": 128, "nbits": 8},
+                            ]
+                        }
+                    }
+                },
                 "evaluation": {
                     "reported_target_fpirs": [0.01, 0.05, 0.10, 0.20, 0.30],
                     "rfw_custom_calibration_gallery_policy": (
@@ -312,6 +325,21 @@ def test_notebook_quick_fraction_override_is_recorded(
         },
         step4_config_path=config_path,
         evaluation_contract_path=contract_path,
+        pq_sdc_settings=((128, 8),),
+    )
+    no_sdc_plan = build_common_experiment_plan(
+        project_root=tmp_path,
+        dataset_id="survface",
+        run_tier="quick",
+        quick_data_fractions={
+            "lfw": 0.25,
+            "survface": 0.03,
+            "rfw_custom": 0.15,
+            "tinyface": 0.20,
+        },
+        step4_config_path=config_path,
+        evaluation_contract_path=contract_path,
+        pq_sdc_settings=(),
     )
     full_plan = build_common_experiment_plan(
         project_root=tmp_path,
@@ -328,6 +356,11 @@ def test_notebook_quick_fraction_override_is_recorded(
     )
 
     assert plan.data_fraction == 0.03
+    assert plan.pq_sdc_settings == ((128, 8),)
+    assert plan.effective_step4_config["compression"]["families"]["pq"][
+        "sdc_settings"
+    ] == [{"m": 128, "nbits": 8}]
+    assert plan.plan_id != no_sdc_plan.plan_id
     assert plan.quick_fraction_override is True
     assert plan.effective_step4_config["orchestration"]["quick_data_fractions"] == {
         "lfw": 0.25,

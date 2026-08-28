@@ -21,7 +21,30 @@ from research.compression.profiles import (
     pca_profile_dimension,
     pca_profile_name,
     pq_profile_name,
+    validate_pq_sdc_settings,
 )
+
+
+def test_pq_sdc_settings_must_be_a_unique_valid_subset() -> None:
+    pq_settings = ((8, 8), (32, 8), (128, 8))
+
+    assert validate_pq_sdc_settings(
+        pq_settings,
+        ((128, 8),),
+    ) == ((128, 8),)
+    assert validate_pq_sdc_settings(pq_settings, ()) == ()
+    with pytest.raises(ValueError, match="unique"):
+        validate_pq_sdc_settings(pq_settings, ((128, 8), (128, 8)))
+    with pytest.raises(ValueError, match="pq_settings must contain unique"):
+        validate_pq_sdc_settings(((128, 8), (128, 8)), ((128, 8),))
+    with pytest.raises(ValueError, match="subset"):
+        validate_pq_sdc_settings(pq_settings, ((64, 8),))
+    with pytest.raises(ValueError, match="invalid"):
+        validate_pq_sdc_settings(pq_settings, ((7, 8),))
+    with pytest.raises(ValueError, match="at most 8 bits"):
+        validate_pq_sdc_settings(((128, 9),), ((128, 9),))
+    with pytest.raises(ValueError, match="positive integers"):
+        validate_pq_sdc_settings(pq_settings, ((True, 8),))
 
 
 def test_step1_pca_sweep_profiles_are_independent_origin_families():

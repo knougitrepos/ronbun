@@ -365,6 +365,9 @@ compression:
         - { m: 32, nbits: 8 }
         - { m: 64, nbits: 8 }
         - { m: 128, nbits: 8 }
+      # SDC is a supplementary deployment-point ablation only.
+      sdc_settings:
+        - { m: 128, nbits: 8 }
 
 model_validation:
   require_checkpoint_sha256: true

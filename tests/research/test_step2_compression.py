@@ -197,6 +197,7 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
         unknown_unknown_identities=["test-unknown-unknown"],
         pca_dimensions=[2],
         pq_settings=[(8, 1)],
+        pq_sdc_settings=[(8, 1)],
         seed=42,
         target_fpir=1.0,
         enrollment_count=1,
@@ -335,6 +336,7 @@ def test_step2_runner_streams_retrieval_without_full_concat(monkeypatch) -> None
         unknown_unknown_identities=["test-unknown-unknown"],
         pca_dimensions=[2],
         pq_settings=[(8, 1)],
+        pq_sdc_settings=[(8, 1)],
         seed=42,
         target_fpir=1.0,
         target_fpirs=(1.0, 0.5),
@@ -390,6 +392,7 @@ def test_step2_runner_reuses_search_scores_for_multiple_fpir_targets(
         unknown_unknown_identities=["test-unknown-unknown"],
         pca_dimensions=[2],
         pq_settings=[(8, 1)],
+        pq_sdc_settings=[(8, 1)],
         seed=42,
         target_fpir=1.0,
         target_fpirs=(0.5,),
@@ -473,6 +476,7 @@ def test_step2_runner_supports_one_compression_family_for_bounded_refresh(
         unknown_unknown_identities=["test-unknown-unknown"],
         pca_dimensions=pca_dimensions,
         pq_settings=pq_settings,
+        pq_sdc_settings=pq_settings,
         target_fpir=1.0,
         enrollment_count=1,
         calibration_gallery_identities=1,
@@ -484,6 +488,51 @@ def test_step2_runner_supports_one_compression_family_for_bounded_refresh(
     }
     assert set(result.retrieval_metrics["search_mode"]) == expected_modes
     assert len(result.summary) == (4 if expected_family == "pca" else 6)
+
+
+def test_step2_runner_limits_sdc_to_selected_pq_setting(monkeypatch) -> None:
+    monkeypatch.setattr(module, "PQCompressor", _FakePQ)
+    prepared, selected = _prepared()
+
+    result = module.characterize_step2_compression(
+        prepared,
+        selected,
+        gallery_identities=["test-gallery"],
+        unknown_unknown_identities=["test-unknown-unknown"],
+        pca_dimensions=[],
+        pq_settings=[(8, 1), (128, 1)],
+        pq_sdc_settings=[(128, 1)],
+        target_fpir=1.0,
+        enrollment_count=1,
+        calibration_gallery_identities=1,
+        top_k=1,
+    )
+
+    modes_by_profile = {
+        profile: set(group["search_mode"])
+        for profile, group in result.retrieval_metrics.groupby(
+            "compression_profile",
+            sort=False,
+        )
+    }
+    assert modes_by_profile[module.pq_profile_name(8, 1)] == {
+        "pq_reconstruction_cosine",
+        "pq_one_sided_cosine",
+        "pq_adc_exhaustive",
+    }
+    assert modes_by_profile[module.pq_profile_name(128, 1)] == {
+        "pq_reconstruction_cosine",
+        "pq_one_sided_cosine",
+        "pq_adc_exhaustive",
+        "pq_sdc_exhaustive",
+    }
+    sdc_rows = result.retrieval_metrics.loc[
+        result.retrieval_metrics["search_mode"].eq("pq_sdc_exhaustive")
+    ]
+    assert set(sdc_rows["compression_profile"]) == {
+        module.pq_profile_name(128, 1)
+    }
+    assert set(sdc_rows["threshold_policy"]) == {"recalibrated_compressed"}
 
 
 def test_step2_runner_rejects_empty_profile_selection() -> None:
@@ -614,6 +663,7 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
         selected,
         pca_dimensions=[2],
         pq_settings=[(8, 1)],
+        pq_sdc_settings=[(8, 1)],
         target_fpir=1.0,
         calibration_gallery_identities=1,
         top_k=1,

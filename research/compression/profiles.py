@@ -170,6 +170,69 @@ def pq_profile_name(m: int, nbits: int) -> str:
     return f"pq_{ORIGIN_EMBEDDING_DIMENSION}_m{m_value}_b{nbits_value}"
 
 
+def validate_pq_sdc_settings(
+    pq_settings: Iterable[tuple[int, int]],
+    pq_sdc_settings: Iterable[tuple[int, int]],
+    *,
+    source_dim: int = ORIGIN_EMBEDDING_DIMENSION,
+) -> tuple[tuple[int, int], ...]:
+    """Return a unique, valid SDC subset of the configured PQ settings."""
+
+    source_dim_value = int(source_dim)
+    if (
+        isinstance(source_dim, bool)
+        or source_dim_value != source_dim
+        or source_dim_value < 1
+    ):
+        raise ValueError("source_dim must be a positive integer")
+
+    def normalize(
+        values: Iterable[tuple[int, int]], *, name: str
+    ) -> tuple[tuple[int, int], ...]:
+        normalized: list[tuple[int, int]] = []
+        for value in values:
+            try:
+                m, nbits = value
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} entries must be (m, nbits) pairs") from exc
+            if isinstance(m, bool) or isinstance(nbits, bool):
+                raise ValueError(f"{name} entries must contain positive integers")
+            m_value = int(m)
+            nbits_value = int(nbits)
+            if (
+                m_value != m
+                or nbits_value != nbits
+                or m_value < 1
+                or nbits_value < 1
+                or source_dim_value % m_value != 0
+            ):
+                raise ValueError(
+                    f"invalid {name} entry for source_dim={source_dim_value}: {value}"
+                )
+            normalized.append((m_value, nbits_value))
+        return tuple(normalized)
+
+    available = normalize(pq_settings, name="pq_settings")
+    selected = normalize(pq_sdc_settings, name="pq_sdc_settings")
+    if len(set(available)) != len(available):
+        raise ValueError("pq_settings must contain unique entries")
+    if len(set(selected)) != len(selected):
+        raise ValueError("pq_sdc_settings must contain unique entries")
+    unsupported_bits = tuple(value for value in selected if value[1] > 8)
+    if unsupported_bits:
+        raise ValueError(
+            "pq_sdc_settings supports at most 8 bits per subquantizer: "
+            f"{unsupported_bits}"
+        )
+    missing = tuple(value for value in selected if value not in set(available))
+    if missing:
+        raise ValueError(
+            "pq_sdc_settings must be a subset of pq_settings: "
+            f"missing={missing}, available={available}"
+        )
+    return selected
+
+
 def _as_float_matrix(vectors: np.ndarray) -> np.ndarray:
     matrix = np.asarray(vectors, dtype=np.float32)
     if matrix.ndim != 2:

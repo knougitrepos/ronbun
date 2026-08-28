@@ -20,6 +20,7 @@ from research.compression import (
     PQCompressor,
     fit_pca_family,
     pq_profile_name,
+    validate_pq_sdc_settings,
 )
 from research.evaluation import (
     PAIRED_BOOTSTRAP_RANDOM_SEED,
@@ -1488,6 +1489,7 @@ def _characterize_population_with_protocols(
     protocol_uid: str,
     pca_dimensions: Sequence[int],
     pq_settings: Sequence[tuple[int, int]],
+    pq_sdc_settings: Sequence[tuple[int, int]],
     seed: int,
     target_fpir: float,
     target_fpirs: Sequence[float] | None = None,
@@ -1501,6 +1503,12 @@ def _characterize_population_with_protocols(
     operating_targets = _normalize_target_fpirs(target_fpir, target_fpirs)
     requested_pca = tuple(int(value) for value in pca_dimensions)
     requested_pq = tuple((int(m), int(bits)) for m, bits in pq_settings)
+    requested_pq_sdc = validate_pq_sdc_settings(
+        requested_pq,
+        pq_sdc_settings,
+        source_dim=512,
+    )
+    requested_pq_sdc_set = set(requested_pq_sdc)
     if not requested_pca and not requested_pq:
         raise ValueError("at least one PCA or PQ profile is required")
     development_values = np.asarray(development_matrix, dtype=np.float32)
@@ -1592,6 +1600,11 @@ def _characterize_population_with_protocols(
     origin_thresholds: dict[float, float] | None = None
     progress_offset = 0
     for family, profile, compressor in compressors:
+        sdc_selected = bool(
+            family == "pq"
+            and (int(compressor.m), int(compressor.nbits))
+            in requested_pq_sdc_set
+        )
         full_result = compressor.transform_profile(full_matrix)
         storage = _storage_metadata(family, full_result)
         paired = paired_embedding_metrics(
@@ -1699,37 +1712,38 @@ def _characterize_population_with_protocols(
                 )
                 for target in operating_targets
             }
-            (
-                sdc_calibration_distances,
-                sdc_calibration_indices,
-                _,
-            ) = compressor.search_sdc_with_metrics(
-                calibration["queries"],
-                calibration_gallery_codes,
-                top_k=min(int(top_k), len(calibration["gallery"])),
-            )
-            sdc_calibration_comparison = compare_pq_sdc_retrieval(
-                calibration_comparison,
-                calibration["queries"],
-                calibration["gallery"],
-                sdc_calibration_distances,
-                sdc_calibration_indices,
-                query_ids=calibration["query_ids"],
-                gallery_ids=calibration["gallery_ids"],
-                query_identity_ids=calibration["query_identity_ids"],
-                gallery_identity_ids=calibration["gallery_identity_ids"],
-                compression_profile=profile,
-            )
-            sdc_calibration_thresholds = {
-                target: _threshold(
-                    sdc_calibration_comparison,
-                    score_column="compressed_top1_score",
-                    correct_column="compressed_rank1_correct",
-                    target_fpir=target,
-                    threshold_selection=threshold_selection,
+            if sdc_selected:
+                (
+                    sdc_calibration_distances,
+                    sdc_calibration_indices,
+                    _,
+                ) = compressor.search_sdc_with_metrics(
+                    calibration["queries"],
+                    calibration_gallery_codes,
+                    top_k=min(int(top_k), len(calibration["gallery"])),
                 )
-                for target in operating_targets
-            }
+                sdc_calibration_comparison = compare_pq_sdc_retrieval(
+                    calibration_comparison,
+                    calibration["queries"],
+                    calibration["gallery"],
+                    sdc_calibration_distances,
+                    sdc_calibration_indices,
+                    query_ids=calibration["query_ids"],
+                    gallery_ids=calibration["gallery_ids"],
+                    query_identity_ids=calibration["query_identity_ids"],
+                    gallery_identity_ids=calibration["gallery_identity_ids"],
+                    compression_profile=profile,
+                )
+                sdc_calibration_thresholds = {
+                    target: _threshold(
+                        sdc_calibration_comparison,
+                        score_column="compressed_top1_score",
+                        correct_column="compressed_rank1_correct",
+                        target_fpir=target,
+                        threshold_selection=threshold_selection,
+                    )
+                    for target in operating_targets
+                }
         evaluation_queries = _compressed_matrix(
             family,
             compressor,
@@ -2040,7 +2054,7 @@ def _characterize_population_with_protocols(
         if family == "pq":
             if adc_calibration_thresholds is None:
                 raise RuntimeError("PQ ADC calibration threshold was not initialized")
-            if sdc_calibration_thresholds is None:
+            if sdc_selected and sdc_calibration_thresholds is None:
                 raise RuntimeError("PQ SDC calibration threshold was not initialized")
             gallery_encode_started = perf_counter()
             evaluation_gallery_codes = compressor.encode(evaluation["gallery"])
@@ -2096,57 +2110,59 @@ def _characterize_population_with_protocols(
                         population,
                     )
                 )
-            (
-                sdc_evaluation_distances,
-                sdc_evaluation_indices,
-                sdc_search_metrics,
-            ) = compressor.search_sdc_with_metrics(
-                evaluation["queries"],
-                evaluation_gallery_codes,
-                top_k=min(int(top_k), len(evaluation["gallery"])),
-            )
-            sdc_search_metrics["compressed_gallery_encode_latency_ms"] = float(
-                gallery_encode_elapsed * 1000.0
-            )
-            sdc_evaluation_comparison = compare_pq_sdc_retrieval(
-                evaluation_comparison,
-                evaluation["queries"],
-                evaluation["gallery"],
-                sdc_evaluation_distances,
-                sdc_evaluation_indices,
-                query_ids=evaluation["query_ids"],
-                gallery_ids=evaluation["gallery_ids"],
-                query_identity_ids=evaluation["query_identity_ids"],
-                gallery_identity_ids=evaluation["gallery_identity_ids"],
-                compression_profile=profile,
-                search_metrics=sdc_search_metrics,
-            )
-            for operating_target in operating_targets:
-                sdc_compared = apply_retrieval_thresholds(
-                    sdc_evaluation_comparison,
-                    origin_threshold=origin_thresholds[operating_target],
-                    compressed_threshold=sdc_calibration_thresholds[
-                        operating_target
-                    ],
+            if sdc_selected:
+                assert sdc_calibration_thresholds is not None
+                (
+                    sdc_evaluation_distances,
+                    sdc_evaluation_indices,
+                    sdc_search_metrics,
+                ) = compressor.search_sdc_with_metrics(
+                    evaluation["queries"],
+                    evaluation_gallery_codes,
+                    top_k=min(int(top_k), len(evaluation["gallery"])),
                 )
-                sdc_compared.insert(0, "dataset", prepared.dataset_id)
-                sdc_compared.insert(1, "model_uid", prepared.model_uid)
-                sdc_compared["protocol_uid"] = str(protocol_uid)
-                sdc_compared["target_fpir"] = float(operating_target)
-                sdc_compared["threshold_policy"] = "recalibrated_compressed"
-                sdc_compared["threshold_source_split"] = "calibration"
-                sdc_compared["evaluation_split"] = "test"
-                for column, value in storage.items():
-                    sdc_compared[column] = value
-                sdc_compared["gallery_template_count"] = len(
-                    evaluation["gallery"]
+                sdc_search_metrics["compressed_gallery_encode_latency_ms"] = float(
+                    gallery_encode_elapsed * 1000.0
                 )
-                retrieval_frames.append(
-                    _annotate_rfw_custom_query_boundaries(
-                        sdc_compared,
-                        population,
+                sdc_evaluation_comparison = compare_pq_sdc_retrieval(
+                    evaluation_comparison,
+                    evaluation["queries"],
+                    evaluation["gallery"],
+                    sdc_evaluation_distances,
+                    sdc_evaluation_indices,
+                    query_ids=evaluation["query_ids"],
+                    gallery_ids=evaluation["gallery_ids"],
+                    query_identity_ids=evaluation["query_identity_ids"],
+                    gallery_identity_ids=evaluation["gallery_identity_ids"],
+                    compression_profile=profile,
+                    search_metrics=sdc_search_metrics,
+                )
+                for operating_target in operating_targets:
+                    sdc_compared = apply_retrieval_thresholds(
+                        sdc_evaluation_comparison,
+                        origin_threshold=origin_thresholds[operating_target],
+                        compressed_threshold=sdc_calibration_thresholds[
+                            operating_target
+                        ],
                     )
-                )
+                    sdc_compared.insert(0, "dataset", prepared.dataset_id)
+                    sdc_compared.insert(1, "model_uid", prepared.model_uid)
+                    sdc_compared["protocol_uid"] = str(protocol_uid)
+                    sdc_compared["target_fpir"] = float(operating_target)
+                    sdc_compared["threshold_policy"] = "recalibrated_compressed"
+                    sdc_compared["threshold_source_split"] = "calibration"
+                    sdc_compared["evaluation_split"] = "test"
+                    for column, value in storage.items():
+                        sdc_compared[column] = value
+                    sdc_compared["gallery_template_count"] = len(
+                        evaluation["gallery"]
+                    )
+                    retrieval_frames.append(
+                        _annotate_rfw_custom_query_boundaries(
+                            sdc_compared,
+                            population,
+                        )
+                    )
 
     paired_metrics = pd.concat(paired_frames, ignore_index=True)
     if collect_retrieval_metrics:
@@ -2245,6 +2261,7 @@ def characterize_step2_compression(
     unknown_unknown_identities: Sequence[str],
     pca_dimensions: Sequence[int],
     pq_settings: Sequence[tuple[int, int]],
+    pq_sdc_settings: Sequence[tuple[int, int]] = (),
     seed: int = 42,
     target_fpir: float = 0.01,
     target_fpirs: Sequence[float] | None = None,
@@ -2305,6 +2322,7 @@ def characterize_step2_compression(
         protocol_uid="lfw-identity-disjoint-open-set-v1",
         pca_dimensions=pca_dimensions,
         pq_settings=pq_settings,
+        pq_sdc_settings=pq_sdc_settings,
         seed=seed,
         target_fpir=target_fpir,
         target_fpirs=target_fpirs,
@@ -2321,6 +2339,7 @@ def characterize_step2_survface_compression(
     *,
     pca_dimensions: Sequence[int],
     pq_settings: Sequence[tuple[int, int]],
+    pq_sdc_settings: Sequence[tuple[int, int]] = (),
     seed: int = 42,
     target_fpir: float = 0.10,
     target_fpirs: Sequence[float] | None = None,
@@ -2396,6 +2415,7 @@ def characterize_step2_survface_compression(
         ),
         pca_dimensions=pca_dimensions,
         pq_settings=pq_settings,
+        pq_sdc_settings=pq_sdc_settings,
         seed=seed,
         target_fpir=target_fpir,
         target_fpirs=target_fpirs,
@@ -2445,6 +2465,7 @@ def characterize_step2_rfw_custom_compression(
     *,
     pca_dimensions: Sequence[int],
     pq_settings: Sequence[tuple[int, int]],
+    pq_sdc_settings: Sequence[tuple[int, int]] = (),
     seed: int = 42,
     target_fpir: float = 0.10,
     target_fpirs: Sequence[float] | None = None,
@@ -2547,6 +2568,7 @@ def characterize_step2_rfw_custom_compression(
         protocol_uid=protocol_uid,
         pca_dimensions=pca_dimensions,
         pq_settings=pq_settings,
+        pq_sdc_settings=pq_sdc_settings,
         seed=seed,
         target_fpir=target_fpir,
         target_fpirs=target_fpirs,
