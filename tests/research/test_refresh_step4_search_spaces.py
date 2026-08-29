@@ -199,6 +199,38 @@ def test_v6_compact_validation_rejects_sdc_outside_m128() -> None:
         )
 
 
+def test_v6_compact_validation_accepts_exactly_zero_sdc_when_disabled() -> None:
+    compression = pd.DataFrame(
+        {
+            "compression_family": ["pq"],
+            "compression_profile": [module.REQUIRED_PQ_SDC_PROFILE],
+        }
+    )
+    retrieval = _compact_retrieval(family="pq")
+    without_sdc = retrieval.loc[
+        retrieval["search_mode"].ne("pq_sdc_exhaustive")
+    ].copy()
+
+    module._validate_compact_frames(
+        compression,
+        without_sdc,
+        family="pq",
+        expected_profiles=1,
+        target_fpirs=module.DEFAULT_TARGET_FPIRS,
+        expected_pq_sdc_profiles=(),
+    )
+
+    with pytest.raises(ValueError, match="row mismatch|coverage mismatch"):
+        module._validate_compact_frames(
+            compression,
+            retrieval,
+            family="pq",
+            expected_profiles=1,
+            target_fpirs=module.DEFAULT_TARGET_FPIRS,
+            expected_pq_sdc_profiles=(),
+        )
+
+
 def test_v6_compact_validation_allows_csv_roundtrip_but_rejects_real_delta_drift():
     compression = pd.DataFrame(
         {

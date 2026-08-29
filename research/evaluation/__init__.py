@@ -79,7 +79,10 @@ from research.evaluation.saliency_faithfulness import (
 from research.evaluation.faithfulness_artifacts import (
     FAITHFULNESS_MAXIMUM_SAMPLES,
     SelectedFaithfulnessArtifacts,
+    faithfulness_artifact_directory_name,
     load_selected_faithfulness_artifacts,
+    normalize_faithfulness_maximum_samples,
+    resolve_faithfulness_selected_count,
 )
 from research.evaluation.saliency_streaming import (
     StreamingJoinResult,
@@ -171,7 +174,10 @@ __all__ = [
     "threshold_policy_saliency_rho_comparisons",
     "select_stratified_faithfulness_sample",
     "SelectedFaithfulnessArtifacts",
+    "faithfulness_artifact_directory_name",
     "load_selected_faithfulness_artifacts",
+    "normalize_faithfulness_maximum_samples",
+    "resolve_faithfulness_selected_count",
     "load_tinyface_completed_evaluation",
     "normalize_tinyface_per_query_audit_dtypes",
     "paired_tinyface_deltas",

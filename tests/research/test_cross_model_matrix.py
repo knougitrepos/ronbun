@@ -182,7 +182,13 @@ def _retrieval_rows(
     extraction_uid: str,
     origin_uid: str,
     bootstrap_resamples: int,
+    pq_sdc_settings: tuple[tuple[int, int], ...] = ((128, 8),),
 ) -> pd.DataFrame:
+    selected_modes = tuple(
+        mode
+        for mode in ALL_SEARCH_MODES
+        if pq_sdc_settings or mode != "pq_sdc_exhaustive"
+    )
     specs = tuple(
         (
             search_condition(mode).compression_family,
@@ -193,7 +199,7 @@ def _retrieval_rows(
             ),
             mode,
         )
-        for mode in ALL_SEARCH_MODES
+        for mode in selected_modes
     )
     records: list[dict[str, object]] = []
     for family, profile, search_mode in specs:
@@ -236,6 +242,25 @@ def test_matrix_validation_rejects_sdc_outside_m128() -> None:
         _validate_mode_coverage(retrieval, label="test")
 
 
+def test_matrix_validation_accepts_exactly_zero_sdc_when_disabled() -> None:
+    retrieval = _retrieval_rows(
+        dataset="lfw",
+        model_uid="arcface-test",
+        run_id="run-test",
+        extraction_uid="extract-test",
+        origin_uid="origin-test",
+        bootstrap_resamples=2_000,
+        pq_sdc_settings=(),
+    )
+
+    _validate_mode_coverage(
+        retrieval,
+        label="test",
+        expected_pq_sdc_profiles=(),
+    )
+    assert "pq_sdc_exhaustive" not in set(retrieval["search_mode"])
+
+
 def _build_run(
     root: Path,
     *,
@@ -243,6 +268,7 @@ def _build_run(
     dataset: str,
     bootstrap_resamples: int = 2000,
     fallback_free: bool = True,
+    pq_sdc_settings: tuple[tuple[int, int], ...] = ((128, 8),),
 ) -> Path:
     run_id = f"run-{model}-{dataset}"
     model_uid = f"{model}-{hashlib.sha256(model.encode()).hexdigest()[:20]}"
@@ -287,6 +313,16 @@ def _build_run(
                 "dataset_id": dataset,
                 "model_uid": model_uid,
                 "step4": {
+                    "compression": {
+                        "families": {
+                            "pq": {
+                                "sdc_settings": [
+                                    {"m": m, "nbits": nbits}
+                                    for m, nbits in pq_sdc_settings
+                                ]
+                            }
+                        }
+                    },
                     "evaluation": {
                         **(
                             {
@@ -327,6 +363,7 @@ def _build_run(
         extraction_uid=extraction_uid,
         origin_uid=origin_uid,
         bootstrap_resamples=bootstrap_resamples,
+        pq_sdc_settings=pq_sdc_settings,
     )
     compression_path = summary_dir / "compression_summary.csv"
     retrieval_path = summary_dir / "retrieval_summary.csv"
@@ -382,6 +419,12 @@ def _build_run(
             "compact_only": True,
             "producer_script": "scripts/refresh_step4_search_spaces.py",
             "target_fpirs": list(TARGET_FPIRS),
+            "summary_contract": {
+                "pq_sdc_settings": [
+                    {"m": m, "nbits": nbits}
+                    for m, nbits in pq_sdc_settings
+                ],
+            },
             "source_files": {
                 "run_manifest.json": _entry(run_manifest_path, root=root),
                 "freeze_manifest.json": _entry(freeze_path, root=root),
@@ -407,7 +450,13 @@ def _build_matrix(
     *,
     bootstrap_resamples: int = 2000,
     fallback_selection: tuple[str, str] | None = None,
+    pq_sdc_settings: tuple[tuple[int, int], ...] = ((128, 8),),
+    pq_sdc_overrides: dict[
+        tuple[str, str], tuple[tuple[int, int], ...]
+    ]
+    | None = None,
 ) -> dict[str, dict[str, Path]]:
+    overrides = pq_sdc_overrides or {}
     return {
         model: {
             dataset: _build_run(
@@ -420,6 +469,9 @@ def _build_matrix(
                     else 2000
                 ),
                 fallback_free=(model, dataset) != fallback_selection,
+                pq_sdc_settings=overrides.get(
+                    (model, dataset), pq_sdc_settings
+                ),
             )
             for dataset in SUPPORTED_OPEN_SET_DATASETS
         }
@@ -445,6 +497,10 @@ def test_loads_complete_explicit_4_by_3_matrix_with_claim_boundaries(
     }
     assert result.selection_manifest["matrix_uid"].startswith("open-set-matrix-")
     assert len(result.selection_manifest["selected_runs"]) == 12
+    assert result.selection_manifest["pq_sdc_settings"] == [[128, 8]]
+    assert result.selection_manifest["pq_sdc_profiles"] == [
+        pq_profile_name(128, 8)
+    ]
     assert result.selection_manifest["auto_selection_used"] is False
     assert set(result.retrieval_summary["target_fpir"]) == set(TARGET_FPIRS)
     assert result.retrieval_summary["tpir_rank"].eq(20).all()
@@ -469,6 +525,30 @@ def test_loads_complete_explicit_4_by_3_matrix_with_claim_boundaries(
         repeated.selection_manifest["matrix_uid"]
         == result.selection_manifest["matrix_uid"]
     )
+
+
+def test_loads_complete_matrix_with_sdc_disabled(tmp_path: Path) -> None:
+    selections = _build_matrix(tmp_path, pq_sdc_settings=())
+
+    result = load_cross_model_open_set_matrix(selections, project_root=tmp_path)
+
+    assert len(result.retrieval_summary) == 540
+    assert "pq_sdc_exhaustive" not in set(result.retrieval_summary["search_mode"])
+    assert result.selection_manifest["pq_sdc_settings"] == []
+    assert result.selection_manifest["pq_sdc_profiles"] == []
+
+
+def test_rejects_mixed_sdc_contracts_in_matrix(tmp_path: Path) -> None:
+    selections = _build_matrix(
+        tmp_path,
+        pq_sdc_settings=(),
+        pq_sdc_overrides={
+            ("arcface", "lfw"): ((128, 8),),
+        },
+    )
+
+    with pytest.raises(ValueError, match="mixed PQ SDC settings"):
+        load_cross_model_open_set_matrix(selections, project_root=tmp_path)
 
 
 def test_rejects_incomplete_model_dataset_matrix(tmp_path: Path) -> None:

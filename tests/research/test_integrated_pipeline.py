@@ -129,6 +129,21 @@ def test_plan_builder_uses_one_contract_and_full_default(
     assert tinyface_call["quick_data_fraction"] == 0.10
     assert tinyface_call["pq_sdc_settings"] == ((128, 8),)
 
+    calls.clear()
+    disabled_plans = build_integrated_experiment_plans(
+        project_root=tmp_path,
+        dataset_ids=INTEGRATED_DATASET_IDS,
+        quick_data_fractions=EXPECTED_FRACTIONS,
+        seed=42,
+        model_preparation=preparation,
+        model_name="edge",
+        pq_sdc_settings=(),
+    )
+
+    assert tuple(disabled_plans) == INTEGRATED_DATASET_IDS
+    assert len(calls) == 4
+    assert all(kwargs["pq_sdc_settings"] == () for _, kwargs in calls)
+
 
 def test_tinyface_execution_uses_integrated_override_path(
     tmp_path: Path,

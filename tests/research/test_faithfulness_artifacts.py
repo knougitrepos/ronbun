@@ -8,7 +8,10 @@ import pandas as pd
 import pytest
 
 from research.evaluation.faithfulness_artifacts import (
+    faithfulness_artifact_directory_name,
     load_selected_faithfulness_artifacts,
+    normalize_faithfulness_maximum_samples,
+    resolve_faithfulness_selected_count,
 )
 
 
@@ -16,14 +19,21 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _artifact(root: Path, *, dataset: str, run_id: str, model_uid: str) -> None:
+def _artifact(
+    root: Path,
+    *,
+    dataset: str,
+    run_id: str,
+    model_uid: str,
+    maximum_samples: int | None = 10000,
+) -> None:
     target = (
         root
         / "results"
         / "paper"
         / dataset
         / run_id
-        / "faithfulness_v2_n10000"
+        / faithfulness_artifact_directory_name(maximum_samples)
     )
     target.mkdir(parents=True)
     rows = pd.DataFrame(
@@ -66,7 +76,7 @@ def _artifact(root: Path, *, dataset: str, run_id: str, model_uid: str) -> None:
         "sampling": {
             "candidate_count": 1,
             "selected_count": 1,
-            "maximum_samples": 10000,
+            "maximum_samples": maximum_samples,
         },
         "outputs": outputs,
     }
@@ -94,6 +104,56 @@ def test_loads_one_verified_summary_per_selected_dataset(tmp_path: Path) -> None
 
     assert set(result.summary["dataset"]) == {"lfw", "rfw_custom"}
     assert set(result.manifests) == {"lfw", "rfw_custom"}
+
+
+def test_loads_custom_maximum_samples_directory(tmp_path: Path) -> None:
+    _artifact(
+        tmp_path,
+        dataset="lfw",
+        run_id="L001",
+        model_uid="adaface-test",
+        maximum_samples=321,
+    )
+
+    result = load_selected_faithfulness_artifacts(
+        tmp_path,
+        datasets=("lfw",),
+        model_uids={"lfw": "adaface-test"},
+        run_ids={"lfw": "L001"},
+        maximum_samples=321,
+    )
+
+    assert result.manifests["lfw"]["sampling"]["maximum_samples"] == 321
+    assert result.roots["lfw"].name == "faithfulness_v2_n321"
+
+
+def test_loads_unlimited_faithfulness_directory(tmp_path: Path) -> None:
+    _artifact(
+        tmp_path,
+        dataset="lfw",
+        run_id="L001",
+        model_uid="adaface-test",
+        maximum_samples=None,
+    )
+
+    result = load_selected_faithfulness_artifacts(
+        tmp_path,
+        datasets=("lfw",),
+        model_uids={"lfw": "adaface-test"},
+        run_ids={"lfw": "L001"},
+        maximum_samples=None,
+    )
+
+    assert result.manifests["lfw"]["sampling"]["maximum_samples"] is None
+    assert result.roots["lfw"].name == "faithfulness_v2_all"
+    assert resolve_faithfulness_selected_count(123, None) == 123
+    assert resolve_faithfulness_selected_count(123, 100) == 100
+
+
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5, "10000"])
+def test_rejects_invalid_faithfulness_maximum_samples(invalid: object) -> None:
+    with pytest.raises(ValueError, match="None or a positive integer"):
+        normalize_faithfulness_maximum_samples(invalid)
 
 
 def test_rejects_output_hash_mismatch(tmp_path: Path) -> None:

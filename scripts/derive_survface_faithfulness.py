@@ -24,6 +24,9 @@ from research.embeddings import (  # noqa: E402
     select_model_spec_by_profile,
 )
 from research.evaluation import (  # noqa: E402
+    faithfulness_artifact_directory_name,
+    normalize_faithfulness_maximum_samples,
+    resolve_faithfulness_selected_count,
     select_stratified_faithfulness_sample,
     summarize_faithfulness,
 )
@@ -37,7 +40,7 @@ from research.runtime import inspect_git_provenance  # noqa: E402
 
 ARTIFACT_TYPE = "open_set_gradcam_faithfulness"
 SCHEMA_VERSION = 2
-DEFAULT_MAXIMUM_SAMPLES = 10_000
+DEFAULT_MAXIMUM_SAMPLES = 10000
 SUPPORTED_DATASETS = {"lfw", "survface", "rfw_custom"}
 
 
@@ -250,7 +253,7 @@ def _verify_existing_output(
     *,
     dataset_id: str,
     source_run_id: str,
-    maximum_samples: int,
+    maximum_samples: int | None,
 ) -> dict[str, Any] | None:
     manifest_path = output / "manifest.json"
     if not manifest_path.is_file():
@@ -285,7 +288,7 @@ def derive_open_set_faithfulness(
     run_dir: str | Path,
     *,
     output_dir: str | Path | None = None,
-    maximum_samples: int = DEFAULT_MAXIMUM_SAMPLES,
+    maximum_samples: int | None = DEFAULT_MAXIMUM_SAMPLES,
     seed: int = 42,
     occlusion_fraction: float = 0.10,
     random_repeats: int = 5,
@@ -295,9 +298,7 @@ def derive_open_set_faithfulness(
 ) -> dict[str, Any]:
     context = _source_context(Path(run_dir))
     dataset_id = str(context["dataset_id"])
-    maximum_samples = int(maximum_samples)
-    if maximum_samples <= 0:
-        raise ValueError("maximum_samples must be positive")
+    maximum_samples = normalize_faithfulness_maximum_samples(maximum_samples)
     output = (
         Path(output_dir).resolve()
         if output_dir is not None
@@ -307,7 +308,7 @@ def derive_open_set_faithfulness(
             / "paper"
             / dataset_id
             / context["run_id"]
-            / f"faithfulness_v2_n{maximum_samples}"
+            / faithfulness_artifact_directory_name(maximum_samples)
         ).resolve()
     )
     existing = _verify_existing_output(
@@ -324,9 +325,13 @@ def derive_open_set_faithfulness(
     )
 
     candidates = _read_candidates(context)
+    selection_limit = resolve_faithfulness_selected_count(
+        len(candidates),
+        maximum_samples,
+    )
     selected = select_stratified_faithfulness_sample(
         candidates,
-        maximum_samples=maximum_samples,
+        maximum_samples=selection_limit,
         seed=int(seed),
         role_column="faithfulness_balance_role",
     )
@@ -564,7 +569,15 @@ def derive_open_set_faithfulness(
                 _file_entry(summary_path, root=temporary),
             ],
             "limitations": [
-                f"The maximum is {maximum_samples}; smaller eligible populations remain below the cap.",
+                (
+                    "No maximum sample limit was applied; all eligible candidates "
+                    "were selected."
+                    if maximum_samples is None
+                    else (
+                        f"The maximum is {maximum_samples}; smaller eligible "
+                        "populations remain below the cap."
+                    )
+                ),
                 "Dataset-specific strata are preserved and must be reported with coverage.",
                 "This threshold-independent artifact does not establish a causal model-family effect.",
             ],
@@ -588,6 +601,21 @@ def derive_survface_faithfulness(*args: Any, **kwargs: Any) -> dict[str, Any]:
     return derive_open_set_faithfulness(*args, **kwargs)
 
 
+def _parse_maximum_samples(value: str) -> int | None:
+    if value.strip().lower() in {"none", "null"}:
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "maximum samples must be a positive integer or null"
+        ) from exc
+    try:
+        return normalize_faithfulness_maximum_samples(parsed)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Derive threshold-independent open-set Grad-CAM faithfulness.",
@@ -596,7 +624,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument(
         "--maximum-samples",
-        type=int,
+        type=_parse_maximum_samples,
         default=DEFAULT_MAXIMUM_SAMPLES,
     )
     parser.add_argument("--seed", type=int, default=42)

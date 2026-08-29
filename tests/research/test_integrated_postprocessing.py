@@ -23,13 +23,33 @@ def _completed_run(
     dataset_id: str,
     run_id: str,
     model_uid: str = "magface-test",
+    pq_sdc_settings: tuple[tuple[int, int], ...] = ((128, 8),),
 ) -> Path:
     run_dir = root / dataset_id / run_id
     workflow = run_dir / "artifacts/step2_workflow"
     workflow.mkdir(parents=True)
     (run_dir / "COMPLETED").write_text("completed\n", encoding="utf-8")
     (run_dir / "run_manifest.json").write_text(
-        json.dumps({"status": "completed", "run_id": run_id}),
+        json.dumps(
+            {
+                "status": "completed",
+                "run_id": run_id,
+                "config": {
+                    "step4": {
+                        "compression": {
+                            "families": {
+                                "pq": {
+                                    "sdc_settings": [
+                                        {"m": m, "nbits": nbits}
+                                        for m, nbits in pq_sdc_settings
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        ),
         encoding="utf-8",
     )
     (workflow / "freeze_manifest.json").write_text(
@@ -51,13 +71,25 @@ def _completed_tinyface_run(
     *,
     run_id: str,
     model_uid: str,
+    pq_sdc_settings: tuple[tuple[int, int], ...] = ((128, 8),),
 ) -> Path:
     run_dir = root / "tinyface" / run_id
     output_root = run_dir / "artifacts/tinyface_official"
     output_root.mkdir(parents=True)
     (run_dir / "COMPLETED").write_text("completed\n", encoding="utf-8")
     (run_dir / "run_manifest.json").write_text(
-        json.dumps({"status": "completed", "run_id": run_id}),
+        json.dumps(
+            {
+                "status": "completed",
+                "run_id": run_id,
+                "config": {
+                    "pq_sdc_settings": [
+                        {"m": m, "nbits": nbits}
+                        for m, nbits in pq_sdc_settings
+                    ]
+                },
+            }
+        ),
         encoding="utf-8",
     )
     summary_path = output_root / "condition_summary.csv"
@@ -115,6 +147,55 @@ def test_postprocess_can_validate_completed_run_without_derived_work(tmp_path: P
         "status": "disabled"
     }
     assert result["faithfulness"] == {"status": "disabled"}
+
+
+def test_postprocess_forwards_faithfulness_sample_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts import derive_survface_faithfulness
+
+    run_dir = _completed_run(
+        tmp_path,
+        dataset_id="lfw",
+        run_id="L001",
+    )
+    captured: dict[str, object] = {}
+
+    def fake_derive(source: str | Path, **options: object) -> dict[str, object]:
+        captured["source"] = Path(source)
+        captured.update(options)
+        return {
+            "artifact_type": "open_set_gradcam_faithfulness_v2",
+            "source_run_id": "L001",
+            "model_uid": "magface-test",
+            "dataset_id": "lfw",
+            "evaluation_mode": "inline_full",
+            "sampling": {
+                "candidate_count": 1_000,
+                "selected_count": 321,
+                "maximum_samples": 321,
+            },
+        }
+
+    monkeypatch.setattr(
+        derive_survface_faithfulness,
+        "derive_open_set_faithfulness",
+        fake_derive,
+    )
+
+    result = postprocess_completed_run(
+        run_dir,
+        refresh_search_spaces=False,
+        derive_faithfulness=True,
+        faithfulness_options={"maximum_samples": 321},
+    )
+
+    assert captured == {
+        "source": run_dir.resolve(),
+        "maximum_samples": 321,
+    }
+    assert result["faithfulness"]["maximum_samples"] == 321
 
 
 def test_report_candidate_accepts_results_only_retrieval_ledger(
@@ -260,7 +341,96 @@ def test_report_parameter_source_uses_verified_run_identity(tmp_path: Path):
     assert "WRITE_OUTPUTS = False" in source
     assert "GENERATE_MISSING_SEARCH_CONDITION_ARTIFACTS = False" in source
     assert "INCLUDE_FAITHFULNESS = True" in source
+    assert "FAITHFULNESS_MAXIMUM_SAMPLES = 10000" in source
     assert "RFW_EVALUATION_DIR = None" in source
+    assert "EXPECTED_PQ_SDC_SETTINGS = ((128, 8),)" in source
+
+
+def test_report_parameter_source_supports_sdc_disabled_runs(tmp_path: Path) -> None:
+    lfw = _completed_run(
+        tmp_path,
+        dataset_id="lfw",
+        run_id="L001",
+        pq_sdc_settings=(),
+    )
+    survface = _completed_run(
+        tmp_path,
+        dataset_id="survface",
+        run_id="S001",
+        pq_sdc_settings=(),
+    )
+
+    source, _ = build_report_parameter_source(
+        model_name="mag",
+        selected_runs={"lfw": lfw, "survface": survface},
+        include_faithfulness=False,
+        write_outputs=False,
+        overwrite_outputs=False,
+        faithfulness_maximum_samples=321,
+        pq_sdc_settings=(),
+    )
+
+    assert "EXPECTED_PQ_SDC_SETTINGS = ()" in source
+    assert "FAITHFULNESS_MAXIMUM_SAMPLES = 321" in source
+
+
+def test_report_parameter_source_supports_unlimited_faithfulness(
+    tmp_path: Path,
+) -> None:
+    lfw = _completed_run(tmp_path, dataset_id="lfw", run_id="L001")
+
+    source, _ = build_report_parameter_source(
+        model_name="mag",
+        selected_runs={"lfw": lfw},
+        include_faithfulness=True,
+        write_outputs=False,
+        overwrite_outputs=False,
+        faithfulness_maximum_samples=None,
+    )
+
+    assert "FAITHFULNESS_MAXIMUM_SAMPLES = None" in source
+
+
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5])
+def test_report_parameter_source_rejects_invalid_faithfulness_sample_limit(
+    tmp_path: Path,
+    invalid: object,
+) -> None:
+    lfw = _completed_run(tmp_path, dataset_id="lfw", run_id="L001")
+
+    with pytest.raises(ValueError, match="positive integer"):
+        build_report_parameter_source(
+            model_name="mag",
+            selected_runs={"lfw": lfw},
+            include_faithfulness=True,
+            write_outputs=False,
+            overwrite_outputs=False,
+            faithfulness_maximum_samples=invalid,  # type: ignore[arg-type]
+        )
+
+
+def test_report_parameter_source_rejects_mixed_sdc_runs(tmp_path: Path) -> None:
+    lfw = _completed_run(
+        tmp_path,
+        dataset_id="lfw",
+        run_id="L001",
+        pq_sdc_settings=(),
+    )
+    survface = _completed_run(
+        tmp_path,
+        dataset_id="survface",
+        run_id="S001",
+        pq_sdc_settings=((128, 8),),
+    )
+
+    with pytest.raises(ValueError, match="mixed PQ SDC settings"):
+        build_report_parameter_source(
+            model_name="mag",
+            selected_runs={"lfw": lfw, "survface": survface},
+            include_faithfulness=False,
+            write_outputs=False,
+            overwrite_outputs=False,
+        )
 
 
 def test_report_parameter_source_accepts_verified_matching_rfw_evaluation(

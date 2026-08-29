@@ -118,6 +118,13 @@ def test_tinyface_plan_hash_and_config_include_sdc_selection(
     assert selected.config()["pq_sdc_settings"] == [{"m": 128, "nbits": 8}]
     assert selected.config()["expected_condition_count"] == 27
     assert disabled.config()["expected_condition_count"] == 26
+    disabled_keys = tinyface_pipeline.tinyface_condition_keys(
+        pca_dimensions=disabled.pca_dimensions,
+        pq_settings=disabled.pq_settings,
+        pq_sdc_settings=disabled.pq_sdc_settings,
+    )
+    assert len(disabled_keys) == 26
+    assert not any(mode == "pq_sdc_exhaustive" for _, mode in disabled_keys)
 
 
 def _tinyface_fixture(root: Path) -> Path:

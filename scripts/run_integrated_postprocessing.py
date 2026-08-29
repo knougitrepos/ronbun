@@ -70,6 +70,14 @@ def _normalize_paper_pq_sdc_settings(
     return resolved
 
 
+def _normalize_faithfulness_sample_limit(value: object) -> int | None:
+    from research.evaluation.faithfulness_artifacts import (
+        normalize_faithfulness_maximum_samples,
+    )
+
+    return normalize_faithfulness_maximum_samples(value)
+
+
 def _completed_run_identity(run_dir: str | Path) -> dict[str, Any]:
     source = Path(run_dir).resolve()
     manifest_path = source / "run_manifest.json"
@@ -248,7 +256,7 @@ def postprocess_completed_run(
             )
 
             options = dict(faithfulness_options or {})
-            options.setdefault("maximum_samples", 10_000)
+            options.setdefault("maximum_samples", 10000)
             manifest = derive(identity["run_dir"], **options)
             result["faithfulness"] = {
                 "status": "completed",
@@ -352,6 +360,7 @@ def build_report_parameter_source(
     include_faithfulness: bool,
     write_outputs: bool,
     overwrite_outputs: bool,
+    faithfulness_maximum_samples: int | None = 10000,
     pq_sdc_settings: Sequence[tuple[int, int]] | None = None,
     rfw_evaluation_dir: str | Path | None = None,
     cross_model_run_matrix: Mapping[
@@ -359,7 +368,10 @@ def build_report_parameter_source(
         Mapping[str, str | Path],
     ]
     | None = None,
-) -> tuple[str, dict[str, dict[str, str]]]:
+) -> tuple[str, dict[str, dict[str, Any]]]:
+    normalized_faithfulness_maximum_samples = (
+        _normalize_faithfulness_sample_limit(faithfulness_maximum_samples)
+    )
     normalized_model = REPORT_MODEL_NAMES.get(str(model_name).lower())
     if normalized_model is None:
         raise ValueError(f"unsupported model_name: {model_name!r}")
@@ -410,7 +422,7 @@ def build_report_parameter_source(
             )
         resolved_rfw_dir = str(rfw_evaluation.root)
     resolved_tinyface_dir: str | None = None
-    tinyface_identity: dict[str, str] | None = None
+    tinyface_identity: dict[str, Any] | None = None
     if tinyface_run_dir is not None:
         from research.evaluation import load_tinyface_completed_evaluation
 
@@ -513,6 +525,9 @@ def build_report_parameter_source(
         "MODEL_UIDS": model_uids,
         "RUN_IDS": run_ids,
         "INCLUDE_FAITHFULNESS": bool(include_faithfulness),
+        "FAITHFULNESS_MAXIMUM_SAMPLES": (
+            normalized_faithfulness_maximum_samples
+        ),
         "GENERATE_MISSING_SEARCH_CONDITION_ARTIFACTS": False,
         "WRITE_OUTPUTS": bool(write_outputs),
         "OVERWRITE_COMMON_OUTPUTS": bool(overwrite_outputs),
@@ -542,6 +557,7 @@ def run_cross_dataset_report_notebook(
     include_faithfulness: bool = True,
     write_outputs: bool = True,
     overwrite_outputs: bool = True,
+    faithfulness_maximum_samples: int | None = 10000,
     pq_sdc_settings: Sequence[tuple[int, int]] | None = None,
     rfw_evaluation_dir: str | Path | None = None,
     cross_model_run_matrix: Mapping[
@@ -563,6 +579,7 @@ def run_cross_dataset_report_notebook(
         include_faithfulness=include_faithfulness,
         write_outputs=write_outputs,
         overwrite_outputs=overwrite_outputs,
+        faithfulness_maximum_samples=faithfulness_maximum_samples,
         pq_sdc_settings=pq_sdc_settings,
         rfw_evaluation_dir=rfw_evaluation_dir,
         cross_model_run_matrix=cross_model_run_matrix,

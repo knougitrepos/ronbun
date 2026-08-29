@@ -11,7 +11,34 @@ import pandas as pd
 
 FAITHFULNESS_ARTIFACT_TYPE = "open_set_gradcam_faithfulness"
 FAITHFULNESS_SCHEMA_VERSION = 2
-FAITHFULNESS_MAXIMUM_SAMPLES = 10_000
+FAITHFULNESS_MAXIMUM_SAMPLES = 10000
+
+
+def normalize_faithfulness_maximum_samples(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("maximum_samples must be None or a positive integer")
+    return value
+
+
+def faithfulness_artifact_directory_name(maximum_samples: object) -> str:
+    resolved = normalize_faithfulness_maximum_samples(maximum_samples)
+    return "faithfulness_v2_all" if resolved is None else f"faithfulness_v2_n{resolved}"
+
+
+def resolve_faithfulness_selected_count(
+    candidate_count: int,
+    maximum_samples: object,
+) -> int:
+    if (
+        isinstance(candidate_count, bool)
+        or not isinstance(candidate_count, int)
+        or candidate_count < 0
+    ):
+        raise ValueError("candidate_count must be a non-negative integer")
+    resolved = normalize_faithfulness_maximum_samples(maximum_samples)
+    return candidate_count if resolved is None else min(candidate_count, resolved)
 
 
 def _sha256_file(path: Path) -> str:
@@ -36,7 +63,7 @@ def load_selected_faithfulness_artifacts(
     datasets: tuple[str, ...],
     model_uids: Mapping[str, str],
     run_ids: Mapping[str, str],
-    maximum_samples: int = FAITHFULNESS_MAXIMUM_SAMPLES,
+    maximum_samples: int | None = FAITHFULNESS_MAXIMUM_SAMPLES,
     missing_policy: Literal["raise", "omit"] = "raise",
 ) -> SelectedFaithfulnessArtifacts:
     """Load one SHA-verified, dataset-level faithfulness summary per run.
@@ -48,6 +75,7 @@ def load_selected_faithfulness_artifacts(
 
     if missing_policy not in {"raise", "omit"}:
         raise ValueError(f"unsupported missing_policy: {missing_policy!r}")
+    maximum_samples = normalize_faithfulness_maximum_samples(maximum_samples)
 
     root = Path(project_root).resolve()
     summaries: list[pd.DataFrame] = []
@@ -61,7 +89,7 @@ def load_selected_faithfulness_artifacts(
             / "paper"
             / dataset
             / str(run_ids[dataset])
-            / f"faithfulness_v2_n{int(maximum_samples)}"
+            / faithfulness_artifact_directory_name(maximum_samples)
         )
         manifest_path = artifact_root / "manifest.json"
         if not manifest_path.is_file():
@@ -84,17 +112,21 @@ def load_selected_faithfulness_artifacts(
             if manifest.get(key) != value
         }
         sampling = dict(manifest.get("sampling", {}))
-        if sampling.get("maximum_samples") != int(maximum_samples):
+        if sampling.get("maximum_samples") != maximum_samples:
             mismatches["maximum_samples"] = (
                 sampling.get("maximum_samples"),
-                int(maximum_samples),
+                maximum_samples,
             )
         candidate_count = int(sampling.get("candidate_count", -1))
         selected_count = int(sampling.get("selected_count", -1))
-        if selected_count != min(candidate_count, int(maximum_samples)):
+        expected_selected_count = resolve_faithfulness_selected_count(
+            candidate_count,
+            maximum_samples,
+        )
+        if selected_count != expected_selected_count:
             mismatches["selected_count"] = (
                 selected_count,
-                min(candidate_count, int(maximum_samples)),
+                expected_selected_count,
             )
         if mismatches:
             raise ValueError(f"{dataset}: faithfulness manifest mismatch: {mismatches}")
