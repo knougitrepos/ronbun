@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 REPORT_MODEL_NAMES = {
@@ -38,7 +38,39 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _completed_run_identity(run_dir: str | Path) -> dict[str, str]:
+def _normalize_paper_pq_sdc_settings(
+    values: object,
+    *,
+    label: str,
+) -> tuple[tuple[int, int], ...]:
+    if not isinstance(values, (list, tuple)):
+        raise ValueError(f"{label} must be a list or tuple")
+    normalized: list[tuple[int, int]] = []
+    for item in values:
+        if isinstance(item, Mapping):
+            raw_m = item.get("m")
+            raw_nbits = item.get("nbits")
+        else:
+            try:
+                raw_m, raw_nbits = item  # type: ignore[misc]
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{label} entries must be (m, nbits) pairs") from exc
+        if isinstance(raw_m, bool) or isinstance(raw_nbits, bool):
+            raise ValueError(f"{label} entries must contain integers")
+        try:
+            setting = (int(raw_m), int(raw_nbits))
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"{label} entries must contain integers") from exc
+        if setting != (raw_m, raw_nbits):
+            raise ValueError(f"{label} entries must contain integers")
+        normalized.append(setting)
+    resolved = tuple(normalized)
+    if resolved not in ((), ((128, 8),)):
+        raise ValueError(f"{label} must be empty or exactly ((128, 8),)")
+    return resolved
+
+
+def _completed_run_identity(run_dir: str | Path) -> dict[str, Any]:
     source = Path(run_dir).resolve()
     manifest_path = source / "run_manifest.json"
     freeze_path = source / "artifacts/step2_workflow/freeze_manifest.json"
@@ -59,11 +91,124 @@ def _completed_run_identity(run_dir: str | Path) -> dict[str, str]:
     model_uid = str(freeze.get("model_uid", ""))
     if not model_uid:
         raise ValueError(f"model_uid is missing: {freeze_path}")
+    try:
+        pq_sdc_settings = manifest["config"]["step4"]["compression"][
+            "families"
+        ]["pq"]["sdc_settings"]
+    except (KeyError, TypeError) as exc:
+        raise ValueError(
+            f"completed run PQ SDC config is missing: {manifest_path}"
+        ) from exc
     return {
         "dataset_id": dataset_id,
         "run_id": run_id,
         "model_uid": model_uid,
         "run_dir": str(source),
+        "pq_sdc_settings": _normalize_paper_pq_sdc_settings(
+            pq_sdc_settings,
+            label=f"{dataset_id}.pq_sdc_settings",
+        ),
+    }
+
+
+def inspect_step4_retrieval_source(
+    run_dir: str | Path,
+    *,
+    expected_dataset_id: str,
+    expected_model_uid: str,
+    expected_logical_rows: int,
+) -> dict[str, Any]:
+    """Resolve a legacy CSV or normalized ledger for report candidate checks."""
+
+    source = Path(run_dir).resolve()
+    workflow = source / "artifacts/step2_workflow"
+    legacy_csv = workflow / "retrieval_metrics.csv"
+    expected_rows = int(expected_logical_rows)
+    if expected_rows < 1:
+        raise ValueError("expected retrieval row count must be positive")
+    if legacy_csv.is_file():
+        return {
+            "status": "completed",
+            "kind": "legacy_retrieval_metrics_csv",
+            "path": str(legacy_csv),
+            "bytes": int(legacy_csv.stat().st_size),
+            "logical_row_count": expected_rows,
+        }
+
+    ledger_path = workflow / "retrieval_ledger/manifest.json"
+    if not ledger_path.is_file():
+        raise FileNotFoundError(
+            "Step 4 retrieval source is missing both retrieval_metrics.csv "
+            f"and retrieval_ledger/manifest.json: {source}"
+        )
+    from research.evaluation import load_retrieval_ledger_manifest
+
+    ledger = load_retrieval_ledger_manifest(ledger_path)
+    lineage = ledger.get("lineage")
+    if not isinstance(lineage, Mapping):
+        raise ValueError("retrieval ledger lineage must be a mapping")
+    observed_dataset = str(lineage.get("dataset_id", ""))
+    observed_model = str(lineage.get("model_uid", ""))
+    observed_rows = int(ledger.get("logical_row_count", -1))
+    if observed_dataset != str(expected_dataset_id):
+        raise ValueError(
+            "retrieval ledger dataset mismatch: "
+            f"{observed_dataset!r} != {expected_dataset_id!r}"
+        )
+    if observed_model != str(expected_model_uid):
+        raise ValueError(
+            "retrieval ledger model mismatch: "
+            f"{observed_model!r} != {expected_model_uid!r}"
+        )
+    if observed_rows != expected_rows:
+        raise ValueError(
+            "retrieval ledger row-count mismatch: "
+            f"{observed_rows} != {expected_rows}"
+        )
+
+    declared_bytes = int(ledger_path.stat().st_size)
+    for condition in ledger["conditions"]:
+        if not isinstance(condition, Mapping):
+            raise ValueError("retrieval ledger condition must be a mapping")
+        entries: list[Mapping[str, object]] = []
+        for key in ("core", "topk_detail"):
+            entry = condition.get(key)
+            if isinstance(entry, Mapping):
+                entries.append(entry)
+        decisions = condition.get("decisions", ())
+        if not isinstance(decisions, list):
+            raise ValueError("retrieval ledger decisions must be a list")
+        for decision in decisions:
+            if not isinstance(decision, Mapping):
+                raise ValueError("retrieval ledger decision must be a mapping")
+            artifact = decision.get("artifact")
+            if isinstance(artifact, Mapping):
+                entries.append(artifact)
+        for entry in entries:
+            relative = entry.get("path")
+            expected_bytes = int(entry.get("bytes", -1))
+            if not isinstance(relative, str) or not relative or expected_bytes < 0:
+                raise ValueError("retrieval ledger artifact entry is invalid")
+            artifact_path = (ledger_path.parent / relative).resolve()
+            try:
+                artifact_path.relative_to(ledger_path.parent.resolve())
+            except ValueError as exc:
+                raise ValueError(
+                    "retrieval ledger artifact escapes its root"
+                ) from exc
+            if not artifact_path.is_file():
+                raise FileNotFoundError(artifact_path)
+            if artifact_path.stat().st_size != expected_bytes:
+                raise ValueError(
+                    f"retrieval ledger artifact byte count mismatch: {artifact_path}"
+                )
+            declared_bytes += expected_bytes
+    return {
+        "status": "completed",
+        "kind": "normalized_retrieval_ledger",
+        "path": str(ledger_path),
+        "bytes": declared_bytes,
+        "logical_row_count": observed_rows,
     }
 
 
@@ -207,6 +352,7 @@ def build_report_parameter_source(
     include_faithfulness: bool,
     write_outputs: bool,
     overwrite_outputs: bool,
+    pq_sdc_settings: Sequence[tuple[int, int]] | None = None,
     rfw_evaluation_dir: str | Path | None = None,
     cross_model_run_matrix: Mapping[
         str,
@@ -287,7 +433,30 @@ def build_report_parameter_source(
             "run_id": str(tinyface_manifest["run_id"]),
             "model_uid": tinyface_model_uid,
             "run_dir": resolved_tinyface_dir,
+            "pq_sdc_settings": _normalize_paper_pq_sdc_settings(
+                tinyface_manifest.get("config", {}).get("pq_sdc_settings"),
+                label="tinyface.pq_sdc_settings",
+            ),
         }
+    selected_contracts = {
+        tuple(identity["pq_sdc_settings"])
+        for identity in (
+            *identities.values(),
+            *((tinyface_identity,) if tinyface_identity is not None else ()),
+        )
+    }
+    if len(selected_contracts) != 1:
+        raise ValueError("selected runs use mixed PQ SDC settings")
+    selected_pq_sdc = next(iter(selected_contracts))
+    if pq_sdc_settings is not None:
+        requested_pq_sdc = _normalize_paper_pq_sdc_settings(
+            pq_sdc_settings,
+            label="requested pq_sdc_settings",
+        )
+        if requested_pq_sdc != selected_pq_sdc:
+            raise ValueError(
+                "requested PQ SDC settings differ from selected completed runs"
+            )
     resolved_cross_model_matrix: dict[str, dict[str, str]] = {}
     if cross_model_run_matrix:
         for supplied_model, supplied_runs in cross_model_run_matrix.items():
@@ -314,6 +483,11 @@ def build_report_parameter_source(
                     raise ValueError(
                         "cross-model matrix dataset key/manifest mismatch: "
                         f"{matrix_dataset} != {matrix_identity['dataset_id']}"
+                    )
+                if tuple(matrix_identity["pq_sdc_settings"]) != selected_pq_sdc:
+                    raise ValueError(
+                        "cross-model matrix PQ SDC settings differ from the "
+                        "selected report runs"
                     )
                 matrix_family = matrix_identity["model_uid"].split(
                     "-", 1
@@ -342,6 +516,7 @@ def build_report_parameter_source(
         "GENERATE_MISSING_SEARCH_CONDITION_ARTIFACTS": False,
         "WRITE_OUTPUTS": bool(write_outputs),
         "OVERWRITE_COMMON_OUTPUTS": bool(overwrite_outputs),
+        "EXPECTED_PQ_SDC_SETTINGS": selected_pq_sdc,
         "RFW_EVALUATION_DIR": resolved_rfw_dir,
         "TINYFACE_EVALUATION_DIR": resolved_tinyface_dir,
         "MODEL_RUN_MATRIX": resolved_cross_model_matrix,
@@ -367,6 +542,7 @@ def run_cross_dataset_report_notebook(
     include_faithfulness: bool = True,
     write_outputs: bool = True,
     overwrite_outputs: bool = True,
+    pq_sdc_settings: Sequence[tuple[int, int]] | None = None,
     rfw_evaluation_dir: str | Path | None = None,
     cross_model_run_matrix: Mapping[
         str,
@@ -387,6 +563,7 @@ def run_cross_dataset_report_notebook(
         include_faithfulness=include_faithfulness,
         write_outputs=write_outputs,
         overwrite_outputs=overwrite_outputs,
+        pq_sdc_settings=pq_sdc_settings,
         rfw_evaluation_dir=rfw_evaluation_dir,
         cross_model_run_matrix=cross_model_run_matrix,
     )

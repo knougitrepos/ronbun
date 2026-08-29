@@ -12,6 +12,7 @@ from research.runtime.hashing import sha256_file
 from scripts.run_integrated_postprocessing import (
     REPORT_MODEL_NAMES,
     build_report_parameter_source,
+    inspect_step4_retrieval_source,
     postprocess_completed_run,
 )
 
@@ -114,6 +115,101 @@ def test_postprocess_can_validate_completed_run_without_derived_work(tmp_path: P
         "status": "disabled"
     }
     assert result["faithfulness"] == {"status": "disabled"}
+
+
+def test_report_candidate_accepts_results_only_retrieval_ledger(
+    tmp_path: Path,
+) -> None:
+    run_dir = _completed_run(
+        tmp_path,
+        dataset_id="lfw",
+        run_id="L001",
+        model_uid="arcface-test",
+    )
+    ledger_root = run_dir / "artifacts/step2_workflow/retrieval_ledger"
+    core = ledger_root / "core/condition.parquet"
+    decision = ledger_root / "decisions/policy.parquet"
+    core.parent.mkdir(parents=True)
+    decision.parent.mkdir(parents=True)
+    core.write_bytes(b"core")
+    decision.write_bytes(b"decision")
+    manifest_path = ledger_root / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "artifact_type": "normalized_retrieval_ledger",
+                "status": "completed",
+                "logical_row_count": 30,
+                "lineage": {
+                    "dataset_id": "lfw",
+                    "model_uid": "arcface-test",
+                },
+                "conditions": [
+                    {
+                        "core": {"path": "core/condition.parquet", "bytes": 4},
+                        "decisions": [
+                            {
+                                "artifact": {
+                                    "path": "decisions/policy.parquet",
+                                    "bytes": 8,
+                                }
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    inspected = inspect_step4_retrieval_source(
+        run_dir,
+        expected_dataset_id="lfw",
+        expected_model_uid="arcface-test",
+        expected_logical_rows=30,
+    )
+
+    assert inspected["kind"] == "normalized_retrieval_ledger"
+    assert inspected["logical_row_count"] == 30
+    assert inspected["bytes"] == manifest_path.stat().st_size + 12
+
+
+def test_report_candidate_rejects_retrieval_ledger_lineage_drift(
+    tmp_path: Path,
+) -> None:
+    run_dir = _completed_run(
+        tmp_path,
+        dataset_id="lfw",
+        run_id="L001",
+        model_uid="arcface-test",
+    )
+    ledger_root = run_dir / "artifacts/step2_workflow/retrieval_ledger"
+    ledger_root.mkdir(parents=True)
+    (ledger_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "artifact_type": "normalized_retrieval_ledger",
+                "status": "completed",
+                "logical_row_count": 30,
+                "lineage": {
+                    "dataset_id": "survface",
+                    "model_uid": "arcface-test",
+                },
+                "conditions": [{}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="dataset mismatch"):
+        inspect_step4_retrieval_source(
+            run_dir,
+            expected_dataset_id="lfw",
+            expected_model_uid="arcface-test",
+            expected_logical_rows=30,
+        )
 
 
 def test_postprocess_and_report_accept_rfw_custom_open_set_run(

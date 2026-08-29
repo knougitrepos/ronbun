@@ -34,11 +34,13 @@ from research.evaluation.metrics import (
     wilson_score_interval,
 )
 from research.evaluation.tinyface import (
+    TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS,
     TINYFACE_RANKS,
     TinyFaceCompletedEvaluation,
     TinyFaceIdentificationResult,
     evaluate_tinyface_identification,
     load_tinyface_completed_evaluation,
+    normalize_tinyface_per_query_audit_dtypes,
     paired_tinyface_deltas,
 )
 from research.evaluation.saliency_compression import (
@@ -136,6 +138,7 @@ __all__ = [
     "SALIENCY_THRESHOLD_METRICS_VERSION",
     "RETRIEVAL_COMPARISON_COLUMNS",
     "RFWVerificationResult",
+    "TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS",
     "TINYFACE_RANKS",
     "TinyFaceCompletedEvaluation",
     "TinyFaceIdentificationResult",
@@ -170,6 +173,7 @@ __all__ = [
     "SelectedFaithfulnessArtifacts",
     "load_selected_faithfulness_artifacts",
     "load_tinyface_completed_evaluation",
+    "normalize_tinyface_per_query_audit_dtypes",
     "paired_tinyface_deltas",
     "summarize_faithfulness",
     "StreamingJoinResult",

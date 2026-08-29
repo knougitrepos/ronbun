@@ -16,8 +16,10 @@ from research.datasets import (
     select_tinyface_protocol_fraction,
 )
 from research.evaluation import (
+    TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS,
     evaluate_tinyface_identification,
     load_tinyface_completed_evaluation,
+    normalize_tinyface_per_query_audit_dtypes,
     paired_tinyface_deltas,
 )
 from research.experiments import tinyface_pipeline
@@ -47,6 +49,30 @@ def test_tinyface_default_condition_contract_has_27_rows_and_m128_only_sdc() -> 
         "pq_adc_exhaustive",
     ):
         assert len([key for key in keys if key[1] == mode]) == 5
+
+
+def test_tinyface_native_audit_columns_use_nullable_boolean_dtype() -> None:
+    frame = pd.DataFrame(
+        {
+            column: pd.Series([None, True, False], dtype="object")
+            for column in TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS
+        }
+    )
+
+    normalized = normalize_tinyface_per_query_audit_dtypes(frame)
+
+    assert normalized.dtypes.astype(str).eq("boolean").all()
+    assert normalized.iloc[0].isna().all()
+    assert normalized.iloc[1].all()
+    assert (~normalized.iloc[2]).all()
+
+
+def test_tinyface_native_audit_columns_reject_non_boolean_values() -> None:
+    column = TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS[0]
+    frame = pd.DataFrame({column: [None, "not-a-boolean"]})
+
+    with pytest.raises(ValueError, match=column):
+        normalize_tinyface_per_query_audit_dtypes(frame)
 
 
 def test_tinyface_plan_hash_and_config_include_sdc_selection(
@@ -405,9 +431,17 @@ def test_load_tinyface_completed_evaluation_validates_closed_set_artifact(
             "mean_average_precision": [0.5],
         }
     ).to_csv(summary_path, index=False)
-    pd.DataFrame(
-        {"query_image_id": ["p1"], "average_precision": [0.5]}
-    ).to_csv(per_query_path, index=False)
+    per_query = {
+        "query_image_id": ["p1", "p2", "p3"],
+        "average_precision": [0.5, 0.25, 0.75],
+    }
+    per_query.update(
+        {
+            column: [None, True, False]
+            for column in TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS
+        }
+    )
+    pd.DataFrame(per_query).to_csv(per_query_path, index=False)
     outputs = {
         path.name: {
             "path": path.name,
@@ -434,4 +468,10 @@ def test_load_tinyface_completed_evaluation_validates_closed_set_artifact(
 
     assert loaded.manifest["open_set_protocol"] is False
     assert len(loaded.condition_summary) == 1
-    assert len(loaded.per_query) == 1
+    assert len(loaded.per_query) == 3
+    assert (
+        loaded.per_query[list(TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS)]
+        .dtypes.astype(str)
+        .eq("boolean")
+        .all()
+    )

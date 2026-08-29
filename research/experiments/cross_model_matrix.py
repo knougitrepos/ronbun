@@ -661,9 +661,56 @@ def _validate_retrieval_statistics(frame: pd.DataFrame, *, label: str) -> None:
         raise ValueError(f"{label} TPIR20 retention does not reconcile")
 
 
-def _validate_mode_coverage(frame: pd.DataFrame, *, label: str) -> None:
+def _configured_pq_sdc_contract(
+    summary_manifest: Mapping[str, Any],
+) -> tuple[tuple[tuple[int, int], ...], tuple[str, ...]]:
+    summary_contract = summary_manifest.get("summary_contract")
+    raw_settings = (
+        None
+        if not isinstance(summary_contract, Mapping)
+        else summary_contract.get("pq_sdc_settings")
+    )
+    if raw_settings is None:
+        settings = ((128, 8),)
+    else:
+        if not isinstance(raw_settings, list):
+            raise ValueError("summary_manifest PQ SDC settings must be a list")
+        normalized: list[tuple[int, int]] = []
+        for item in raw_settings:
+            if not isinstance(item, Mapping):
+                raise ValueError("summary_manifest PQ SDC entries must be mappings")
+            m = item.get("m")
+            nbits = item.get("nbits")
+            if isinstance(m, bool) or isinstance(nbits, bool):
+                raise ValueError("summary_manifest PQ SDC values must be integers")
+            try:
+                setting = (int(m), int(nbits))
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(
+                    "summary_manifest PQ SDC values must be integers"
+                ) from exc
+            if setting != (m, nbits):
+                raise ValueError("summary_manifest PQ SDC values must be integers")
+            normalized.append(setting)
+        settings = tuple(normalized)
+    if len(set(settings)) != len(settings):
+        raise ValueError("summary_manifest PQ SDC settings must be unique")
+    profiles = tuple(pq_profile_name(m, nbits) for m, nbits in settings)
+    return settings, profiles
+
+
+def _validate_mode_coverage(
+    frame: pd.DataFrame,
+    *,
+    label: str,
+    expected_pq_sdc_profiles: tuple[str, ...] = (REQUIRED_PQ_SDC_PROFILE,),
+) -> None:
     observed_modes = set(frame["search_mode"].astype(str))
-    if observed_modes != REQUIRED_SEARCH_MODES:
+    expected_sdc_profiles = set(expected_pq_sdc_profiles)
+    expected_modes = set(REQUIRED_SEARCH_MODES)
+    if not expected_sdc_profiles:
+        expected_modes.remove("pq_sdc_exhaustive")
+    if observed_modes != expected_modes:
         raise ValueError(
             f"{label} search-mode coverage mismatch: {sorted(observed_modes)}"
         )
@@ -678,10 +725,10 @@ def _validate_mode_coverage(frame: pd.DataFrame, *, label: str) -> None:
             "compression_profile",
         ].astype(str)
     )
-    if observed_sdc_profiles != {REQUIRED_PQ_SDC_PROFILE}:
+    if observed_sdc_profiles != expected_sdc_profiles:
         raise ValueError(
             f"{label} PQ SDC profile mismatch: "
-            f"expected={[REQUIRED_PQ_SDC_PROFILE]}, "
+            f"expected={sorted(expected_sdc_profiles)}, "
             f"observed={sorted(observed_sdc_profiles)}"
         )
     pca_profiles = set(
@@ -699,17 +746,18 @@ def _validate_mode_coverage(frame: pd.DataFrame, *, label: str) -> None:
     expected_condition_keys = {
         (profile, mode)
         for profile in pca_profiles
-        for mode in REQUIRED_SEARCH_MODES
+        for mode in expected_modes
         if mode.startswith("pca_")
     }
     expected_condition_keys.update(
         (profile, mode)
         for profile in pq_profiles
-        for mode in REQUIRED_SEARCH_MODES
+        for mode in expected_modes
         if mode.startswith("pq_") and mode != "pq_sdc_exhaustive"
     )
-    expected_condition_keys.add(
-        (REQUIRED_PQ_SDC_PROFILE, "pq_sdc_exhaustive")
+    expected_condition_keys.update(
+        (profile, "pq_sdc_exhaustive")
+        for profile in expected_sdc_profiles
     )
     observed_condition_keys = set(
         zip(
@@ -818,6 +866,9 @@ def _load_one_selection(
     _validate_target_fpirs(
         summary_manifest.get("target_fpirs"), label="summary_manifest.target_fpirs"
     )
+    pq_sdc_settings, pq_sdc_profiles = _configured_pq_sdc_contract(
+        summary_manifest
+    )
 
     source_entries = summary_manifest.get("source_files")
     if (
@@ -893,7 +944,11 @@ def _load_one_selection(
         .any()
     ):
         raise ValueError("retrieval summary is not fallback-free")
-    _validate_mode_coverage(retrieval, label=f"{model_family}/{dataset_id}")
+    _validate_mode_coverage(
+        retrieval,
+        label=f"{model_family}/{dataset_id}",
+        expected_pq_sdc_profiles=pq_sdc_profiles,
+    )
     _validate_retrieval_statistics(retrieval, label=f"{model_family}/{dataset_id}")
 
     counts = summary_manifest.get("validated_counts")
@@ -948,6 +1003,8 @@ def _load_one_selection(
         "model_uid": model_uid,
         "run_dir": str(run_dir),
         "summary_dir": str(summary_dir),
+        "pq_sdc_settings": [list(value) for value in pq_sdc_settings],
+        "pq_sdc_profiles": list(pq_sdc_profiles),
         **selection.content_identity(),
     }
     return compression, retrieval, selection, path_provenance
@@ -1013,6 +1070,15 @@ def load_cross_model_open_set_matrix(
 
     compression_summary = pd.concat(compression_frames, ignore_index=True)
     retrieval_summary = pd.concat(retrieval_frames, ignore_index=True)
+    pq_sdc_contracts = {
+        tuple(tuple(value) for value in paths["pq_sdc_settings"])
+        for paths in path_provenance
+    }
+    if len(pq_sdc_contracts) != 1:
+        raise ValueError(
+            "cross-model matrix selected runs use mixed PQ SDC settings"
+        )
+    matrix_pq_sdc_settings = next(iter(pq_sdc_contracts))
     matrix_compression_key = ("model_family", *COMPRESSION_IDENTITY_COLUMNS)
     matrix_retrieval_key = ("model_family", *RETRIEVAL_IDENTITY_COLUMNS)
     if compression_summary.duplicated(list(matrix_compression_key)).any():
@@ -1060,6 +1126,10 @@ def load_cross_model_open_set_matrix(
         "model_families": list(SUPPORTED_MODEL_FAMILIES),
         "open_set_datasets": list(SUPPORTED_OPEN_SET_DATASETS),
         "target_fpirs": list(TARGET_FPIRS),
+        "pq_sdc_settings": [list(value) for value in matrix_pq_sdc_settings],
+        "pq_sdc_profiles": [
+            pq_profile_name(m, nbits) for m, nbits in matrix_pq_sdc_settings
+        ],
         "matrix_shape": {
             "model_count": len(SUPPORTED_MODEL_FAMILIES),
             "dataset_count": len(SUPPORTED_OPEN_SET_DATASETS),

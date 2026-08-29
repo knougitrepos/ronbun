@@ -1,0 +1,115 @@
+{
+  "schema_version": 6,
+  "artifact_type": "step4_search_space_query_gallery_conditions_family_v6",
+  "generated_at_utc": "2026-08-29T08:50:36.920354+00:00",
+  "family": "pq",
+  "dataset_id": "lfw",
+  "model_uid": "arcface-7972a704552df378345f",
+  "source_run_id": "20260829-R001-245d09db",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "source_origin_embedding_artifact_uid": "origin-embedding-2a24946a994787647ad927a9",
+  "profile_count": 5,
+  "source_row_counts": {
+    "selected_samples": 13195,
+    "paired_rows": 65975,
+    "retrieval_rows": 281320
+  },
+  "summary_row_counts": {
+    "compression": 5,
+    "retrieval": 130
+  },
+  "origin_calibration_signatures": {
+    "0.01": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.05": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.1": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.2": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.3": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    }
+  },
+  "retrieval_source_contract": {
+    "mode": "reuse_phase04_normalized_ledger",
+    "path": "C:\\ronbun\\runs\\lfw_20260829\\20260829-R001-245d09db_step4_lfw_arcface-7972a704552df378345f\\artifacts\\step2_workflow\\retrieval_ledger\\manifest.json"
+  },
+  "outputs": {
+    "compression_summary.csv": {
+      "path": "compression_summary.csv",
+      "bytes": 2125,
+      "sha256": "e33dbc6faa7514029c6f26aa2aac709dfbb60707d4c92c847ffa3145f066157c"
+    },
+    "retrieval_summary.csv": {
+      "path": "retrieval_summary.csv",
+      "bytes": 189121,
+      "sha256": "5c4bbe9aa948a85983d28bad88314e993471332a4caf35a08f4ce8e7b1bed3c7"
+    },
+    "origin_calibration_diagnostics.json": {
+      "path": "origin_calibration_diagnostics.json",
+      "bytes": 24229,
+      "sha256": "6dd5abd9facc36803b5219d32d474b95b843a146e959103969b6aa5d6b6aa5d6"
+    }
+  }
+}

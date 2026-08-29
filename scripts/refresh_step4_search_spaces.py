@@ -314,6 +314,7 @@ def _validate_compact_frames(
     family: str,
     expected_profiles: int,
     target_fpirs: tuple[float, ...],
+    expected_pq_sdc_profiles: tuple[str, ...] = (REQUIRED_PQ_SDC_PROFILE,),
 ) -> None:
     if len(compression) != expected_profiles:
         raise ValueError(
@@ -330,9 +331,16 @@ def _validate_compact_frames(
             for mode in PCA_SEARCH_MODES
         }
     else:
-        if REQUIRED_PQ_SDC_PROFILE not in set(compression_profiles):
+        expected_sdc_profiles = tuple(str(value) for value in expected_pq_sdc_profiles)
+        if len(set(expected_sdc_profiles)) != len(expected_sdc_profiles):
+            raise ValueError("expected PQ SDC profiles must be unique")
+        missing_sdc_profiles = sorted(
+            set(expected_sdc_profiles) - set(compression_profiles)
+        )
+        if missing_sdc_profiles:
             raise ValueError(
-                f"PQ compression profiles must include {REQUIRED_PQ_SDC_PROFILE}"
+                "PQ compression profiles are missing configured SDC profiles: "
+                f"{missing_sdc_profiles}"
             )
         base_modes = tuple(
             mode for mode in PQ_SEARCH_MODES if mode != "pq_sdc_exhaustive"
@@ -342,8 +350,9 @@ def _validate_compact_frames(
             for profile in compression_profiles
             for mode in base_modes
         }
-        expected_condition_keys.add(
-            (REQUIRED_PQ_SDC_PROFILE, "pq_sdc_exhaustive")
+        expected_condition_keys.update(
+            (profile, "pq_sdc_exhaustive")
+            for profile in expected_sdc_profiles
         )
     expected_retrieval_rows = len(target_fpirs) * sum(
         len(threshold_policies_for_search_mode(mode))
@@ -512,7 +521,12 @@ def _validate_compact_frames(
         if set(retrieval["search_mode"].astype(str)) != expected_modes:
             raise ValueError("PCA search modes are incomplete")
     else:
-        expected_modes = set(PQ_SEARCH_MODES)
+        expected_sdc_profiles = set(expected_pq_sdc_profiles)
+        expected_modes = {
+            mode for mode in PQ_SEARCH_MODES if mode != "pq_sdc_exhaustive"
+        }
+        if expected_sdc_profiles:
+            expected_modes.add("pq_sdc_exhaustive")
         if set(retrieval["search_mode"].astype(str)) != expected_modes:
             raise ValueError("PQ search modes are incomplete")
         observed_sdc_profiles = set(
@@ -521,10 +535,10 @@ def _validate_compact_frames(
                 "compression_profile",
             ].astype(str)
         )
-        if observed_sdc_profiles != {REQUIRED_PQ_SDC_PROFILE}:
+        if observed_sdc_profiles != expected_sdc_profiles:
             raise ValueError(
                 "PQ SDC profile mismatch: "
-                f"expected={[REQUIRED_PQ_SDC_PROFILE]}, "
+                f"expected={sorted(expected_sdc_profiles)}, "
                 f"observed={sorted(observed_sdc_profiles)}"
             )
     for mode, group in retrieval.groupby("search_mode", sort=False):
@@ -797,6 +811,9 @@ def _run_family(
         family=family,
         expected_profiles=expected_profiles,
         target_fpirs=target_fpirs,
+        expected_pq_sdc_profiles=tuple(
+            pq_profile_name(m, nbits) for m, nbits in requested_pq_sdc
+        ),
     )
 
     temporary = Path(
@@ -833,6 +850,9 @@ def _run_family(
             origin_embedding_artifact_uid
         ),
         "profile_count": expected_profiles,
+        "pq_sdc_settings": [
+            {"m": m, "nbits": nbits} for m, nbits in requested_pq_sdc
+        ],
         "source_row_counts": {
             "selected_samples": selected_count,
             "paired_rows": int(paired_count),
@@ -1067,6 +1087,15 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
     target_fpirs = tuple(
         float(value) for value in family_data["pca"][2]["target_fpirs"]
     )
+    configured_pq_sdc = tuple(
+        (int(item["m"]), int(item["nbits"]))
+        for item in context["step4"]["compression"]["families"]["pq"].get(
+            "sdc_settings", ()
+        )
+    )
+    expected_pq_sdc_profiles = tuple(
+        pq_profile_name(m, nbits) for m, nbits in configured_pq_sdc
+    )
     _validate_compact_frames(
         compression.loc[compression["compression_family"].eq("pca")],
         retrieval.loc[retrieval["compression_family"].eq("pca")],
@@ -1103,6 +1132,7 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
             family_data["pq"][2]["profile_count"]
         ),
         target_fpirs=target_fpirs,
+        expected_pq_sdc_profiles=expected_pq_sdc_profiles,
     )
 
     compression_path = output_root / "compression_summary.csv"
@@ -1192,6 +1222,10 @@ def _merge(context: dict[str, Any], output_root: Path) -> dict[str, object]:
                 "mated probe true identity is within top 20 without thresholding"
             ),
             "search_modes": sorted(retrieval["search_mode"].astype(str).unique()),
+            "pq_sdc_settings": [
+                {"m": m, "nbits": nbits} for m, nbits in configured_pq_sdc
+            ],
+            "pq_sdc_profiles": list(expected_pq_sdc_profiles),
             "cross_score_space_frozen_origin": {
                 "pq_adc_exhaustive": "not_applicable",
                 "pq_sdc_exhaustive": "not_applicable",

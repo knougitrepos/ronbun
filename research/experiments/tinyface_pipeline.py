@@ -27,9 +27,11 @@ from research.datasets.tinyface import (
 from research.embeddings import read_model_spec
 from research.embeddings.registry import create_pytorch_adapter_from_spec
 from research.evaluation.tinyface import (
+    TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS,
     TINYFACE_RANKS,
     evaluate_tinyface_identification,
     load_tinyface_completed_evaluation,
+    normalize_tinyface_per_query_audit_dtypes,
     paired_tinyface_deltas,
 )
 from research.experiments.pipeline_runner import (
@@ -949,7 +951,9 @@ def _run_compression_evaluation(
         summary_frame["gallery_storage_bytes_total"] / len(gallery)
     )
 
-    per_query_frame = pd.concat(ledgers, ignore_index=True)
+    per_query_frame = normalize_tinyface_per_query_audit_dtypes(
+        pd.concat(ledgers, ignore_index=True)
+    )
     per_query_frame.insert(0, "dataset_id", TINYFACE_DATASET_ID)
     per_query_frame.insert(1, "model_uid", plan.model_uid)
     per_query_frame.insert(2, "run_id", run_id)
@@ -988,6 +992,9 @@ def _run_compression_evaluation(
         "score_space_calibration_reason": "official protocol has no non-mated probe/FPIR operating point",
         "native_pq_validation_contract": {
             "version": TINYFACE_NATIVE_PQ_AUDIT_VERSION,
+            "nullable_boolean_columns": list(
+                TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS
+            ),
             "score_equivalence": (
                 "native top-20 squared-L2 distances versus float64 direct "
                 "distance over decoded centroids"

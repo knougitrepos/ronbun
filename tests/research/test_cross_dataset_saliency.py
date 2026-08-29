@@ -714,6 +714,9 @@ def test_cross_dataset_report_exports_full_saliency_association_contract() -> No
     assert "keys must exactly match DATASETS" in source
     assert "load_cross_dataset_saliency_associations" in source
     assert "validate_rfw_custom_calibration_contract" in source
+    assert "inspect_step4_retrieval_source" in source
+    assert "retrieval_source is not None" in source
+    assert 'retrieval_source["kind"]' in source
     assert '"report_ready": report_ready' in source
     assert 'EXPERIMENT_CANDIDATES["report_ready"]' in source
     assert "보고서 호환 불가" in source

@@ -18,6 +18,14 @@ from research.runtime.hashing import sha256_file
 
 TinyFaceScoreKind = Literal["cosine", "negative_squared_l2"]
 TINYFACE_RANKS = (1, 5, 10, 20)
+TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS = tuple(
+    column
+    for rank in TINYFACE_RANKS
+    for column in (
+        f"native_rank_{rank}_success",
+        f"decoded_native_rank_{rank}_mismatch",
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +40,23 @@ class TinyFaceCompletedEvaluation:
     manifest: dict[str, Any]
     condition_summary: pd.DataFrame
     per_query: pd.DataFrame
+
+
+def normalize_tinyface_per_query_audit_dtypes(frame: pd.DataFrame) -> pd.DataFrame:
+    """Use nullable booleans for audit columns absent from non-native searches."""
+
+    normalized = frame.copy()
+    for column in TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS:
+        if column not in normalized.columns:
+            continue
+        try:
+            normalized[column] = normalized[column].astype("boolean")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"TinyFace per-query audit column {column!r} must contain only "
+                "boolean or missing values"
+            ) from exc
+    return normalized
 
 
 def _matrix(value: np.ndarray, *, name: str) -> np.ndarray:
@@ -396,7 +421,19 @@ def load_tinyface_completed_evaluation(run_dir: str | Path) -> TinyFaceCompleted
             raise ValueError(f"TinyFace output failed checksum validation: {path}")
         validated[name] = path
     condition_summary = pd.read_csv(validated["condition_summary.csv"])
-    per_query = pd.read_csv(validated["per_query.csv"])
+    try:
+        per_query = pd.read_csv(
+            validated["per_query.csv"],
+            dtype={
+                column: "boolean"
+                for column in TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS
+            },
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "TinyFace per-query audit columns must contain only boolean or missing values"
+        ) from exc
+    per_query = normalize_tinyface_per_query_audit_dtypes(per_query)
     if condition_summary.empty or per_query.empty:
         raise ValueError("TinyFace evaluation tables must not be empty")
     if condition_summary["model_uid"].astype(str).nunique() != 1:

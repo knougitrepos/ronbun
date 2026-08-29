@@ -1,0 +1,79 @@
+{
+  "attempt": 1,
+  "details": {
+    "artifacts": [
+      {
+        "bytes": 794104,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_384_A001.joblib",
+        "sha256": "bfdf84c0a37faed0fb8285410d993d23d4276d9c779bf56ca6332ec1b3c50b2e"
+      },
+      {
+        "bytes": 530424,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_256_A001.joblib",
+        "sha256": "ac9b9da9d5c5f826a85f7f7b074350bc5ef1545504bbf8817cc56a86c4182cd4"
+      },
+      {
+        "bytes": 266744,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_128_A001.joblib",
+        "sha256": "020709b9a0c940d4cfa6726eeb26897c2c936983bf24c05b365c7a82ebb18975"
+      },
+      {
+        "bytes": 134904,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_64_A001.joblib",
+        "sha256": "3d3720571f317fbf6a3de77d72a03693d4ff8150279b97302098d3f12b582ddc"
+      },
+      {
+        "bytes": 68984,
+        "path": "artifacts\\04_step2_compression_characterization\\pca_32_A001.joblib",
+        "sha256": "0cc94b8f42400f30f5f6da6eb7f0d6c10e0bde959193ebfbd8e0524ddc78d44a"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m8_b8_A001.faiss",
+        "sha256": "6e2a350846c2ce7cf7396eb1cc859cb65529944c95ee11fc70550062de478c77"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m16_b8_A001.faiss",
+        "sha256": "4388cb937b289542ab46d769ae0e56db2b47f94d2419da31d390cb5341c4730a"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m32_b8_A001.faiss",
+        "sha256": "de13df78c5907422c47dc4fc0b35f1da79e90b0156cbe1e2f20f33e2829fd4e4"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m64_b8_A001.faiss",
+        "sha256": "ce980567621c368096073b3d015d90b917794126ca3cf558be0686461d9f8dd7"
+      },
+      {
+        "bytes": 524374,
+        "path": "artifacts\\04_step2_compression_characterization\\pq_512_m128_b8_A001.faiss",
+        "sha256": "07b613e4da0a402cdd7fdbce1c992d4da48b1d69f077e750714b17cdc8c707ee"
+      }
+    ],
+    "counts": {
+      "demographic_summary_rows": 0,
+      "frozen_codec_count": 10,
+      "origin_score_audit_rows": 25915,
+      "paired_rows": 131950,
+      "retrieval_rows": 497720
+    },
+    "retrieval_ledger": {
+      "artifact_type": "normalized_retrieval_ledger",
+      "condition_count": 26,
+      "core_row_count": 56264,
+      "decision_partition_count": 230,
+      "logical_row_count": 497720,
+      "manifest_path": "artifacts/step2_workflow/retrieval_ledger/manifest.json",
+      "manifest_sha256": "208fafb6804b0ddcad5f4e17a527f0d97cb5519d3f9004fa533bc69c2a31d6c8",
+      "schema_version": 1,
+      "topk_detail_retained": false
+    }
+  },
+  "finished_at_utc": "2026-08-28T16:52:06.061403+00:00",
+  "phase": "04_step2_compression_characterization",
+  "started_at_utc": "2026-08-28T16:51:07.084763+00:00",
+  "status": "completed"
+}
