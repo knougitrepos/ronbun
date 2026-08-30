@@ -1,0 +1,116 @@
+{
+  "artifact_type": "open_set_gradcam_faithfulness",
+  "schema_version": 2,
+  "created_at_utc": "2026-08-30T09:54:54.227794+00:00",
+  "dataset_id": "lfw",
+  "source_run_id": "20260830-R001-2c810919",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "checkpoint_sha256": "f0bdc94fd6aa8fec7cd82c428288991ebeca2510f71949e68b89aee016fbaf82",
+  "origin_embedding_artifact_uid": "origin-embedding-ba9333d98c24ea69eaec0ec0",
+  "saliency_spec_uid": "saliency-992656901177176d8c81b8cb",
+  "saliency_target_name": "origin_leave_one_out_identity_cosine",
+  "claim_status": "validation_required",
+  "paper_eligible": false,
+  "threshold_independent": true,
+  "evaluation_mode": "inline_full",
+  "source_full_paper_run": true,
+  "sampling": {
+    "candidate_count": 9133,
+    "selected_count": 9133,
+    "maximum_samples": null,
+    "seed": 42,
+    "unit": "sample_id",
+    "strata": [
+      "protocol_role_or_lfw_split",
+      "raw_embedding_norm_within_role_quartile",
+      "gradcam_target_score_within_role_quartile"
+    ],
+    "selected_sample_sha256": "15c74fa29f80e6034009b19028037307e64f9cad313149594881db46c3e1503e",
+    "stratum_count": 48
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "strategies": [
+      "high_saliency",
+      "low_saliency",
+      "random"
+    ],
+    "random_repeats": 5,
+    "random_seed_unit": "sample_id",
+    "fill_value": "model_preprocessing_channel_mean"
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "bootstrap_repeats": 1000,
+    "confidence_level": 0.95,
+    "grouping": [
+      "all",
+      "protocol_role"
+    ]
+  },
+  "validation": {
+    "maximum_stored_target_score_abs_difference": 0.0,
+    "source_completed": true,
+    "source_fallback_free": true,
+    "source_artifacts_immutable": true
+  },
+  "evaluator_git": {
+    "commit": "5bfe486da0e83ceb875f76d8e60782cc60d4ef6a",
+    "branch": "step10",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "sources": [
+    {
+      "path": "runs/lfw_20260830/20260830-R001-2c810919_step4_lfw_adaface-4df25b75e065b0b9ed43/run_manifest.json",
+      "bytes": 32593,
+      "sha256": "4feca47d0647ab77f700cf9393af562748d72fb1da78b83e23642494cc32f083"
+    },
+    {
+      "path": "runs/lfw_20260830/20260830-R001-2c810919_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 938,
+      "sha256": "ed8d8298f177f8a5e249a9fd466a7ad435c0cfcf89d42cdab4edb0b0acf3ad55"
+    },
+    {
+      "path": "runs/lfw_20260830/20260830-R001-2c810919_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 3343034,
+      "sha256": "c868cd5ae74bc79c2226a41f323970cec008d7bce1612ce9627d2002992d7ff8"
+    },
+    {
+      "path": "runs/lfw_20260830/20260830-R001-2c810919_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 2581,
+      "sha256": "0061456fd9b8673185661cc354227517a7395ce9507f8bc554672a9892c4cab3"
+    },
+    {
+      "path": "runs/lfw_20260830/20260830-R001-2c810919_step4_lfw_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/saliency_population/manifest.json",
+      "bytes": 4552,
+      "sha256": "d2afdaedba06990e10e0763463d1a27624ee496e95ed7b46301ea8545d3527ba"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 3023901,
+      "sha256": "80f94141c455d2829d2bb5336471a9ee99f890e6d0ad893b80d887daf6ec8f45"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 4934,
+      "sha256": "4037ce2b2af9157bb199f114947064fde081b892e033b2b3d8f2b95be976c5aa"
+    }
+  ],
+  "limitations": [
+    "No maximum sample limit was applied; all eligible candidates were selected.",
+    "Dataset-specific strata are preserved and must be reported with coverage.",
+    "This threshold-independent artifact does not establish a causal model-family effect."
+  ]
+}

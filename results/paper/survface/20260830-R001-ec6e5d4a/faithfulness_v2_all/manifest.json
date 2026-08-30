@@ -1,0 +1,116 @@
+{
+  "artifact_type": "open_set_gradcam_faithfulness",
+  "schema_version": 2,
+  "created_at_utc": "2026-08-30T12:46:44.295458+00:00",
+  "dataset_id": "survface",
+  "source_run_id": "20260830-R001-ec6e5d4a",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "checkpoint_sha256": "f0bdc94fd6aa8fec7cd82c428288991ebeca2510f71949e68b89aee016fbaf82",
+  "origin_embedding_artifact_uid": "origin-embedding-7a5f92c84e21ab8d839ac76f",
+  "saliency_spec_uid": "saliency-757c54b0b2479f5af07d1df5",
+  "saliency_target_name": "origin_top1_gallery_cosine",
+  "claim_status": "validation_required",
+  "paper_eligible": false,
+  "threshold_independent": true,
+  "evaluation_mode": "derived_stratified",
+  "source_full_paper_run": true,
+  "sampling": {
+    "candidate_count": 182157,
+    "selected_count": 182157,
+    "maximum_samples": null,
+    "seed": 42,
+    "unit": "sample_id",
+    "strata": [
+      "protocol_role_or_lfw_split",
+      "raw_embedding_norm_within_role_quartile",
+      "gradcam_target_score_within_role_quartile"
+    ],
+    "selected_sample_sha256": "74383cc7bb29a76eb56551ca86563beb39e0c5434c2f10c01dbe7950b90c76e6",
+    "stratum_count": 32
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "strategies": [
+      "high_saliency",
+      "low_saliency",
+      "random"
+    ],
+    "random_repeats": 5,
+    "random_seed_unit": "sample_id",
+    "fill_value": "model_preprocessing_channel_mean"
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "bootstrap_repeats": 1000,
+    "confidence_level": 0.95,
+    "grouping": [
+      "all",
+      "protocol_role"
+    ]
+  },
+  "validation": {
+    "maximum_stored_target_score_abs_difference": 3.933906555175781e-06,
+    "source_completed": true,
+    "source_fallback_free": true,
+    "source_artifacts_immutable": true
+  },
+  "evaluator_git": {
+    "commit": "5bfe486da0e83ceb875f76d8e60782cc60d4ef6a",
+    "branch": "step10",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "sources": [
+    {
+      "path": "runs/survface_20260830/20260830-R001-ec6e5d4a_step4_survface_adaface-4df25b75e065b0b9ed43/run_manifest.json",
+      "bytes": 32871,
+      "sha256": "f66bfa9b1573c12f4246a7b3a17e5240277e989ab6c8508c108da555926a8ef1"
+    },
+    {
+      "path": "runs/survface_20260830/20260830-R001-ec6e5d4a_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 944,
+      "sha256": "06fcb2ed8dddbd21afbe9b2ee7df29a8bc10c78a0211a29aa317250edaf92f24"
+    },
+    {
+      "path": "runs/survface_20260830/20260830-R001-ec6e5d4a_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 136509672,
+      "sha256": "10686c1d6deaee8afab2ae58d310bdef7c2f43feabc82eafa9fdf15a1948790d"
+    },
+    {
+      "path": "runs/survface_20260830/20260830-R001-ec6e5d4a_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 58676,
+      "sha256": "76e2db41580b6f2b31ad7bfb540dcc92dd828828573dd042270ad1e5da3bc10b"
+    },
+    {
+      "path": "runs/survface_20260830/20260830-R001-ec6e5d4a_step4_survface_adaface-4df25b75e065b0b9ed43/artifacts/step2_workflow/saliency_population/manifest.json",
+      "bytes": 25261,
+      "sha256": "b1e4eae9ec8d54caf954fe296516ff0ad24252f6669eb9d2d80c1c9875599bf9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 68566016,
+      "sha256": "4f60919ac47b29612a2c516d58aa53a8683312dadf396b4fb2d23950e619afe7"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 4016,
+      "sha256": "f6eb771cc7b31e512b45f7718c5cdea64d44cb5f6dc6deb7d7bf21223226ad54"
+    }
+  ],
+  "limitations": [
+    "No maximum sample limit was applied; all eligible candidates were selected.",
+    "Dataset-specific strata are preserved and must be reported with coverage.",
+    "This threshold-independent artifact does not establish a causal model-family effect."
+  ]
+}

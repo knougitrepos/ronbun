@@ -20,6 +20,17 @@ def _is_ignored(path: str) -> bool:
     return result.returncode == 0
 
 
+def _git_attribute(path: str, attribute: str) -> str:
+    result = subprocess.run(
+        ["git", "check-attr", attribute, "--", path],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip().rsplit(": ", 1)[-1]
+
+
 @pytest.mark.parametrize("dataset", ["lfw", "survface"])
 def test_large_run_payloads_remain_local(dataset: str) -> None:
     root = f"runs/{dataset}_20990101/run-id"
@@ -63,3 +74,30 @@ def test_compact_paper_results_remain_visible() -> None:
     assert not _is_ignored(
         "results/paper/lfw/run-id/search_space_v4_multi_fpir/retrieval_summary.csv"
     )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "results/paper/lfw/run-id/faithfulness_v2_all/faithfulness_rows.csv",
+        "results/paper/common/arcface/report/saliency_retrieval_associations_all.csv",
+        "results/paper/common/arcface/report/saliency_threshold_instability_associations_all.csv",
+        "results/paper/common/arcface/report/tinyface_official_per_query.csv",
+        "runs/lfw_20990101/run-id/artifacts/step2_workflow/saliency_retrieval_associations.csv",
+        "runs/survface_20990101/run-id/artifacts/step2_workflow/saliency_retrieval_associations.csv",
+    ],
+)
+def test_large_row_level_csvs_use_git_lfs(path: str) -> None:
+    assert _git_attribute(path, "filter") == "lfs"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "results/paper/common/arcface/report/retrieval_summary_all.csv",
+        "results/paper/common/arcface/report/cross_dataset_summary_manifest.json",
+        "results/paper/common/arcface/report/storage_open_set.png",
+    ],
+)
+def test_compact_common_results_remain_regular_git(path: str) -> None:
+    assert _git_attribute(path, "filter") == "unspecified"

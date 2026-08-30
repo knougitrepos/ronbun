@@ -11,6 +11,7 @@ from research.evaluation.faithfulness_artifacts import (
     faithfulness_artifact_directory_name,
     load_selected_faithfulness_artifacts,
     normalize_faithfulness_maximum_samples,
+    resolve_common_faithfulness_maximum_samples,
     resolve_faithfulness_selected_count,
 )
 
@@ -148,6 +149,88 @@ def test_loads_unlimited_faithfulness_directory(tmp_path: Path) -> None:
     assert result.roots["lfw"].name == "faithfulness_v2_all"
     assert resolve_faithfulness_selected_count(123, None) == 123
     assert resolve_faithfulness_selected_count(123, 100) == 100
+
+
+def test_auto_selects_largest_common_finite_faithfulness_cap(
+    tmp_path: Path,
+) -> None:
+    for dataset, run_id in (("lfw", "L001"), ("survface", "S001")):
+        _artifact(
+            tmp_path,
+            dataset=dataset,
+            run_id=run_id,
+            model_uid="arcface-test",
+            maximum_samples=1000,
+        )
+        _artifact(
+            tmp_path,
+            dataset=dataset,
+            run_id=run_id,
+            model_uid="arcface-test",
+            maximum_samples=10000,
+        )
+
+    selected = resolve_common_faithfulness_maximum_samples(
+        tmp_path,
+        datasets=("lfw", "survface"),
+        run_ids={"lfw": "L001", "survface": "S001"},
+    )
+
+    assert selected == 10000
+
+
+def test_auto_prefers_common_unlimited_faithfulness_artifact(
+    tmp_path: Path,
+) -> None:
+    for dataset, run_id in (("lfw", "L001"), ("survface", "S001")):
+        _artifact(
+            tmp_path,
+            dataset=dataset,
+            run_id=run_id,
+            model_uid="adaface-test",
+            maximum_samples=10000,
+        )
+        _artifact(
+            tmp_path,
+            dataset=dataset,
+            run_id=run_id,
+            model_uid="adaface-test",
+            maximum_samples=None,
+        )
+
+    selected = resolve_common_faithfulness_maximum_samples(
+        tmp_path,
+        datasets=("lfw", "survface"),
+        run_ids={"lfw": "L001", "survface": "S001"},
+    )
+
+    assert selected is None
+
+
+def test_auto_rejects_runs_without_a_common_faithfulness_contract(
+    tmp_path: Path,
+) -> None:
+    _artifact(
+        tmp_path,
+        dataset="lfw",
+        run_id="L001",
+        model_uid="arcface-test",
+        maximum_samples=10000,
+    )
+    _artifact(
+        tmp_path,
+        dataset="survface",
+        run_id="S001",
+        model_uid="arcface-test",
+        maximum_samples=None,
+    )
+
+    with pytest.raises(FileNotFoundError, match="no common faithfulness"):
+        resolve_common_faithfulness_maximum_samples(
+            tmp_path,
+            datasets=("lfw", "survface"),
+            run_ids={"lfw": "L001", "survface": "S001"},
+        )
 
 
 @pytest.mark.parametrize("invalid", [0, -1, True, 1.5, "10000"])

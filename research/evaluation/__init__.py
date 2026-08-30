@@ -82,6 +82,7 @@ from research.evaluation.faithfulness_artifacts import (
     faithfulness_artifact_directory_name,
     load_selected_faithfulness_artifacts,
     normalize_faithfulness_maximum_samples,
+    resolve_common_faithfulness_maximum_samples,
     resolve_faithfulness_selected_count,
 )
 from research.evaluation.saliency_streaming import (
@@ -111,6 +112,11 @@ from research.evaluation.cross_dataset_saliency import (
     CrossDatasetSaliencyAssociations,
     load_cross_dataset_saliency_associations,
     validate_rfw_custom_calibration_contract,
+)
+from research.evaluation.report_selection import (
+    OPEN_SET_REPORT_DATASETS,
+    report_campaign_id,
+    select_model_uid_report_cohort,
 )
 from research.evaluation.rfw_verification import (
     RFWVerificationResult,
@@ -177,6 +183,7 @@ __all__ = [
     "faithfulness_artifact_directory_name",
     "load_selected_faithfulness_artifacts",
     "normalize_faithfulness_maximum_samples",
+    "resolve_common_faithfulness_maximum_samples",
     "resolve_faithfulness_selected_count",
     "load_tinyface_completed_evaluation",
     "normalize_tinyface_per_query_audit_dtypes",
@@ -198,6 +205,9 @@ __all__ = [
     "retrieval_source_row_count",
     "PARTITIONED_ASSOCIATION_ALGORITHM_VERSION",
     "PartitionedAssociationResult",
+    "OPEN_SET_REPORT_DATASETS",
+    "report_campaign_id",
+    "select_model_uid_report_cohort",
     "compute_partitioned_retrieval_associations",
     "iter_partitioned_projection_batches",
     "stream_partition_saliency_retrieval_projection",
