@@ -1,0 +1,77 @@
+{
+  "artifact_type": "prepared_population_saliency_inputs",
+  "schema_version": 3,
+  "extraction_uid": "population-e7d6e8ef630d54f456c856a2",
+  "dataset_id": "lfw",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "checkpoint_sha256": "f0bdc94fd6aa8fec7cd82c428288991ebeca2510f71949e68b89aee016fbaf82",
+  "preprocess_hash": "f980b1c930d3d2c7302e23f935b431ec5de7e04f86b9ffd0f7d6ab725c16d888",
+  "origin_embedding_artifact_uid": "origin-embedding-ba9333d98c24ea69eaec0ec0",
+  "target_name": "origin_leave_one_out_identity_cosine",
+  "row_count": 13195,
+  "embedding_dimension": 512,
+  "eligible_count": 9133,
+  "sample_index": {
+    "path": "sample_index.csv",
+    "sha256": "697c2babe39af1917f3ef9f49df333002065ed07dc163ecb04148d5bf6e4a405",
+    "bytes": 5852920
+  },
+  "embedding_shards": [
+    {
+      "path": "embedding_shards/part-00000.npz",
+      "sha256": "dcc5f15d78d70007a5b3de8b035f84a011ce847cd9493cb7249512390a238872",
+      "bytes": 10769795,
+      "row_start": 0,
+      "row_stop": 2048,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00001.npz",
+      "sha256": "2517f5be33d8020951b044c09e0943e080dba957a7fba9ad9259edc6a550e5cc",
+      "bytes": 10424460,
+      "row_start": 2048,
+      "row_stop": 4096,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00002.npz",
+      "sha256": "a1252a58c78f5bc5bbea50d7fd78731b16f5899c38d324a1dfddcf5579a5cf88",
+      "bytes": 10556954,
+      "row_start": 4096,
+      "row_stop": 6144,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00003.npz",
+      "sha256": "79dd9e9016bf409155a13d1f6605a137e98148563cd2104705a4f68b92cd1c24",
+      "bytes": 10611065,
+      "row_start": 6144,
+      "row_stop": 8192,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00004.npz",
+      "sha256": "2b3b564bfea38cad765c375034ec6f7f7df65a2aee394282ceaa669717b588c8",
+      "bytes": 10361092,
+      "row_start": 8192,
+      "row_stop": 10240,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00005.npz",
+      "sha256": "b64baeeaa6ecc9b18df0a17045339f70a726030ab19a08a5075c46e3f27da6ee",
+      "bytes": 10527278,
+      "row_start": 10240,
+      "row_stop": 12288,
+      "row_count": 2048
+    },
+    {
+      "path": "embedding_shards/part-00006.npz",
+      "sha256": "afd98ce270f6f9f3d719ceaeb07f6bdffe29a52b81b0f3d95bbb40b1296e4312",
+      "bytes": 4561830,
+      "row_start": 12288,
+      "row_stop": 13195,
+      "row_count": 907
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "geometry_association_rows": 570,
+      "geometry_join_chunks": 2,
+      "geometry_join_rows": 131950,
+      "geometry_projection_rows": 91320,
+      "representative_candidate_rows": 2805,
+      "retrieval_association_max_in_flight": 8,
+      "retrieval_association_rows": 136800,
+      "retrieval_association_worker_count": 4,
+      "retrieval_join_chunks": 225,
+      "retrieval_join_rows": 486900,
+      "retrieval_partition_count": 125,
+      "retrieval_projection_rows": 299700,
+      "threshold_instability_association_rows": 20250,
+      "threshold_policy_comparison_rows": 600,
+      "threshold_policy_saliency_rho_rows": 1200
+    },
+    "implementation": {
+      "association_algorithm_version": "identity-cluster-weighted-rerank-v1",
+      "association_max_in_flight": 8,
+      "association_workers": 4,
+      "bootstrap_batch_size": 4,
+      "bootstrap_method": "identity_cluster",
+      "bootstrap_rank_strategy": "weighted_rerank",
+      "bootstrap_repeats": 500,
+      "bootstrap_seed": 8972,
+      "bootstrap_unit": "identity_id",
+      "join_chunk_rows": 100000,
+      "paired_confidence_level": 0.95,
+      "paired_event_metrics": [
+        "threshold_crossing",
+        "false_accept_gain",
+        "tpir_at_rank_k_loss",
+        "tpir_threshold_loss",
+        "tpir_rank_loss"
+      ],
+      "paired_minimum_event_count": 5,
+      "paired_saliency_features": [
+        "outside_face_attention",
+        "saliency_entropy"
+      ],
+      "partitioned_association_algorithm_version": "condition-partitioned-identity-bootstrap-v1",
+      "source_git_commit": "5bfe486da0e83ceb875f76d8e60782cc60d4ef6a",
+      "source_sha256": {
+        "association": "6599625cf6334c54350cb528419dea9335cdea79341bed614867ee1da11ade01",
+        "partitioned_association": "a36324bb2bdf4bc7e2028cf98c3fde428bce50b916fbbedaa9338728f5a56a82",
+        "streaming_join": "3a7c9bbc962550cad173ab44760f0e304a13c48a062f8f84bb683ada71aedda4",
+        "workflow": "c19829611925c87eb6e67f4a3a15561189ba870eab8d6138074d0f3748f941be"
+      },
+      "threshold_metric_derivation_version": "saliency-threshold-metrics-v2"
+    },
+    "output_artifacts": {
+      "representative_case_candidates.csv": {
+        "bytes": 808035,
+        "path": "artifacts/step2_workflow/representative_case_candidates.csv",
+        "sha256": "e96a8ede4fe02fb6ad807948ede76e89ebfd13245f8f1e91793f532099c7a106"
+      },
+      "saliency_geometry_associations.csv": {
+        "bytes": 143296,
+        "path": "artifacts/step2_workflow/saliency_geometry_associations.csv",
+        "sha256": "dcb57da87661e71280bc0eaa66e18e9603c05c3834a246a98df2e793333f46ec"
+      },
+      "saliency_retrieval_associations.csv": {
+        "bytes": 51830029,
+        "path": "artifacts/step2_workflow/saliency_retrieval_associations.csv",
+        "sha256": "42f063895ab9717703fd6cbe000642ca31816a663a20897692b3ed6166a31921"
+      },
+      "saliency_threshold_instability_associations.csv": {
+        "bytes": 7773196,
+        "path": "artifacts/step2_workflow/saliency_threshold_instability_associations.csv",
+        "sha256": "39046f40a0130c6411fbd74fe6d49bafd7708195ae92c29a545cdc6ea5656ee2"
+      },
+      "saliency_threshold_policy_comparisons.csv": {
+        "bytes": 193193,
+        "path": "artifacts/step2_workflow/saliency_threshold_policy_comparisons.csv",
+        "sha256": "b09fc84b9a5d8b2d317e1ac38803e97245294f2952aca6ef2ce3315e7b59ce18"
+      },
+      "saliency_threshold_policy_rho_comparisons.csv": {
+        "bytes": 366900,
+        "path": "artifacts/step2_workflow/saliency_threshold_policy_rho_comparisons.csv",
+        "sha256": "39f696d3ce00f594790e2fba5785f45d5b10b776df35cde4229e86d590561028"
+      }
+    }
+  },
+  "finished_at_utc": "2026-08-29T18:06:05.962031+00:00",
+  "phase": "05_saliency_compression_join",
+  "started_at_utc": "2026-08-29T18:03:32.361159+00:00",
+  "status": "completed"
+}

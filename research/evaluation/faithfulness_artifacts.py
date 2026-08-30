@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Literal, Mapping
 
 import pandas as pd
@@ -12,6 +13,9 @@ import pandas as pd
 FAITHFULNESS_ARTIFACT_TYPE = "open_set_gradcam_faithfulness"
 FAITHFULNESS_SCHEMA_VERSION = 2
 FAITHFULNESS_MAXIMUM_SAMPLES = 10000
+_FAITHFULNESS_DIRECTORY_PATTERN = re.compile(
+    r"^faithfulness_v2_(?:all|n(?P<maximum_samples>[1-9][0-9]*))$"
+)
 
 
 def normalize_faithfulness_maximum_samples(value: object) -> int | None:
@@ -39,6 +43,59 @@ def resolve_faithfulness_selected_count(
         raise ValueError("candidate_count must be a non-negative integer")
     resolved = normalize_faithfulness_maximum_samples(maximum_samples)
     return candidate_count if resolved is None else min(candidate_count, resolved)
+
+
+def resolve_common_faithfulness_maximum_samples(
+    project_root: str | Path,
+    *,
+    datasets: tuple[str, ...],
+    run_ids: Mapping[str, str],
+) -> int | None:
+    """Select one faithfulness sampling contract available for every run.
+
+    Unlimited ``faithfulness_v2_all`` is preferred when it exists for every
+    selected dataset. Otherwise, the largest common finite cap is returned.
+    Artifact identity and output hashes are still validated by the loader.
+    """
+
+    if not datasets:
+        raise ValueError("datasets must not be empty")
+    if set(run_ids) != set(datasets):
+        raise ValueError("run_ids keys must exactly match datasets")
+
+    root = Path(project_root).resolve()
+    available_by_dataset: dict[str, set[int | None]] = {}
+    for dataset in datasets:
+        run_root = root / "results" / "paper" / dataset / str(run_ids[dataset])
+        available: set[int | None] = set()
+        if run_root.is_dir():
+            for artifact_root in run_root.iterdir():
+                if not artifact_root.is_dir():
+                    continue
+                match = _FAITHFULNESS_DIRECTORY_PATTERN.fullmatch(artifact_root.name)
+                if match is None or not (artifact_root / "manifest.json").is_file():
+                    continue
+                encoded = match.group("maximum_samples")
+                available.add(None if encoded is None else int(encoded))
+        available_by_dataset[dataset] = available
+
+    common = set.intersection(*available_by_dataset.values())
+    if None in common:
+        return None
+    finite = [value for value in common if value is not None]
+    if finite:
+        return max(finite)
+
+    rendered = {
+        dataset: sorted(
+            ("all" if value is None else f"n{value}" for value in values),
+        )
+        for dataset, values in available_by_dataset.items()
+    }
+    raise FileNotFoundError(
+        "selected runs have no common faithfulness artifact contract: "
+        f"{rendered}"
+    )
 
 
 def _sha256_file(path: Path) -> str:
