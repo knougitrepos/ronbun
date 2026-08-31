@@ -1,0 +1,28 @@
+{
+  "include": [
+    "research",
+    "scripts",
+    "experiments",
+    "tests"
+  ],
+  "exclude": [
+    ".git",
+    ".agents",
+    ".codex",
+    ".idea",
+    ".pytest_cache",
+    ".ruff_cache",
+    "**/__pycache__",
+    "**/.ipynb_checkpoints",
+    "analyze",
+    "bk",
+    "data",
+    "models",
+    "notebooks",
+    "publish",
+    "reference_articles",
+    "results",
+    "runs",
+    "tmp"
+  ]
+}
