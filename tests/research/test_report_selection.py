@@ -6,6 +6,7 @@ import pytest
 from research.evaluation.report_selection import (
     report_campaign_id,
     select_model_uid_report_cohort,
+    select_model_uid_report_matrix,
 )
 
 
@@ -32,6 +33,7 @@ def _candidate(
         "data_fraction": 1.0,
         "is_paper_run": True,
         "pq_sdc_settings": pq_sdc_settings,
+        "run_dir": f"runs/{dataset}/{run_id}",
     }
 
 
@@ -106,3 +108,61 @@ def test_rejects_missing_complete_campaign() -> None:
 def test_report_campaign_id_rejects_noncanonical_run_ids(run_id: str) -> None:
     with pytest.raises(ValueError, match="unsupported report run_id format"):
         report_campaign_id(run_id)
+
+
+def test_selects_four_model_matrix_from_model_uids() -> None:
+    model_uids = {
+        "arcface": "arcface-a",
+        "adaface": "adaface-a",
+        "magface": "magface-a",
+        "edgeface": "edgeface-a",
+    }
+    rows = [
+        _candidate(
+            dataset,
+            f"20260830-R001-{model_index}{dataset_index:07d}",
+            model_uid=model_uid,
+        )
+        for model_index, model_uid in enumerate(model_uids.values(), start=1)
+        for dataset_index, dataset in enumerate(DATASETS, start=1)
+    ]
+
+    matrix, selected = select_model_uid_report_matrix(
+        pd.DataFrame(rows), model_uids=model_uids
+    )
+
+    assert set(matrix) == set(model_uids)
+    assert all(set(dataset_runs) == set(DATASETS) for dataset_runs in matrix.values())
+    assert len(selected) == 12
+    assert set(selected["model_family"]) == set(model_uids)
+
+
+@pytest.mark.parametrize(
+    "model_uids, message",
+    [
+        (
+            {
+                "arcface": "arcface-a",
+                "adaface": "adaface-a",
+                "magface": "magface-a",
+            },
+            "keys must exactly match",
+        ),
+        (
+            {
+                "arcface": "adaface-a",
+                "adaface": "adaface-b",
+                "magface": "magface-a",
+                "edgeface": "edgeface-a",
+            },
+            "prefixes must match",
+        ),
+    ],
+)
+def test_model_uid_matrix_rejects_invalid_model_mapping(
+    model_uids: dict[str, str], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        select_model_uid_report_matrix(
+            pd.DataFrame(), model_uids=model_uids
+        )

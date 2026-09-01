@@ -26,14 +26,17 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SUPPORTED_MODEL_FAMILIES = ("arcface", "adaface", "magface", "edgeface")
 SUPPORTED_OPEN_SET_DATASETS = ("lfw", "survface", "rfw_custom")
 TARGET_FPIRS = (0.01, 0.05, 0.10, 0.20, 0.30)
+COMPACT_RATE_DELTA_ROUNDTRIP_ATOL = 2e-12
 
 SEARCH_SPACE_DIRECTORY = "search_space_v6_query_gallery_conditions"
 SEARCH_SPACE_SCHEMA_VERSION = 6
 SEARCH_SPACE_ARTIFACT_TYPE = "step4_search_space_query_gallery_conditions_v6"
 FAMILY_ARTIFACT_TYPE = "step4_search_space_query_gallery_conditions_family_v6"
 
-MATRIX_SCHEMA_VERSION = 3
-MATRIX_ARTIFACT_TYPE = "cross_model_open_set_completed_run_matrix_v3"
+MATRIX_SCHEMA_VERSION = 4
+MATRIX_ARTIFACT_TYPE = "cross_model_open_set_completed_run_matrix_v4"
+MATRIX_SDC_INCLUSION_POLICY = "all_model_dataset_sources_required"
+PQ_SDC_SEARCH_MODE = "pq_sdc_exhaustive"
 
 REQUIRED_SOURCE_FILES = {
     "run_manifest.json",
@@ -221,6 +224,8 @@ def _require_text(value: object, *, field: str) -> str:
 
 def _normalize_matrix(
     model_run_matrix: Mapping[str, Mapping[str, str | Path]],
+    *,
+    project_root: Path,
 ) -> dict[str, dict[str, Path]]:
     if not isinstance(model_run_matrix, Mapping):
         raise TypeError("model_run_matrix must be a nested mapping")
@@ -243,7 +248,10 @@ def _normalize_matrix(
                     "matrix values must be explicit run directory paths; "
                     f"got {type(raw_run_dir).__name__} for {model}/{dataset}"
                 )
-            datasets[dataset] = Path(raw_run_dir).expanduser().resolve()
+            candidate = Path(raw_run_dir).expanduser()
+            datasets[dataset] = (
+                candidate if candidate.is_absolute() else project_root / candidate
+            ).resolve()
         normalized[model] = datasets
 
     observed_models = set(normalized)
@@ -565,7 +573,7 @@ def _validate_retrieval_statistics(frame: pd.DataFrame, *, label: str) -> None:
             delta,
             compressed_rate - origin_rate,
             rtol=0.0,
-            atol=1e-12,
+            atol=COMPACT_RATE_DELTA_ROUNDTRIP_ATOL,
         ):
             raise ValueError(f"{label} {metric} delta does not reconcile")
 
@@ -648,7 +656,7 @@ def _validate_retrieval_statistics(frame: pd.DataFrame, *, label: str) -> None:
         tpir_delta,
         compressed_tpir - origin_tpir,
         rtol=0.0,
-        atol=1e-12,
+        atol=COMPACT_RATE_DELTA_ROUNDTRIP_ATOL,
     ):
         raise ValueError(f"{label} TPIR20 delta does not reconcile")
     if not rate_ratio_matches_counts_or_compact_csv(
@@ -1025,6 +1033,67 @@ def _add_interpretation_columns(
     return result
 
 
+def _matrix_sdc_comparison_contract(
+    path_provenance: list[dict[str, Any]],
+) -> tuple[tuple[tuple[int, int], ...], dict[str, Any]]:
+    expected_source_count = (
+        len(SUPPORTED_MODEL_FAMILIES) * len(SUPPORTED_OPEN_SET_DATASETS)
+    )
+    if len(path_provenance) != expected_source_count:
+        raise ValueError(
+            "SDC comparison coverage requires the complete 4-model x 3-dataset matrix"
+        )
+
+    source_contracts = {
+        (str(paths["model_family"]), str(paths["dataset_id"])): tuple(
+            tuple(value) for value in paths["pq_sdc_settings"]
+        )
+        for paths in path_provenance
+    }
+    coverage_by_model = {
+        model_family: sum(
+            bool(source_contracts[(model_family, dataset_id)])
+            for dataset_id in SUPPORTED_OPEN_SET_DATASETS
+        )
+        for model_family in SUPPORTED_MODEL_FAMILIES
+    }
+    models_with_complete_sdc = [
+        model_family
+        for model_family in SUPPORTED_MODEL_FAMILIES
+        if coverage_by_model[model_family] == len(SUPPORTED_OPEN_SET_DATASETS)
+    ]
+    sources_with_sdc = sum(bool(settings) for settings in source_contracts.values())
+    include_sdc = sources_with_sdc == expected_source_count
+    if include_sdc:
+        nonempty_contracts = set(source_contracts.values())
+        if len(nonempty_contracts) != 1:
+            raise ValueError(
+                "all cross-model sources contain SDC but use different SDC settings"
+            )
+        matrix_settings = next(iter(nonempty_contracts))
+        reason = "all_model_dataset_sources_have_the_same_sdc_contract"
+    else:
+        matrix_settings = ()
+        reason = (
+            "no_source_has_sdc"
+            if sources_with_sdc == 0
+            else "at_least_one_model_or_dataset_source_lacks_sdc"
+        )
+
+    contract = {
+        "policy": MATRIX_SDC_INCLUSION_POLICY,
+        "included": include_sdc,
+        "reason": reason,
+        "required_source_count": expected_source_count,
+        "source_count_with_sdc": sources_with_sdc,
+        "required_dataset_count_per_model": len(SUPPORTED_OPEN_SET_DATASETS),
+        "coverage_by_model": coverage_by_model,
+        "models_with_complete_sdc": models_with_complete_sdc,
+        "excluded_search_modes": [] if include_sdc else [PQ_SDC_SEARCH_MODE],
+    }
+    return matrix_settings, contract
+
+
 def load_cross_model_open_set_matrix(
     model_run_matrix: Mapping[str, Mapping[str, str | Path]],
     *,
@@ -1038,7 +1107,7 @@ def load_cross_model_open_set_matrix(
     """
 
     root = Path(project_root).expanduser().resolve()
-    normalized = _normalize_matrix(model_run_matrix)
+    normalized = _normalize_matrix(model_run_matrix, project_root=root)
     compression_frames: list[pd.DataFrame] = []
     retrieval_frames: list[pd.DataFrame] = []
     selections: list[_RunSelection] = []
@@ -1070,15 +1139,26 @@ def load_cross_model_open_set_matrix(
 
     compression_summary = pd.concat(compression_frames, ignore_index=True)
     retrieval_summary = pd.concat(retrieval_frames, ignore_index=True)
-    pq_sdc_contracts = {
-        tuple(tuple(value) for value in paths["pq_sdc_settings"])
-        for paths in path_provenance
+    matrix_pq_sdc_settings, matrix_sdc_contract = (
+        _matrix_sdc_comparison_contract(path_provenance)
+    )
+    if not matrix_sdc_contract["included"]:
+        retrieval_summary = retrieval_summary.loc[
+            retrieval_summary["search_mode"].astype(str).ne(PQ_SDC_SEARCH_MODE)
+        ].reset_index(drop=True)
+    observed_matrix_sdc_modes = set(
+        retrieval_summary.loc[
+            retrieval_summary["search_mode"].astype(str).eq(PQ_SDC_SEARCH_MODE),
+            "compression_profile",
+        ].astype(str)
+    )
+    expected_matrix_sdc_modes = {
+        pq_profile_name(m, nbits) for m, nbits in matrix_pq_sdc_settings
     }
-    if len(pq_sdc_contracts) != 1:
+    if observed_matrix_sdc_modes != expected_matrix_sdc_modes:
         raise ValueError(
-            "cross-model matrix selected runs use mixed PQ SDC settings"
+            "cross-model SDC all-or-none projection does not match its contract"
         )
-    matrix_pq_sdc_settings = next(iter(pq_sdc_contracts))
     matrix_compression_key = ("model_family", *COMPRESSION_IDENTITY_COLUMNS)
     matrix_retrieval_key = ("model_family", *RETRIEVAL_IDENTITY_COLUMNS)
     if compression_summary.duplicated(list(matrix_compression_key)).any():
@@ -1115,7 +1195,13 @@ def load_cross_model_open_set_matrix(
         )
 
     content_selections = [selection.content_identity() for selection in selections]
-    matrix_uid = f"open-set-matrix-{_sha256_payload(content_selections)[:20]}"
+    matrix_uid_basis = {
+        "schema_version": MATRIX_SCHEMA_VERSION,
+        "content_identity": content_selections,
+        "sdc_comparison_contract": matrix_sdc_contract,
+        "pq_sdc_settings": [list(value) for value in matrix_pq_sdc_settings],
+    }
+    matrix_uid = f"open-set-matrix-{_sha256_payload(matrix_uid_basis)[:20]}"
     selection_manifest: dict[str, Any] = {
         "schema_version": MATRIX_SCHEMA_VERSION,
         "artifact_type": MATRIX_ARTIFACT_TYPE,
@@ -1130,6 +1216,7 @@ def load_cross_model_open_set_matrix(
         "pq_sdc_profiles": [
             pq_profile_name(m, nbits) for m, nbits in matrix_pq_sdc_settings
         ],
+        "sdc_comparison_contract": matrix_sdc_contract,
         "matrix_shape": {
             "model_count": len(SUPPORTED_MODEL_FAMILIES),
             "dataset_count": len(SUPPORTED_OPEN_SET_DATASETS),
@@ -1141,6 +1228,7 @@ def load_cross_model_open_set_matrix(
             "joined_summary": int(len(joined_summary)),
         },
         "content_identity": content_selections,
+        "matrix_uid_basis": matrix_uid_basis,
         "selected_runs": path_provenance,
         "statistical_contract": {
             "rate_interval": "probe-level two-sided 95% Wilson score",
@@ -1216,13 +1304,12 @@ def write_cross_model_open_set_matrix(
         matrix.selection_manifest.get("matrix_uid"),
         field="selection_manifest.matrix_uid",
     )
-    expected_uid = (
-        "open-set-matrix-"
-        + _sha256_payload(matrix.selection_manifest.get("content_identity"))[:20]
-    )
+    expected_uid = "open-set-matrix-" + _sha256_payload(
+        matrix.selection_manifest.get("matrix_uid_basis")
+    )[:20]
     if matrix_uid != expected_uid:
         raise ValueError(
-            "selection_manifest.matrix_uid does not match content identity"
+            "selection_manifest.matrix_uid does not match matrix_uid_basis"
         )
     row_counts = matrix.selection_manifest.get("row_counts")
     expected_counts = {
@@ -1262,6 +1349,11 @@ def write_cross_model_open_set_matrix(
             "artifact_type": MATRIX_ARTIFACT_TYPE,
             "matrix_uid": matrix_uid,
             "immutable_content_identity": matrix.selection_manifest["content_identity"],
+            "comparison_contract": {
+                "pq_sdc_settings": matrix.selection_manifest["pq_sdc_settings"],
+                "pq_sdc_profiles": matrix.selection_manifest["pq_sdc_profiles"],
+                "sdc": matrix.selection_manifest["sdc_comparison_contract"],
+            },
             "row_counts": expected_counts,
             "output_files": files,
         }

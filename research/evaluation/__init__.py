@@ -114,9 +114,11 @@ from research.evaluation.cross_dataset_saliency import (
     validate_rfw_custom_calibration_contract,
 )
 from research.evaluation.report_selection import (
+    CROSS_MODEL_REPORT_FAMILIES,
     OPEN_SET_REPORT_DATASETS,
     report_campaign_id,
     select_model_uid_report_cohort,
+    select_model_uid_report_matrix,
 )
 from research.evaluation.rfw_verification import (
     RFWVerificationResult,
@@ -205,9 +207,11 @@ __all__ = [
     "retrieval_source_row_count",
     "PARTITIONED_ASSOCIATION_ALGORITHM_VERSION",
     "PartitionedAssociationResult",
+    "CROSS_MODEL_REPORT_FAMILIES",
     "OPEN_SET_REPORT_DATASETS",
     "report_campaign_id",
     "select_model_uid_report_cohort",
+    "select_model_uid_report_matrix",
     "compute_partitioned_retrieval_associations",
     "iter_partitioned_projection_batches",
     "stream_partition_saliency_retrieval_projection",

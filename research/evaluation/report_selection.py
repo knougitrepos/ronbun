@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import pandas as pd
 
 
 OPEN_SET_REPORT_DATASETS = ("lfw", "survface", "rfw_custom")
+CROSS_MODEL_REPORT_FAMILIES = ("arcface", "adaface", "magface", "edgeface")
 _REQUIRED_CANDIDATE_COLUMNS = {
     "campaign_id",
     "dataset",
@@ -103,3 +104,65 @@ def select_model_uid_report_cohort(
     return selected.sort_values("_dataset_order").drop(
         columns="_dataset_order"
     ).reset_index(drop=True)
+
+
+def select_model_uid_report_matrix(
+    candidates: pd.DataFrame,
+    *,
+    model_uids: Mapping[str, str],
+    datasets: Sequence[str] = OPEN_SET_REPORT_DATASETS,
+) -> tuple[dict[str, dict[str, str]], pd.DataFrame]:
+    """Resolve the complete 4-model report matrix from checkpoint UIDs.
+
+    Each checkpoint is resolved independently through
+    :func:`select_model_uid_report_cohort`, so dataset-wise latest runs are never
+    mixed.  The returned paths are still passed to the strict explicit-run matrix
+    loader for artifact and lineage validation.
+    """
+
+    if not isinstance(model_uids, Mapping):
+        raise TypeError("model_uids must be a model-family to model-UID mapping")
+    normalized = {
+        str(model_family).strip().lower(): str(model_uid).strip()
+        for model_family, model_uid in model_uids.items()
+    }
+    expected_families = set(CROSS_MODEL_REPORT_FAMILIES)
+    if set(normalized) != expected_families:
+        raise ValueError(
+            "model_uids keys must exactly match the four report model families: "
+            f"expected={sorted(expected_families)}, "
+            f"actual={sorted(normalized)}"
+        )
+    if any(not model_uid for model_uid in normalized.values()):
+        raise ValueError("model_uids values must be non-empty strings")
+    if len(set(normalized.values())) != len(normalized):
+        raise ValueError("model_uids values must be unique")
+    mismatched_prefixes = {
+        model_family: model_uid
+        for model_family, model_uid in normalized.items()
+        if model_uid.split("-", 1)[0].lower() != model_family
+    }
+    if mismatched_prefixes:
+        raise ValueError(
+            "model UID prefixes must match their model-family keys: "
+            f"{mismatched_prefixes}"
+        )
+    if "run_dir" not in candidates.columns:
+        raise ValueError("report candidates are missing columns: ['run_dir']")
+
+    matrix: dict[str, dict[str, str]] = {}
+    selected_frames: list[pd.DataFrame] = []
+    for model_family in CROSS_MODEL_REPORT_FAMILIES:
+        cohort = select_model_uid_report_cohort(
+            candidates,
+            model_uid=normalized[model_family],
+            datasets=datasets,
+        ).copy()
+        run_dirs = cohort["run_dir"].astype(str).str.strip()
+        if run_dirs.eq("").any():
+            raise ValueError(f"{model_family} selected cohort contains an empty run_dir")
+        matrix[model_family] = dict(zip(cohort["dataset"], run_dirs))
+        cohort.insert(0, "model_family", model_family)
+        selected_frames.append(cohort)
+
+    return matrix, pd.concat(selected_frames, ignore_index=True)

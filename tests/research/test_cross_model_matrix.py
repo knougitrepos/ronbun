@@ -18,6 +18,7 @@ from research.evaluation import (
 from research.experiments.cross_model_matrix import (
     FAMILY_ARTIFACT_TYPE,
     MATRIX_ARTIFACT_TYPE,
+    MATRIX_SDC_INCLUSION_POLICY,
     SEARCH_SPACE_ARTIFACT_TYPE,
     SEARCH_SPACE_DIRECTORY,
     SEARCH_SPACE_SCHEMA_VERSION,
@@ -25,6 +26,7 @@ from research.experiments.cross_model_matrix import (
     SUPPORTED_OPEN_SET_DATASETS,
     TARGET_FPIRS,
     _validate_mode_coverage,
+    _validate_retrieval_statistics,
     load_cross_model_open_set_matrix,
     write_cross_model_open_set_matrix,
 )
@@ -259,6 +261,38 @@ def test_matrix_validation_accepts_exactly_zero_sdc_when_disabled() -> None:
         expected_pq_sdc_profiles=(),
     )
     assert "pq_sdc_exhaustive" not in set(retrieval["search_mode"])
+
+
+def test_retrieval_validation_accepts_compact_csv_tpir_delta_roundtrip() -> None:
+    retrieval = _retrieval_rows(
+        dataset="lfw",
+        model_uid="arcface-test",
+        run_id="20260830-R001-00000001",
+        extraction_uid="extract-test",
+        origin_uid="origin-test",
+        bootstrap_resamples=2_000,
+    ).iloc[[0]].copy()
+    origin_count = 466
+    compressed_count = 381
+    denominator = 476
+    origin_rate = origin_count / denominator
+    compressed_rate = compressed_count / denominator
+    retrieval.loc[:, "origin_tpir20_count"] = origin_count
+    retrieval.loc[:, "origin_tpir20_denominator"] = denominator
+    retrieval.loc[:, "origin_tpir20"] = float(format(origin_rate, ".12g"))
+    retrieval.loc[:, "compressed_tpir20_count"] = compressed_count
+    retrieval.loc[:, "compressed_tpir20_denominator"] = denominator
+    retrieval.loc[:, "compressed_tpir20"] = float(format(compressed_rate, ".12g"))
+    retrieval.loc[:, "origin_tpir_at_rank_k_wilson95_low"] = 0.0
+    retrieval.loc[:, "origin_tpir_at_rank_k_wilson95_high"] = 1.0
+    retrieval.loc[:, "compressed_tpir_at_rank_k_wilson95_low"] = 0.0
+    retrieval.loc[:, "compressed_tpir_at_rank_k_wilson95_high"] = 1.0
+    retrieval.loc[:, "compressed_minus_origin_tpir_at_rank_k"] = float(
+        format(compressed_rate - origin_rate, ".12g")
+    )
+    retrieval.loc[:, "compressed_tpir20_retention"] = compressed_count / origin_count
+
+    _validate_retrieval_statistics(retrieval, label="synthetic")
 
 
 def _build_run(
@@ -501,6 +535,22 @@ def test_loads_complete_explicit_4_by_3_matrix_with_claim_boundaries(
     assert result.selection_manifest["pq_sdc_profiles"] == [
         pq_profile_name(128, 8)
     ]
+    assert result.selection_manifest["sdc_comparison_contract"] == {
+        "policy": MATRIX_SDC_INCLUSION_POLICY,
+        "included": True,
+        "reason": "all_model_dataset_sources_have_the_same_sdc_contract",
+        "required_source_count": 12,
+        "source_count_with_sdc": 12,
+        "required_dataset_count_per_model": 3,
+        "coverage_by_model": {
+            "arcface": 3,
+            "adaface": 3,
+            "magface": 3,
+            "edgeface": 3,
+        },
+        "models_with_complete_sdc": list(SUPPORTED_MODEL_FAMILIES),
+        "excluded_search_modes": [],
+    }
     assert result.selection_manifest["auto_selection_used"] is False
     assert set(result.retrieval_summary["target_fpir"]) == set(TARGET_FPIRS)
     assert result.retrieval_summary["tpir_rank"].eq(20).all()
@@ -527,6 +577,30 @@ def test_loads_complete_explicit_4_by_3_matrix_with_claim_boundaries(
     )
 
 
+def test_relative_run_paths_resolve_from_project_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    absolute = _build_matrix(tmp_path)
+    relative = {
+        model: {
+            dataset: run_dir.relative_to(tmp_path)
+            for dataset, run_dir in datasets.items()
+        }
+        for model, datasets in absolute.items()
+    }
+    notebook_dir = tmp_path / "notebooks/common/reports"
+    notebook_dir.mkdir(parents=True)
+    monkeypatch.chdir(notebook_dir)
+
+    result = load_cross_model_open_set_matrix(relative, project_root=tmp_path)
+
+    assert len(result.selection_manifest["selected_runs"]) == 12
+    assert all(
+        Path(selection["run_dir"]).is_relative_to(tmp_path)
+        for selection in result.selection_manifest["selected_runs"]
+    )
+
+
 def test_loads_complete_matrix_with_sdc_disabled(tmp_path: Path) -> None:
     selections = _build_matrix(tmp_path, pq_sdc_settings=())
 
@@ -536,19 +610,46 @@ def test_loads_complete_matrix_with_sdc_disabled(tmp_path: Path) -> None:
     assert "pq_sdc_exhaustive" not in set(result.retrieval_summary["search_mode"])
     assert result.selection_manifest["pq_sdc_settings"] == []
     assert result.selection_manifest["pq_sdc_profiles"] == []
+    assert result.selection_manifest["sdc_comparison_contract"]["included"] is False
+    assert result.selection_manifest["sdc_comparison_contract"]["reason"] == (
+        "no_source_has_sdc"
+    )
+    assert (
+        result.selection_manifest["sdc_comparison_contract"][
+            "source_count_with_sdc"
+        ]
+        == 0
+    )
 
 
-def test_rejects_mixed_sdc_contracts_in_matrix(tmp_path: Path) -> None:
+def test_excludes_all_sdc_when_one_model_lacks_sdc(tmp_path: Path) -> None:
     selections = _build_matrix(
         tmp_path,
-        pq_sdc_settings=(),
+        pq_sdc_settings=((128, 8),),
         pq_sdc_overrides={
-            ("arcface", "lfw"): ((128, 8),),
+            ("edgeface", dataset): ()
+            for dataset in SUPPORTED_OPEN_SET_DATASETS
         },
     )
 
-    with pytest.raises(ValueError, match="mixed PQ SDC settings"):
-        load_cross_model_open_set_matrix(selections, project_root=tmp_path)
+    result = load_cross_model_open_set_matrix(selections, project_root=tmp_path)
+
+    assert len(result.retrieval_summary) == 540
+    assert "pq_sdc_exhaustive" not in set(result.retrieval_summary["search_mode"])
+    assert result.selection_manifest["pq_sdc_settings"] == []
+    sdc_contract = result.selection_manifest["sdc_comparison_contract"]
+    assert sdc_contract["included"] is False
+    assert sdc_contract["reason"] == (
+        "at_least_one_model_or_dataset_source_lacks_sdc"
+    )
+    assert sdc_contract["source_count_with_sdc"] == 9
+    assert sdc_contract["coverage_by_model"]["edgeface"] == 0
+    assert sdc_contract["models_with_complete_sdc"] == [
+        "arcface",
+        "adaface",
+        "magface",
+    ]
+    assert sdc_contract["excluded_search_modes"] == ["pq_sdc_exhaustive"]
 
 
 def test_rejects_incomplete_model_dataset_matrix(tmp_path: Path) -> None:
@@ -619,6 +720,7 @@ def test_atomic_writer_hashes_outputs_and_requires_explicit_overwrite(
 
     assert written.manifest["artifact_type"] == MATRIX_ARTIFACT_TYPE
     assert written.output_dir.name == matrix.selection_manifest["matrix_uid"]
+    assert written.manifest["comparison_contract"]["sdc"]["included"] is True
     assert written.manifest_path.is_file()
     for name, entry in written.manifest["output_files"].items():
         path = written.output_dir / name
