@@ -12,7 +12,21 @@
     "unit": "probe"
   },
   "cross_model_open_set_matrix": {
-    "included": false
+    "complete_matrix": true,
+    "included": true,
+    "interpretation": "checkpoint_level_generalization",
+    "matrix_uid": "open-set-matrix-e01a05d216b293223df3",
+    "model_families": [
+      "arcface",
+      "adaface",
+      "magface",
+      "edgeface"
+    ],
+    "open_set_datasets": [
+      "lfw",
+      "survface",
+      "rfw_custom"
+    ]
   },
   "datasets": [
     "lfw",
@@ -61,7 +75,7 @@
     "maximum_samples_per_dataset": null,
     "threshold_independent": true
   },
-  "generated_at_utc": "2026-09-01T08:57:24.125912+00:00",
+  "generated_at_utc": "2026-09-01T11:11:13.743968+00:00",
   "join_contract": {
     "grain": "one row per dataset, model, run, compression profile, search mode, threshold policy, and target FPIR",
     "rows": 675,
