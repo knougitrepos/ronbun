@@ -1,0 +1,13 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "saliency_target_eligible": 9133,
+      "samples": 13195
+    }
+  },
+  "finished_at_utc": "2026-08-31T16:52:00.695597+00:00",
+  "phase": "01_origin_embedding_and_target_templates",
+  "started_at_utc": "2026-08-31T16:51:46.489053+00:00",
+  "status": "completed"
+}

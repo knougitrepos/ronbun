@@ -1,0 +1,870 @@
+{
+  "config": {
+    "dataset_id": "lfw",
+    "effective_execution": {
+      "acknowledged": true,
+      "overwrite_existing": false,
+      "source": "common_orchestration_notebook",
+      "write_outputs": true
+    },
+    "model_uid": "edgeface-a348c305af33c223b337",
+    "scope": {
+      "data_fraction": 1.0,
+      "is_full_dataset": true,
+      "is_paper_run": true,
+      "mode": "real",
+      "seed": 8972
+    },
+    "step4": {
+      "aligned_crops": {
+        "bundle_dir": "data/interim/common/aligned_112",
+        "bundle_manifest_path": "data/interim/common/aligned_112/bundle_manifest.json",
+        "dtype": "uint8",
+        "faces_path": "data/interim/common/aligned_112/aligned_faces.npy",
+        "failed_samples_path": "data/interim/common/aligned_112/failed_samples.csv",
+        "freeze_before_model_comparison": true,
+        "image_size": [
+          112,
+          112
+        ],
+        "index_path": "data/interim/common/aligned_112/aligned_index.csv",
+        "layout": "nhwc",
+        "providers": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "require_content_sha256": true,
+        "required_primary_provider": "CUDAExecutionProvider",
+        "source_color_order": "rgb"
+      },
+      "compression": {
+        "baseline_profile": "origin_512",
+        "families": {
+          "pca": {
+            "dimensions": [
+              384,
+              256,
+              128,
+              64,
+              32
+            ],
+            "source_dimension": 512,
+            "source_profile": "origin_512"
+          },
+          "pq": {
+            "sdc_settings": [],
+            "settings": [
+              {
+                "m": 8,
+                "nbits": 8
+              },
+              {
+                "m": 16,
+                "nbits": 8
+              },
+              {
+                "m": 32,
+                "nbits": 8
+              },
+              {
+                "m": 64,
+                "nbits": 8
+              },
+              {
+                "m": 128,
+                "nbits": 8
+              }
+            ],
+            "source_dimension": 512,
+            "source_profile": "origin_512"
+          }
+        },
+        "fit_split": "development"
+      },
+      "datasets": {
+        "additional_development_sources": [],
+        "balancedface": {
+          "experiment_config_path": "configs/experiments/rfw_balancedface_quantization.yaml",
+          "final_evaluation": false,
+          "role": "deferred_not_used",
+          "source_config_path": "configs/datasets/rfw_balancedface.yaml",
+          "status": "deferred_by_step7_scope",
+          "train_face_recognition_models": false
+        },
+        "conditional_quantitative": [
+          "rfw"
+        ],
+        "lfw": {
+          "aligned_bundle_dir": "data/interim/common/aligned_112",
+          "gallery_identities_path": "data/interim/lfw/gallery_identities.txt",
+          "landmark_region_bundle_dir": "data/interim/step4/lfw/landmark_regions_106",
+          "manifest_path": "data/interim/lfw/face_manifest.csv",
+          "preprocessing_mode": "detect_and_align",
+          "protocol_adapter": "lfw_identity_disjoint",
+          "require_full_coverage": false,
+          "unknown_unknown_identities_path": "data/interim/lfw/unknown_unknown_identities.txt"
+        },
+        "quantitative": [
+          "lfw",
+          "survface",
+          "rfw_custom"
+        ],
+        "rfw": {
+          "checkpoint_overlap_policy": "fail_closed",
+          "compression_application": "frozen_codec_transfer_only",
+          "compression_fit": false,
+          "experiment_config_path": "configs/experiments/rfw_balancedface_quantization.yaml",
+          "headline_evaluation": false,
+          "official_open_set_protocol": false,
+          "role": "evaluation_test_only",
+          "source_config_path": "configs/datasets/rfw_balancedface.yaml",
+          "status": "additional_verification_diagnostic",
+          "task": "official_10fold_pair_verification"
+        },
+        "rfw_custom": {
+          "aligned_bin_archive_path": "data/raw/RFW/bin_for_mxnet/RFW_test.tar.gz",
+          "aligned_bin_archive_sha256": "8259e53ab1b542a9747335f34b2ae48e22a675bce472e391d6b94bc900fde572",
+          "aligned_bundle_dir": "data/interim/step4/rfw_custom/aligned_112",
+          "checkpoint_overlap_status": "UNKNOWN",
+          "dataset_id": "rfw-custom-v1",
+          "landmark_region_bundle_dir": "data/interim/step4/rfw_custom/landmark_regions_106",
+          "manifest_path": "data/raw/RFW/images/test.tar.gz",
+          "official_protocol_claim": false,
+          "preprocessing_mode": "rfw_official_aligned_bin",
+          "protocol": {
+            "calibration_fraction": 0.2,
+            "cross_group_source_identity_policy": "exclude_from_custom_protocol",
+            "development_fraction": 0.4,
+            "enrollment_count": 1,
+            "gallery_identity_count_per_group": 300,
+            "group_balanced": true,
+            "seed": 42,
+            "unknown_unknown_fraction": 0.5
+          },
+          "protocol_adapter": "rfw_custom_identity_disjoint_v1",
+          "require_full_coverage": true,
+          "source_archive_sha256": "2ec1875599d01888431be83fe51ed9614188a026539fb970653081ca0fbf3e39",
+          "strict_unseen_identity_evidence": false
+        },
+        "saliency_population_initial": [
+          "lfw",
+          "survface",
+          "rfw_custom"
+        ],
+        "supplementary_quantitative": [
+          "tinyface"
+        ],
+        "survface": {
+          "aligned_bundle_dir": "data/interim/step4/survface/aligned_112",
+          "landmark_region_bundle_dir": "data/interim/step4/survface/landmark_regions_106",
+          "manifest_path": "data/interim/survface/official_manifest.csv",
+          "official_manifest_role": "evaluation_only",
+          "preprocessing_mode": "official_face_crop_resize",
+          "protocol_adapter": "survface_official",
+          "require_full_coverage": true,
+          "training_manifest_path": "data/interim/survface/training_manifest.csv"
+        },
+        "tinyface": {
+          "compression_fit_role": "development_pool",
+          "evaluation_roles": [
+            "gallery_match",
+            "gallery_distractor",
+            "registered_probe"
+          ],
+          "non_mated_probe_count": 0,
+          "official_counts": {
+            "development_pool": 7804,
+            "gallery_distractor": 153428,
+            "gallery_match": 4443,
+            "registered_probe": 3728
+          },
+          "official_metrics": [
+            "mean_average_precision",
+            "rank_1",
+            "rank_5",
+            "rank_10",
+            "rank_20"
+          ],
+          "open_set_metrics_forbidden": true,
+          "open_set_protocol": false,
+          "preprocessing_mode": "official_face_crop_resize",
+          "protocol_adapter": "tinyface_official_closed_set_v1",
+          "raw_root": "data/raw/tinyface",
+          "require_full_coverage": true,
+          "task": "official_closed_set_1_to_n_identification_with_distractors"
+        }
+      },
+      "evaluation": {
+        "calibration_gallery_identities": 20,
+        "compare_frozen_and_recalibrated_thresholds": true,
+        "exact_fallback": false,
+        "full_precision_baseline": true,
+        "lfw_enrollment_count": 5,
+        "metrics": [
+          "angular_error",
+          "cosine_score_drift",
+          "rank_flip",
+          "threshold_crossing",
+          "dir_at_fpir",
+          "raw_feature_norm"
+        ],
+        "reported_target_fpirs": [
+          0.01,
+          0.05,
+          0.1,
+          0.2,
+          0.3
+        ],
+        "rfw_custom_calibration_gallery_policy": "evaluation_group_matched",
+        "rfw_custom_enrollment_count": 1,
+        "rfw_custom_target_fpir": 0.1,
+        "survface_calibration_gallery_identities": 3000,
+        "survface_calibration_protocol": "training_3000_half_gallery_v2",
+        "survface_target_fpir": 0.1,
+        "survface_threshold_selection": "non_mated_only",
+        "target_fpir": 0.01,
+        "top_k": 20
+      },
+      "execution": {
+        "allow_dirty": false,
+        "data_fraction": 1.0,
+        "device": "cuda",
+        "execute_stage": true,
+        "mode": "real",
+        "model_checkpoint_path": "C:\\ronbun\\models\\edgeface\\edgeface_xs_gamma_06.pt",
+        "model_name": "edge",
+        "model_profile": "edgeface_webface12m_xs_gamma_06",
+        "model_uid": "edgeface-a348c305af33c223b337",
+        "overwrite": false,
+        "seed": 8972,
+        "write_outputs": true
+      },
+      "gradcam": {
+        "extraction": {
+          "capture_intermediates": false,
+          "embedding_batch_size": 64,
+          "expected_heatmap_size": [
+            7,
+            7
+          ],
+          "gradcam_batch_size": 4,
+          "shard_size": 2048
+        },
+        "faithfulness": {
+          "baselines": [
+            "random",
+            "low_saliency"
+          ],
+          "coverage": "all_target_eligible_samples",
+          "derived_maximum_samples": {
+            "lfw": 10000,
+            "rfw_custom": 10000,
+            "survface": 10000
+          },
+          "derived_strata": [
+            "protocol_role",
+            "raw_embedding_norm_within_role_quartile",
+            "gradcam_target_score_within_role_quartile"
+          ],
+          "derived_stratified_datasets": [
+            "survface",
+            "rfw_custom"
+          ],
+          "enabled": true,
+          "enabled_datasets": [
+            "lfw"
+          ],
+          "primary_occlusion_fraction": 0.1,
+          "random_repeats": 5,
+          "random_seed_unit": "sample_id",
+          "seed": 42
+        },
+        "persistence": {
+          "format": "immutable_shards",
+          "full_activation_gradient_policy": "transient_or_explicit_debug_subset_only",
+          "heatmap_resolution": "native_target_layer",
+          "persist_channel_weights": false,
+          "persist_full_activations": false,
+          "persist_full_gradients": false,
+          "persist_normalized_heatmap": true,
+          "persist_pass_b_embeddings": false,
+          "persist_raw_cam": false,
+          "persist_relu_cam": false,
+          "persist_scalar_features": true
+        },
+        "population": {
+          "ineligible_rows_must_include_reason": true,
+          "pass_a_origin_embedding_coverage": "all_selected_samples",
+          "pass_b_saliency_coverage": "all_target_eligible_samples",
+          "retain_all_selected_sample_rows": true,
+          "rfw_custom_sampling_strata": [
+            "rfw_group",
+            "protocol_role"
+          ],
+          "saliency_sample_cap": {
+            "lfw": null,
+            "rfw_custom": 10000,
+            "survface": null
+          },
+          "sampling_unit": "sample_id",
+          "singleton_identity_policy": "record_ineligible",
+          "survface_sampling_strata": [
+            "registered_probe",
+            "unknown_unknown_probe"
+          ],
+          "unlabeled_sample_policy": "record_ineligible"
+        },
+        "regions": {
+          "infer_missing_semantic_masks": false,
+          "landmark_model_path": null,
+          "landmark_topology": "insightface-2d106-semantic-v1",
+          "mask_bundle_path": null,
+          "quadrants": true,
+          "require_explicit_landmark_or_face_masks": true,
+          "semantic_regions": [
+            "left_eye",
+            "right_eye",
+            "nose",
+            "mouth",
+            "left_cheek",
+            "right_cheek",
+            "jaw",
+            "outside_face"
+          ]
+        },
+        "representative_case_visualization": {
+          "regenerate_gradcam": false,
+          "role": "visualization_only",
+          "run_after_population_join": true,
+          "samples_per_stratum": 8,
+          "seed": 42,
+          "strata": [
+            "stable",
+            "high_error",
+            "threshold_crossing",
+            "rank_flip"
+          ],
+          "threshold_policy": "frozen_origin"
+        },
+        "role": "origin_population_feature",
+        "stage_order": [
+          "pass_a_origin_embedding",
+          "leave_one_out_identity_template",
+          "pass_b_population_gradcam",
+          "origin_embedding_compression",
+          "strict_saliency_compression_join",
+          "representative_case_visualization"
+        ],
+        "study_enabled": true,
+        "target": {
+          "analysis_conditioning": "identity_label_required",
+          "differentiate_hard_pq": false,
+          "embedding_space": "origin_512",
+          "leave_query_out": true,
+          "name": "origin_leave_one_out_identity_cosine",
+          "query_branch_only": true,
+          "reference_branch_detached": true,
+          "template_scope_keys": [
+            "dataset_id",
+            "split",
+            "identity_id",
+            "model_uid",
+            "selected_manifest_sha256"
+          ]
+        },
+        "two_pass_extraction": {
+          "pass_a": {
+            "backward": false,
+            "coverage": "all_selected_samples",
+            "output": "origin_embedding_512"
+          },
+          "pass_b": {
+            "coverage": "all_target_eligible_samples",
+            "minimum_pass_repeat_cosine": 0.99999,
+            "require_pass_a_embedding_match": true,
+            "source_images": "pass_a_selected_samples"
+          },
+          "template_build": {
+            "leave_query_out": true,
+            "minimum_same_identity_samples": 2,
+            "normalize_template": true,
+            "source": "pass_a_origin_embedding"
+          }
+        }
+      },
+      "joint_analysis": {
+        "association": {
+          "bootstrap_method": "identity_cluster",
+          "bootstrap_repeats": 500,
+          "bootstrap_unit": "identity_id",
+          "geometry_stratify_by": [
+            "dataset_id",
+            "model_uid",
+            "compression_family",
+            "compression_profile"
+          ],
+          "max_in_flight": 8,
+          "max_workers": 4,
+          "paired_confidence_level": 0.95,
+          "paired_event_metrics": [
+            "threshold_crossing",
+            "false_accept_gain",
+            "tpir_at_rank_k_loss",
+            "tpir_threshold_loss",
+            "tpir_rank_loss"
+          ],
+          "paired_minimum_event_count": 5,
+          "paired_saliency_features": [
+            "outside_face_attention",
+            "saliency_entropy"
+          ],
+          "pool_compression_profiles": false,
+          "pool_models": false,
+          "retrieval_stratify_by": [
+            "dataset_id",
+            "model_uid",
+            "compression_family",
+            "compression_profile",
+            "search_mode",
+            "threshold_source_split",
+            "evaluation_split",
+            "threshold_policy",
+            "is_mated"
+          ]
+        },
+        "join_keys": [
+          "extraction_uid",
+          "dataset_id",
+          "sample_id",
+          "model_uid"
+        ],
+        "join_stage": "after_origin_embedding_compression",
+        "lineage": {
+          "compression_source_must_match_saliency_origin": true,
+          "reject_missing_or_mismatched_lineage": true,
+          "required_key": "origin_embedding_artifact_uid"
+        },
+        "prohibit_saliency_embedding_concatenation": true,
+        "strict_join": true
+      },
+      "model_validation": {
+        "expected_embedding_dimension": 512,
+        "onnx_pytorch_parity": {
+          "enabled_only_for_same_checkpoint": true,
+          "merge_lineages_on_failure": false,
+          "minimum_embedding_cosine": null,
+          "minimum_top1_agreement": null
+        },
+        "require_checkpoint_sha256": true,
+        "require_preprocessing_sha256": true,
+        "require_raw_embedding": true,
+        "require_raw_norm": true,
+        "require_unit_normalized_embedding": true
+      },
+      "models": {
+        "allow_unverified_metadata": false,
+        "blocked_profiles": [
+          "arcface_ms1mv2_r100"
+        ],
+        "bridge_profiles": [
+          "adaface_ms1mv2_r100"
+        ],
+        "model_uid": "edgeface-a348c305af33c223b337",
+        "profiles": {
+          "adaface_ms1mv2_r100": {
+            "architecture": "ir_101",
+            "architecture_display_name": "r100",
+            "checkpoint_path": null,
+            "checkpoint_source_page": "https://github.com/mk-minchul/AdaFace#pretrained-models",
+            "checkpoint_source_url": "https://drive.google.com/file/d/1m757p4-tUU5xlSHLaO04sqnhvqankimN/view",
+            "embedding_dim": 512,
+            "family": "adaface",
+            "framework": "pytorch",
+            "implementation_repository": "https://github.com/mk-minchul/AdaFace",
+            "loader_factory": "research.embeddings.pytorch.official_loaders:load_adaface_checkpoint",
+            "preprocessing": {
+              "input_range": [
+                -1.0,
+                1.0
+              ],
+              "input_size": [
+                112,
+                112
+              ],
+              "mean": [
+                127.5,
+                127.5,
+                127.5
+              ],
+              "model_color_order": "bgr",
+              "std": [
+                127.5,
+                127.5,
+                127.5
+              ]
+            },
+            "role": "bridge",
+            "run_compression": true,
+            "run_gradcam": false,
+            "status": "implementation_ready_checkpoint_required",
+            "target_layer": "body.48.res_layer.4",
+            "training_dataset": "ms1mv2"
+          },
+          "adaface_ms1mv3_r100": {
+            "architecture": "ir_101",
+            "architecture_display_name": "r100",
+            "checkpoint_path": null,
+            "checkpoint_source_page": "https://github.com/mk-minchul/AdaFace#pretrained-models",
+            "checkpoint_source_url": "https://drive.google.com/file/d/1hRI8YhlfTx2YMzyDwsqLTOxbyFVOqpSI/view",
+            "embedding_dim": 512,
+            "family": "adaface",
+            "framework": "pytorch",
+            "implementation_repository": "https://github.com/mk-minchul/AdaFace",
+            "loader_factory": "research.embeddings.pytorch.official_loaders:load_adaface_checkpoint",
+            "preprocessing": {
+              "input_range": [
+                -1.0,
+                1.0
+              ],
+              "input_size": [
+                112,
+                112
+              ],
+              "mean": [
+                127.5,
+                127.5,
+                127.5
+              ],
+              "model_color_order": "bgr",
+              "std": [
+                127.5,
+                127.5,
+                127.5
+              ]
+            },
+            "role": "primary",
+            "run_compression": true,
+            "run_gradcam": true,
+            "status": "implementation_ready_checkpoint_required",
+            "target_layer": "body.48.res_layer.4",
+            "training_dataset": "ms1mv3"
+          },
+          "arcface_ms1mv2_r100": {
+            "architecture": "iresnet100",
+            "architecture_display_name": "r100",
+            "blocked_reason": "재현 가능한 공식 공개 checkpoint 경로가 현재 확인되지 않은 profile입니다. InsightFace 공식 OneDrive의 공개 목록에서 MS1MV2 ArcFace R100 .pth를 확인·확보할 수 없으므로, 재현 가능한 공개 checkpoint로 간주하지 않습니다.\n",
+            "checkpoint_path": null,
+            "checkpoint_source_page": null,
+            "checkpoint_source_url": null,
+            "embedding_dim": 512,
+            "family": "arcface",
+            "framework": "pytorch",
+            "implementation_repository": "https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch",
+            "loader_factory": "research.embeddings.pytorch.official_loaders:load_arcface_checkpoint",
+            "preprocessing": {
+              "input_range": [
+                -1.0,
+                1.0
+              ],
+              "input_size": [
+                112,
+                112
+              ],
+              "mean": [
+                127.5,
+                127.5,
+                127.5
+              ],
+              "model_color_order": "rgb",
+              "std": [
+                127.5,
+                127.5,
+                127.5
+              ]
+            },
+            "role": "blocked",
+            "run_compression": false,
+            "run_gradcam": false,
+            "status": "blocked_no_verified_public_checkpoint",
+            "target_layer": "layer4.2.conv2",
+            "training_dataset": "ms1mv2"
+          },
+          "arcface_ms1mv3_r100": {
+            "architecture": "iresnet100",
+            "architecture_display_name": "r100",
+            "checkpoint_path": null,
+            "checkpoint_source_page": "https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch#model-zoo",
+            "checkpoint_source_url": null,
+            "embedding_dim": 512,
+            "family": "arcface",
+            "framework": "pytorch",
+            "implementation_repository": "https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch",
+            "loader_factory": "research.embeddings.pytorch.official_loaders:load_arcface_checkpoint",
+            "preprocessing": {
+              "input_range": [
+                -1.0,
+                1.0
+              ],
+              "input_size": [
+                112,
+                112
+              ],
+              "mean": [
+                127.5,
+                127.5,
+                127.5
+              ],
+              "model_color_order": "rgb",
+              "std": [
+                127.5,
+                127.5,
+                127.5
+              ]
+            },
+            "role": "primary",
+            "run_compression": true,
+            "run_gradcam": true,
+            "status": "implementation_ready_checkpoint_required",
+            "target_layer": "layer4.2.conv2",
+            "training_dataset": "ms1mv3"
+          },
+          "edgeface_webface12m_xs_gamma_06": {
+            "architecture": "edgeface_xs_gamma_06",
+            "architecture_display_name": "EdgeFace-XS gamma=0.6",
+            "checkpoint_path": "C:\\ronbun\\models\\edgeface\\edgeface_xs_gamma_06.pt",
+            "checkpoint_source_page": "https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface/-/tree/master/checkpoints?ref_type=heads",
+            "checkpoint_source_url": "https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface/-/raw/master/checkpoints/edgeface_xs_gamma_06.pt",
+            "embedding_dim": 512,
+            "expected_checkpoint_sha256": "5ae7504cd9aee0a5d52c2115fd2eb66b0985dd1730f40134b5854e0cb658ce16",
+            "family": "edgeface",
+            "framework": "pytorch",
+            "implementation_repository": "https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface",
+            "loader_factory": "research.embeddings.pytorch.official_loaders:load_edgeface_checkpoint",
+            "model_uid": "edgeface-a348c305af33c223b337",
+            "preprocessing": {
+              "input_range": [
+                -1.0,
+                1.0
+              ],
+              "input_size": [
+                112,
+                112
+              ],
+              "mean": [
+                127.5,
+                127.5,
+                127.5
+              ],
+              "model_color_order": "rgb",
+              "std": [
+                127.5,
+                127.5,
+                127.5
+              ]
+            },
+            "role": "external_model_generalization",
+            "run_compression": true,
+            "run_gradcam": true,
+            "status": "implementation_ready_checkpoint_available_local",
+            "target_layer": "model.stages.2.blocks.8.convs.1",
+            "training_dataset": "webface12m"
+          },
+          "magface_ms1mv2_iresnet100": {
+            "architecture": "iresnet100",
+            "architecture_display_name": "iresnet100",
+            "checkpoint_path": null,
+            "checkpoint_source_page": "https://github.com/IrvingMeng/MagFace#model-zoo",
+            "checkpoint_source_url": null,
+            "embedding_dim": 512,
+            "family": "magface",
+            "framework": "pytorch",
+            "implementation_repository": "https://github.com/IrvingMeng/MagFace",
+            "loader_factory": "research.embeddings.pytorch.official_loaders:load_magface_checkpoint",
+            "preprocessing": {
+              "input_range": [
+                0.0,
+                1.0
+              ],
+              "input_size": [
+                112,
+                112
+              ],
+              "mean": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "model_color_order": "rgb",
+              "std": [
+                255.0,
+                255.0,
+                255.0
+              ]
+            },
+            "role": "primary",
+            "run_compression": true,
+            "run_gradcam": true,
+            "status": "implementation_ready_checkpoint_required",
+            "target_layer": "layer4.2.conv2",
+            "training_dataset": "ms1mv2"
+          }
+        },
+        "registry_root": "runs/step2/model_registry",
+        "selected_profiles": [
+          "arcface_ms1mv3_r100",
+          "adaface_ms1mv3_r100",
+          "magface_ms1mv2_iresnet100",
+          "edgeface_webface12m_xs_gamma_06"
+        ],
+        "validation_root": "runs/step2/model_validation"
+      },
+      "orchestration": {
+        "artifact_storage_mode": "results_only",
+        "comparison_contract_coverage": "partial",
+        "dataset_id": "lfw",
+        "evaluation_contract_id": "face_search_evaluation_v1",
+        "evaluation_contract_sha256": "42a734795bf298382349bac15b93a21fc8075ed11e37a4bbd1c7c63f393e9713",
+        "pipeline_id": "common_step4_gradcam_v1",
+        "quick_data_fractions": {
+          "lfw": 0.1,
+          "rfw_custom": 0.1,
+          "survface": 0.02,
+          "tinyface": 0.1
+        },
+        "quick_fraction_override": false,
+        "run_tier": "full",
+        "source_snapshot": {
+          "branch": "step10",
+          "commit": "9627e9f33b15256aaaf77e4731f88833c3eff89f",
+          "dirty": false,
+          "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "run": {
+        "dataset_date_dir_template": "{dataset_id}_{date}",
+        "dataset_id": "lfw",
+        "name": "step2_pytorch_fr_and_gradcam",
+        "parent_step1_commit": "4084ee1",
+        "partition_by_date": false,
+        "promotion_root": "results/step2",
+        "root": "runs"
+      },
+      "study_boundary": {
+        "causal_loss_claim": false,
+        "comparison_unit": "pretrained_checkpoint",
+        "exact_origin_fallback": false,
+        "preserve_step1_artifacts_read_only": true,
+        "train_face_recognition_models": false
+      },
+      "workflow": {
+        "artifact_storage_mode": "results_only",
+        "artifact_subdir": "artifacts/step2_workflow",
+        "calibration_diagnostics_path": "origin_calibration_diagnostics.json",
+        "figure_dir": "figures",
+        "freeze_manifest_path": "freeze_manifest.json",
+        "frozen_codec_manifest_path": "frozen_codec_manifest.json",
+        "geometry_association_path": "saliency_geometry_associations.csv",
+        "geometry_joined_metrics_path": "saliency_geometry_join.csv",
+        "origin_score_audit_path": "origin_open_set_score_audit.csv",
+        "paired_metrics_path": "paired_embedding_metrics.csv",
+        "persist_large_join_artifacts": false,
+        "prepared_population_dir": "prepared_population",
+        "representative_case_candidates_path": "representative_case_candidates.csv",
+        "representative_cases_path": "representative_cases.csv",
+        "retrieval_association_path": "saliency_retrieval_associations.csv",
+        "retrieval_joined_metrics_path": "saliency_retrieval_join.csv",
+        "retrieval_ledger_manifest_path": "retrieval_ledger/manifest.json",
+        "retrieval_metrics_path": "retrieval_metrics.csv",
+        "rfw_custom_demographic_summary_path": "rfw_custom_demographic_summary.csv",
+        "saliency_population_dir": "saliency_population",
+        "saliency_validation_path": "saliency_validation.json",
+        "selected_manifest_path": "selected_manifest.csv",
+        "threshold_instability_association_path": "saliency_threshold_instability_associations.csv",
+        "threshold_policy_comparison_path": "saliency_threshold_policy_comparisons.csv",
+        "threshold_policy_saliency_rho_path": "saliency_threshold_policy_rho_comparisons.csv"
+      }
+    }
+  },
+  "config_hash": "03c98fe55c76ae6a2787577703b7d2f24386e326ace6bb520e6e77f2321f0fd5",
+  "created_at_kst": "2026-09-01T01:51:45.862236+09:00",
+  "created_at_utc": "2026-08-31T16:51:45.862236+00:00",
+  "environment": {
+    "gpu": {
+      "driver": "582.28",
+      "memory_mib": "11264",
+      "name": "NVIDIA GeForce GTX 1080 Ti"
+    },
+    "packages": {
+      "faiss-cpu": "1.14.3",
+      "insightface": "1.0.1",
+      "numpy": "1.26.4",
+      "onnxruntime": null,
+      "onnxruntime-gpu": "1.16.3",
+      "opencv-python": "5.0.0.93",
+      "pandas": "3.0.3",
+      "pgvector": "0.5.0",
+      "scikit-learn": "1.9.0",
+      "sqlalchemy": "2.0.49",
+      "torch": "2.7.1+cu118",
+      "torchvision": "0.22.1+cu118"
+    },
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "finished_at_utc": "2026-08-31T17:02:20.193767+00:00",
+  "git": {
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ],
+    "branch": "step10",
+    "commit": "9627e9f33b15256aaaf77e4731f88833c3eff89f",
+    "dirty": false,
+    "dirty_run_explicitly_allowed": false,
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [],
+    "tracked_source_changes": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked_paths": [],
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "inputs": [
+    {
+      "bytes": 21283,
+      "path": "C:\\ronbun\\runs\\orchestration\\effective_configs\\9e5b53147e3b72fe.yaml",
+      "role": "step4_config",
+      "sha256": "9c9d2d60595bdd67faee933b13f553a832d70186dd03e00f531f94b6e4be8649"
+    },
+    {
+      "bytes": 1216,
+      "path": "C:\\ronbun\\runs\\step2\\model_registry\\edgeface-a348c305af33c223b337.json",
+      "role": "model_spec",
+      "sha256": "62ee3a495a53166f7661c206f28d290eb092d1889f207d70fe82d1fc0b67906b"
+    },
+    {
+      "bytes": 1556,
+      "path": "C:\\ronbun\\data\\interim\\common\\aligned_112\\bundle_manifest.json",
+      "role": "aligned_bundle_manifest",
+      "sha256": "e9df1fde8f4d0fd7de642336f42920788dcb238d992a4fc2eafbaa745df92421"
+    },
+    {
+      "bytes": 4305,
+      "path": "C:\\ronbun\\data\\interim\\step4\\lfw\\landmark_regions_106\\bundle_manifest.json",
+      "role": "landmark_region_manifest",
+      "sha256": "54abb48699ebaf48576965d33227d4ab8490513a9f1ea459b03b1837f1591244"
+    },
+    {
+      "bytes": 2017664,
+      "path": "C:\\ronbun\\data\\interim\\lfw\\face_manifest.csv",
+      "role": "dataset_manifest_0",
+      "sha256": "839d228a63995cd456fa2045c29702c8271cbbaaeb99a033bce767245657ea2c"
+    }
+  ],
+  "partition_by_date": false,
+  "run_id": "20260901-R001-03c98fe5",
+  "run_name": "step4_lfw_edgeface-a348c305af33c223b337",
+  "sequence": 1,
+  "started_at_utc": "2026-08-31T16:51:45.978870+00:00",
+  "status": "completed"
+}

@@ -1,0 +1,728 @@
+{
+  "schema_version": 1,
+  "artifact_type": "origin_open_set_multi_fpir_diagnostics",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "diagnostics_by_target": {
+    "0.1": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "survface",
+      "model_uid": "edgeface-a348c305af33c223b337",
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.1,
+      "origin_decision_threshold": 0.8537619113922119,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.8537619113922119,
+        "independently_calculated_threshold": 0.8537619113922119,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 3000,
+          "source_image_count": 60480,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.16,
+            "p50": 3.0,
+            "p90": 75.0,
+            "p95": 101.04999999999973,
+            "p99": 156.0,
+            "maximum": 244.0
+          },
+          "query_count": 160408,
+          "mated_count": 61583,
+          "non_mated_count": 98825,
+          "probe_type_counts": {
+            "registered": 61583,
+            "known_unknown": 98825
+          },
+          "origin_decision_threshold": 0.8537619113922119,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.1,
+          "origin_false_accept_count": 9882,
+          "origin_fpir": 0.0999949405514799,
+          "origin_fpir_wilson95_low": 0.09814009625596287,
+          "origin_fpir_wilson95_high": 0.10188088109261223,
+          "origin_true_identification_count": 767,
+          "origin_dir_rank1": 0.012454735884903301,
+          "non_mated_top1_score": {
+            "count": 98825,
+            "minimum": 0.23350389301776886,
+            "mean": 0.7009229569066605,
+            "p50": 0.7102035880088806,
+            "p90": 0.8537579298019409,
+            "p95": 0.8842831969261167,
+            "p99": 0.928691086769104,
+            "maximum": 0.984269380569458
+          },
+          "query_raw_embedding_norm": {
+            "count": 160408,
+            "minimum": 0.18089446425437927,
+            "mean": 0.2628451880079849,
+            "p50": 0.26341232657432556,
+            "p90": 0.28795409202575684,
+            "p95": 0.2943087056279182,
+            "p99": 0.30544717639684676,
+            "maximum": 0.3455936908721924
+          }
+        },
+        "test": {
+          "template_count": 3000,
+          "source_image_count": 60294,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.098,
+            "p50": 3.0,
+            "p90": 71.09999999999991,
+            "p95": 119.0,
+            "p99": 189.0,
+            "maximum": 363.0
+          },
+          "query_count": 182159,
+          "mated_count": 60423,
+          "non_mated_count": 121736,
+          "probe_type_counts": {
+            "registered": 60423,
+            "unknown_unknown": 121736
+          },
+          "origin_decision_threshold": 0.8537619113922119,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.1,
+          "origin_false_accept_count": 11993,
+          "origin_fpir": 0.0985164618518762,
+          "origin_fpir_wilson95_low": 0.09685504568433452,
+          "origin_fpir_wilson95_high": 0.1002032153693027,
+          "origin_true_identification_count": 164,
+          "origin_dir_rank1": 0.0027141982357711467,
+          "non_mated_top1_score": {
+            "count": 121736,
+            "minimum": 0.272102952003479,
+            "mean": 0.6969204822957531,
+            "p50": 0.7040334641933441,
+            "p90": 0.8530349135398865,
+            "p95": 0.8863702416419983,
+            "p99": 0.9322161793708801,
+            "maximum": 0.9794619083404541
+          },
+          "query_raw_embedding_norm": {
+            "count": 182159,
+            "minimum": 0.1729562133550644,
+            "mean": 0.263238167755345,
+            "p50": 0.2639210522174835,
+            "p90": 0.28825093507766725,
+            "p95": 0.29453192055225375,
+            "p99": 0.3055609166622162,
+            "maximum": 0.3347811698913574
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "target_met",
+        "target_met": true,
+        "threshold_dependent_results_valid_for_target_operating_point": true,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.0985164618518762,
+        "target_fpir": 0.1
+      },
+      "calibration_contract": {
+        "name": "training_3000_half_gallery_v2",
+        "seed": 8972,
+        "source_identity_count": 5319,
+        "gallery_identity_count": 3000,
+        "gallery_source_image_count": 60480,
+        "gallery_enrollment_policy": "half_floor",
+        "registered_probe_count": 61583,
+        "non_mated_identity_count": 2319,
+        "non_mated_probe_count": 98825,
+        "compressor_fit_source": "watchlist_enrollment_images_only",
+        "compressor_fit_image_count": 60480,
+        "official_test_used_for_threshold": false
+      }
+    },
+    "0.01": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "survface",
+      "model_uid": "edgeface-a348c305af33c223b337",
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.01,
+      "origin_decision_threshold": 0.9286932945251465,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.9286932945251465,
+        "independently_calculated_threshold": 0.9286932945251465,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 3000,
+          "source_image_count": 60480,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.16,
+            "p50": 3.0,
+            "p90": 75.0,
+            "p95": 101.04999999999973,
+            "p99": 156.0,
+            "maximum": 244.0
+          },
+          "query_count": 160408,
+          "mated_count": 61583,
+          "non_mated_count": 98825,
+          "probe_type_counts": {
+            "registered": 61583,
+            "known_unknown": 98825
+          },
+          "origin_decision_threshold": 0.9286932945251465,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.01,
+          "origin_false_accept_count": 988,
+          "origin_fpir": 0.009997470275739944,
+          "origin_fpir_wilson95_low": 0.009395970396410483,
+          "origin_fpir_wilson95_high": 0.010637062770791425,
+          "origin_true_identification_count": 27,
+          "origin_dir_rank1": 0.0004384326843447055,
+          "non_mated_top1_score": {
+            "count": 98825,
+            "minimum": 0.23350389301776886,
+            "mean": 0.7009229569066605,
+            "p50": 0.7102035880088806,
+            "p90": 0.8537579298019409,
+            "p95": 0.8842831969261167,
+            "p99": 0.928691086769104,
+            "maximum": 0.984269380569458
+          },
+          "query_raw_embedding_norm": {
+            "count": 160408,
+            "minimum": 0.18089446425437927,
+            "mean": 0.2628451880079849,
+            "p50": 0.26341232657432556,
+            "p90": 0.28795409202575684,
+            "p95": 0.2943087056279182,
+            "p99": 0.30544717639684676,
+            "maximum": 0.3455936908721924
+          }
+        },
+        "test": {
+          "template_count": 3000,
+          "source_image_count": 60294,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.098,
+            "p50": 3.0,
+            "p90": 71.09999999999991,
+            "p95": 119.0,
+            "p99": 189.0,
+            "maximum": 363.0
+          },
+          "query_count": 182159,
+          "mated_count": 60423,
+          "non_mated_count": 121736,
+          "probe_type_counts": {
+            "registered": 60423,
+            "unknown_unknown": 121736
+          },
+          "origin_decision_threshold": 0.9286932945251465,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.01,
+          "origin_false_accept_count": 1444,
+          "origin_fpir": 0.011861733587435105,
+          "origin_fpir_wilson95_low": 0.011268786054459981,
+          "origin_fpir_wilson95_high": 0.01248548719058017,
+          "origin_true_identification_count": 1,
+          "origin_dir_rank1": 1.6549989242506992e-05,
+          "non_mated_top1_score": {
+            "count": 121736,
+            "minimum": 0.272102952003479,
+            "mean": 0.6969204822957531,
+            "p50": 0.7040334641933441,
+            "p90": 0.8530349135398865,
+            "p95": 0.8863702416419983,
+            "p99": 0.9322161793708801,
+            "maximum": 0.9794619083404541
+          },
+          "query_raw_embedding_norm": {
+            "count": 182159,
+            "minimum": 0.1729562133550644,
+            "mean": 0.263238167755345,
+            "p50": 0.2639210522174835,
+            "p90": 0.28825093507766725,
+            "p95": 0.29453192055225375,
+            "p99": 0.3055609166622162,
+            "maximum": 0.3347811698913574
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "failed_target_fpir",
+        "target_met": false,
+        "threshold_dependent_results_valid_for_target_operating_point": false,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.011861733587435105,
+        "target_fpir": 0.01
+      },
+      "calibration_contract": {
+        "name": "training_3000_half_gallery_v2",
+        "seed": 8972,
+        "source_identity_count": 5319,
+        "gallery_identity_count": 3000,
+        "gallery_source_image_count": 60480,
+        "gallery_enrollment_policy": "half_floor",
+        "registered_probe_count": 61583,
+        "non_mated_identity_count": 2319,
+        "non_mated_probe_count": 98825,
+        "compressor_fit_source": "watchlist_enrollment_images_only",
+        "compressor_fit_image_count": 60480,
+        "official_test_used_for_threshold": false
+      }
+    },
+    "0.05": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "survface",
+      "model_uid": "edgeface-a348c305af33c223b337",
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.05,
+      "origin_decision_threshold": 0.8842889070510864,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.8842889070510864,
+        "independently_calculated_threshold": 0.8842889070510864,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 3000,
+          "source_image_count": 60480,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.16,
+            "p50": 3.0,
+            "p90": 75.0,
+            "p95": 101.04999999999973,
+            "p99": 156.0,
+            "maximum": 244.0
+          },
+          "query_count": 160408,
+          "mated_count": 61583,
+          "non_mated_count": 98825,
+          "probe_type_counts": {
+            "registered": 61583,
+            "known_unknown": 98825
+          },
+          "origin_decision_threshold": 0.8842889070510864,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.05,
+          "origin_false_accept_count": 4941,
+          "origin_fpir": 0.04999747027573995,
+          "origin_fpir_wilson95_low": 0.04865608957992709,
+          "origin_fpir_wilson95_high": 0.05137383400204526,
+          "origin_true_identification_count": 257,
+          "origin_dir_rank1": 0.004173229625058864,
+          "non_mated_top1_score": {
+            "count": 98825,
+            "minimum": 0.23350389301776886,
+            "mean": 0.7009229569066605,
+            "p50": 0.7102035880088806,
+            "p90": 0.8537579298019409,
+            "p95": 0.8842831969261167,
+            "p99": 0.928691086769104,
+            "maximum": 0.984269380569458
+          },
+          "query_raw_embedding_norm": {
+            "count": 160408,
+            "minimum": 0.18089446425437927,
+            "mean": 0.2628451880079849,
+            "p50": 0.26341232657432556,
+            "p90": 0.28795409202575684,
+            "p95": 0.2943087056279182,
+            "p99": 0.30544717639684676,
+            "maximum": 0.3455936908721924
+          }
+        },
+        "test": {
+          "template_count": 3000,
+          "source_image_count": 60294,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.098,
+            "p50": 3.0,
+            "p90": 71.09999999999991,
+            "p95": 119.0,
+            "p99": 189.0,
+            "maximum": 363.0
+          },
+          "query_count": 182159,
+          "mated_count": 60423,
+          "non_mated_count": 121736,
+          "probe_type_counts": {
+            "registered": 60423,
+            "unknown_unknown": 121736
+          },
+          "origin_decision_threshold": 0.8842889070510864,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.05,
+          "origin_false_accept_count": 6411,
+          "origin_fpir": 0.05266313990931196,
+          "origin_fpir_wilson95_low": 0.0514224835259663,
+          "origin_fpir_wilson95_high": 0.05393202741414463,
+          "origin_true_identification_count": 54,
+          "origin_dir_rank1": 0.0008936994190953776,
+          "non_mated_top1_score": {
+            "count": 121736,
+            "minimum": 0.272102952003479,
+            "mean": 0.6969204822957531,
+            "p50": 0.7040334641933441,
+            "p90": 0.8530349135398865,
+            "p95": 0.8863702416419983,
+            "p99": 0.9322161793708801,
+            "maximum": 0.9794619083404541
+          },
+          "query_raw_embedding_norm": {
+            "count": 182159,
+            "minimum": 0.1729562133550644,
+            "mean": 0.263238167755345,
+            "p50": 0.2639210522174835,
+            "p90": 0.28825093507766725,
+            "p95": 0.29453192055225375,
+            "p99": 0.3055609166622162,
+            "maximum": 0.3347811698913574
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "failed_target_fpir",
+        "target_met": false,
+        "threshold_dependent_results_valid_for_target_operating_point": false,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.05266313990931196,
+        "target_fpir": 0.05
+      },
+      "calibration_contract": {
+        "name": "training_3000_half_gallery_v2",
+        "seed": 8972,
+        "source_identity_count": 5319,
+        "gallery_identity_count": 3000,
+        "gallery_source_image_count": 60480,
+        "gallery_enrollment_policy": "half_floor",
+        "registered_probe_count": 61583,
+        "non_mated_identity_count": 2319,
+        "non_mated_probe_count": 98825,
+        "compressor_fit_source": "watchlist_enrollment_images_only",
+        "compressor_fit_image_count": 60480,
+        "official_test_used_for_threshold": false
+      }
+    },
+    "0.2": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "survface",
+      "model_uid": "edgeface-a348c305af33c223b337",
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.2,
+      "origin_decision_threshold": 0.8093010783195496,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.8093010783195496,
+        "independently_calculated_threshold": 0.8093010783195496,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 3000,
+          "source_image_count": 60480,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.16,
+            "p50": 3.0,
+            "p90": 75.0,
+            "p95": 101.04999999999973,
+            "p99": 156.0,
+            "maximum": 244.0
+          },
+          "query_count": 160408,
+          "mated_count": 61583,
+          "non_mated_count": 98825,
+          "probe_type_counts": {
+            "registered": 61583,
+            "known_unknown": 98825
+          },
+          "origin_decision_threshold": 0.8093010783195496,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.2,
+          "origin_false_accept_count": 19765,
+          "origin_fpir": 0.2,
+          "origin_fpir_wilson95_low": 0.1975178072125804,
+          "origin_fpir_wilson95_high": 0.2025055146766414,
+          "origin_true_identification_count": 1943,
+          "origin_dir_rank1": 0.031550915025250474,
+          "non_mated_top1_score": {
+            "count": 98825,
+            "minimum": 0.23350389301776886,
+            "mean": 0.7009229569066605,
+            "p50": 0.7102035880088806,
+            "p90": 0.8537579298019409,
+            "p95": 0.8842831969261167,
+            "p99": 0.928691086769104,
+            "maximum": 0.984269380569458
+          },
+          "query_raw_embedding_norm": {
+            "count": 160408,
+            "minimum": 0.18089446425437927,
+            "mean": 0.2628451880079849,
+            "p50": 0.26341232657432556,
+            "p90": 0.28795409202575684,
+            "p95": 0.2943087056279182,
+            "p99": 0.30544717639684676,
+            "maximum": 0.3455936908721924
+          }
+        },
+        "test": {
+          "template_count": 3000,
+          "source_image_count": 60294,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.098,
+            "p50": 3.0,
+            "p90": 71.09999999999991,
+            "p95": 119.0,
+            "p99": 189.0,
+            "maximum": 363.0
+          },
+          "query_count": 182159,
+          "mated_count": 60423,
+          "non_mated_count": 121736,
+          "probe_type_counts": {
+            "registered": 60423,
+            "unknown_unknown": 121736
+          },
+          "origin_decision_threshold": 0.8093010783195496,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.2,
+          "origin_false_accept_count": 23493,
+          "origin_fpir": 0.19298317671025828,
+          "origin_fpir_wilson95_low": 0.19077601154160057,
+          "origin_fpir_wilson95_high": 0.19520971749941618,
+          "origin_true_identification_count": 400,
+          "origin_dir_rank1": 0.006619995697002797,
+          "non_mated_top1_score": {
+            "count": 121736,
+            "minimum": 0.272102952003479,
+            "mean": 0.6969204822957531,
+            "p50": 0.7040334641933441,
+            "p90": 0.8530349135398865,
+            "p95": 0.8863702416419983,
+            "p99": 0.9322161793708801,
+            "maximum": 0.9794619083404541
+          },
+          "query_raw_embedding_norm": {
+            "count": 182159,
+            "minimum": 0.1729562133550644,
+            "mean": 0.263238167755345,
+            "p50": 0.2639210522174835,
+            "p90": 0.28825093507766725,
+            "p95": 0.29453192055225375,
+            "p99": 0.3055609166622162,
+            "maximum": 0.3347811698913574
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "target_met",
+        "target_met": true,
+        "threshold_dependent_results_valid_for_target_operating_point": true,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.19298317671025828,
+        "target_fpir": 0.2
+      },
+      "calibration_contract": {
+        "name": "training_3000_half_gallery_v2",
+        "seed": 8972,
+        "source_identity_count": 5319,
+        "gallery_identity_count": 3000,
+        "gallery_source_image_count": 60480,
+        "gallery_enrollment_policy": "half_floor",
+        "registered_probe_count": 61583,
+        "non_mated_identity_count": 2319,
+        "non_mated_probe_count": 98825,
+        "compressor_fit_source": "watchlist_enrollment_images_only",
+        "compressor_fit_image_count": 60480,
+        "official_test_used_for_threshold": false
+      }
+    },
+    "0.3": {
+      "schema_version": 2,
+      "artifact_type": "origin_open_set_calibration_diagnostics",
+      "dataset_id": "survface",
+      "model_uid": "edgeface-a348c305af33c223b337",
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "score_definition": "maximum cosine similarity over gallery templates",
+      "threshold_source_split": "calibration",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "threshold_comparator": ">=",
+      "target_fpir": 0.3,
+      "origin_decision_threshold": 0.7734835147857666,
+      "independent_threshold_verification": {
+        "algorithm": "descending grouped-score cumulative-count audit",
+        "origin_decision_threshold": 0.7734835147857666,
+        "independently_calculated_threshold": 0.7734835147857666,
+        "matches": true
+      },
+      "splits": {
+        "calibration": {
+          "template_count": 3000,
+          "source_image_count": 60480,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.16,
+            "p50": 3.0,
+            "p90": 75.0,
+            "p95": 101.04999999999973,
+            "p99": 156.0,
+            "maximum": 244.0
+          },
+          "query_count": 160408,
+          "mated_count": 61583,
+          "non_mated_count": 98825,
+          "probe_type_counts": {
+            "registered": 61583,
+            "known_unknown": 98825
+          },
+          "origin_decision_threshold": 0.7734835147857666,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.3,
+          "origin_false_accept_count": 29647,
+          "origin_fpir": 0.2999949405514799,
+          "origin_fpir_wilson95_low": 0.2971456807596749,
+          "origin_fpir_wilson95_high": 0.3028597486627524,
+          "origin_true_identification_count": 3372,
+          "origin_dir_rank1": 0.05475537080038322,
+          "non_mated_top1_score": {
+            "count": 98825,
+            "minimum": 0.23350389301776886,
+            "mean": 0.7009229569066605,
+            "p50": 0.7102035880088806,
+            "p90": 0.8537579298019409,
+            "p95": 0.8842831969261167,
+            "p99": 0.928691086769104,
+            "maximum": 0.984269380569458
+          },
+          "query_raw_embedding_norm": {
+            "count": 160408,
+            "minimum": 0.18089446425437927,
+            "mean": 0.2628451880079849,
+            "p50": 0.26341232657432556,
+            "p90": 0.28795409202575684,
+            "p95": 0.2943087056279182,
+            "p99": 0.30544717639684676,
+            "maximum": 0.3455936908721924
+          }
+        },
+        "test": {
+          "template_count": 3000,
+          "source_image_count": 60294,
+          "images_per_template": {
+            "count": 3000,
+            "minimum": 1.0,
+            "mean": 20.098,
+            "p50": 3.0,
+            "p90": 71.09999999999991,
+            "p95": 119.0,
+            "p99": 189.0,
+            "maximum": 363.0
+          },
+          "query_count": 182159,
+          "mated_count": 60423,
+          "non_mated_count": 121736,
+          "probe_type_counts": {
+            "registered": 60423,
+            "unknown_unknown": 121736
+          },
+          "origin_decision_threshold": 0.7734835147857666,
+          "threshold_comparator": ">=",
+          "target_fpir": 0.3,
+          "origin_false_accept_count": 35124,
+          "origin_fpir": 0.28852599066833146,
+          "origin_fpir_wilson95_low": 0.2859875615650126,
+          "origin_fpir_wilson95_high": 0.29107776575089195,
+          "origin_true_identification_count": 689,
+          "origin_dir_rank1": 0.011402942588087318,
+          "non_mated_top1_score": {
+            "count": 121736,
+            "minimum": 0.272102952003479,
+            "mean": 0.6969204822957531,
+            "p50": 0.7040334641933441,
+            "p90": 0.8530349135398865,
+            "p95": 0.8863702416419983,
+            "p99": 0.9322161793708801,
+            "maximum": 0.9794619083404541
+          },
+          "query_raw_embedding_norm": {
+            "count": 182159,
+            "minimum": 0.1729562133550644,
+            "mean": 0.263238167755345,
+            "p50": 0.2639210522174835,
+            "p90": 0.28825093507766725,
+            "p95": 0.29453192055225375,
+            "p99": 0.3055609166622162,
+            "maximum": 0.3347811698913574
+          }
+        }
+      },
+      "calibration_transfer_assessment": {
+        "status": "target_met",
+        "target_met": true,
+        "threshold_dependent_results_valid_for_target_operating_point": true,
+        "test_used_for_threshold_selection": false,
+        "observed_test_fpir": 0.28852599066833146,
+        "target_fpir": 0.3
+      },
+      "calibration_contract": {
+        "name": "training_3000_half_gallery_v2",
+        "seed": 8972,
+        "source_identity_count": 5319,
+        "gallery_identity_count": 3000,
+        "gallery_source_image_count": 60480,
+        "gallery_enrollment_policy": "half_floor",
+        "registered_probe_count": 61583,
+        "non_mated_identity_count": 2319,
+        "non_mated_probe_count": 98825,
+        "compressor_fit_source": "watchlist_enrollment_images_only",
+        "compressor_fit_image_count": 60480,
+        "official_test_used_for_threshold": false
+      }
+    }
+  }
+}
