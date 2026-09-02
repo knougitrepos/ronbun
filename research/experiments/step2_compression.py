@@ -260,6 +260,24 @@ def _protocol_arrays(
     }
 
 
+def prepared_population_frame(
+    prepared: PreparedPopulationInputs,
+    selected_manifest: pd.DataFrame,
+) -> pd.DataFrame:
+    """Public, validated adapter used by derived calibration experiments."""
+
+    return _population_frame(prepared, selected_manifest)
+
+
+def open_set_protocol_arrays(
+    protocol: OpenSetProtocol,
+    population: pd.DataFrame,
+) -> dict[str, np.ndarray]:
+    """Public template/query arrays with the canonical Step-4 aggregation."""
+
+    return _protocol_arrays(protocol, population)
+
+
 def _distribution_summary(values: np.ndarray, *, name: str) -> dict[str, object]:
     array = np.asarray(values, dtype=np.float64)
     if array.ndim != 1 or len(array) == 0:
