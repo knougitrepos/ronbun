@@ -444,6 +444,8 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "resolve_common_faithfulness_maximum_samples",
         "Faithfulness artifact 자동 선택",
         "EXPECTED_PQ_SDC_SETTINGS = None",
+        "EXPECTED_PQ_SDC_SETTINGS_AUTO",
+        "selected_pq_sdc_settings",
         "EXPECTED_PQ_SDC_PROFILES",
         "SELECTED_PQ_SEARCH_MODES",
         "SDC profile contract mismatch",
@@ -467,6 +469,8 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "RFW_PROFILE_SUMMARY",
         "supplementary_1to1_verification",
         "TINYFACE_EVALUATION_DIR",
+        'run_ids=SELECTED_RUN_IDS',
+        'selected_run_table["source_commit"]',
         "load_tinyface_completed_evaluation",
         "tinyface_official_compression_summary.csv",
         "supplementary_closed_set_1toN_identification",
@@ -498,6 +502,13 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
         "4 checkpoints × 3 open-set datasets",
     ):
         assert phrase in report
+
+    assert report.index("selected_run_table =") < report.index(
+        "selected_pq_sdc_settings ="
+    )
+    assert report.index("selected_pq_sdc_settings =") < report.index(
+        "EXPECTED_PQ_SDC_PROFILES ="
+    )
 
 
 def test_cross_dataset_transfer_notebook_is_protocol_aware_and_selectable() -> None:

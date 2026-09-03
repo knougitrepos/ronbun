@@ -79,6 +79,45 @@ def test_does_not_mix_incomplete_independently_latest_runs() -> None:
     assert set(selected["campaign_id"]) == {"20260830-R001"}
 
 
+def test_selects_homogeneous_batch_that_crosses_midnight() -> None:
+    rows = [
+        _candidate(dataset, f"20260830-R001-{index:08x}", source_commit="old")
+        for index, dataset in enumerate(DATASETS, start=1)
+    ]
+    rows.extend(
+        [
+            _candidate("lfw", "20260902-R001-00000011", source_commit="new"),
+            _candidate("survface", "20260902-R001-00000012", source_commit="new"),
+            _candidate("rfw_custom", "20260903-R001-00000013", source_commit="new"),
+        ]
+    )
+
+    selected = select_model_uid_report_cohort(
+        pd.DataFrame(rows), model_uid="adaface-model"
+    )
+
+    assert set(selected["source_commit"]) == {"new"}
+    assert selected.set_index("dataset")["run_id"].to_dict() == {
+        "lfw": "20260902-R001-00000011",
+        "survface": "20260902-R001-00000012",
+        "rfw_custom": "20260903-R001-00000013",
+    }
+
+
+def test_does_not_mix_ambiguous_repeats_on_same_commit() -> None:
+    rows = [
+        _candidate("lfw", "20260902-R001-00000011", source_commit="new"),
+        _candidate("lfw", "20260903-R001-00000014", source_commit="new"),
+        _candidate("survface", "20260902-R001-00000012", source_commit="new"),
+        _candidate("rfw_custom", "20260903-R001-00000013", source_commit="new"),
+    ]
+
+    with pytest.raises(ValueError, match="no complete report campaign"):
+        select_model_uid_report_cohort(
+            pd.DataFrame(rows), model_uid="adaface-model"
+        )
+
+
 def test_rejects_mixed_contract_inside_campaign() -> None:
     rows = [
         _candidate(dataset, f"20260830-R001-{index:08x}")

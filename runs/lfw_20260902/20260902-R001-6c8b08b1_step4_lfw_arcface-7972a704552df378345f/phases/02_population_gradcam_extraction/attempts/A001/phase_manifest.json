@@ -1,0 +1,14 @@
+{
+  "attempt": 1,
+  "details": {
+    "counts": {
+      "gradcam_selected": 9133,
+      "heatmaps": 9133,
+      "population_rows": 13195
+    }
+  },
+  "finished_at_utc": "2026-09-02T09:18:13.552531+00:00",
+  "phase": "02_population_gradcam_extraction",
+  "started_at_utc": "2026-09-02T09:13:24.691847+00:00",
+  "status": "completed"
+}

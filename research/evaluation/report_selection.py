@@ -69,7 +69,7 @@ def select_model_uid_report_cohort(
     if eligible.empty:
         raise ValueError(f"model_uid {model_uid!r} has no report-ready runs")
 
-    complete: list[pd.DataFrame] = []
+    complete_by_run_ids: dict[tuple[str, ...], pd.DataFrame] = {}
     campaign_coverage: dict[str, list[str]] = {}
     for campaign_id, group in eligible.groupby("campaign_id", sort=True):
         campaign_id = str(campaign_id)
@@ -90,15 +90,39 @@ def select_model_uid_report_cohort(
                     f"campaign {campaign_id!r} mixes {column}: "
                     f"{group[column].astype(str).unique().tolist()}"
                 )
-        complete.append(group.copy())
+        run_ids = tuple(sorted(group["run_id"].astype(str)))
+        complete_by_run_ids[run_ids] = group.copy()
 
-    if not complete:
+    # A sequential batch can cross midnight, so its canonical run IDs may have
+    # different YYYYMMDD-RNNN prefixes even though every immutable execution
+    # contract is shared. Accept such a cohort only when the full contract group
+    # contains exactly one run per requested dataset; repeated runs remain
+    # ambiguous and are not mixed by independently choosing the latest row.
+    contract_columns = list(_COHORT_CONTRACT_COLUMNS)
+    for _, group in eligible.groupby(
+        contract_columns,
+        sort=False,
+        dropna=False,
+    ):
+        coverage = set(group["dataset"].astype(str))
+        if coverage != set(requested):
+            continue
+        counts = group.groupby("dataset", sort=False).size()
+        if not counts.eq(1).all():
+            continue
+        run_ids = tuple(sorted(group["run_id"].astype(str)))
+        complete_by_run_ids[run_ids] = group.copy()
+
+    if not complete_by_run_ids:
         raise ValueError(
             f"model_uid {model_uid!r} has no complete report campaign for "
             f"datasets={requested}; coverage={campaign_coverage}"
         )
 
-    selected = max(complete, key=lambda frame: str(frame["campaign_id"].iloc[0]))
+    selected = max(
+        complete_by_run_ids.values(),
+        key=lambda frame: max(frame["run_id"].astype(str)),
+    )
     order = {dataset: index for index, dataset in enumerate(requested)}
     selected["_dataset_order"] = selected["dataset"].map(order)
     return selected.sort_values("_dataset_order").drop(

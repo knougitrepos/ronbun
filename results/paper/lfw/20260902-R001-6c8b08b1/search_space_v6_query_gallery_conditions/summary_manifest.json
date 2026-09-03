@@ -1,0 +1,201 @@
+{
+  "schema_version": 6,
+  "artifact_type": "step4_search_space_query_gallery_conditions_v6",
+  "generated_at_utc": "2026-09-03T03:10:44.764007+00:00",
+  "dataset_id": "lfw",
+  "model_uid": "arcface-7972a704552df378345f",
+  "run_id": "20260902-R001-6c8b08b1",
+  "source_run_id": "20260902-R001-6c8b08b1",
+  "source_run_preserved_immutable": true,
+  "compact_only": true,
+  "row_level_search_space_ledgers_retained": false,
+  "source_run_full_paper_eligible": true,
+  "evaluator_git_clean": true,
+  "derived_evaluation_paper_eligible": true,
+  "claim_status": "validation_required",
+  "producer_script": "scripts/refresh_step4_search_spaces.py",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "origin_calibration_signatures": {
+    "0.01": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.05": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.1": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.2": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    },
+    "0.3": {
+      "protocol_uid": "lfw-identity-disjoint-open-set-v1",
+      "threshold_selection": "maximize calibration DIR subject to empirical FPIR <= target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.3467864394187927,
+      "calibration_non_mated_count": 2882,
+      "calibration_false_accept_count": 2,
+      "calibration_fpir": 0.0006939625260235947,
+      "test_non_mated_count": 1688,
+      "test_false_accept_count": 3,
+      "test_fpir": 0.0017772511848341231,
+      "status": "target_met"
+    }
+  },
+  "legacy_shared_mode_consistency": {
+    "status": "not_available"
+  },
+  "evaluator_git": {
+    "commit": "76d974a456d0b9a7ad34cb4ad7aca1283763c095",
+    "branch": "step11",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "source_files": {
+    "run_manifest.json": {
+      "path": "runs/lfw_20260902/20260902-R001-6c8b08b1_step4_lfw_arcface-7972a704552df378345f/run_manifest.json",
+      "bytes": 32591,
+      "sha256": "4e99f907e6c877c440c9155f38fea1581e21b8d9e05ab7278b5cfd70ea12f407"
+    },
+    "freeze_manifest.json": {
+      "path": "runs/lfw_20260902/20260902-R001-6c8b08b1_step4_lfw_arcface-7972a704552df378345f/artifacts/step2_workflow/freeze_manifest.json",
+      "bytes": 933,
+      "sha256": "e3730e507a989959b6541e9d6a64efcfc5cb4fc1108e6e75648635dcb04dbe05"
+    },
+    "prepared_population/manifest.json": {
+      "path": "runs/lfw_20260902/20260902-R001-6c8b08b1_step4_lfw_arcface-7972a704552df378345f/artifacts/step2_workflow/prepared_population/manifest.json",
+      "bytes": 2581,
+      "sha256": "cccd5a06d982de214c6010612e254535bcde19918095e8d9fa1433067b92ecde"
+    },
+    "selected_manifest.csv": {
+      "path": "runs/lfw_20260902/20260902-R001-6c8b08b1_step4_lfw_arcface-7972a704552df378345f/artifacts/step2_workflow/selected_manifest.csv",
+      "bytes": 3343034,
+      "sha256": "c868cd5ae74bc79c2226a41f323970cec008d7bce1612ce9627d2002992d7ff8"
+    }
+  },
+  "family_manifests": {
+    "pca": {
+      "path": "results/paper/lfw/20260902-R001-6c8b08b1/search_space_v6_query_gallery_conditions/pca/family_manifest.json",
+      "bytes": 4320,
+      "sha256": "87384c7ba566c6f37cfbbcaac28e09a6cb4e4968d0da1c0ca0fae04d37c6e675"
+    },
+    "pq": {
+      "path": "results/paper/lfw/20260902-R001-6c8b08b1/search_space_v6_query_gallery_conditions/pq/family_manifest.json",
+      "bytes": 4319,
+      "sha256": "4345a4160b3b3a0a7c09dedcaf90415c3d0ee9bee0748acde45516c82af69fe2"
+    }
+  },
+  "validated_counts": {
+    "compression_summary_rows": 10,
+    "retrieval_summary_rows": 225
+  },
+  "summary_contract": {
+    "compression_grain": "family x profile",
+    "retrieval_grain": "family x profile x search_mode x threshold_policy x target_fpir",
+    "tpir20_definition": "mated probe true identity is within top 20 and its score is greater than or equal to the calibration threshold",
+    "tpir20_threshold_score": "true_identity_score_within_top20",
+    "closed_set_rank20_definition": "mated probe true identity is within top 20 without thresholding",
+    "search_modes": [
+      "pca_direct_cosine",
+      "pca_reconstruction_cosine",
+      "pq_adc_exhaustive",
+      "pq_one_sided_cosine",
+      "pq_reconstruction_cosine"
+    ],
+    "pq_sdc_settings": [],
+    "pq_sdc_profiles": [],
+    "cross_score_space_frozen_origin": {
+      "pq_adc_exhaustive": "not_applicable",
+      "pq_sdc_exhaustive": "not_applicable"
+    },
+    "query_gallery_condition_columns": [
+      "query_representation",
+      "gallery_representation",
+      "distance_function",
+      "compressed_score_space"
+    ],
+    "threshold_crossing_directions": [
+      "accept_to_reject",
+      "reject_to_accept"
+    ],
+    "rate_confidence_intervals": "probe-level two-sided 95% Wilson score intervals",
+    "origin_difference_confidence_intervals": "compressed minus origin probe-level paired nonparametric bootstrap percentile intervals",
+    "latency": "single observation; repeated benchmark still required"
+  },
+  "limitations": [
+    "No row-level derived search-space ledger is retained by this compact refresh.",
+    "Confidence intervals resample probes and do not represent identity-cluster or checkpoint-training uncertainty.",
+    "Latency is a one-shot wall-clock observation and is not a stable systems benchmark."
+  ],
+  "output_files": {
+    "compression_summary.csv": {
+      "path": "results/paper/lfw/20260902-R001-6c8b08b1/search_space_v6_query_gallery_conditions/compression_summary.csv",
+      "bytes": 3764,
+      "sha256": "d02e4fea9fc66526afc593c6965553e647c68bd8b3573d9773d7dc2aa8581f78"
+    },
+    "retrieval_summary.csv": {
+      "path": "results/paper/lfw/20260902-R001-6c8b08b1/search_space_v6_query_gallery_conditions/retrieval_summary.csv",
+      "bytes": 321122,
+      "sha256": "5ee1c7af6dd31aa6b20cae9fff2a0f3d494a4dff5c3251d225da1ad2c5f1d914"
+    }
+  }
+}
