@@ -73,6 +73,8 @@ from research.evaluation.saliency_compression import (
 )
 from research.evaluation.saliency_faithfulness import (
     FAITHFULNESS_METRICS,
+    SaliencyFaithfulnessReliability,
+    assess_saliency_faithfulness_reliability,
     select_stratified_faithfulness_sample,
     summarize_faithfulness,
 )
@@ -129,6 +131,7 @@ from research.evaluation.rfw_verification import (
 __all__ = [
     "FAITHFULNESS_METRICS",
     "FAITHFULNESS_MAXIMUM_SAMPLES",
+    "SaliencyFaithfulnessReliability",
     "DEFAULT_GEOMETRY_METRICS",
     "DEFAULT_RETRIEVAL_METRICS",
     "DEFAULT_SALIENCY_FEATURES",
@@ -174,6 +177,7 @@ __all__ = [
     "paired_embedding_metrics",
     "rate_ratio_matches_counts_or_compact_csv",
     "rank_at_k",
+    "assess_saliency_faithfulness_reliability",
     "saliency_compression_associations",
     "saliency_geometry_associations",
     "saliency_retrieval_associations",

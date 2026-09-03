@@ -76,6 +76,25 @@ def test_compact_paper_results_remain_visible() -> None:
     )
 
 
+def test_calibration_raw_scores_remain_local_but_compact_results_are_visible() -> None:
+    raw = (
+        "results/calibration/fiqa_scores/survface/fiqa-id/fiqa_scores.csv",
+        "results/calibration/condition_scores/run-id/profile/calibration_scores.parquet",
+        "results/calibration/condition_scores/run-id/profile/test_scores.parquet",
+    )
+    compact = (
+        "results/calibration/fiqa_scores/survface/fiqa-id/manifest.json",
+        "results/calibration/condition_scores/run-id/profile/manifest.json",
+        "results/calibration/global_vs_fiqa/run-id/fiqa-id/profile/manifest.json",
+        "results/calibration/global_vs_fiqa/run-id/fiqa-id/profile/method_summary.csv",
+        "results/calibration/global_vs_fiqa/run-id/fiqa-id/profile/paired_comparisons.csv",
+        "results/calibration/global_vs_fiqa/run-id/fiqa-id/profile/thresholds.csv",
+    )
+
+    assert all(_is_ignored(path) for path in raw)
+    assert not any(_is_ignored(path) for path in compact)
+
+
 @pytest.mark.parametrize(
     "path",
     [

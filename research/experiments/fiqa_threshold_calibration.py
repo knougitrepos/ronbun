@@ -27,7 +27,6 @@ from research.calibration import (
 )
 from research.calibration.rejection import choose_non_mated_fpir_threshold
 from research.compression import ORIGIN_512, PQCompressor
-from research.evaluation import compare_pq_adc_retrieval, origin_cosine_retrieval
 from research.explainability.gradcam.artifacts import (
     read_prepared_population_artifact,
 )
@@ -227,6 +226,66 @@ def _standard_scores(
     return output.reset_index(drop=True)
 
 
+def _adc_condition_score_frame(
+    adc_distances: np.ndarray,
+    adc_indices: np.ndarray,
+    *,
+    query_ids: np.ndarray,
+    gallery_identity_ids: np.ndarray,
+    query_identity_ids: np.ndarray,
+    compression_profile: str,
+    search_mode: str,
+) -> pd.DataFrame:
+    """Build the compressed score fields needed by FIQA calibration.
+
+    The FIQA replay consumes only ADC scores and rank correctness.  It does not
+    require an origin-cosine comparison, so this adapter avoids repeating and
+    materializing origin top-k retrieval solely to satisfy the broader Step-4
+    comparison schema.
+    """
+
+    distances = np.asarray(adc_distances, dtype=np.float64)
+    indices = np.asarray(adc_indices, dtype=np.int64)
+    queries = np.asarray(query_ids, dtype=object)
+    query_identities = np.asarray(query_identity_ids, dtype=object)
+    gallery_identities = np.asarray(gallery_identity_ids, dtype=object)
+    if distances.ndim != 2 or indices.shape != distances.shape:
+        raise ValueError("ADC distances and indices must be equal-shape 2D arrays")
+    if distances.shape[0] != len(queries) or len(query_identities) != len(queries):
+        raise ValueError("ADC result shape must match the query identifiers")
+    if distances.shape[1] == 0:
+        raise ValueError("ADC result must contain at least one rank")
+    if not np.isfinite(distances).all() or (distances < -1e-5).any():
+        raise ValueError("ADC squared-L2 distances must be finite and non-negative")
+    if (indices < 0).any() or (indices >= len(gallery_identities)).any():
+        raise ValueError("ADC indices are outside the gallery")
+
+    ranked_identities = gallery_identities[indices]
+    gallery_identity_set = set(gallery_identities.tolist())
+    return pd.DataFrame(
+        {
+            "query_id": queries,
+            "query_identity_id": query_identities,
+            "is_mated": [
+                identity in gallery_identity_set for identity in query_identities
+            ],
+            "compressed_top1_score": -distances[:, 0],
+            "compressed_rank1_correct": (
+                ranked_identities[:, 0] == query_identities
+            ),
+            "compressed_top_k_correct": np.any(
+                ranked_identities == query_identities[:, np.newaxis],
+                axis=1,
+            ),
+            "compression_family": "pq",
+            "compression_profile": compression_profile,
+            "top_k": int(distances.shape[1]),
+            "search_mode": search_mode,
+            "compressed_score_space": ADC_SCORE_SPACE,
+        }
+    )
+
+
 def _attach_alignment_hashes(
     scores: pd.DataFrame,
     selected_manifest: pd.DataFrame,
@@ -341,33 +400,19 @@ def replay_survface_adc_condition_scores(
     )
     arrays = open_set_protocol_arrays(calibration_protocol, population)
     top_k = min(int(evaluation["top_k"]), len(arrays["gallery"]))
-    origin = origin_cosine_retrieval(
-        arrays["queries"],
-        arrays["gallery"],
-        query_ids=arrays["query_ids"],
-        gallery_ids=arrays["gallery_ids"],
-        query_identity_ids=arrays["query_identity_ids"],
-        gallery_identity_ids=arrays["gallery_identity_ids"],
-        top_k=top_k,
-    )
     gallery_codes = codec.encode(arrays["gallery"])
-    distances, indices, metrics = codec.search_adc_with_metrics(
+    distances, indices, _ = codec.search_adc_with_metrics(
         arrays["queries"],
         gallery_codes,
         top_k=top_k,
     )
-    calibration_raw = compare_pq_adc_retrieval(
-        origin,
-        arrays["queries"],
-        arrays["gallery"],
+    calibration_raw = _adc_condition_score_frame(
         distances,
         indices,
         query_ids=arrays["query_ids"],
-        gallery_ids=arrays["gallery_ids"],
         query_identity_ids=arrays["query_identity_ids"],
         gallery_identity_ids=arrays["gallery_identity_ids"],
         compression_profile=compression_profile,
-        search_metrics=metrics,
         search_mode=search_mode,
     )
     protocol_uid = (

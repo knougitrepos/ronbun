@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import hashlib
 from typing import Sequence
 
@@ -14,6 +15,138 @@ FAITHFULNESS_METRICS = (
     "faithfulness_gain_over_low_saliency",
     "faithfulness_gain_over_random",
 )
+
+
+@dataclass(frozen=True)
+class SaliencyFaithfulnessReliability:
+    """Strong High/Low/Random control gate for saliency follow-up work."""
+
+    status: str
+    strong_faithfulness_pass: bool
+    high_over_low_mean: float
+    high_over_low_ci_lower: float
+    high_over_low_ci_upper: float
+    high_over_random_mean: float
+    high_over_random_ci_lower: float
+    high_over_random_ci_upper: float
+    gated_high_low_contrast: float
+    group: str
+    reasons: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "status": self.status,
+            "strong_faithfulness_pass": self.strong_faithfulness_pass,
+            "high_over_low_mean": self.high_over_low_mean,
+            "high_over_low_ci_lower": self.high_over_low_ci_lower,
+            "high_over_low_ci_upper": self.high_over_low_ci_upper,
+            "high_over_random_mean": self.high_over_random_mean,
+            "high_over_random_ci_lower": self.high_over_random_ci_lower,
+            "high_over_random_ci_upper": self.high_over_random_ci_upper,
+            "gated_high_low_contrast": self.gated_high_low_contrast,
+            "group": self.group,
+            "random_control_role": "faithfulness_negative_control_only",
+            "random_is_threshold_feature": False,
+            "reasons": list(self.reasons),
+        }
+
+
+def assess_saliency_faithfulness_reliability(
+    summary: pd.DataFrame,
+    *,
+    group: str = "all",
+    consistency_tolerance: float = 1e-9,
+) -> SaliencyFaithfulnessReliability:
+    """Require High to exceed both Low and Random with positive paired CIs.
+
+    Random masking is used only as a negative control.  It is never exposed as
+    a threshold feature.  The returned gated contrast is therefore zero unless
+    both prespecified paired effects have strictly positive CI lower bounds.
+    """
+
+    required_columns = {
+        "group",
+        "metric",
+        "mean",
+        "mean_ci_lower",
+        "mean_ci_upper",
+    }
+    missing = sorted(required_columns.difference(summary.columns))
+    if missing:
+        raise ValueError(f"faithfulness summary is missing columns: {missing}")
+    tolerance = float(consistency_tolerance)
+    if not np.isfinite(tolerance) or tolerance < 0.0:
+        raise ValueError("consistency_tolerance must be finite and non-negative")
+
+    required_metrics = {
+        "high_saliency_occlusion_score_drop",
+        "low_saliency_occlusion_score_drop",
+        "random_occlusion_score_drop",
+        "faithfulness_gain_over_low_saliency",
+        "faithfulness_gain_over_random",
+    }
+    selected = summary.loc[summary["group"].astype(str).eq(str(group))].copy()
+    rows: dict[str, pd.Series] = {}
+    for metric in sorted(required_metrics):
+        matches = selected.loc[selected["metric"].astype(str).eq(metric)]
+        if len(matches) != 1:
+            raise ValueError(
+                "faithfulness summary must contain exactly one row for "
+                f"group={group!r}, metric={metric!r}; found={len(matches)}"
+            )
+        rows[metric] = matches.iloc[0]
+
+    numeric_columns = ("mean", "mean_ci_lower", "mean_ci_upper")
+    for metric, row in rows.items():
+        values = np.asarray([row[column] for column in numeric_columns], dtype=float)
+        if not np.isfinite(values).all():
+            raise ValueError(f"faithfulness metric has non-finite evidence: {metric}")
+        mean, lower, upper = values.tolist()
+        if lower > mean or mean > upper:
+            raise ValueError(f"faithfulness metric has an invalid CI: {metric}")
+
+    high_mean = float(rows["high_saliency_occlusion_score_drop"]["mean"])
+    low_mean = float(rows["low_saliency_occlusion_score_drop"]["mean"])
+    random_mean = float(rows["random_occlusion_score_drop"]["mean"])
+    high_over_low = rows["faithfulness_gain_over_low_saliency"]
+    high_over_random = rows["faithfulness_gain_over_random"]
+    if not np.isclose(
+        float(high_over_low["mean"]),
+        high_mean - low_mean,
+        rtol=0.0,
+        atol=tolerance,
+    ):
+        raise ValueError("High-Low paired effect is inconsistent with score drops")
+    if not np.isclose(
+        float(high_over_random["mean"]),
+        high_mean - random_mean,
+        rtol=0.0,
+        atol=tolerance,
+    ):
+        raise ValueError("High-Random paired effect is inconsistent with score drops")
+
+    high_over_low_lower = float(high_over_low["mean_ci_lower"])
+    high_over_random_lower = float(high_over_random["mean_ci_lower"])
+    reasons: list[str] = []
+    if high_over_low_lower <= 0.0:
+        reasons.append("High does not exceed Low with a strictly positive paired CI")
+    if high_over_random_lower <= 0.0:
+        reasons.append("High does not exceed Random with a strictly positive paired CI")
+    passed = not reasons
+    high_over_low_mean = float(high_over_low["mean"])
+    return SaliencyFaithfulnessReliability(
+        status="passed" if passed else "blocked",
+        strong_faithfulness_pass=passed,
+        high_over_low_mean=high_over_low_mean,
+        high_over_low_ci_lower=high_over_low_lower,
+        high_over_low_ci_upper=float(high_over_low["mean_ci_upper"]),
+        high_over_random_mean=float(high_over_random["mean"]),
+        high_over_random_ci_lower=high_over_random_lower,
+        high_over_random_ci_upper=float(high_over_random["mean_ci_upper"]),
+        gated_high_low_contrast=max(0.0, high_over_low_mean) if passed else 0.0,
+        group=str(group),
+        reasons=tuple(reasons),
+    )
 
 
 def _quartile(values: pd.Series) -> pd.Series:

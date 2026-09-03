@@ -1,9 +1,12 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+import pytest
 
 from research.fiqa import FIQAScoreArtifact
 from research.experiments.fiqa_threshold_calibration import (
+    _adc_condition_score_frame,
     CalibrationComparison,
     ConditionScoreTables,
     assess_saliency_incremental_readiness,
@@ -40,6 +43,26 @@ def _scores(prefix: str) -> pd.DataFrame:
             "aligned_content_sha256": [f"hash-{prefix}-a", f"hash-{prefix}-b"],
         }
     )
+
+
+def test_adc_condition_score_frame_does_not_require_origin_retrieval() -> None:
+    frame = _adc_condition_score_frame(
+        np.array([[0.2, 0.7], [0.4, 0.9]], dtype=np.float32),
+        np.array([[1, 0], [0, 1]], dtype=np.int64),
+        query_ids=np.array(["q-a", "q-u"], dtype=object),
+        query_identity_ids=np.array(["a", "unknown"], dtype=object),
+        gallery_identity_ids=np.array(["a", "b"], dtype=object),
+        compression_profile="pq_512_m128_b8",
+        search_mode="pq_adc_exhaustive",
+    )
+
+    assert frame["compressed_top1_score"].to_numpy() == pytest.approx(
+        [-0.2, -0.4]
+    )
+    assert frame["compressed_rank1_correct"].tolist() == [False, False]
+    assert frame["compressed_top_k_correct"].tolist() == [True, False]
+    assert frame["is_mated"].tolist() == [True, False]
+    assert frame["compressed_score_space"].eq("negative_squared_l2_adc").all()
 
 
 def test_fiqa_join_requires_complete_one_to_one_scores():

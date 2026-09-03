@@ -48,7 +48,11 @@ def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
     assert "MODEL_SMOKE_SAMPLE_COUNT = FIQA_BATCH_SIZE" in full_source
     assert "FIQA_SHARD_SIZE = 8192" in full_source
     assert "materialize_aligned_bundle_score_artifact" in full_source
-    assert "기존 FIQA artifact가 있습니다" in full_source
+    assert "reused_verified" in full_source
+    assert "WRITE=True이면 대응하는 RUN도 True" in full_source
+    assert "기존 FIQA artifact가 있습니다" not in full_source
+    assert "기존 condition score artifact가 있습니다" not in full_source
+    assert "기존 calibration artifact가 있습니다" not in full_source
     assert "Saliency 1차 목적" in full_source
     assert "Saliency 2차 목적" in full_source
     assert "outside_face_attention" in full_source
@@ -57,6 +61,12 @@ def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
     assert "recalibrated_minus_frozen_rho" in full_source
     assert "mask &= frame['saliency_feature']" not in full_source
     assert "random" in full_source
+    assert "assess_saliency_faithfulness_reliability" in full_source
+    assert "`Random`은 threshold feature가 아니라" in full_source
+    assert "load_selected_faithfulness_artifacts" in full_source
+    assert "saliency_correction_enabled" in full_source
+    assert "saliency_reliability_weight" in full_source
+    assert "High−Random" in full_source
     assert "test leakage" in full_source
     assert "formal FPIR guarantee가 아닙니다" in full_source
     assert "not applicable" in full_source

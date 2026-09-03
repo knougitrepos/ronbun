@@ -89,6 +89,10 @@ runs/**
 results/step1/
 results/step2/
 results/rfw_step7/
+# FIQA calibration score tables are reproducible local inputs. Keep only their
+# manifests and the compact Global/FIQA comparison result Git-visible.
+results/calibration/fiqa_scores/**/*.csv
+results/calibration/condition_scores/**/*.parquet
 # Compact publication results are intentionally tracked.
 # Dataset-level faithfulness rows are reproducible local ledgers. Keep only the
 # compact summary and SHA-verified manifest Git-visible under results/paper.
