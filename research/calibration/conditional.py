@@ -24,6 +24,66 @@ from research.evaluation.metrics import (
 from research.runtime.hashing import canonical_sha256
 
 
+IDENTIFICATION_METRIC_CONTRACT = "genuine-score-topk-v2"
+
+
+def _boolean_values(series: pd.Series, *, column: str) -> np.ndarray:
+    normalized = series.astype("string").str.lower().str.strip()
+    if not normalized.isin(("true", "false", "1", "0", "1.0", "0.0")).all():
+        raise ValueError(f"{column} requires non-null boolean values")
+    return normalized.isin(("true", "1", "1.0")).to_numpy(dtype=bool)
+
+
+def validate_identification_scores(
+    frame: pd.DataFrame,
+    *,
+    score_column: str = "score",
+    top_k_correct_column: str = "top_k_correct",
+) -> None:
+    """Reject legacy/malformed TPIR inputs; never infer genuine scores from maxima.
+
+    Genuine rank/score may be absent (NaN) for non-mated probes or when the
+    genuine identity was not retrieved. A retrieved genuine identity must have
+    a finite score, even if it does not pass the eventual threshold.
+    """
+
+    required = {
+        "is_mated", score_column, top_k_correct_column, "top_k",
+        "true_identity_score", "true_identity_rank",
+    }
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"genuine-score TPIR inputs are missing columns: {missing}")
+    if frame.empty:
+        raise ValueError("genuine-score TPIR inputs must not be empty")
+    mated = _boolean_values(frame["is_mated"], column="is_mated")
+    correct = _boolean_values(frame[top_k_correct_column], column=top_k_correct_column)
+    top_k = frame["top_k"].to_numpy(dtype=np.float64)
+    rank = frame["true_identity_rank"].to_numpy(dtype=np.float64)
+    genuine = frame["true_identity_score"].to_numpy(dtype=np.float64)
+    maximum = frame[score_column].to_numpy(dtype=np.float64)
+    if (
+        not np.isfinite(top_k).all() or (top_k < 1).any()
+        or (top_k != np.floor(top_k)).any() or len(np.unique(top_k)) != 1
+    ):
+        raise ValueError("top_k must be one positive integer across evaluation rows")
+    finite_rank = np.isfinite(rank)
+    finite_score = np.isfinite(genuine)
+    if (
+        np.isinf(rank).any() or np.isinf(genuine).any()
+        or (rank[finite_rank] < 1).any()
+        or (rank[finite_rank] != np.floor(rank[finite_rank])).any()
+        or not np.array_equal(finite_rank, finite_score)
+    ):
+        raise ValueError("genuine rank/score must be paired finite values or paired NaN")
+    if ((~mated) & finite_rank).any():
+        raise ValueError("non-mated probes cannot have a genuine rank/score")
+    if not np.array_equal(correct, mated & finite_rank & (rank <= top_k)):
+        raise ValueError("top_k_correct disagrees with genuine identity rank")
+    if not np.isfinite(maximum).all() or (genuine[finite_score] > maximum[finite_score]).any():
+        raise ValueError("genuine scores cannot exceed finite top-1 scores")
+
+
 @dataclass(frozen=True)
 class ThresholdGroup:
     name: str
@@ -136,7 +196,7 @@ def _validated_rows(
     scores = rows[score_column].to_numpy(dtype=np.float64)
     if not np.isfinite(scores).all():
         raise ValueError("retrieval scores must be finite")
-    rows["is_mated"] = rows["is_mated"].astype(bool)
+    rows["is_mated"] = _boolean_values(rows["is_mated"], column="is_mated")
     if rows["is_mated"].all() or (~rows["is_mated"]).all():
         raise ValueError("threshold rows require both mated and non-mated probes")
     if quality_column is not None:
@@ -548,10 +608,10 @@ def apply_threshold_model(
         score_column=model.score_column,
         quality_column=model.quality_column,
     )
-    if top_k_correct_column not in rows:
-        raise ValueError(
-            f"threshold evaluation is missing {top_k_correct_column!r}"
-        )
+    validate_identification_scores(
+        rows, score_column=model.score_column,
+        top_k_correct_column=top_k_correct_column,
+    )
     if model.quality_column is None:
         groups = np.full(len(rows), "all", dtype=object)
     else:
@@ -566,10 +626,14 @@ def apply_threshold_model(
     scores = rows[model.score_column].to_numpy(dtype=np.float64)
     accepted = scores >= thresholds
     is_mated = rows["is_mated"].to_numpy(dtype=bool)
-    top_k_correct = rows[top_k_correct_column].astype(bool).to_numpy()
+    top_k_correct = _boolean_values(rows[top_k_correct_column], column=top_k_correct_column)
+    genuine_scores = rows["true_identity_score"].to_numpy(dtype=np.float64)
     non_mated = ~is_mated
     false_accept = accepted & non_mated
-    true_identification = accepted & is_mated & top_k_correct
+    true_identification = (
+        is_mated & top_k_correct & np.isfinite(genuine_scores)
+        & (genuine_scores >= thresholds)
+    )
     fpir_successes = int(false_accept.sum())
     fpir_total = int(non_mated.sum())
     tpir_successes = int(true_identification.sum())
@@ -583,7 +647,9 @@ def apply_threshold_model(
     decisions["false_accept"] = false_accept
     decisions["true_identification_at_rank_k"] = true_identification
     summary = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
+        "rank_k": int(rows["top_k"].iloc[0]),
         "model_uid": model.model_uid,
         "method": model.method,
         "target_fpir": model.target_fpir,
@@ -623,6 +689,12 @@ def paired_method_comparison(
         raise ValueError("paired methods must use the same score space")
     if reference.model.target_fpir != candidate.model.target_fpir:
         raise ValueError("paired methods must use the same target FPIR")
+    for result in (reference, candidate):
+        if result.summary.get("metric_contract") != IDENTIFICATION_METRIC_CONTRACT:
+            raise ValueError("paired methods require the genuine-score metric contract")
+    for column in ("is_mated", "top_k", "true_identity_score", "true_identity_rank"):
+        if not left[column].reset_index(drop=True).equals(right[column].reset_index(drop=True)):
+            raise ValueError(f"paired methods use different {column} inputs")
 
     def evidence(column: str, mask: np.ndarray) -> dict[str, Any]:
         ref = left.loc[mask, column].astype(bool).to_numpy()
@@ -650,7 +722,8 @@ def paired_method_comparison(
 
     is_mated = left["is_mated"].to_numpy(dtype=bool)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
         "reference_method": reference.model.method,
         "candidate_method": candidate.model.method,
         "target_fpir": reference.model.target_fpir,
@@ -658,6 +731,9 @@ def paired_method_comparison(
         "fpir": evidence("false_accept", ~is_mated),
         "tpir_at_rank_k": evidence("true_identification_at_rank_k", is_mated),
         "confidence_interval_method": "paired_nonparametric_bootstrap_percentile",
+        "resampling_unit": "query",
+        "threshold_uncertainty_included": False,
+        "multiple_comparison_adjustment": "none",
         "resamples": PAIRED_BOOTSTRAP_RESAMPLES,
         "random_seed": PAIRED_BOOTSTRAP_RANDOM_SEED,
     }

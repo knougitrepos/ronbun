@@ -26,6 +26,10 @@ from research.calibration import (
     paired_method_comparison,
 )
 from research.calibration.rejection import choose_non_mated_fpir_threshold
+from research.calibration.conditional import (
+    IDENTIFICATION_METRIC_CONTRACT,
+    validate_identification_scores,
+)
 from research.compression import ORIGIN_512, PQCompressor
 from research.explainability.gradcam.artifacts import (
     read_prepared_population_artifact,
@@ -40,6 +44,20 @@ from research.runtime.hashing import canonical_sha256, sha256_file
 
 SURVFACE_ADC_SEARCH_MODE = "pq_adc_exhaustive"
 ADC_SCORE_SPACE = "negative_squared_l2_adc"
+CONDITION_SCORE_SCHEMA_VERSION = 2
+CALIBRATION_COMPARISON_SCHEMA_VERSION = 2
+
+
+def _require_metric_contract(manifest: dict[str, Any], *, schema_version: int) -> None:
+    if (
+        manifest.get("schema_version") != schema_version
+        or manifest.get("metric_contract") != IDENTIFICATION_METRIC_CONTRACT
+    ):
+        raise ValueError(
+            "legacy/incompatible FIQA metric artifact: genuine-score-topk-v2 "
+            "is required; upgrade condition scores from the verified test ledger "
+            "and regenerate the comparison in a new directory (do not overwrite v1)"
+        )
 
 
 @dataclass(frozen=True)
@@ -156,6 +174,8 @@ def _standard_scores(
         "query_identity_id",
         "is_mated",
         "compressed_top1_score",
+        "compressed_true_identity_score",
+        "compressed_true_identity_rank",
         "compressed_rank1_correct",
         "compressed_top_k_correct",
         "compression_profile",
@@ -177,6 +197,8 @@ def _standard_scores(
             "query_identity_id",
             "is_mated",
             "compressed_top1_score",
+            "compressed_true_identity_score",
+            "compressed_true_identity_rank",
             "compressed_rank1_correct",
             "compressed_top_k_correct",
             "compression_profile",
@@ -195,6 +217,8 @@ def _standard_scores(
             "query_id": "sample_id",
             "query_identity_id": "identity_id",
             "compressed_top1_score": "score",
+            "compressed_true_identity_score": "true_identity_score",
+            "compressed_true_identity_rank": "true_identity_rank",
             "compressed_rank1_correct": "rank1_correct",
             "compressed_top_k_correct": "top_k_correct",
             "compressed_score_space": "score_space",
@@ -223,6 +247,7 @@ def _standard_scores(
         raise ValueError(f"{split} compressed score rows have duplicate sample IDs")
     if not np.isfinite(output["score"].to_numpy(dtype=np.float64)).all():
         raise ValueError(f"{split} compressed score rows contain non-finite values")
+    validate_identification_scores(output)
     return output.reset_index(drop=True)
 
 
@@ -238,7 +263,7 @@ def _adc_condition_score_frame(
 ) -> pd.DataFrame:
     """Build the compressed score fields needed by FIQA calibration.
 
-    The FIQA replay consumes only ADC scores and rank correctness.  It does not
+    The FIQA replay preserves ADC maxima and genuine identity scores/ranks. It does not
     require an origin-cosine comparison, so this adapter avoids repeating and
     materializing origin top-k retrieval solely to satisfy the broader Step-4
     comparison schema.
@@ -259,8 +284,17 @@ def _adc_condition_score_frame(
         raise ValueError("ADC squared-L2 distances must be finite and non-negative")
     if (indices < 0).any() or (indices >= len(gallery_identities)).any():
         raise ValueError("ADC indices are outside the gallery")
+    if (np.diff(distances, axis=1) < 0).any():
+        raise ValueError("ADC distances must be sorted in ascending rank order")
 
     ranked_identities = gallery_identities[indices]
+    genuine_matches = ranked_identities == query_identities[:, np.newaxis]
+    genuine_found = genuine_matches.any(axis=1)
+    first_match = genuine_matches.argmax(axis=1)
+    genuine_scores = np.where(
+        genuine_found, -distances[np.arange(len(queries)), first_match], np.nan
+    )
+    genuine_ranks = np.where(genuine_found, first_match + 1, np.nan)
     gallery_identity_set = set(gallery_identities.tolist())
     return pd.DataFrame(
         {
@@ -270,13 +304,12 @@ def _adc_condition_score_frame(
                 identity in gallery_identity_set for identity in query_identities
             ],
             "compressed_top1_score": -distances[:, 0],
+            "compressed_true_identity_score": genuine_scores,
+            "compressed_true_identity_rank": genuine_ranks,
             "compressed_rank1_correct": (
                 ranked_identities[:, 0] == query_identities
             ),
-            "compressed_top_k_correct": np.any(
-                ranked_identities == query_identities[:, np.newaxis],
-                axis=1,
-            ),
+            "compressed_top_k_correct": genuine_found,
             "compression_family": "pq",
             "compression_profile": compression_profile,
             "top_k": int(distances.shape[1]),
@@ -500,7 +533,8 @@ def replay_survface_adc_condition_scores(
         )
 
     manifest_base: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": CONDITION_SCORE_SCHEMA_VERSION,
+        "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
         "artifact_type": "compressed_calibration_test_score_tables",
         "status": "completed_in_memory",
         "source_run_id": str(run_manifest["run_id"]),
@@ -603,6 +637,8 @@ def join_fiqa_score_artifacts(
 
     condition_manifest = condition_tables.manifest
     fiqa_manifest = fiqa_artifact.manifest
+    _require_metric_contract(condition_manifest, schema_version=CONDITION_SCORE_SCHEMA_VERSION)
+    validate_identification_scores(condition_tables.test)
     if condition_manifest.get("artifact_type") != (
         "compressed_calibration_test_score_tables"
     ):
@@ -653,6 +689,7 @@ def _validate_comparison_contract(
     condition_manifest: dict[str, Any],
     fiqa_manifest: dict[str, Any],
 ) -> tuple[str, int, str, str]:
+    _require_metric_contract(condition_manifest, schema_version=CONDITION_SCORE_SCHEMA_VERSION)
     if condition_manifest.get("artifact_type") != (
         "compressed_calibration_test_score_tables"
     ) or condition_manifest.get("status") != "completed":
@@ -747,6 +784,7 @@ def _validate_comparison_contract(
             "calibration and test comparison identities overlap: "
             f"{len(identity_overlap)}"
         )
+    validate_identification_scores(test)
     return score_space, rank_k, condition_uid, fiqa_uid
 
 
@@ -868,11 +906,22 @@ def run_global_vs_fiqa_calibration(
                         ],
                         "resamples": paired["resamples"],
                         "random_seed": paired["random_seed"],
+                        "metric_contract": paired["metric_contract"],
+                        "resampling_unit": paired["resampling_unit"],
+                        "threshold_uncertainty_included": paired["threshold_uncertainty_included"],
+                        "multiple_comparison_adjustment": paired["multiple_comparison_adjustment"],
                     }
                 )
 
     manifest_base: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": CALIBRATION_COMPARISON_SCHEMA_VERSION,
+        "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
+        "uncertainty_contract": {
+            "resampling_unit": "query",
+            "threshold_uncertainty_included": False,
+            "multiple_comparison_adjustment": "none",
+            "interpretation": "exploratory_fixed_threshold",
+        },
         "artifact_type": "global_vs_fiqa_threshold_calibration",
         "status": "completed_in_memory",
         "condition_uid": str(condition_uid),
@@ -1066,6 +1115,8 @@ def write_condition_score_artifact(
     *,
     overwrite: bool = False,
 ) -> ConditionScoreTables:
+    _require_metric_contract(tables.manifest, schema_version=CONDITION_SCORE_SCHEMA_VERSION)
+    validate_identification_scores(tables.test)
     destination = Path(output_dir).resolve()
     if destination.exists() and not overwrite:
         raise FileExistsError(f"condition score artifact exists: {destination}")
@@ -1113,12 +1164,20 @@ def write_condition_score_artifact(
 
 
 def load_condition_score_artifact(directory: str | Path) -> ConditionScoreTables:
+    return _load_condition_score_artifact(directory, allow_legacy=False)
+
+
+def _load_condition_score_artifact(
+    directory: str | Path, *, allow_legacy: bool,
+) -> ConditionScoreTables:
     root = Path(directory).resolve()
     manifest = _read_json(root / "manifest.json")
     if manifest.get("artifact_type") != "compressed_calibration_test_score_tables":
         raise ValueError("unexpected condition score artifact_type")
     if manifest.get("status") != "completed":
         raise ValueError("condition score artifact is not completed")
+    if not allow_legacy:
+        _require_metric_contract(manifest, schema_version=CONDITION_SCORE_SCHEMA_VERSION)
     files = dict(manifest.get("files", {}))
     frames: dict[str, pd.DataFrame] = {}
     for split in ("calibration", "test"):
@@ -1131,11 +1190,92 @@ def load_condition_score_artifact(directory: str | Path) -> ConditionScoreTables
         if len(frame) != int(entry.get("row_count", -1)):
             raise ValueError(f"condition score artifact row count mismatch: {name}")
         frames[split] = frame
+    if not allow_legacy:
+        validate_identification_scores(frames["test"])
     return ConditionScoreTables(
         calibration=frames["calibration"],
         test=frames["test"],
         manifest=manifest,
     )
+
+
+def upgrade_condition_score_artifact(
+    legacy_directory: str | Path,
+    run_dir: str | Path,
+) -> ConditionScoreTables:
+    """Build v2 in memory using cached calibration maxima and verified test core.
+
+    Calibration fitting needs only non-mated maxima, so its unchanged v1 table
+    is sufficient. Genuine scores are required for test TPIR, never fabricated
+    for calibration. No embedding, FIQA inference, codec fit, or search is run.
+    The caller must persist this derivative to a new directory explicitly.
+    """
+
+    legacy_root = Path(legacy_directory).resolve()
+    legacy = _load_condition_score_artifact(legacy_root, allow_legacy=True)
+    manifest = legacy.manifest
+    if manifest.get("schema_version") != 1:
+        raise ValueError("condition upgrade requires an explicitly selected v1 artifact")
+    run_root, run_manifest, workflow = _completed_run(run_dir)
+    expected = {
+        "source_run_id": str(run_manifest["run_id"]),
+        "source_run_manifest_sha256": sha256_file(run_root / "run_manifest.json"),
+        "source_freeze_manifest_sha256": sha256_file(workflow / "freeze_manifest.json"),
+        "dataset_id": "survface",
+        "model_uid": str(run_manifest["config"]["model_uid"]),
+        "score_space": ADC_SCORE_SPACE,
+        "search_mode": SURVFACE_ADC_SEARCH_MODE,
+    }
+    for key, value in expected.items():
+        if manifest.get(key) != value:
+            raise ValueError(f"legacy condition {key} differs from the selected run")
+    ledger_root = workflow / "retrieval_ledger"
+    ledger_manifest = _read_json(ledger_root / "manifest.json")
+    condition = _ledger_condition(
+        ledger_manifest,
+        compression_profile=str(manifest["compression_profile"]),
+        search_mode=str(manifest["search_mode"]),
+    )
+    if condition["core"]["sha256"] != manifest.get("persisted_test_core_sha256"):
+        raise ValueError("legacy condition test core lineage differs from selected ledger")
+    core_path = _verified_table(ledger_root, dict(condition["core"]))
+    test = _standard_scores(
+        pd.read_parquet(core_path), split="test", expected_top_k=int(manifest["top_k"]),
+    )
+    test = _attach_alignment_hashes(test, legacy.test)
+    if set(test["sample_id"].astype(str)) != set(legacy.test["sample_id"].astype(str)):
+        raise ValueError("legacy condition and test core have different query cohorts")
+    test = test.set_index("sample_id").loc[
+        legacy.test["sample_id"].astype(str)
+    ].reset_index()
+    try:
+        pd.testing.assert_frame_equal(
+            test[list(legacy.test.columns)].reset_index(drop=True),
+            legacy.test.reset_index(drop=True), check_dtype=False, check_exact=True,
+        )
+    except (AssertionError, KeyError) as exc:
+        raise ValueError("legacy test scores/labels differ from the verified test core") from exc
+    if set(legacy.calibration["identity_id"]).intersection(test["identity_id"]):
+        raise ValueError("calibration and test identities overlap")
+    upgraded = {key: value for key, value in manifest.items() if key not in {
+        "files", "condition_uid", "status",
+    }}
+    upgraded.update({
+        "schema_version": CONDITION_SCORE_SCHEMA_VERSION,
+        "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
+        "status": "completed_in_memory",
+        "upgrade_provenance": {
+            "source_manifest_sha256": sha256_file(legacy_root / "manifest.json"),
+            "source_condition_uid": legacy.condition_uid,
+            "calibration_scores_reused_unchanged": True,
+            "calibration_genuine_scores_available": False,
+            "test_genuine_scores_source": str(core_path),
+            "test_core_sha256": sha256_file(core_path),
+            "search_replayed": False,
+        },
+    })
+    upgraded["condition_uid"] = "compressed-scores-" + canonical_sha256(upgraded)[:24]
+    return ConditionScoreTables(calibration=legacy.calibration, test=test, manifest=upgraded)
 
 
 def write_calibration_comparison_artifact(
@@ -1144,6 +1284,7 @@ def write_calibration_comparison_artifact(
     *,
     overwrite: bool = False,
 ) -> CalibrationComparison:
+    _require_metric_contract(comparison.manifest, schema_version=CALIBRATION_COMPARISON_SCHEMA_VERSION)
     destination = Path(output_dir).resolve()
     if destination.exists() and not overwrite:
         raise FileExistsError(f"calibration comparison exists: {destination}")
@@ -1199,6 +1340,7 @@ def load_calibration_comparison_artifact(
         raise ValueError("unexpected calibration comparison artifact_type")
     if manifest.get("status") != "completed":
         raise ValueError("calibration comparison artifact is not completed")
+    _require_metric_contract(manifest, schema_version=CALIBRATION_COMPARISON_SCHEMA_VERSION)
     frames: dict[str, pd.DataFrame] = {}
     for key, name in (
         ("method_summary", "method_summary.csv"),
@@ -1213,6 +1355,12 @@ def load_calibration_comparison_artifact(
         if len(frame) != int(entry.get("row_count", -1)):
             raise ValueError(f"calibration comparison row count mismatch: {name}")
         frames[key] = frame
+    for key in ("method_summary", "paired_comparisons"):
+        frame = frames[key]
+        if "metric_contract" not in frame or not frame["metric_contract"].eq(
+            IDENTIFICATION_METRIC_CONTRACT
+        ).all():
+            raise ValueError(f"{key} has an incompatible metric contract")
     return CalibrationComparison(
         method_summary=frames["method_summary"],
         thresholds=frames["thresholds"],

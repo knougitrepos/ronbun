@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import pytest
+
+from research.calibration.conditional import IDENTIFICATION_METRIC_CONTRACT
 
 from research.calibration import (
     apply_threshold_model,
@@ -25,6 +28,9 @@ def _rows(prefix: str, count: int = 1200) -> pd.DataFrame:
             "score": score,
             "fiqa_score": quality,
             "top_k_correct": is_mated,
+            "top_k": 20,
+            "true_identity_score": np.where(is_mated, score, np.nan),
+            "true_identity_rank": np.where(is_mated, 1.0, np.nan),
         }
     )
 
@@ -140,3 +146,67 @@ def test_sparse_fallback_keeps_available_group_safety_threshold():
         for group in guarded_fallbacks
     )
     assert all(group.safety_target_met is True for group in guarded_fallbacks)
+
+
+def test_tpir_requires_genuine_score_not_impostor_top1_and_uses_inclusive_boundary():
+    calibration = _rows("cal")
+    model = fit_global_threshold(
+        calibration, target_fpir=0.10, safety_fraction=0.0,
+        score_space="cosine_similarity",
+    )
+    tau = model.global_final_threshold
+    test = pd.DataFrame({
+        "sample_id": ["wrong-winner", "at-threshold", "rank-miss", "unknown"],
+        "is_mated": [True, True, True, False],
+        "score": [tau + 0.1] * 4,
+        "top_k": [20] * 4,
+        "top_k_correct": [True, True, False, False],
+        "true_identity_score": [tau - 0.1, tau, np.nan, np.nan],
+        "true_identity_rank": [2.0, 20.0, np.nan, np.nan],
+    })
+    result = apply_threshold_model(test, model)
+    assert result.decisions["accepted"].tolist() == [True] * 4
+    assert result.decisions["true_identification_at_rank_k"].tolist() == [False, True, False, False]
+    assert result.summary["tpir_at_rank_k"] == pytest.approx(1 / 3)
+    assert result.summary["realized_fpir"] == 1.0
+    assert result.summary["metric_contract"] == IDENTIFICATION_METRIC_CONTRACT
+
+
+@pytest.mark.parametrize("column,value", [
+    ("true_identity_score", np.nan),
+    ("true_identity_score", np.inf),
+    ("true_identity_score", 5.0),
+    ("true_identity_rank", 0.0),
+    ("true_identity_rank", 1.5),
+    ("true_identity_rank", 21.0),
+    ("top_k_correct", False),
+    ("is_mated", None),
+])
+def test_tpir_rejects_inconsistent_genuine_evidence(column, value):
+    test = _rows("test")
+    model = fit_global_threshold(_rows("cal"), target_fpir=0.1, score_space="cosine_similarity")
+    if value is None:
+        test[column] = test[column].astype(object)
+    test.loc[0, column] = value
+    with pytest.raises(ValueError):
+        apply_threshold_model(test, model)
+
+
+def test_tpir_refuses_legacy_topk_only_frame():
+    model = fit_global_threshold(_rows("cal"), target_fpir=0.1, score_space="cosine_similarity")
+    with pytest.raises(ValueError, match="genuine-score TPIR inputs are missing"):
+        apply_threshold_model(_rows("test").drop(columns="true_identity_score"), model)
+
+
+def test_paired_results_use_genuine_events_and_expose_ci_scope():
+    test = _rows("test")
+    model = fit_global_threshold(_rows("cal"), target_fpir=0.1, score_space="cosine_similarity")
+    reference = apply_threshold_model(test, model)
+    candidate = apply_threshold_model(test.copy(), model)
+    result = paired_method_comparison(reference, candidate)
+    assert result["tpir_at_rank_k"]["candidate_minus_reference"] == 0
+    assert result["resampling_unit"] == "query"
+    assert result["threshold_uncertainty_included"] is False
+    candidate.decisions.loc[0, "true_identity_rank"] = 2
+    with pytest.raises(ValueError, match="different true_identity_rank"):
+        paired_method_comparison(reference, candidate)

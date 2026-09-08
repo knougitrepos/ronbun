@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "artifact_type": "fiqa_priority_diagnostics",
+  "metric_contract": "genuine-score-topk-v2",
+  "condition_manifest_sha256": "3db05bbfa14879e376add5fa84c6a65afc97b4adab73123e499bd65bda71f67d",
+  "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+  "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+  "condition_uid": "compressed-scores-2548cd9ab45de52c3b614a9a",
+  "partition_seed": 8972,
+  "safety_fraction": 0.3,
+  "bin_count": 2,
+  "shrinkage_strength": 200.0,
+  "minimum_group_non_mated": 100,
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "resamples": 2000,
+  "bootstrap_seed": 42,
+  "implementation_sha256": "4851ef125c2f8744a170f95698c05609401b4ec4cf6343b23dbfe2cb6884b6d3",
+  "conditional_implementation_sha256": "54f9bfc61ff4775e85da3c73cdd4805e3a555c24b50f96bdb46b38c5e2a253f3",
+  "uncertainty": {
+    "tpir": "query_weighted_mated_identity_cluster",
+    "fpir": "query_only_unknown_identity_labels_unavailable",
+    "threshold_uncertainty_included": false,
+    "gallery_uncertainty_included": false,
+    "multiple_comparison_adjustment": "none",
+    "interpretation": "exploratory_fixed_threshold"
+  },
+  "threshold_fit_on_test": false,
+  "diagnostic_uid": "fiqa-priority-f78e2baa54436e2f09c95f15",
+  "status": "completed",
+  "files": {
+    "method_summary.csv": "396671f69e9e4af854fde69f6426a0517d07a9b358b57c100fbf17d6604d5b70",
+    "paired_comparisons.csv": "cf1970b724cfd3c4331f59482e170e6d6a2ae03e36d08bd573290d15b63680a0",
+    "group_tail_transfer.csv": "2d0584f12b5f9af7606c376fa3706fc76ae886093a3f58e06232e8e73c51c4cb",
+    "thresholds.csv": "1fb7645ef506902013cef6681cf2aec9cfea10eb4053eeee15912ed070a1e6b9"
+  }
+}

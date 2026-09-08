@@ -67,6 +67,7 @@ from research.experiments.fiqa_threshold_calibration import (
     load_saliency_primary_diagnostics,
     replay_survface_adc_condition_scores,
     run_global_vs_fiqa_calibration,
+    upgrade_condition_score_artifact,
     write_calibration_comparison_artifact,
     write_condition_score_artifact,
 )
@@ -164,6 +165,7 @@ __all__ = [
     "open_set_protocol_arrays",
     "prepared_population_frame",
     "replay_survface_adc_condition_scores",
+    "upgrade_condition_score_artifact",
     "run_global_vs_fiqa_calibration",
     "write_calibration_comparison_artifact",
     "write_condition_score_artifact",

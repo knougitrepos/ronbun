@@ -1,12 +1,16 @@
 from pathlib import Path
+import json
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from research.fiqa import FIQAScoreArtifact
+from research.calibration.conditional import IDENTIFICATION_METRIC_CONTRACT
+from research.runtime.hashing import sha256_file
 from research.experiments.fiqa_threshold_calibration import (
     _adc_condition_score_frame,
+    _standard_scores,
     CalibrationComparison,
     ConditionScoreTables,
     assess_saliency_incremental_readiness,
@@ -17,6 +21,7 @@ from research.experiments.fiqa_threshold_calibration import (
     run_global_vs_fiqa_calibration,
     write_calibration_comparison_artifact,
     write_condition_score_artifact,
+    upgrade_condition_score_artifact,
 )
 
 
@@ -28,6 +33,8 @@ def _scores(prefix: str) -> pd.DataFrame:
             "evaluation_split": [prefix, prefix],
             "is_mated": [True, False],
             "score": [-0.1, -0.2],
+            "true_identity_score": [-0.1, np.nan],
+            "true_identity_rank": [1.0, np.nan],
             "rank1_correct": [True, False],
             "top_k_correct": [True, False],
             "top_k": [20, 20],
@@ -63,6 +70,10 @@ def test_adc_condition_score_frame_does_not_require_origin_retrieval() -> None:
     assert frame["compressed_top_k_correct"].tolist() == [True, False]
     assert frame["is_mated"].tolist() == [True, False]
     assert frame["compressed_score_space"].eq("negative_squared_l2_adc").all()
+    assert frame.loc[0, "compressed_true_identity_score"] == pytest.approx(-0.7)
+    assert frame.loc[0, "compressed_true_identity_rank"] == 2
+    assert np.isnan(frame.loc[1, "compressed_true_identity_score"])
+    assert np.isnan(frame.loc[1, "compressed_true_identity_rank"])
 
 
 def test_fiqa_join_requires_complete_one_to_one_scores():
@@ -198,7 +209,8 @@ def test_condition_score_artifact_round_trip(tmp_path: Path):
         calibration=_scores("calibration"),
         test=_scores("test"),
         manifest={
-            "schema_version": 1,
+            "schema_version": 2,
+            "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
             "artifact_type": "compressed_calibration_test_score_tables",
             "status": "completed_in_memory",
             "condition_uid": "condition-test",
@@ -231,6 +243,8 @@ def _calibration_rows(prefix: str, count: int) -> pd.DataFrame:
             ],
             "is_mated": is_mated,
             "score": scores,
+            "true_identity_score": np.where(is_mated, scores, np.nan),
+            "true_identity_rank": np.where(is_mated, 1.0, np.nan),
             "fiqa_score": quality,
             "top_k_correct": is_mated,
             "top_k": [20] * count,
@@ -253,7 +267,8 @@ def _calibration_rows(prefix: str, count: int) -> pd.DataFrame:
 
 def _condition_manifest() -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
         "artifact_type": "compressed_calibration_test_score_tables",
         "status": "completed",
         "condition_uid": "condition-test",
@@ -429,3 +444,138 @@ def test_artifact_join_rejects_different_aligned_bundle_lineage(tmp_path: Path):
         assert "aligned-bundle lineage differs" in str(exc)
     else:
         raise AssertionError("different aligned bundles must fail closed")
+
+
+def _raw_test_scores() -> pd.DataFrame:
+    frame = _scores("test").drop(columns=["evaluation_split", "aligned_content_sha256"])
+    return frame.rename(columns={
+        "sample_id": "query_id", "identity_id": "query_identity_id",
+        "score": "compressed_top1_score", "rank1_correct": "compressed_rank1_correct",
+        "top_k_correct": "compressed_top_k_correct", "score_space": "compressed_score_space",
+        "true_identity_score": "compressed_true_identity_score",
+        "true_identity_rank": "compressed_true_identity_rank",
+    })
+
+
+def test_standard_scores_preserves_genuine_score_and_fails_without_it():
+    raw = _raw_test_scores()
+    raw.loc[0, "compressed_true_identity_score"] = -0.7
+    raw.loc[0, "compressed_true_identity_rank"] = 2
+    raw.loc[0, "compressed_rank1_correct"] = False
+    frame = _standard_scores(raw, split="test", expected_top_k=20)
+    assert frame.loc[0, "score"] == -0.1
+    assert frame.loc[0, "true_identity_score"] == -0.7
+    assert frame.loc[0, "true_identity_rank"] == 2
+    with pytest.raises(ValueError, match="missing columns"):
+        _standard_scores(raw.drop(columns="compressed_true_identity_score"), split="test", expected_top_k=20)
+
+
+def test_adc_genuine_rank_uses_first_matching_identity_and_handles_rank_exit():
+    frame = _adc_condition_score_frame(
+        np.array([[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]]),
+        np.array([[0, 1, 2], [0, 1, 2]]),
+        query_ids=np.array(["q-a", "q-c"]),
+        query_identity_ids=np.array(["a", "c"]),
+        gallery_identity_ids=np.array(["b", "a", "a", "c"]),
+        compression_profile="pq", search_mode="pq_adc_exhaustive",
+    )
+    assert frame["is_mated"].tolist() == [True, True]
+    assert frame.loc[0, "compressed_true_identity_rank"] == 2
+    assert frame.loc[0, "compressed_true_identity_score"] == -0.2
+    assert not frame.loc[1, "compressed_top_k_correct"]
+    assert np.isnan(frame.loc[1, "compressed_true_identity_score"])
+
+
+@pytest.mark.parametrize("artifact_type,loader", [
+    ("compressed_calibration_test_score_tables", load_condition_score_artifact),
+    ("global_vs_fiqa_threshold_calibration", load_calibration_comparison_artifact),
+])
+def test_legacy_artifacts_are_rejected_before_reuse(tmp_path, artifact_type, loader):
+    (tmp_path / "manifest.json").write_text(json.dumps({
+        "schema_version": 1, "artifact_type": artifact_type, "status": "completed",
+    }), encoding="utf-8")
+    with pytest.raises(ValueError, match="legacy/incompatible FIQA metric artifact"):
+        loader(tmp_path)
+
+
+def _legacy_fixture(tmp_path):
+    run = tmp_path / "run"
+    workflow = run / "artifacts" / "step2_workflow"
+    ledger = workflow / "retrieval_ledger"
+    ledger.mkdir(parents=True)
+    (run / "COMPLETED").touch()
+    (run / "run_manifest.json").write_text(json.dumps({
+        "run_id": "run-test", "status": "completed",
+        "config": {"dataset_id": "survface", "model_uid": "arcface-test"},
+    }), encoding="utf-8")
+    (workflow / "freeze_manifest.json").write_text("{}", encoding="utf-8")
+    raw = _raw_test_scores()
+    raw.to_parquet(ledger / "core.parquet", index=False)
+    core_hash = sha256_file(ledger / "core.parquet")
+    (ledger / "manifest.json").write_text(json.dumps({"conditions": [{
+        "condition": {"compression_profile": "pq_512_m128_b8", "search_mode": "pq_adc_exhaustive", "evaluation_split": "test"},
+        "core": {"path": "core.parquet", "sha256": core_hash},
+    }]}), encoding="utf-8")
+    legacy = tmp_path / "v1"
+    legacy.mkdir()
+    manifest = _condition_manifest()
+    manifest.update({
+        "schema_version": 1, "source_run_id": "run-test",
+        "source_run_manifest_sha256": sha256_file(run / "run_manifest.json"),
+        "source_freeze_manifest_sha256": sha256_file(workflow / "freeze_manifest.json"),
+        "persisted_test_core_sha256": core_hash,
+    })
+    manifest.pop("metric_contract")
+    manifest["files"] = {}
+    for split in ("calibration", "test"):
+        frame = _scores(split).drop(columns=["true_identity_score", "true_identity_rank"])
+        if split == "calibration":
+            frame["identity_id"] = "cal-" + frame["identity_id"]
+        name = f"{split}_scores.parquet"
+        frame.to_parquet(legacy / name, index=False)
+        manifest["files"][name] = {"sha256": sha256_file(legacy / name), "row_count": len(frame)}
+    (legacy / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return legacy, run
+
+
+def test_upgrade_reuses_calibration_and_preserves_v1_artifacts(tmp_path):
+    legacy, run = _legacy_fixture(tmp_path)
+    before = {path.name: sha256_file(path) for path in legacy.iterdir()}
+    upgraded = upgrade_condition_score_artifact(legacy, run)
+    assert upgraded.manifest["schema_version"] == 2
+    assert upgraded.manifest["upgrade_provenance"]["search_replayed"] is False
+    assert "true_identity_score" not in upgraded.calibration
+    assert upgraded.test.loc[0, "true_identity_score"] == -0.1
+    loaded = write_condition_score_artifact(tmp_path / "v2", upgraded)
+    pd.testing.assert_frame_equal(loaded.test, upgraded.test)
+    assert before == {path.name: sha256_file(path) for path in legacy.iterdir()}
+
+
+def test_upgrade_rejects_modified_cached_maxima_even_with_updated_file_hash(tmp_path):
+    legacy, run = _legacy_fixture(tmp_path)
+    path = legacy / "test_scores.parquet"
+    frame = pd.read_parquet(path)
+    frame.loc[0, "score"] = -0.05
+    frame.to_parquet(path, index=False)
+    manifest_path = legacy / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"][path.name]["sha256"] = sha256_file(path)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="scores/labels differ"):
+        upgrade_condition_score_artifact(legacy, run)
+
+
+def test_comparison_corrects_summary_and_paired_tpir_not_thresholds():
+    calibration = _calibration_rows("calibration", 400)
+    test = _calibration_rows("test", 200)
+    kwargs = dict(target_fpirs=(0.1,), minimum_group_non_mated=5,
+                  condition_manifest=_condition_manifest(), fiqa_manifest=_fiqa_manifest())
+    before = run_global_vs_fiqa_calibration(calibration, test, **kwargs)
+    test.loc[test["is_mated"], "true_identity_score"] = -10.0
+    after = run_global_vs_fiqa_calibration(calibration, test, **kwargs)
+    pd.testing.assert_frame_equal(before.thresholds, after.thresholds)
+    assert after.method_summary["tpir_at_rank_k"].eq(0).all()
+    assert before.method_summary["realized_fpir"].equals(after.method_summary["realized_fpir"])
+    paired = after.paired_comparisons.query("metric == 'tpir_at_rank_k'")
+    assert paired["reference_successes"].eq(0).all()
+    assert paired["candidate_successes"].eq(0).all()
