@@ -48,7 +48,7 @@ def test_sidak_threshold_moves_above_maximum_when_tail_budget_is_subsample() -> 
 
 
 def test_effective_gallery_ratio_recovers_independent_simulation() -> None:
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng(8972)
     score_matrix = rng.random((20_000, 10))
     estimate = estimate_effective_gallery_ratio(
         score_matrix.reshape(-1),

@@ -172,7 +172,7 @@ def _retrieval_record(
             "paired_nonparametric_bootstrap_percentile"
         ),
         "difference_confidence_interval_resamples": bootstrap_resamples,
-        "difference_confidence_interval_random_seed": 42,
+        "difference_confidence_interval_random_seed": 8972,
     }
 
 
@@ -261,6 +261,18 @@ def test_matrix_validation_accepts_exactly_zero_sdc_when_disabled() -> None:
         expected_pq_sdc_profiles=(),
     )
     assert "pq_sdc_exhaustive" not in set(retrieval["search_mode"])
+
+
+@pytest.mark.parametrize("seed", [42, 8972])
+def test_retrieval_validation_preserves_legacy_seed(seed) -> None:
+    frame = _retrieval_rows(dataset="lfw", model_uid="arcface-test", run_id="test",
+                            extraction_uid="extract", origin_uid="origin", bootstrap_resamples=2000)
+    frame["difference_confidence_interval_random_seed"] = seed
+    _validate_retrieval_statistics(frame, label="seed migration")
+    assert frame["difference_confidence_interval_random_seed"].eq(seed).all()
+    frame.iloc[0, frame.columns.get_loc("difference_confidence_interval_random_seed")] = 1
+    with pytest.raises(ValueError, match="one seed"):
+        _validate_retrieval_statistics(frame, label="mixed")
 
 
 def test_retrieval_validation_accepts_compact_csv_tpir_delta_roundtrip() -> None:
@@ -704,7 +716,7 @@ def test_rejects_tampered_compact_output_hash(tmp_path: Path) -> None:
 def test_rejects_wrong_paired_bootstrap_contract(tmp_path: Path) -> None:
     selections = _build_matrix(tmp_path, bootstrap_resamples=1999)
 
-    with pytest.raises(ValueError, match="2000 resamples and seed 42"):
+    with pytest.raises(ValueError, match="2000 resamples and one seed"):
         load_cross_model_open_set_matrix(selections, project_root=tmp_path)
 
 

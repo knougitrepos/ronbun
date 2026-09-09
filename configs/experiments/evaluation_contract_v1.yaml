@@ -5,7 +5,7 @@ paper_result_requires_full_coverage: true
 execution:
   tiers: [quick, full]
   default_tier: full
-  seed: 42
+  seed: 8972
   quick_data_fractions:
     lfw: 0.10
     survface: 0.02
@@ -91,7 +91,7 @@ evaluation:
   confidence_intervals:
     binomial_rates: wilson_95
     compressed_minus_origin: paired_query_bootstrap_95
-    bootstrap_seed: 42
+    bootstrap_seed: 8972
     bootstrap_repeats: 2000
 
 rfw:
@@ -131,7 +131,7 @@ tinyface:
   confidence_intervals:
     rank_rates: probe_level_wilson_95
     compressed_minus_origin: paired_query_bootstrap_95
-    bootstrap_seed: 42
+    bootstrap_seed: 8972
     bootstrap_repeats: 2000
   quick_scope:
     data_fraction: 0.10

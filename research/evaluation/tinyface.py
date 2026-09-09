@@ -337,7 +337,7 @@ def paired_tinyface_deltas(
     origin: pd.DataFrame,
     candidate: pd.DataFrame,
     *,
-    bootstrap_seed: int = 42,
+    bootstrap_seed: int = 8972,
     bootstrap_repeats: int = 2_000,
 ) -> dict[str, Any]:
     """Return candidate-minus-origin paired probe bootstrap evidence."""

@@ -27,7 +27,7 @@ class ExperimentScope:
 
     mode: str
     data_fraction: float
-    seed: int = 42
+    seed: int = 8972
 
     def __post_init__(self) -> None:
         mode = str(self.mode).strip().lower()
@@ -89,7 +89,7 @@ class ExperimentScope:
         return cls(
             mode=values["mode"],
             data_fraction=values["data_fraction"],
-            seed=values.get("seed", 42),
+            seed=values.get("seed", 8972),
         )
 
 

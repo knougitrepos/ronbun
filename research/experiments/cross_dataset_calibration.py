@@ -1099,7 +1099,7 @@ def evaluate_rfw_official_internal_baseline(
     scores: Sequence[float],
     thresholds: Sequence[float],
     strict_official: bool = True,
-    bootstrap_seed: int = 42,
+    bootstrap_seed: int = 8972,
     bootstrap_repeats: int = 2000,
 ) -> CalibrationEvaluation:
     """Run the canonical RFW other-nine-fold threshold baseline only."""

@@ -65,7 +65,7 @@ def validate_survface_sidak_calibration_holdout(
         (50, 100, 20),
     ),
     target_fpir: float = 0.10,
-    seed: int = 42,
+    seed: int = 8972,
     progress: ProgressCallback | None = None,
 ) -> SurvFaceSidakHoldoutResult:
     """Validate empirical Sidak calibration on identity-disjoint calibration folds."""

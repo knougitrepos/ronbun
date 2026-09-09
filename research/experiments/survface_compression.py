@@ -116,7 +116,7 @@ def survface_watchlist_fit_image_paths(
     *,
     project_root: str | Path,
     gallery_identity_count: int = 3000,
-    seed: int = 42,
+    seed: int = 8972,
 ) -> set[str]:
     """Return the matched-calibration gallery images used to fit PCA/PQ."""
 
@@ -341,7 +341,7 @@ def fit_survface_compressors(
     project_root: str | Path,
     pca_dimensions: Sequence[int],
     pq_settings: Sequence[tuple[int, int]],
-    seed: int = 42,
+    seed: int = 8972,
     calibration_gallery_identities: int = 3000,
     batch_size: int = 1024,
     progress: ProgressCallback | None = None,

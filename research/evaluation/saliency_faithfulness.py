@@ -290,7 +290,7 @@ def summarize_faithfulness(
     identity_column: str = "identity_id",
     bootstrap_repeats: int = 1000,
     confidence_level: float = 0.95,
-    seed: int = 42,
+    seed: int = 8972,
 ) -> pd.DataFrame:
     """Summarize paired occlusion effects with identity-cluster bootstrap CIs."""
 

@@ -669,7 +669,7 @@ def build_rfw_custom_open_set_bundle(
     source_archive_sha256: str,
     gallery_identity_count_per_group: int | Mapping[str, int],
     enrollment_count: int = 1,
-    seed: int = 42,
+    seed: int = 8972,
     development_fraction: float = 0.60,
     calibration_fraction: float = 0.20,
     unknown_unknown_fraction: float = 0.50,

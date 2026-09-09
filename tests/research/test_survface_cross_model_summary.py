@@ -30,7 +30,7 @@ def _diagnostic_bundle(
             "model_uid": model_uid,
             "protocol_uid": "protocol-1",
             "calibration_condition_uid": "gallery-200_enrollment-1",
-            "seed": 42,
+            "seed": 8972,
             "target_fpir": target_fpir,
             "calibration_gallery_identity_count": 200,
             "calibration_enrollment_count": 1,
@@ -65,7 +65,7 @@ def _diagnostic_bundle(
                 {"gallery_identity_count": 200, "enrollment_count": 1}
             ],
             "target_fpir": target_fpir,
-            "seed": 42,
+            "seed": 8972,
             "test_threshold_recalibration": False,
         },
         "outputs": {"condition_summary": summary_path.name},

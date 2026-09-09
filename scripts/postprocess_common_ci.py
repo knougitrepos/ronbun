@@ -48,7 +48,7 @@ def postprocess(ledger, *, expected_sha256, condition_id, output_root, chunksize
         "condition_id": condition_id, "condition": condition,
         "implementation_sha256": {p.relative_to(PROJECT_ROOT).as_posix(): sha256_file(p)
                                   for p in implementation},
-        "resamples": 2000, "seed": 42, "confidence_level": .95,
+        "resamples": 2000, "seed": 8972, "confidence_level": .95,
         "thresholds_refitted": False, "gallery_resampled": False,
         "multiple_comparison_adjustment": "none", "fpir_unit": "query",
         "interpretation": "exploratory_fixed_threshold_fixed_gallery",

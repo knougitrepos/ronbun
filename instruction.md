@@ -32,7 +32,7 @@ py -m pip install -r requirements-step2.txt
 MODEL_NAME = "arcface"  # "arcface", "adaface", "magface"
 MODE = "dev"            # 빠른 점검은 "dev", 전체 논문 실행은 "real"
 DATA_FRACTION = 1.0     # identity 전체 사용
-SEED = 42               # 부분집합 및 사례 선택 재현 seed
+SEED = 8972               # 부분집합 및 사례 선택 재현 seed
 EXECUTE_STAGE = True    # 위에서 아래까지 실제 계산
 WRITE_OUTPUTS = True    # canonical artifact 저장
 OVERWRITE = True        # 미완료 단계의 canonical 결과 한 세트 교체

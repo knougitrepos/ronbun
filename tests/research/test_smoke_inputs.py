@@ -46,14 +46,14 @@ def test_resolve_smoke_input_automatically_builds_deterministic_lfw_batch(
         source_color_order="rgb",
         lfw_manifest_path=manifest,
         max_images=3,
-        seed=42,
+        seed=8972,
     )
     second = resolve_smoke_input_batch(
         tmp_path,
         source_color_order="rgb",
         lfw_manifest_path=manifest,
         max_images=3,
-        seed=42,
+        seed=8972,
     )
 
     assert first.aligned_faces.shape == (3, 112, 112, 3)

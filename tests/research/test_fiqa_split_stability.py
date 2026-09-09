@@ -31,7 +31,7 @@ def _inputs(tmp_path):
 
 
 def _run(condition, artifacts, **kwargs):
-    return run_fiqa_split_stability(condition, *artifacts, partition_seeds=(0, 42, 8972),
+    return run_fiqa_split_stability(condition, *artifacts, partition_seeds=(0, 1, 8972),
                                     target_fpirs=(.1,), resamples=100,
                                     minimum_group_non_mated=5, **kwargs)
 
@@ -87,18 +87,18 @@ def test_invalid_seed_panel(seeds):
 
 def test_inventory_and_missing_seed_fail_closed(tmp_path):
     condition, artifacts = _inputs(tmp_path)
-    a = _partition_inventory(condition.calibration, 42, .3)
-    b = _partition_inventory(condition.calibration.iloc[::-1], 42, .3)
+    a = _partition_inventory(condition.calibration, 8972, .3)
+    b = _partition_inventory(condition.calibration.iloc[::-1], 8972, .3)
     assert a == b
     condition.calibration.loc[0, "identity_id"] = None
     with pytest.raises(ValueError, match="identity"):
-        _partition_inventory(condition.calibration, 42, .3)
+        _partition_inventory(condition.calibration, 8972, .3)
     condition, artifacts = _inputs(tmp_path)
     result = _run(condition, artifacts)
     with pytest.raises(ValueError, match="incomplete"):
         summarize_split_stability(result["seed_metrics"].iloc[1:],
                                   result["seed_paired_comparisons"], result["seed_thresholds"],
-                                  (0, 42, 8972))
+                                  (0, 1, 8972))
 
 
 def test_all_mixed_and_no_target_attainment_are_descriptive(tmp_path):
@@ -110,7 +110,7 @@ def test_all_mixed_and_no_target_attainment_are_descriptive(tmp_path):
         mask = metrics.method.eq(method)
         metrics.loc[mask, "target_met_on_test"] = flags
     summary, _, _ = summarize_split_stability(metrics, result["seed_paired_comparisons"],
-                                              result["seed_thresholds"], (0, 42, 8972))
+                                              result["seed_thresholds"], (0, 1, 8972))
     summary = summary.set_index("method")
     assert summary.loc["global_safe", "observed_pattern"] == "all_observed_splits_exceed"
     assert summary.loc["fiqa_s", "observed_pattern"] == "split_sensitive_target_attainment"

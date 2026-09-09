@@ -210,7 +210,7 @@ def deterministic_calibration_partition(
     calibration: pd.DataFrame,
     *,
     safety_fraction: float = 0.30,
-    seed: int = 42,
+    seed: int = 8972,
     partition_column: str | None = None,
 ) -> pd.Series:
     """Return stable identity/query-cluster fit/safety labels."""
@@ -319,7 +319,7 @@ def fit_conditional_threshold(
     shrinkage_strength: float = 200.0,
     minimum_group_non_mated: int = 100,
     safety_fraction: float = 0.30,
-    partition_seed: int = 42,
+    partition_seed: int = 8972,
     partition_column: str | None = None,
     score_space: str,
 ) -> ConditionalThresholdModel:
@@ -508,7 +508,7 @@ def fit_global_threshold(
     target_fpir: float,
     score_column: str = "score",
     safety_fraction: float = 0.30,
-    partition_seed: int = 42,
+    partition_seed: int = 8972,
     partition_column: str | None = None,
     score_space: str,
 ) -> ConditionalThresholdModel:

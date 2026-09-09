@@ -200,13 +200,13 @@ def test_create_or_reuse_active_keeps_one_incomplete_result(tmp_path):
     root = tmp_path / "runs"
     first = RunStore.create_or_reuse_active(
         experiment_name="step2-arcface",
-        config={"model_uid": "arcface-1", "seed": 42},
+        config={"model_uid": "arcface-1", "seed": 8972},
         root=root,
         repo_root=tmp_path,
     )
     reopened = RunStore.create_or_reuse_active(
         experiment_name="step2-arcface",
-        config={"model_uid": "arcface-1", "seed": 42},
+        config={"model_uid": "arcface-1", "seed": 8972},
         root=root,
         repo_root=tmp_path,
     )
@@ -215,7 +215,7 @@ def test_create_or_reuse_active_keeps_one_incomplete_result(tmp_path):
     with pytest.raises(RuntimeError, match="different incomplete run"):
         RunStore.create_or_reuse_active(
             experiment_name="step2-adaface",
-            config={"model_uid": "adaface-1", "seed": 42},
+            config={"model_uid": "adaface-1", "seed": 8972},
             root=root,
             repo_root=tmp_path,
         )
@@ -223,7 +223,7 @@ def test_create_or_reuse_active_keeps_one_incomplete_result(tmp_path):
     first.complete()
     second = RunStore.create_or_reuse_active(
         experiment_name="step2-adaface",
-        config={"model_uid": "adaface-1", "seed": 42},
+        config={"model_uid": "adaface-1", "seed": 8972},
         root=root,
         repo_root=tmp_path,
     )
@@ -242,7 +242,7 @@ def test_dataset_date_root_keeps_lfw_runs_readable_and_restartable(tmp_path):
 
     run = RunStore.create_or_reuse_active(
         experiment_name="step2-lfw-arcface",
-        config={"model_uid": "arcface-1", "seed": 42},
+        config={"model_uid": "arcface-1", "seed": 8972},
         root=run_root,
         repo_root=tmp_path,
         partition_by_date=False,

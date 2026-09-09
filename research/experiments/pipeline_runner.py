@@ -395,7 +395,7 @@ def prepare_common_model_checkpoint(
     run_smoke_validation: bool = True,
     smoke_device: str = "cuda",
     max_smoke_images: int = 8,
-    seed: int = 42,
+    seed: int = 8972,
 ) -> CommonModelPreparation:
     """Register and optionally smoke-test one explicitly selected checkpoint.
 
@@ -722,7 +722,7 @@ def _validate_evaluation_contract(contract: Mapping[str, Any]) -> None:
     expected_confidence = {
         "binomial_rates": "wilson_95",
         "compressed_minus_origin": "paired_query_bootstrap_95",
-        "bootstrap_seed": 42,
+        "bootstrap_seed": 8972,
         "bootstrap_repeats": 2000,
     }
     if dict(confidence) != expected_confidence:
@@ -928,7 +928,7 @@ def build_common_experiment_plan(
     project_root: str | Path,
     dataset_id: str,
     run_tier: str = DEFAULT_RUN_TIER,
-    seed: int = 42,
+    seed: int = 8972,
     model_name: str | None = None,
     model_profile: str | None = None,
     model_uid: str | None = None,

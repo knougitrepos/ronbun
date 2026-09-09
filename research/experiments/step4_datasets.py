@@ -144,7 +144,7 @@ def _load_rfw_custom_manifest_cached(
             "gallery_identity_count_per_group"
         ],
         enrollment_count=int(options.get("enrollment_count", 1)),
-        seed=int(options.get("seed", 42)),
+        seed=int(options.get("seed", 8972)),
         development_fraction=float(options.get("development_fraction", 0.40)),
         calibration_fraction=float(options.get("calibration_fraction", 0.20)),
         unknown_unknown_fraction=float(

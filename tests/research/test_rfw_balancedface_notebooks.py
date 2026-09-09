@@ -40,7 +40,7 @@ def test_dataset_prerequisites_use_full_execution_defaults_and_guards():
     assert 'MODE = "dev"' in balanced_source
     for source in (rfw_source, balanced_source):
         assert "DATA_FRACTION = 1.0" in source
-        assert "SEED = 42" in source
+        assert "SEED = 8972" in source
         assert "EXECUTE_STAGE = True" in source
         assert "WRITE_OUTPUTS = True" in source
         assert "OVERWRITE = True" in source

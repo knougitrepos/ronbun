@@ -18,7 +18,7 @@ from research.calibration.conditional import (
 from research.experiments.fiqa_priority_diagnostics import run_fiqa_priority_diagnostics
 from research.runtime.hashing import canonical_sha256, sha256_file
 
-DEFAULT_PARTITION_SEEDS = (*range(18), 42, 8972)
+DEFAULT_PARTITION_SEEDS = (*range(19), 8972)
 TABLES = ("seed_metrics", "seed_paired_comparisons", "seed_thresholds",
           "seed_group_tail_transfer", "partition_inventory", "stability_summary",
           "paired_stability_summary", "threshold_stability_summary")
@@ -130,7 +130,7 @@ def run_fiqa_split_stability(
     condition, fiqa_s, fiqa_l, *, partition_seeds=DEFAULT_PARTITION_SEEDS,
     target_fpirs=(.01, .05, .10, .20, .30), safety_fraction=.30,
     bin_count=2, shrinkage_strength=200., minimum_group_non_mated=100,
-    resamples=2000, bootstrap_seed=42, progress=None,
+    resamples=2000, bootstrap_seed=8972, progress=None,
 ):
     """Refit on calibration only for each shared seed; keep test/gallery frozen.
 

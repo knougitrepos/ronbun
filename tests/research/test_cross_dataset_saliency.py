@@ -137,7 +137,7 @@ def _synthetic_completed_run(
                     "bootstrap_repeats": 500,
                     "bootstrap_rank_strategy": "weighted_rerank",
                     "bootstrap_batch_size": 4,
-                    "bootstrap_seed": 42,
+                    "bootstrap_seed": 8972,
                     "paired_saliency_features": ["saliency_entropy"],
                     "paired_event_metrics": ["threshold_crossing"],
                     "paired_minimum_event_count": 1,

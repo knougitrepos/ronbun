@@ -315,7 +315,7 @@ def build_survface_matched_calibration_protocol(
     manifest: pd.DataFrame,
     *,
     gallery_identity_count: int = 3000,
-    seed: int = 42,
+    seed: int = 8972,
 ) -> OpenSetProtocol:
     """Mirror the official 3,000-ID half-gallery regime on training IDs.
 

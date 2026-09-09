@@ -30,12 +30,12 @@ def test_faithfulness_selection_is_deterministic_and_stratum_balanced():
     first = select_stratified_faithfulness_sample(
         candidates,
         maximum_samples=32,
-        seed=42,
+        seed=8972,
     )
     repeated = select_stratified_faithfulness_sample(
         candidates.sample(frac=1.0, random_state=7),
         maximum_samples=32,
-        seed=42,
+        seed=8972,
     )
 
     assert first["sample_id"].tolist() == repeated["sample_id"].tolist()

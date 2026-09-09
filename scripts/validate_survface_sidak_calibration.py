@@ -36,7 +36,7 @@ def main() -> None:
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--target-fpir", type=float, default=0.10)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, default=8972)
     args = parser.parse_args()
 
     run_dir = args.run_dir.resolve()

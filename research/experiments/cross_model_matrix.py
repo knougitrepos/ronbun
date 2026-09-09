@@ -538,9 +538,10 @@ def _validate_retrieval_statistics(frame: pd.DataFrame, *, label: str) -> None:
         raise ValueError(f"{label} differences must use paired bootstrap intervals")
     repeats = _numeric(frame, "difference_confidence_interval_resamples", label=label)
     seeds = _numeric(frame, "difference_confidence_interval_random_seed", label=label)
-    if repeats.ne(2000).any() or seeds.ne(42).any():
+    # Legacy completed runs retain their actual seed; never relabel them.
+    if repeats.ne(2000).any() or not seeds.isin([42, 8972]).all() or seeds.nunique() != 1:
         raise ValueError(
-            f"{label} paired bootstrap must use 2000 resamples and seed 42"
+            f"{label} paired bootstrap must use 2000 resamples and one seed (42 legacy or 8972)"
         )
 
     rate_specs = (
@@ -1139,6 +1140,8 @@ def load_cross_model_open_set_matrix(
 
     compression_summary = pd.concat(compression_frames, ignore_index=True)
     retrieval_summary = pd.concat(retrieval_frames, ignore_index=True)
+    if retrieval_summary["difference_confidence_interval_random_seed"].nunique() != 1:
+        raise ValueError("matrix cannot mix legacy and current bootstrap seeds")
     matrix_pq_sdc_settings, matrix_sdc_contract = (
         _matrix_sdc_comparison_contract(path_provenance)
     )
@@ -1237,7 +1240,7 @@ def load_cross_model_open_set_matrix(
                 "bootstrap percentile"
             ),
             "paired_bootstrap_resamples": 2000,
-            "paired_bootstrap_random_seed": 42,
+            "paired_bootstrap_random_seed": int(retrieval_summary["difference_confidence_interval_random_seed"].iloc[0]),
         },
         "interpretation": {
             "model_comparison_scope": "checkpoint_level_generalization",

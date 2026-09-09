@@ -120,7 +120,7 @@ def test_survface_quick_selection_records_source_and_local_protocol_indexes():
     selected = select_step4_source_manifest(
         source,
         dataset_id="survface",
-        scope=ExperimentScope(mode="real", data_fraction=0.5, seed=42),
+        scope=ExperimentScope(mode="real", data_fraction=0.5, seed=8972),
     )
     official_mask = selected["protocol_role"].astype(str).isin(
         {"gallery", "registered_probe", "unknown_unknown_probe"}
@@ -166,13 +166,13 @@ def test_rfw_custom_quick_selection_uses_role_and_group_preserving_adapter(
     result = select_step4_source_manifest(
         source,
         dataset_id="rfw_custom",
-        scope=ExperimentScope(mode="real", data_fraction=0.10, seed=42),
+        scope=ExperimentScope(mode="real", data_fraction=0.10, seed=8972),
     )
 
     assert observed == {
         "frame": source,
         "data_fraction": 0.10,
-        "seed": 42,
+        "seed": 8972,
     }
     pd.testing.assert_frame_equal(result, selected)
 
@@ -470,7 +470,7 @@ def test_compression_phase_persists_origin_calibration_audit(
         }
     ).to_csv(workflow_root / "selected.csv", index=False)
     config = {
-        "execution": {"overwrite": False, "seed": 42},
+        "execution": {"overwrite": False, "seed": 8972},
         "workflow": {
             "prepared_population_dir": "prepared",
             "selected_manifest_path": "selected.csv",
@@ -602,7 +602,7 @@ def test_compression_phase_persists_origin_calibration_audit(
     )
     assert codec_manifest["fit_source_run_id"] == run.run_id
     assert codec_manifest["codecs"][0]["profile_name"] == "pca_2"
-    assert codec_manifest["codecs"][0]["fit_seed"] == 42
+    assert codec_manifest["codecs"][0]["fit_seed"] == 8972
     assert run.last_phase is not None
     assert run.last_phase.details["counts"]["origin_score_audit_rows"] == 2
     assert run.last_phase.details["retrieval_ledger"]["logical_row_count"] == (

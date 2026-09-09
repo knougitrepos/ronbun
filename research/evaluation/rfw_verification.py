@@ -313,7 +313,7 @@ def evaluate_rfw_pair_scores(
     score_space: str,
     thresholds: Sequence[float],
     strict_official: bool = True,
-    bootstrap_seed: int = 42,
+    bootstrap_seed: int = 8972,
     bootstrap_repeats: int = 2000,
 ) -> RFWVerificationResult:
     """Evaluate externally computed pair scores with fold-isolated thresholds."""
@@ -343,7 +343,7 @@ def evaluate_rfw_10fold(
     embeddings: np.ndarray,
     thresholds: Sequence[float] | None = None,
     strict_official: bool = True,
-    bootstrap_seed: int = 42,
+    bootstrap_seed: int = 8972,
     bootstrap_repeats: int = 2000,
 ) -> RFWVerificationResult:
     """Evaluate cosine verification without fitting a codec on RFW.

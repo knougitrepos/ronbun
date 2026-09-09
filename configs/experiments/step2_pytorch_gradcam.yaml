@@ -13,7 +13,7 @@ execution:
   model_profile: arcface_ms1mv3_r100
   mode: real
   data_fraction: 1.0
-  seed: 42
+  seed: 8972
   # Full LFW/SurvFace rerun profile. Commit this exact local-notebook
   # configuration before execution so allow_dirty=false pins the code state.
   # Existing canonical Step 4 bundles are never replaced implicitly.
@@ -304,7 +304,7 @@ datasets:
     checkpoint_overlap_status: UNKNOWN
     strict_unseen_identity_evidence: false
     protocol:
-      seed: 42
+      seed: 8972
       development_fraction: 0.40
       calibration_fraction: 0.20
       gallery_identity_count_per_group: 300
@@ -491,13 +491,13 @@ gradcam:
     primary_occlusion_fraction: 0.10
     baselines: [random, low_saliency]
     random_repeats: 5
-    seed: 42
+    seed: 8972
     random_seed_unit: sample_id
   representative_case_visualization:
     role: visualization_only
     run_after_population_join: true
     regenerate_gradcam: false
-    seed: 42
+    seed: 8972
     samples_per_stratum: 8
     threshold_policy: frozen_origin
     strata:

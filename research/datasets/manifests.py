@@ -122,7 +122,7 @@ def build_lfw_manifest(
     lfw_root: str | Path,
     project_root: str | Path,
     *,
-    seed: int = 42,
+    seed: int = 8972,
     development_fraction: float = 0.60,
     calibration_fraction: float = 0.20,
     gallery_size: int = 50,
@@ -321,7 +321,7 @@ def build_survface_training_manifest(
     survface_root: str | Path,
     project_root: str | Path,
     *,
-    seed: int = 42,
+    seed: int = 8972,
     development_fraction: float = 0.80,
 ) -> SurvFaceTrainingBundle:
     """Build a leakage-safe manifest from the official SurvFace training_set.

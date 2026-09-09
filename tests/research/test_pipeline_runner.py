@@ -42,7 +42,7 @@ def _write_plan_inputs(tmp_path: Path) -> tuple[Path, Path]:
                     "model_profile": "arcface_registered",
                     "mode": "real",
                     "data_fraction": 1.0,
-                    "seed": 42,
+                    "seed": 8972,
                     "execute_stage": True,
                     "write_outputs": True,
                     "overwrite": False,
@@ -236,7 +236,7 @@ def test_contract_constants_match_user_confirmed_values() -> None:
     assert contract["evaluation"]["confidence_intervals"] == {
         "binomial_rates": "wilson_95",
         "compressed_minus_origin": "paired_query_bootstrap_95",
-        "bootstrap_seed": 42,
+        "bootstrap_seed": 8972,
         "bootstrap_repeats": 2000,
     }
     assert contract["rfw"]["edgeface_training_identity_overlap_status"] == (

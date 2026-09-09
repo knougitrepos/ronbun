@@ -54,7 +54,7 @@ def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
             or f"MODE = '{expected_mode}'" in source
         )
         assert "DATA_FRACTION = 1.0" in source
-        assert "SEED = 42" in source
+        assert "SEED = 8972" in source
         assert "ExperimentScope(" in source
         assert source.count("select_manifest_fraction(") >= 2
         assert "select_open_set_protocol_fraction(" in source

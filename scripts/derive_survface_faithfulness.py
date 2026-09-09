@@ -289,7 +289,7 @@ def derive_open_set_faithfulness(
     *,
     output_dir: str | Path | None = None,
     maximum_samples: int | None = DEFAULT_MAXIMUM_SAMPLES,
-    seed: int = 42,
+    seed: int = 8972,
     occlusion_fraction: float = 0.10,
     random_repeats: int = 5,
     batch_size: int = 32,
@@ -627,7 +627,7 @@ def _parse_args() -> argparse.Namespace:
         type=_parse_maximum_samples,
         default=DEFAULT_MAXIMUM_SAMPLES,
     )
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, default=8972)
     parser.add_argument("--occlusion-fraction", type=float, default=0.10)
     parser.add_argument("--random-repeats", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=32)

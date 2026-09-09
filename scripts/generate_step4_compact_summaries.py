@@ -1120,7 +1120,7 @@ def generate(
             ),
             "additional_tpir_confidence_intervals": (
                 "query-weighted mated identity-cluster percentile 95%; "
-                "2000 draws, seed 42; fixed threshold/gallery; no multiplicity correction; "
+                "2000 draws, seed 8972; fixed threshold/gallery; no multiplicity correction; "
                 "available only when tpir_cluster_ci_status=ok"
             ),
             "difference_confidence_intervals": (

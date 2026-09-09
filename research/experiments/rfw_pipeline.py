@@ -629,7 +629,7 @@ def rfw_frozen_codec_evaluation_uid(
     origin_artifact_dir: str | Path,
     codec_specs: Sequence[FrozenCodecSpec],
     strict_official: bool = True,
-    bootstrap_seed: int = 42,
+    bootstrap_seed: int = 8972,
     bootstrap_repeats: int = 2000,
 ) -> str:
     """Return a stable UID for one origin/codec/evaluation contract."""
@@ -751,7 +751,7 @@ def evaluate_rfw_frozen_codecs(
     codec_specs: Sequence[FrozenCodecSpec],
     output_dir: str | Path,
     strict_official: bool = True,
-    bootstrap_seed: int = 42,
+    bootstrap_seed: int = 8972,
     bootstrap_repeats: int = 2000,
     reuse_completed: bool = True,
 ) -> RFWFrozenCodecEvaluation:

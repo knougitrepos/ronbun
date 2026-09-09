@@ -407,7 +407,7 @@ class PQCompressor:
         nbits: int = 8,
         *,
         source_profile: str | None = None,
-        random_state: int = 42,
+        random_state: int = 8972,
     ):
         self.source_dim = int(source_dim)
         self.m = int(m)
@@ -886,7 +886,7 @@ def fit_pq_origin_profile(
     m: int = 16,
     nbits: int = 8,
     source_profile: str = ORIGIN_512,
-    random_state: int = 42,
+    random_state: int = 8972,
 ) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
     if str(source_profile) != ORIGIN_512:
@@ -913,7 +913,7 @@ def fit_pq_auxiliary_profile(
     *,
     m: int = 16,
     nbits: int = 8,
-    random_state: int = 42,
+    random_state: int = 8972,
 ) -> CompressionResult:
     """Dimension-generic compatibility wrapper for historical experiments."""
 

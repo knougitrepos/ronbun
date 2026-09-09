@@ -7,7 +7,7 @@ run:
 execution:
   mode: real
   data_fraction: 1.0
-  seed: 42
+  seed: 8972
 
 models:
   # Only ArcFace has an extractor adapter in the current repository. Planned

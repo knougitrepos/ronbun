@@ -155,7 +155,7 @@ def test_group_matched_calibration_mirrors_each_gallery_group_deterministically(
         split_name="calibration",
         gallery_identity_count_by_group={"African": 2, "Asian": 2},
         enrollment_count=1,
-        seed=42,
+        seed=8972,
         group_column="rfw_group",
     )
     second = build_group_matched_calibration_protocol(
@@ -163,7 +163,7 @@ def test_group_matched_calibration_mirrors_each_gallery_group_deterministically(
         split_name="calibration",
         gallery_identity_count_by_group={"African": 2, "Asian": 2},
         enrollment_count=1,
-        seed=42,
+        seed=8972,
         group_column="rfw_group",
     )
 
@@ -186,7 +186,7 @@ def test_group_matched_calibration_mirrors_each_gallery_group_deterministically(
             split_name="calibration",
             gallery_identity_count_by_group={"African": 4, "Asian": 2},
             enrollment_count=1,
-            seed=42,
+            seed=8972,
             group_column="rfw_group",
         )
 
@@ -223,12 +223,12 @@ def test_survface_matched_calibration_uses_half_gallery_and_all_non_mated_rows()
     first = build_survface_matched_calibration_protocol(
         manifest,
         gallery_identity_count=2,
-        seed=42,
+        seed=8972,
     )
     second = build_survface_matched_calibration_protocol(
         manifest.sample(frac=1.0, random_state=7),
         gallery_identity_count=2,
-        seed=42,
+        seed=8972,
     )
 
     pd.testing.assert_frame_equal(first.gallery, second.gallery)

@@ -210,7 +210,7 @@ def main() -> None:
         help="GALLERY_IDENTITIES:ENROLLMENT_COUNT; may be repeated",
     )
     parser.add_argument("--target-fpir", type=float, default=0.10)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, default=8972)
     args = parser.parse_args()
     conditions = tuple(args.conditions or DEFAULT_CONDITIONS)
     manifest = generate_diagnostics(

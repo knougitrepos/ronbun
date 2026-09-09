@@ -178,7 +178,7 @@ def build_balancedface_index_bundle(
     project_root: str | Path,
     *,
     rfw_source_identity_ids: Iterable[str],
-    seed: int = 42,
+    seed: int = 8972,
     development_fraction: float = 0.80,
     strict_official: bool = True,
     verify_recordio_archive: bool = True,

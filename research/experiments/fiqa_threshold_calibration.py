@@ -797,7 +797,7 @@ def run_global_vs_fiqa_calibration(
     shrinkage_strength: float = 200.0,
     minimum_group_non_mated: int = 100,
     safety_fraction: float = 0.30,
-    partition_seed: int = 42,
+    partition_seed: int = 8972,
     condition_manifest: dict[str, Any],
     fiqa_manifest: dict[str, Any],
 ) -> CalibrationComparison:

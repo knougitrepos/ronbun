@@ -85,7 +85,7 @@ def test_survface_watchlist_fit_paths_use_half_gallery(tmp_path):
         manifest,
         project_root=tmp_path,
         gallery_identity_count=2,
-        seed=42,
+        seed=8972,
     )
 
     assert len(paths) == 4

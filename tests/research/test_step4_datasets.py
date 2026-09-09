@@ -25,14 +25,14 @@ def test_survface_saliency_sampling_is_deterministic_and_role_balanced():
         eligible,
         dataset_id="survface",
         maximum_samples=8,
-        seed=42,
+        seed=8972,
     )
     repeated = select_step4_saliency_sample_mask(
         manifest,
         eligible,
         dataset_id="survface",
         maximum_samples=8,
-        seed=42,
+        seed=8972,
     )
 
     assert np.array_equal(first, repeated)
@@ -64,7 +64,7 @@ def test_rfw_custom_saliency_sampling_preserves_group_role_strata():
         eligible,
         dataset_id="rfw_custom",
         maximum_samples=8,
-        seed=42,
+        seed=8972,
     )
 
     strata = (

@@ -97,7 +97,7 @@ def test_tinyface_plan_hash_and_config_include_sdc_selection(
     common = {
         "project_root": tmp_path,
         "run_tier": "full",
-        "seed": 42,
+        "seed": 8972,
         "model_name": "arc",
         "model_profile": "arcface_registered",
         "model_uid": "tinyface-model",
@@ -192,13 +192,13 @@ def test_tinyface_quick_scope_is_deterministic_and_not_paper_eligible(
     first = select_tinyface_protocol_fraction(
         bundle.manifest,
         data_fraction=0.5,
-        seed=42,
+        seed=8972,
         minimum_development_samples=1,
     )
     second = select_tinyface_protocol_fraction(
         bundle.manifest,
         data_fraction=0.5,
-        seed=42,
+        seed=8972,
         minimum_development_samples=1,
     )
 
@@ -264,7 +264,7 @@ def test_tinyface_paired_deltas_preserve_query_pairing() -> None:
     result = paired_tinyface_deltas(
         origin,
         candidate,
-        bootstrap_seed=42,
+        bootstrap_seed=8972,
         bootstrap_repeats=100,
     )
 

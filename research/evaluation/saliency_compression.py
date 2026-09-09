@@ -1288,7 +1288,7 @@ def saliency_compression_associations(
     identity_column: str = "identity_id",
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
-    seed: int = 42,
+    seed: int = 8972,
     bootstrap_rank_strategy: str = RESAMPLED_RANK_STRATEGY,
     bootstrap_batch_size: int = 4,
     progress: AssociationProgressCallback | None = None,
@@ -1516,7 +1516,7 @@ def saliency_geometry_associations(
     identity_column: str = "identity_id",
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
-    seed: int = 42,
+    seed: int = 8972,
     bootstrap_rank_strategy: str = RESAMPLED_RANK_STRATEGY,
     bootstrap_batch_size: int = 4,
     progress: AssociationProgressCallback | None = None,
@@ -1553,7 +1553,7 @@ def saliency_retrieval_associations(
     identity_column: str = "identity_id",
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
-    seed: int = 42,
+    seed: int = 8972,
     bootstrap_rank_strategy: str = RESAMPLED_RANK_STRATEGY,
     bootstrap_batch_size: int = 4,
     progress: AssociationProgressCallback | None = None,
@@ -1633,7 +1633,7 @@ def threshold_instability_associations(
     identity_column: str = "identity_id",
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
-    seed: int = 42,
+    seed: int = 8972,
     bootstrap_rank_strategy: str = WEIGHTED_RERANK_STRATEGY,
     bootstrap_batch_size: int = 4,
     progress: AssociationProgressCallback | None = None,
@@ -1810,7 +1810,7 @@ def threshold_policy_event_comparisons(
     identity_column: str = "identity_id",
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
-    seed: int = 42,
+    seed: int = 8972,
 ) -> pd.DataFrame:
     """Compare frozen and recalibrated threshold events on paired queries."""
 
@@ -1998,7 +1998,7 @@ def threshold_policy_saliency_rho_comparisons(
     identity_column: str = "identity_id",
     bootstrap_repeats: int = 500,
     confidence_level: float = 0.95,
-    seed: int = 42,
+    seed: int = 8972,
     bootstrap_batch_size: int = 4,
     minimum_event_count: int = DEFAULT_MINIMUM_EVENT_COUNT,
 ) -> pd.DataFrame:

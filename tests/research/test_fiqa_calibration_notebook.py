@@ -132,7 +132,7 @@ def test_fiqa_notebook_reuse_checks_settings_and_manifest_hashes(stale_field):
             "partition_key": "sha256(identity_id)", "partition_unit": "identity_cluster"},
     }
     if stale_field == "partition_seed":
-        manifest["safety_calibration"]["partition_seed"] = 42
+        manifest["safety_calibration"]["partition_seed"] = 1
     elif stale_field == "shrinkage_strength":
         manifest["quality_condition"]["shrinkage_strength"] = 50
     elif stale_field == "condition_hash":

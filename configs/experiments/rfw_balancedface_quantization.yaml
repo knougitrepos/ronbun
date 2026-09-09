@@ -6,7 +6,7 @@ run:
 execution:
   mode: dev
   data_fraction: 0.10
-  seed: 42
+  seed: 8972
   execute_stage: false
   write_outputs: false
 

@@ -483,7 +483,7 @@ def extract_population_gradcam(
     minimum_pass_repeat_cosine: float = 0.99999,
     faithfulness_fraction: float | None = 0.10,
     faithfulness_random_repeats: int = 5,
-    faithfulness_seed: int = 42,
+    faithfulness_seed: int = 8972,
     faithfulness_batch_size: int = 32,
     saliency_sample_mask: Sequence[bool] | np.ndarray | None = None,
     progress: ProgressCallback | None = None,

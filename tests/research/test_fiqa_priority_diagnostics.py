@@ -34,9 +34,9 @@ def test_tail_diagnostic_does_not_refit_on_test():
     model = fit_conditional_threshold(cal, target_fpir=.1, minimum_group_non_mated=5,
                                       score_space="negative_squared_l2_adc")
     before = model.as_dict()
-    first = quality_tail_transfer(cal, test, model, safety_fraction=.3, seed=42)
+    first = quality_tail_transfer(cal, test, model, safety_fraction=.3, seed=8972)
     test["score"] = 100
-    shifted = quality_tail_transfer(cal, test, model, safety_fraction=.3, seed=42)
+    shifted = quality_tail_transfer(cal, test, model, safety_fraction=.3, seed=8972)
     assert model.as_dict() == before
     pd.testing.assert_frame_equal(first[first.split != "test"], shifted[shifted.split != "test"])
     assert shifted.loc[shifted.split == "test", "realized_fpir"].eq(1).all()

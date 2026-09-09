@@ -36,7 +36,7 @@ def test_step2_config_uses_interpretable_aligned_crop_bundle() -> None:
         "model_profile": "arcface_ms1mv3_r100",
         "mode": "real",
         "data_fraction": 1.0,
-        "seed": 42,
+        "seed": 8972,
         "execute_stage": True,
         "write_outputs": True,
         "overwrite": False,

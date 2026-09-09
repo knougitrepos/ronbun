@@ -286,7 +286,7 @@ def select_tinyface_protocol_fraction(
     manifest: pd.DataFrame,
     *,
     data_fraction: float,
-    seed: int = 42,
+    seed: int = 8972,
     minimum_development_samples: int = 4_096,
 ) -> pd.DataFrame:
     """Select a deterministic, identity-preserving non-paper quick scope."""

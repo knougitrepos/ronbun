@@ -125,7 +125,7 @@ def _compact_retrieval(*, family: str) -> pd.DataFrame:
                         "paired_nonparametric_bootstrap_percentile"
                     ),
                     "difference_confidence_interval_resamples": 2_000,
-                    "difference_confidence_interval_random_seed": 42,
+                    "difference_confidence_interval_random_seed": 8972,
                     "threshold_crossing_count": 0,
                     "accept_to_reject_count": 0,
                     "reject_to_accept_count": 0,

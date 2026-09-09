@@ -25,7 +25,7 @@ def _cluster_counts(identity_ids, events):
     return unique, counts
 
 
-def _draw_counts(counts, *, resamples=2000, seed=42):
+def _draw_counts(counts, *, resamples=2000, seed=8972):
     if (isinstance(resamples, (bool, np.bool_))
             or not isinstance(resamples, (int, np.integer)) or resamples < 100):
         raise ValueError("at least 100 integer resamples required")
@@ -47,7 +47,7 @@ def _draw_counts(counts, *, resamples=2000, seed=42):
     return draws
 
 
-def cluster_rate_draws(identity_ids, events, *, resamples=2000, seed=42):
+def cluster_rate_draws(identity_ids, events, *, resamples=2000, seed=8972):
     """Jointly resample identities, then divide total successes by total queries.
 
     This does not average per-identity rates. Columns use identical draws so
@@ -84,7 +84,7 @@ class TpirClusterAccumulator:
             "tpir_cluster_ci_status": status,
             "tpir_cluster_ci_identity_count": len(self.counts),
             "tpir_cluster_ci_resamples": 2000,
-            "tpir_cluster_ci_seed": 42,
+            "tpir_cluster_ci_seed": 8972,
             "tpir_cluster_ci_unit": "mated_identity_cluster",
             "tpir_cluster_ci_estimand": "query_weighted_rate",
             "tpir_cluster_ci_threshold_uncertainty_included": False,

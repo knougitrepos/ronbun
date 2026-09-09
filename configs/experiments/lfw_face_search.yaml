@@ -11,7 +11,7 @@ dataset:
 
 protocol:
   adapter: lfw_identity_disjoint
-  split_seed: 42
+  split_seed: 8972
   enrollment_counts: [1, 2, 5]
   gallery_identities_path: data/interim/lfw/gallery_identities.txt
   unknown_unknown_identities_path: data/interim/lfw/unknown_unknown_identities.txt

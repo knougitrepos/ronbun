@@ -38,7 +38,7 @@ def test_paper_run_rejects_dirty_git_tree_unless_explicitly_allowed(tmp_path):
     with pytest.raises(RuntimeError, match="clean Git working tree"):
         RunStore.create(
             experiment_name="paper-run",
-            config={"seed": 42},
+            config={"seed": 8972},
             root=tmp_path / "rejected",
             repo_root=repo,
             now=datetime(2026, 7, 28, 9, 0, tzinfo=KST),
@@ -47,7 +47,7 @@ def test_paper_run_rejects_dirty_git_tree_unless_explicitly_allowed(tmp_path):
 
     run = RunStore.create(
         experiment_name="development-run",
-        config={"seed": 42},
+        config={"seed": 8972},
         root=tmp_path / "allowed",
         repo_root=repo,
         now=datetime(2026, 7, 28, 9, 0, tzinfo=KST),
@@ -77,7 +77,7 @@ def test_run_root_untracked_artifacts_do_not_block_a_clean_code_resume(tmp_path)
 
     run = RunStore.create(
         experiment_name="resumable-paper-run",
-        config={"seed": 42},
+        config={"seed": 8972},
         root=run_root,
         repo_root=repo,
         now=datetime(2026, 7, 28, 9, 0, tzinfo=KST),
@@ -115,7 +115,7 @@ def test_tracked_run_and_result_artifacts_do_not_dirty_source_contract(
 
     run = RunStore.create(
         experiment_name="artifact-dirty-source-clean",
-        config={"seed": 42},
+        config={"seed": 8972},
         root=repo / "runs" / "survface_20260803",
         repo_root=repo,
         now=datetime(2026, 8, 3, 5, 40, tzinfo=KST),
@@ -187,7 +187,7 @@ def test_paper_run_ignores_notebook_execution_record_only_changes(tmp_path):
 
     run = RunStore.create(
         experiment_name="notebook-runtime-record",
-        config={"seed": 42},
+        config={"seed": 8972},
         root=repo / "runs" / "notebook-runtime-record",
         repo_root=repo,
         now=datetime(2026, 7, 29, 22, 30, tzinfo=KST),
@@ -217,7 +217,7 @@ def test_paper_run_still_rejects_notebook_source_changes(tmp_path):
     with pytest.raises(RuntimeError, match="tracked_source_changes"):
         RunStore.create(
             experiment_name="notebook-source-change",
-            config={"seed": 42},
+            config={"seed": 8972},
             root=repo / "runs" / "notebook-source-change",
             repo_root=repo,
             now=datetime(2026, 7, 29, 22, 30, tzinfo=KST),

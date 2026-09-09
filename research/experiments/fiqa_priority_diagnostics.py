@@ -69,7 +69,7 @@ def run_fiqa_priority_diagnostics(
     condition, fiqa_s, fiqa_l, *, target_fpirs=(.01, .05, .10, .20, .30),
     partition_seed=8972, safety_fraction=.30, bin_count=2,
     shrinkage_strength=200., minimum_group_non_mated=100,
-    resamples=2000, bootstrap_seed=42,
+    resamples=2000, bootstrap_seed=8972,
 ):
     """Compare four methods under one split; test data never chooses thresholds.
 

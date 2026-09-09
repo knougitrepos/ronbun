@@ -244,7 +244,7 @@ def test_results_only_streaming_skips_full_joins_and_keeps_case_candidates(
         geometry_projection,
         threshold_policy="frozen_origin",
         cases_per_group=1,
-        seed=42,
+        seed=8972,
         chunksize=2,
     )
 
@@ -286,7 +286,7 @@ def test_results_only_streaming_skips_full_joins_and_keeps_case_candidates(
     expected = select_population_representative_cases(
         expected,
         cases_per_group=1,
-        seed=42,
+        seed=8972,
     )
     assert cases[["case_id", "case_group"]].to_dict("records") == expected[
         ["case_id", "case_group"]

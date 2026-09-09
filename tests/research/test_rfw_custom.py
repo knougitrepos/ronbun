@@ -308,4 +308,4 @@ def test_quick_full_fraction_returns_an_unmodified_copy():
 @pytest.mark.parametrize("fraction", [0.0, -0.5, 1.1, float("nan"), True])
 def test_quick_fraction_rejects_invalid_values(fraction):
     with pytest.raises(ValueError, match="data_fraction"):
-        select_rfw_custom_protocol_fraction(_build(), fraction, seed=42)
+        select_rfw_custom_protocol_fraction(_build(), fraction, seed=8972)

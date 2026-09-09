@@ -23,7 +23,7 @@ class _FakePQ:
         nbits: int,
         *,
         source_profile: str,
-        random_state: int = 42,
+        random_state: int = 8972,
     ):
         self.m = m
         self.nbits = nbits
@@ -198,7 +198,7 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
         pca_dimensions=[2],
         pq_settings=[(8, 1)],
         pq_sdc_settings=[(8, 1)],
-        seed=42,
+        seed=8972,
         target_fpir=1.0,
         enrollment_count=1,
         calibration_gallery_identities=1,
@@ -337,7 +337,7 @@ def test_step2_runner_streams_retrieval_without_full_concat(monkeypatch) -> None
         pca_dimensions=[2],
         pq_settings=[(8, 1)],
         pq_sdc_settings=[(8, 1)],
-        seed=42,
+        seed=8972,
         target_fpir=1.0,
         target_fpirs=(1.0, 0.5),
         enrollment_count=1,
@@ -393,7 +393,7 @@ def test_step2_runner_reuses_search_scores_for_multiple_fpir_targets(
         pca_dimensions=[2],
         pq_settings=[(8, 1)],
         pq_sdc_settings=[(8, 1)],
-        seed=42,
+        seed=8972,
         target_fpir=1.0,
         target_fpirs=(0.5,),
         enrollment_count=1,
@@ -688,7 +688,7 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
     ]
     assert calibration_contract == {
         "name": "training_1_half_gallery_v2",
-        "seed": 42,
+        "seed": 8972,
         "source_identity_count": 4,
         "gallery_identity_count": 1,
         "gallery_source_image_count": 1,
@@ -819,7 +819,7 @@ def test_rfw_custom_runner_uses_persisted_open_set_roles_and_multi_fpir(
         selected,
         pca_dimensions=[2],
         pq_settings=[],
-        seed=42,
+        seed=8972,
         target_fpir=1.0,
         target_fpirs=(0.5,),
         top_k=2,
@@ -880,7 +880,7 @@ def test_rfw_custom_runner_uses_persisted_open_set_roles_and_multi_fpir(
         selected,
         pca_dimensions=[2],
         pq_settings=[],
-        seed=42,
+        seed=8972,
         target_fpir=1.0,
         target_fpirs=(0.5,),
         top_k=2,

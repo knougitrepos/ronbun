@@ -14,7 +14,7 @@ KST = ZoneInfo("Asia/Seoul")
 def _run(tmp_path):
     return RunStore.create(
         experiment_name="paper-results-test",
-        config={"dataset": "lfw", "seed": 42},
+        config={"dataset": "lfw", "seed": 8972},
         root=tmp_path / "runs",
         now=datetime(2026, 7, 14, 18, 0, tzinfo=KST),
         repo_root=tmp_path,

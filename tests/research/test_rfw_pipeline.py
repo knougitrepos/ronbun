@@ -149,7 +149,7 @@ def test_rfw_origin_embedding_artifact_is_hashed_and_reusable(
     ]
 
     codec_path = tmp_path / "pca_2.joblib"
-    PCACompressor(2, random_state=42).fit(
+    PCACompressor(2, random_state=8972).fit(
         np.asarray(artifact.embeddings)
     ).save(codec_path)
     fit_manifest = tmp_path / "fit_manifest.json"
@@ -169,7 +169,7 @@ def test_rfw_origin_embedding_artifact_is_hashed_and_reusable(
                         "family": "pca",
                         "artifact_sha256": codec_sha256,
                         "artifact_byte_count": codec_path.stat().st_size,
-                        "fit_seed": 42,
+                        "fit_seed": 8972,
                     }
                 ],
             }
@@ -241,7 +241,7 @@ def test_frozen_codec_specs_are_resolved_from_explicit_completed_run(
         encoding="utf-8",
     )
     codec_path = codec_dir / "pca_2_A001.joblib"
-    PCACompressor(2, random_state=42).fit(
+    PCACompressor(2, random_state=8972).fit(
         np.eye(4, 512, dtype=np.float32)
     ).save(codec_path)
     codec_sha256 = sha256_file(codec_path)
@@ -260,7 +260,7 @@ def test_frozen_codec_specs_are_resolved_from_explicit_completed_run(
                 "artifact": codec_relative,
                 "artifact_sha256": codec_sha256,
                 "artifact_byte_count": codec_path.stat().st_size,
-                "fit_seed": 42,
+                "fit_seed": 8972,
             }
         ],
     }
@@ -330,7 +330,7 @@ def test_rfw_evaluation_rejects_codec_from_different_model(
         strict_official=False,
     )
     codec_path = tmp_path / "codec.joblib"
-    PCACompressor(2, random_state=42).fit(
+    PCACompressor(2, random_state=8972).fit(
         np.eye(4, 512, dtype=np.float32)
     ).save(codec_path)
     fit_manifest = tmp_path / "fit_manifest.json"
@@ -350,7 +350,7 @@ def test_rfw_evaluation_rejects_codec_from_different_model(
                         "family": "pca",
                         "artifact_sha256": codec_sha256,
                         "artifact_byte_count": codec_path.stat().st_size,
-                        "fit_seed": 42,
+                        "fit_seed": 8972,
                     }
                 ],
             }

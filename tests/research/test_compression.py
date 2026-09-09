@@ -189,7 +189,7 @@ def test_pq_profile_is_direct_origin_family_not_pgvector_searchable():
     assert pq.metadata["code_bytes"] == 4
     assert pq.metadata["codebook_bytes"] == 512 * (2**2) * 4
     assert pq.metadata["codec_parameter_bytes"] == pq.metadata["codebook_bytes"]
-    assert pq.metadata["random_state"] == 42
+    assert pq.metadata["random_state"] == 8972
     assert pq.metadata["codebook_bytes_source"] in {
         "faiss_centroids",
         "float32_formula",

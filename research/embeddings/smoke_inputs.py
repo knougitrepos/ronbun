@@ -216,7 +216,7 @@ def resolve_smoke_input_batch(
     explicit_path: str | Path | None = None,
     lfw_manifest_path: str | Path | None = None,
     max_images: int = 8,
-    seed: int = 42,
+    seed: int = 8972,
 ) -> SmokeInputBatch:
     """Resolve explicit aligned arrays or build an automatic LFW smoke batch."""
 
