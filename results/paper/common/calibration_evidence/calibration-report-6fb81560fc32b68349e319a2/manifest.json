@@ -1,0 +1,82 @@
+{
+  "artifact_type": "calibration_evidence_report",
+  "schema_version": 1,
+  "source_run_id": "20260902-R001-61915edf",
+  "model_uid": "arcface-7972a704552df378345f",
+  "condition_uid": "compressed-scores-2548cd9ab45de52c3b614a9a",
+  "reference_seed": 8972,
+  "source_manifest_sha256": {
+    "common_ci": "3b1895810a2d273fa774331dc7223bea20e373e0717f6841c0ac9a2a6bfb0e10",
+    "split_stability": "c094ec2ef00311ad298bfadf2d098fc429c8dfd0383857ab4368faa8025c10a6",
+    "condition": "db77ec98b3fabb07f54a0b34d28ffb92dae8d57a84e79ce2a7f5c6a0198fb46a"
+  },
+  "source_directories": {
+    "common_ci": "C:\\ronbun\\results\\evaluation\\common_ci\\20260902-R001-61915edf\\common-ci-889aededfcf9b089a2c25c88",
+    "split_stability": "C:\\ronbun\\results\\calibration\\fiqa_split_stability\\20260902-R001-61915edf\\fiqa-split-f473f8c1a2384db105604e61",
+    "condition": "C:\\ronbun\\results\\calibration\\condition_scores\\20260902-R001-61915edf\\pq_512_m128_b8__pq_adc_exhaustive\\genuine-score-topk-v2"
+  },
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "partition_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    42,
+    8972
+  ],
+  "coverage": {
+    "compression_family": "pq",
+    "compression_profile": "pq_512_m128_b8",
+    "dataset": "survface",
+    "dataset_id": "survface",
+    "evaluation_split": "test",
+    "extraction_uid": "population-be3c0699e9b36cffc1ff86ee",
+    "model_uid": "arcface-7972a704552df378345f",
+    "origin_embedding_artifact_uid": "origin-embedding-c70c8c1f2657fb794827862c",
+    "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+    "search_mode": "pq_adc_exhaustive",
+    "threshold_source_split": "calibration"
+  },
+  "cross_model_generalization": false,
+  "claim_status": "exploratory_fixed_cohort_not_final_paper_evidence",
+  "between_split_statistics_are_ci": false,
+  "same_realized_fpir_comparison": false,
+  "implementation_sha256": "304d5494b7530c9d00b831fdec41f71db2108edab4f268424fc5467223ba0ec3",
+  "summary_implementation_sha256": "47a88482a2f2bb251145e1f4b9900b118897f65db8d97adb746e0b366c65aeae",
+  "presentation": {
+    "audience": "technical",
+    "surface": "existing_notebooks_and_markdown",
+    "tables_reason": "exact operating-point lookup with CI units and distinct baselines"
+  },
+  "report_uid": "calibration-report-6fb81560fc32b68349e319a2",
+  "status": "completed",
+  "files": {
+    "compression_operating_points.csv": "2a45bf283d475765c16341e0c5b8880d0e7c806e2b4506371ee8aec0642d547a",
+    "compression_paired_ci.csv": "60f12b31b6ccfee4af6f0d2de17c66d48fbfe6759c18fee8516cbff092fa49ff",
+    "fiqa_fixed_split.csv": "b458c0a64c90189bf6d8ad9ef7ec14e997f55cf7cd7922ef80b75e49756afe3e",
+    "fiqa_paired_ci.csv": "bac6df22386e4773dc82f1132bc57d5de742a62516383a1917dc69ed5fd97521",
+    "split_stability.csv": "97d3bb4a72b30a43c0cac3e6bfef8cb463cb1d3f85b65302c88538ea3ff98120",
+    "paired_split_stability.csv": "a3625692adc661e7faf1711e6ad0f4acf96a60e85bf07ba9bbdc24359d3ed233",
+    "REPORT.md": "478cd87cd0ede948f2249e740dd3880c64fee2bd2bb9fc291f5060ac060dc738"
+  }
+}

@@ -1,0 +1,11 @@
+comparison_family,method,target_fpir,realized_fpir,tpir20,tpir_cluster95_low,tpir_cluster95_high,target_met,tpir_ci_unit
+origin_vs_compressed,Origin cosine,0.01,0.0150407439048,0.00127434917167,0.000584728577155,0.00209041916066,False,mated_identity_cluster
+origin_vs_compressed,PQ ADC global,0.01,0.0148025234935,0.00130744915016,0.000578564795899,0.00225356802692,False,mated_identity_cluster
+origin_vs_compressed,Origin cosine,0.05,0.0535174475915,0.00711649537428,0.004382351147,0.0103496376215,False,mated_identity_cluster
+origin_vs_compressed,PQ ADC global,0.05,0.053147795229,0.0069675454711,0.0041863457146,0.0103340155596,False,mated_identity_cluster
+origin_vs_compressed,Origin cosine,0.1,0.0953210225406,0.0130910414908,0.00850079077245,0.018617483304,True,mated_identity_cluster
+origin_vs_compressed,PQ ADC global,0.1,0.0957317473878,0.0127765916952,0.00814918840433,0.0183883865745,True,mated_identity_cluster
+origin_vs_compressed,Origin cosine,0.2,0.1806450023,0.0247918838853,0.0179110828978,0.0328252355124,True,mated_identity_cluster
+origin_vs_compressed,PQ ADC global,0.2,0.181285733062,0.0243450341757,0.0173946197473,0.0324383520801,True,mated_identity_cluster
+origin_vs_compressed,Origin cosine,0.3,0.270421239403,0.037055425914,0.0287711376,0.0463851227781,True,mated_identity_cluster
+origin_vs_compressed,PQ ADC global,0.3,0.271448051521,0.0357645267531,0.0273586838272,0.0451992994112,True,mated_identity_cluster

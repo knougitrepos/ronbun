@@ -1,0 +1,536 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Low-FPIR Transfer Audit",
+    "generatedAt": "2026-09-09",
+    "sources": [
+      {
+        "id": "split",
+        "label": "20-seed calibration split audit",
+        "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/seed_ranges.csv",
+        "query": {
+          "engine": "Python 3.11 / NumPy / pandas",
+          "language": "python",
+          "description": "analyze.py; fixed score cohort; 20 identity fit/safety partitions; all seeds retained",
+          "tables_used": [
+            "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/seed_metrics.csv",
+            "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/analyze.py"
+          ],
+          "filters": [
+            "ArcFace; SurvFace; PQ m128 ADC; fixed calibration gallery seed 8972",
+            "Seeds 0–17, 42, 8972; targets 0.01, 0.05, 0.10"
+          ],
+          "metric_definitions": [
+            "FPIR = non-mated queries with maximum gallery score >= frozen threshold / non-mated queries",
+            "Range = min/max across 20 overlapping partitions; not a confidence interval",
+            "target_met_seeds = count of observed test FPIR <= target"
+          ]
+        }
+      },
+      {
+        "id": "tail",
+        "label": "Frozen quality-group tail decomposition",
+        "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/gap_decomposition.csv",
+        "query": {
+          "description": "Exact mixture / within-quality-group decomposition using calibration-fit cutpoints and fixed thresholds",
+          "tables_used": [
+            "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/group_transfer.csv"
+          ],
+          "metric_definitions": [
+            "test-safety gap = sum((p_test-p_safety)*r_safety) + sum(p_test*(r_test-r_safety))"
+          ]
+        }
+      },
+      {
+        "id": "outer",
+        "label": "Independent threshold holdout sensitivity",
+        "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/holdout-sensitivity-v1/metrics.csv",
+        "query": {
+          "description": "Secondary exploratory check: outer identity holdout seeds 0,1,2,3,314159 crossed with inner seeds 42,8972; no seed selection",
+          "tables_used": [
+            "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/holdout_sensitivity.py",
+            "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/holdout-sensitivity-v1/calibration_tail_concentration.csv"
+          ]
+        }
+      },
+      {
+        "id": "origin",
+        "label": "Uncompressed cosine control",
+        "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/origin_control.json",
+        "query": {
+          "description": "Raw test ledger recount at separately calibrated original-cosine thresholds; calibration thresholds taken from hash-verified saved diagnostic",
+          "tables_used": [
+            "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit_origin_control.py"
+          ],
+          "metric_definitions": [
+            "No original cosine threshold is applied to ADC scores"
+          ]
+        }
+      },
+      {
+        "id": "protocol",
+        "label": "Protocol and lineage audit",
+        "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/manifest.json",
+        "query": {
+          "description": "Source SHA-256 verification and unchanged-input checks, run 20260902-R001-61915edf; code step11 ec9d7f2",
+          "tables_used": [
+            "research/protocols/open_set.py",
+            "research/experiments/step2_compression.py"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Low-FPIR Transfer Audit"
+      },
+      {
+        "id": "summary",
+        "type": "markdown",
+        "body": "## 결론: 1%는 지속적 전이, 5%는 분할 민감성도 중요\n\n**단순히 seed가 나빴기 때문이라는 설명은 충분하지 않습니다.** 현재 ArcFace × SurvFace × PQ m128 ADC에서, calibration fit/safety만 바꾼 20개 seed 모두 1% 목표를 초과했습니다. 5%에서는 Global-safe·FIQA-S·FIQA-L이 각각 4/20·4/20·5/20에서 목표를 충족해 분할 민감성이 확인됩니다.\n\n판정은 이 고정 calibration cohort·gallery·codec에 한정합니다. 20개의 독립 데이터셋을 시험한 것이 아닙니다. 이번은 원인 분석이며 기존 노트북·평가 모듈은 변경하지 않았습니다.",
+        "sourceId": "split"
+      },
+      {
+        "id": "scope",
+        "type": "markdown",
+        "body": "## 범위와 지표\n\nFPIR는 미등록(non-mated) query의 최고 검색 점수가 고정 threshold 이상인 비율입니다. calibration non-mated 98,825장·2,319개 실제 identity와 test non-mated 121,736장을 사용했습니다. test unknown의 실제 identity 라벨은 없어 인물 단위 FPIR 신뢰구간은 계산할 수 없습니다.\n\n목표는 1%·5%, 비교 기준은 10%입니다. TPIR20 계산은 정답 점수와 Top-20 조건을 사용하는 v2 계약을 유지했습니다. 결과 범위는 seed별 최소–최대이며 95% CI가 아닙니다.",
+        "sourceId": "protocol"
+      },
+      {
+        "id": "one-percent",
+        "type": "markdown",
+        "body": "## 1%: 가장 보수적으로 나온 분할에서도 목표 초과\n\n그림은 20개 seed 중 관찰된 **최소** FPIR입니다. Global-safe 1.126%, FIQA-S 1.098%, FIQA-L 1.170%로 모두 목표선 1% 위에 있습니다. Global empirical은 fit/safety 분할을 사용하지 않으므로 20번의 값이 동일합니다.\n\n최소값은 범위를 설명하기 위한 통계량일 뿐, 운영에 사용할 seed를 선택한 것이 아닙니다. 다른 calibration cohort나 gallery에서도 불가능하다는 뜻은 아닙니다.",
+        "sourceId": "split"
+      },
+      {
+        "id": "chart-one",
+        "type": "chart",
+        "chartId": "one-percent-minimum",
+        "layout": "full"
+      },
+      {
+        "id": "five-percent",
+        "type": "markdown",
+        "body": "## 5%: 분할 변경으로 성공·실패가 바뀜\n\nFIQA-L의 실제 FPIR는 4.533–5.250%로 변했습니다. 20개 중 5개 분할에서 목표를 충족했지만 중앙값은 5.122%였습니다. 따라서 5% 실패를 전이 문제만으로 설명하거나, 반대로 좋은 seed 하나로 해결됐다고 보는 해석 모두 피해야 합니다.\n\n아래 표는 전체 분할을 유지한 결과입니다. 10% 목표에서는 네 방법 모두 20/20개 분할에서 목표를 충족했습니다.",
+        "sourceId": "split"
+      },
+      {
+        "id": "table-ranges",
+        "type": "table",
+        "tableId": "ranges",
+        "layout": "full"
+      },
+      {
+        "id": "within",
+        "type": "markdown",
+        "body": "## 두 품질 그룹의 구성 비중만 바뀐 것은 아님\n\n기존 seed 8972의 FIQA-L, 1% 조건에서 low/high 그룹의 safety FPIR는 0.946%/0.999%, test FPIR는 1.396%/1.412%였습니다. safety→test 총 격차 +0.4306%p 중 그룹 비중 변화의 기여는 약 +0.00003%p이고, 나머지는 그룹 내부 초과율 변화입니다.\n\n이 분해는 현재의 두 개 FIQA bin 기준입니다. 더 세밀한 품질·인물 구성 차이까지 배제한 것은 아니며, safety는 threshold 보정에도 사용됐으므로 독립 검증 집합이 아닙니다.",
+        "sourceId": "tail"
+      },
+      {
+        "id": "holdout",
+        "type": "markdown",
+        "body": "## 별도 holdout에서도 test의 더 높은 초과율이 반복됨\n\nthreshold 적합에서 제외한 calibration identity 20% holdout을 추가했습니다. 첫 holdout이 특히 낮은 FPIR를 보여, outer seed 5개 × inner seed 2개로 후속 검사를 수행했습니다. 세 방법의 모든 1%·5% 검사에서 test FPIR가 holdout보다 높았습니다. 이는 하나의 쉬운 holdout만으로 설명되는 현상은 아니라는 보조 근거입니다.\n\n동시에 calibration 1% threshold 초과 988건 중 상위 10명의 비중은 26.8%였습니다. 이들은 non-mated query의 2.86%를 차지합니다. 일부 인물의 초과 사례 집중은 분할 변동에 기여할 수 있습니다. 후속 검사는 탐색적이며, codec·gallery는 계속 고정돼 있습니다.",
+        "sourceId": "outer"
+      },
+      {
+        "id": "uncompressed",
+        "type": "markdown",
+        "body": "## 압축 전에도 낮은 FPIR 목표를 초과함\n\n원본 cosine 점수도 calibration에서 정한 전용 threshold를 test에 적용하면 1%→1.504%, 5%→5.352%였습니다. test의 raw ledger를 다시 집계해 저장 수치와 일치함을 확인했습니다. 따라서 PQ나 FIQA가 이 실패의 유일한 원인이라고 할 수 없습니다.\n\ncalibration 원본 threshold는 hash 검증된 기존 값을 사용했으며 이번에 원본 calibration 검색을 다시 실행하지 않았습니다. 원본 cosine과 ADC는 서로 다른 threshold를 사용했습니다.",
+        "sourceId": "origin"
+      },
+      {
+        "id": "table-origin",
+        "type": "table",
+        "tableId": "origin",
+        "layout": "full"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "body": "## 실험 설계와 검증\n\n- 고정 seed 목록: 0–17, 42, 8972. 두 FIQA 모델은 항상 같은 분할 사용.\n- fit/safety 70/30 identity 분할, FIQA 2 bins, shrinkage 200, 최소 그룹 non-mated 100 유지.\n- 첫 outer holdout은 seed 314159로 identity 약 20%를 제외하고, 남은 calibration에서만 재적합.\n- seed 8972의 FPIR·TPIR를 기존 산출물 및 canonical evaluator와 대조해 일치 확인.\n- source SHA-256, S/L 정렬, calibration/test 및 holdout/fit identity 비중복 검증. 그룹 분해 합계도 재검증.\n- 기존 완료 산출물·노트북·Python 연구 모듈을 변경하지 않음. 임베딩·FIQA·Grad-CAM·ADC search 재실행 없음.",
+        "sourceId": "protocol"
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "body": "## 남은 불확실성과 해석 한계\n\n**진단 결론은 강하지만, 세부 인과 원인은 아직 분리되지 않았습니다.** calibration은 training identity로 만든 watch-list와 known-unknown probe, test는 공식 gallery와 unknown-unknown probe입니다. 인물·영상 조건·gallery 구성·codec 일반화 차이가 함께 존재합니다. gallery identity 수는 양쪽 모두 3,000이며 원본 enrollment 이미지 수는 60,480/60,294로 가깝지만, 같은 gallery라는 뜻은 아닙니다.\n\ncalibration gallery 생성 seed 8972를 바꾸는 실험은 하지 않았습니다. 반복 seed는 같은 자료를 재사용하며 독립 반복·실패 확률·정식 95% CI로 해석할 수 없습니다. test를 기준으로 seed나 threshold를 선택하지 않았습니다."
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "body": "## 다음 구현 순서는 유지하되 목적을 구분\n\n1. **공통 CI:** 기본 압축 비교에 인물 단위 TPIR CI를 적용해 불확실성 보고를 일관되게 만듭니다. 이것만으로 FPIR 초과가 교정되지는 않습니다.\n2. **분할 안정성 정식화:** 내부 fit/safety seed와 calibration cohort/gallery seed를 분리하고, 독립 holdout 및 목표 충족률을 함께 저장합니다. 이번 진단을 재현 가능한 기능으로 통합하는 단계입니다.\n3. **보고 통합:** 실제 FPIR·TPIR·CI 방식·partition/cohort seed·출처를 한 표에 표시하고 안전하게 저장 결과를 읽도록 합니다.\n\n이 보고서는 분석 결과입니다. 위 구현은 아직 수행하지 않았습니다."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## 다음에 분리할 원인\n\n서로 다른 calibration gallery에서도 1% 초과가 반복되는가? query 집단과 gallery 차이 중 어느 쪽이 더 크게 기여하는가? 두 FIQA bin 안에 남은 tail 편차를 어떤 관측 가능한 특성이 설명하는가? 이 질문은 현재 점수의 fit/safety 재분할만으로는 답할 수 없습니다."
+      }
+    ],
+    "charts": [
+      {
+        "id": "one-percent-minimum",
+        "title": "20개 seed의 최소 test FPIR",
+        "subtitle": "목표 FPIR 1%; 고정 calibration cohort와 gallery",
+        "showDescription": true,
+        "type": "bar",
+        "intent": "comparison",
+        "dataset": "one",
+        "sourceId": "split",
+        "encodings": {
+          "x": {
+            "field": "method_label",
+            "type": "nominal",
+            "label": "방법"
+          },
+          "y": {
+            "field": "fpir_min",
+            "type": "quantitative",
+            "label": "최소 FPIR",
+            "format": "percent"
+          }
+        },
+        "valueFormat": "percent",
+        "referenceLines": [
+          {
+            "axis": "y",
+            "value": 0.01,
+            "label": "목표 1%",
+            "color": "neutral",
+            "lineStyle": "dashed"
+          }
+        ],
+        "layout": "full",
+        "palette": {
+          "kind": "sequential",
+          "name": "blue"
+        },
+        "labels": {
+          "values": "all"
+        }
+      }
+    ],
+    "tables": [
+      {
+        "id": "ranges",
+        "title": "목표별 test FPIR 범위와 충족 분할 수",
+        "dataset": "ranges",
+        "sourceId": "split",
+        "defaultSort": {
+          "field": "target_fpir",
+          "direction": "asc"
+        },
+        "columns": [
+          {
+            "field": "target_fpir",
+            "label": "목표 FPIR",
+            "format": "percent"
+          },
+          {
+            "field": "method_label",
+            "label": "방법"
+          },
+          {
+            "field": "range_percent",
+            "label": "최소–최대"
+          },
+          {
+            "field": "fpir_median",
+            "label": "중앙값",
+            "format": "percent"
+          },
+          {
+            "field": "met",
+            "label": "충족/20"
+          }
+        ]
+      },
+      {
+        "id": "origin",
+        "title": "원본 임베딩의 calibration→test FPIR",
+        "dataset": "origin",
+        "sourceId": "origin",
+        "defaultSort": {
+          "field": "target_fpir",
+          "direction": "asc"
+        },
+        "columns": [
+          {
+            "field": "target_fpir",
+            "label": "목표",
+            "format": "percent"
+          },
+          {
+            "field": "calibration_fpir",
+            "label": "Calibration",
+            "format": "percent"
+          },
+          {
+            "field": "test_fpir",
+            "label": "Test",
+            "format": "percent"
+          },
+          {
+            "field": "test_false_accept_count",
+            "label": "Test 오인식 수",
+            "format": "number"
+          },
+          {
+            "field": "test_non_mated_count",
+            "label": "Test non-mated 수",
+            "format": "number"
+          }
+        ]
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-09-09",
+    "status": "ready",
+    "datasets": {
+      "one": [
+        {
+          "method": "global_empirical",
+          "target_fpir": 0.01,
+          "seeds": 20,
+          "target_met_seeds": 0,
+          "fpir_min": 0.0148025235,
+          "fpir_median": 0.0148025235,
+          "fpir_max": 0.0148025235,
+          "method_label": "Global empirical",
+          "range_percent": "1.480–1.480%",
+          "met": "0/20"
+        },
+        {
+          "method": "global_safe",
+          "target_fpir": 0.01,
+          "seeds": 20,
+          "target_met_seeds": 0,
+          "fpir_min": 0.0112620753,
+          "fpir_median": 0.0139317868,
+          "fpir_max": 0.014679306,
+          "method_label": "Global safe",
+          "range_percent": "1.126–1.468%",
+          "met": "0/20"
+        },
+        {
+          "method": "fiqa_s",
+          "target_fpir": 0.01,
+          "seeds": 20,
+          "target_met_seeds": 0,
+          "fpir_min": 0.0109827824,
+          "fpir_median": 0.0138332129,
+          "fpir_max": 0.0145150161,
+          "method_label": "FIQA-S",
+          "range_percent": "1.098–1.452%",
+          "met": "0/20"
+        },
+        {
+          "method": "fiqa_l",
+          "target_fpir": 0.01,
+          "seeds": 20,
+          "target_met_seeds": 0,
+          "fpir_min": 0.0116974436,
+          "fpir_median": 0.0140591115,
+          "fpir_max": 0.0145643031,
+          "method_label": "FIQA-L",
+          "range_percent": "1.170–1.456%",
+          "met": "0/20"
+        }
+      ],
+      "ranges": [
+        {
+          "method": "global_safe",
+          "target_fpir": 0.01,
+          "seeds": 20,
+          "target_met_seeds": 0,
+          "fpir_min": 0.0112620753,
+          "fpir_median": 0.0139317868,
+          "fpir_max": 0.014679306,
+          "method_label": "Global safe",
+          "range_percent": "1.126–1.468%",
+          "met": "0/20"
+        },
+        {
+          "method": "fiqa_s",
+          "target_fpir": 0.01,
+          "seeds": 20,
+          "target_met_seeds": 0,
+          "fpir_min": 0.0109827824,
+          "fpir_median": 0.0138332129,
+          "fpir_max": 0.0145150161,
+          "method_label": "FIQA-S",
+          "range_percent": "1.098–1.452%",
+          "met": "0/20"
+        },
+        {
+          "method": "fiqa_l",
+          "target_fpir": 0.01,
+          "seeds": 20,
+          "target_met_seeds": 0,
+          "fpir_min": 0.0116974436,
+          "fpir_median": 0.0140591115,
+          "fpir_max": 0.0145643031,
+          "method_label": "FIQA-L",
+          "range_percent": "1.170–1.456%",
+          "met": "0/20"
+        },
+        {
+          "method": "global_safe",
+          "target_fpir": 0.05,
+          "seeds": 20,
+          "target_met_seeds": 4,
+          "fpir_min": 0.0453686666,
+          "fpir_median": 0.0519772294,
+          "fpir_max": 0.0530574358,
+          "method_label": "Global safe",
+          "range_percent": "4.537–5.306%",
+          "met": "4/20"
+        },
+        {
+          "method": "fiqa_s",
+          "target_fpir": 0.05,
+          "seeds": 20,
+          "target_met_seeds": 4,
+          "fpir_min": 0.0462311888,
+          "fpir_median": 0.0521004469,
+          "fpir_max": 0.0532463692,
+          "method_label": "FIQA-S",
+          "range_percent": "4.623–5.325%",
+          "met": "4/20"
+        },
+        {
+          "method": "fiqa_l",
+          "target_fpir": 0.05,
+          "seeds": 20,
+          "target_met_seeds": 5,
+          "fpir_min": 0.0453275941,
+          "fpir_median": 0.0512173884,
+          "fpir_max": 0.05249885,
+          "method_label": "FIQA-L",
+          "range_percent": "4.533–5.250%",
+          "met": "5/20"
+        }
+      ],
+      "origin": [
+        {
+          "target_fpir": 0.01,
+          "threshold": 0.8364372253417969,
+          "calibration_fpir": 0.009997470275739944,
+          "test_fpir": 0.015040743904843267,
+          "test_false_accept_count": 1831,
+          "test_non_mated_count": 121736,
+          "calibration_templates": 3000,
+          "test_templates": 3000,
+          "calibration_gallery_images": 60480,
+          "test_gallery_images": 60294
+        },
+        {
+          "target_fpir": 0.05,
+          "threshold": 0.800525426864624,
+          "calibration_fpir": 0.04999747027573995,
+          "test_fpir": 0.0535174475915095,
+          "test_false_accept_count": 6515,
+          "test_non_mated_count": 121736,
+          "calibration_templates": 3000,
+          "test_templates": 3000,
+          "calibration_gallery_images": 60480,
+          "test_gallery_images": 60294
+        },
+        {
+          "target_fpir": 0.1,
+          "threshold": 0.7777460813522339,
+          "calibration_fpir": 0.0999949405514799,
+          "test_fpir": 0.09532102254057961,
+          "test_false_accept_count": 11604,
+          "test_non_mated_count": 121736,
+          "calibration_templates": 3000,
+          "test_templates": 3000,
+          "calibration_gallery_images": 60480,
+          "test_gallery_images": 60294
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "split",
+      "label": "20-seed calibration split audit",
+      "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/seed_ranges.csv",
+      "query": {
+        "engine": "Python 3.11 / NumPy / pandas",
+        "language": "python",
+        "description": "analyze.py; fixed score cohort; 20 identity fit/safety partitions; all seeds retained",
+        "tables_used": [
+          "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/seed_metrics.csv",
+          "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/analyze.py"
+        ],
+        "filters": [
+          "ArcFace; SurvFace; PQ m128 ADC; fixed calibration gallery seed 8972",
+          "Seeds 0–17, 42, 8972; targets 0.01, 0.05, 0.10"
+        ],
+        "metric_definitions": [
+          "FPIR = non-mated queries with maximum gallery score >= frozen threshold / non-mated queries",
+          "Range = min/max across 20 overlapping partitions; not a confidence interval",
+          "target_met_seeds = count of observed test FPIR <= target"
+        ]
+      }
+    },
+    {
+      "id": "tail",
+      "label": "Frozen quality-group tail decomposition",
+      "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/gap_decomposition.csv",
+      "query": {
+        "description": "Exact mixture / within-quality-group decomposition using calibration-fit cutpoints and fixed thresholds",
+        "tables_used": [
+          "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/group_transfer.csv"
+        ],
+        "metric_definitions": [
+          "test-safety gap = sum((p_test-p_safety)*r_safety) + sum(p_test*(r_test-r_safety))"
+        ]
+      }
+    },
+    {
+      "id": "outer",
+      "label": "Independent threshold holdout sensitivity",
+      "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/holdout-sensitivity-v1/metrics.csv",
+      "query": {
+        "description": "Secondary exploratory check: outer identity holdout seeds 0,1,2,3,314159 crossed with inner seeds 42,8972; no seed selection",
+        "tables_used": [
+          "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/holdout_sensitivity.py",
+          "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/holdout-sensitivity-v1/calibration_tail_concentration.csv"
+        ]
+      }
+    },
+    {
+      "id": "origin",
+      "label": "Uncompressed cosine control",
+      "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/origin_control.json",
+      "query": {
+        "description": "Raw test ledger recount at separately calibrated original-cosine thresholds; calibration thresholds taken from hash-verified saved diagnostic",
+        "tables_used": [
+          "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit_origin_control.py"
+        ],
+        "metric_definitions": [
+          "No original cosine threshold is applied to ADC scores"
+        ]
+      }
+    },
+    {
+      "id": "protocol",
+      "label": "Protocol and lineage audit",
+      "path": "results/calibration/split_transfer_analysis/20260909_arcface_survface_pq_m128/audit-v1/manifest.json",
+      "query": {
+        "description": "Source SHA-256 verification and unchanged-input checks, run 20260902-R001-61915edf; code step11 ec9d7f2",
+        "tables_used": [
+          "research/protocols/open_set.py",
+          "research/experiments/step2_compression.py"
+        ]
+      }
+    }
+  ]
+}

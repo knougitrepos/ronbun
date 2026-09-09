@@ -1,0 +1,7 @@
+population,is_mated,rows,identity_key_count,identity_semantics
+calibration,False,98825,2319,labelled
+calibration,True,61583,3000,labelled
+test,False,121736,121736,synthetic_unknown
+test,True,60423,3000,labelled
+calibration_holdout,False,20085,499,labelled
+calibration_holdout,True,12568,619,labelled

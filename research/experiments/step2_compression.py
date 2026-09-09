@@ -11,6 +11,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from research.evaluation.cluster_bootstrap import TpirClusterAccumulator
+
 from research.calibration.rejection import (
     choose_non_mated_fpir_threshold,
     choose_threshold,
@@ -1172,6 +1174,11 @@ def _summarize_retrieval(retrieval: pd.DataFrame) -> pd.DataFrame:
         origin_tpir_count = int(origin_tpir.sum())
         compressed_tpir_count = int(compressed_tpir.sum())
         both_tpir_count = int((origin_tpir & compressed_tpir).sum())
+        cluster_ci = TpirClusterAccumulator()
+        cluster_ci.update(
+            group.loc[mated, "query_identity_id"] if "query_identity_id" in group else None,
+            np.column_stack([origin_tpir[mated], compressed_tpir[mated]]),
+        )
         origin_false_accept_count = int(origin_false_accept.sum())
         compressed_false_accept_count = int(compressed_false_accept.sum())
         both_false_accept_count = int(
@@ -1368,6 +1375,7 @@ def _summarize_retrieval(retrieval: pd.DataFrame) -> pd.DataFrame:
                     fpir_delta_ci[1]
                 ),
                 "confidence_interval_unit": "probe",
+                **cluster_ci.summary(),
                 "rate_confidence_interval_method": "wilson_score",
                 "difference_confidence_interval_method": (
                     "paired_nonparametric_bootstrap_percentile"

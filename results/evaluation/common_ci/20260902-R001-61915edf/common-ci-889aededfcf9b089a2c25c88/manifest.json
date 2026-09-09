@@ -1,0 +1,40 @@
+{
+  "artifact_type": "common_tpir_identity_cluster_ci",
+  "artifact_uid": "common-ci-889aededfcf9b089a2c25c88",
+  "condition": {
+    "compression_family": "pq",
+    "compression_profile": "pq_512_m128_b8",
+    "dataset": "survface",
+    "dataset_id": "survface",
+    "evaluation_split": "test",
+    "extraction_uid": "population-be3c0699e9b36cffc1ff86ee",
+    "model_uid": "arcface-7972a704552df378345f",
+    "origin_embedding_artifact_uid": "origin-embedding-c70c8c1f2657fb794827862c",
+    "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+    "search_mode": "pq_adc_exhaustive",
+    "threshold_source_split": "calibration"
+  },
+  "condition_id": "9f305796932d5f04a953",
+  "confidence_level": 0.95,
+  "contract": "query-weighted-mated-identity-percentile-v1",
+  "fpir_unit": "query",
+  "gallery_resampled": false,
+  "implementation_sha256": {
+    "research/evaluation/cluster_bootstrap.py": "aff7294976f50b394c381cf93d8696c7b82e45573158f35fc57a757a0a0456e9",
+    "research/evaluation/metrics.py": "121b5e0442c99aa9852e8dc5785b51e6e8ee3ee7b73a9594571ddab7441a5595",
+    "research/evaluation/retrieval_ledger.py": "33ebb891894f8472658e6b5c15e5f668a7cd707c7c4e2dba04c2aa215d855695",
+    "scripts/generate_step4_compact_summaries.py": "8379fbf8f13c4d1624fadd8b7f83512d86b5dc1da98564f755f20ff5fa4a4195",
+    "scripts/postprocess_common_ci.py": "d28f041ed82d476e3f5fe0ee95a12e9ffb6fa1a0b915dcac4db3908abf6ebd35"
+  },
+  "interpretation": "exploratory_fixed_threshold_fixed_gallery",
+  "logical_row_count": 910795,
+  "multiple_comparison_adjustment": "none",
+  "resamples": 2000,
+  "schema_version": 1,
+  "seed": 42,
+  "source_manifest": "C:\\ronbun\\runs\\survface_20260902\\20260902-R001-61915edf_step4_survface_arcface-7972a704552df378345f\\artifacts\\step2_workflow\\retrieval_ledger\\manifest.json",
+  "source_manifest_sha256": "8d949f39aff88828fffdecb3ddb81845a3886d2fa618324267178d96d32ccfe9",
+  "status": "completed",
+  "summary_sha256": "4a9fa324a73016cfb17cd019dedacb7a9c2877622998269e403da4f4fda061e5",
+  "thresholds_refitted": false
+}

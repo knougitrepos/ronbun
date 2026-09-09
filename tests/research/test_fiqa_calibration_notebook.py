@@ -41,6 +41,8 @@ def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
         "WRITE_SCORE_ARTIFACT = False",
         "RUN_THRESHOLD_CALIBRATION = False",
         "WRITE_CALIBRATION_ARTIFACT = False",
+        "RUN_SPLIT_STABILITY = False",
+        "WRITE_SPLIT_STABILITY = False",
         "OVERWRITE_OUTPUTS = False",
     ):
         assert flag in full_source
@@ -76,6 +78,24 @@ def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
     assert "test leakage" in full_source
     assert "formal FPIR guarantee가 아닙니다" in full_source
     assert "not applicable" in full_source
+
+
+def test_split_stability_cell_is_disabled_and_independent_of_priority_stage():
+    notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    cell = next(c for c in notebook["cells"] if c["id"] == "split-stability")
+    source = "".join(cell["source"])
+    context = {"display": lambda *args: None, "Markdown": str}
+    # No condition, source run, or 8.1 variables needed when disabled.
+    exec(compile(source, str(NOTEBOOK_PATH), "exec"), context)
+    assert context["split_stability"] is None
+    assert len(context["SPLIT_STABILITY_SEEDS"]) == 20
+    assert "priority_diagnostics" not in source
+    with pytest.raises(ValueError, match="WRITE requires"):
+        exec(compile(source.replace("WRITE_SPLIT_STABILITY = False", "WRITE_SPLIT_STABILITY = True"),
+                     str(NOTEBOOK_PATH), "exec"), context)
+    with pytest.raises(RuntimeError, match="v2 condition"):
+        exec(compile(source.replace("RUN_SPLIT_STABILITY = False", "RUN_SPLIT_STABILITY = True"),
+                     str(NOTEBOOK_PATH), "exec"), {**context, "condition_tables": None})
 
 
 def test_fiqa_notebook_separates_metric_versions_and_documents_ci_scope():

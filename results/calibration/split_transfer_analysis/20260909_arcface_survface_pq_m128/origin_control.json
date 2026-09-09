@@ -1,0 +1,51 @@
+{
+  "rows": [
+    {
+      "target_fpir": 0.01,
+      "threshold": 0.8364372253417969,
+      "calibration_fpir": 0.009997470275739944,
+      "test_fpir": 0.015040743904843267,
+      "test_false_accept_count": 1831,
+      "test_non_mated_count": 121736,
+      "calibration_templates": 3000,
+      "test_templates": 3000,
+      "calibration_gallery_images": 60480,
+      "test_gallery_images": 60294
+    },
+    {
+      "target_fpir": 0.05,
+      "threshold": 0.800525426864624,
+      "calibration_fpir": 0.04999747027573995,
+      "test_fpir": 0.0535174475915095,
+      "test_false_accept_count": 6515,
+      "test_non_mated_count": 121736,
+      "calibration_templates": 3000,
+      "test_templates": 3000,
+      "calibration_gallery_images": 60480,
+      "test_gallery_images": 60294
+    },
+    {
+      "target_fpir": 0.1,
+      "threshold": 0.7777460813522339,
+      "calibration_fpir": 0.0999949405514799,
+      "test_fpir": 0.09532102254057961,
+      "test_false_accept_count": 11604,
+      "test_non_mated_count": 121736,
+      "calibration_templates": 3000,
+      "test_templates": 3000,
+      "calibration_gallery_images": 60480,
+      "test_gallery_images": 60294
+    }
+  ],
+  "test_counts_recomputed": true,
+  "calibration_threshold_recomputed_this_turn": false,
+  "threshold_source": "verified saved calibration diagnostic",
+  "score_space": "origin cosine, independently calibrated; not reused for ADC",
+  "source_sha256": {
+    "results\\paper\\survface\\20260902-R001-61915edf\\search_space_v6_query_gallery_conditions\\pq\\origin_calibration_diagnostics.json": "840e8b04f91c66bfb6592755ba50c6c430fc0868e99f7fcfd83c4ec9b5f1432f",
+    "results\\paper\\survface\\20260902-R001-61915edf\\search_space_v6_query_gallery_conditions\\pq\\family_manifest.json": "9ed376f9e24fb30558cb92957c7f9020d84d432a1f56f47b283791988bc20ec1",
+    "runs\\survface_20260902\\20260902-R001-61915edf_step4_survface_arcface-7972a704552df378345f\\artifacts\\step2_workflow\\retrieval_ledger\\core\\9f305796932d5f04a953.parquet": "498b3ba7ee20e7092a87647d04f3c7bf775652abf9109ff6898e382f112eb427",
+    "results\\calibration\\condition_scores\\20260902-R001-61915edf\\pq_512_m128_b8__pq_adc_exhaustive\\genuine-score-topk-v2\\manifest.json": "db77ec98b3fabb07f54a0b34d28ffb92dae8d57a84e79ce2a7f5c6a0198fb46a",
+    "results\\calibration\\split_transfer_analysis\\20260909_arcface_survface_pq_m128\\audit_origin_control.py": "86ab836ed3c40d64d0e5dc0a39af40a8eb5cd3dcb17b14746faef66da07bb853"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "status": "completed",
+  "outer_seeds": [
+    0,
+    1,
+    2,
+    3,
+    314159
+  ],
+  "inner_seeds": [
+    42,
+    8972
+  ],
+  "target_fpirs": [
+    0.01,
+    0.05
+  ],
+  "condition_uid": "compressed-scores-2548cd9ab45de52c3b614a9a",
+  "exploratory_followup": true,
+  "script_sha256": "2742d3b29eec33c7e94d822547953cb1965756a4904a915761cd2a8fe3ad5655",
+  "source_analysis_manifest_sha256": "7ab9dbcbf3231395d3574e1cbcc056560f9269562ebe8ea4b787738f78c26937",
+  "files": {
+    "calibration_tail_concentration.csv": "81a20a7b7e98a0669811c4490cabfeec1cc8b5fd3f175b19e2cf29fa0190cb31",
+    "metrics.csv": "3a78586c90c2317072a0c8b4ed5f72b5cc9ab59a720e4e7dfa8d762bdf09f8df"
+  }
+}

@@ -349,7 +349,10 @@ def summarize_compression(
 
 
 def _new_retrieval_accumulator() -> dict[str, Any]:
+    from research.evaluation.cluster_bootstrap import TpirClusterAccumulator
+
     return {
+        "tpir_cluster": TpirClusterAccumulator(),
         "query_count": 0,
         "mated_count": 0,
         "non_mated_count": 0,
@@ -389,8 +392,10 @@ def summarize_retrieval(
     *,
     chunksize: int,
     source_frame: pd.DataFrame | None = None,
+    condition_ids: tuple[str, ...] | None = None,
 ) -> tuple[pd.DataFrame, int]:
     requested_usecols = (
+        "query_identity_id",
         "compression_family",
         "compression_profile",
         "search_mode",
@@ -403,6 +408,8 @@ def summarize_retrieval(
     )
     if (source_path is None) == (source_frame is None):
         raise ValueError("provide exactly one of source_path or source_frame")
+    if source_frame is not None and condition_ids is not None:
+        raise ValueError("condition_ids requires a normalized ledger source")
     source_columns = set(
         source_frame.columns
         if source_frame is not None
@@ -449,6 +456,8 @@ def summarize_retrieval(
             source_path,
             columns=usecols,
             chunksize=chunksize,
+            dtype={"query_identity_id": "string"},
+            condition_ids=condition_ids,
         )
     )
     for chunk in chunks:
@@ -520,6 +529,10 @@ def summarize_retrieval(
             compressed_accepted = boolean["compressed_accepted"]
             origin_tpir = boolean["origin_tpir_at_rank_k"] & mated
             compressed_tpir = boolean["compressed_tpir_at_rank_k"] & mated
+            acc["tpir_cluster"].update(
+                group.loc[mated, "query_identity_id"] if "query_identity_id" in group else None,
+                np.column_stack([origin_tpir[mated], compressed_tpir[mated]]),
+            )
 
             acc["query_count"] += int(len(group))
             acc["mated_count"] += int(mated.sum())
@@ -876,6 +889,7 @@ def summarize_retrieval(
                     fpir_delta_ci[1]
                 ),
                 "confidence_interval_unit": "probe",
+                **acc["tpir_cluster"].summary(),
                 "rate_confidence_interval_method": "wilson_score",
                 "difference_confidence_interval_method": (
                     "paired_nonparametric_bootstrap_percentile"
@@ -1066,6 +1080,9 @@ def generate(
         "generator": {
             "path": _portable_path(generator_path, project_root=project_root),
             "sha256": _sha256_file(generator_path),
+            "cluster_ci_sha256": _sha256_file(
+                project_root / "research/evaluation/cluster_bootstrap.py"
+            ),
         },
         "source_files": {
             name: {
@@ -1100,6 +1117,11 @@ def generate(
             "origin_and_compressed_operating_points": "reported separately",
             "rate_confidence_intervals": (
                 "query-level two-sided 95% Wilson score intervals"
+            ),
+            "additional_tpir_confidence_intervals": (
+                "query-weighted mated identity-cluster percentile 95%; "
+                "2000 draws, seed 42; fixed threshold/gallery; no multiplicity correction; "
+                "available only when tpir_cluster_ci_status=ok"
             ),
             "difference_confidence_intervals": (
                 "compressed minus origin query-level paired nonparametric "

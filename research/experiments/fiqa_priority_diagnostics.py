@@ -24,35 +24,7 @@ from research.experiments.fiqa_threshold_calibration import (
     join_fiqa_score_artifacts,
 )
 from research.runtime.hashing import canonical_sha256, sha256_file
-
-
-def cluster_rate_draws(identity_ids, events, *, resamples=2000, seed=42):
-    """Resample identities jointly; retain the query-weighted rate estimand."""
-    ids = pd.Series(identity_ids).reset_index(drop=True)
-    values = np.asarray(events)
-    if values.ndim != 2 or len(ids) != len(values) or ids.isna().any():
-        raise ValueError("aligned non-null identities and a 2D event matrix required")
-    if not np.isin(values, [0, 1]).all() or resamples < 100:
-        raise ValueError("binary events and at least 100 resamples required")
-    codes, unique = pd.factorize(ids.astype(str), sort=True)
-    if len(unique) < 2:
-        raise ValueError("at least two genuine identity clusters required")
-    totals = np.bincount(codes).astype(float)
-    successes = np.column_stack([
-        np.bincount(codes, weights=values[:, i], minlength=len(unique))
-        for i in range(values.shape[1])
-    ])
-    rng = np.random.default_rng(seed)
-    draws = np.empty((resamples, values.shape[1]))
-    for start in range(0, resamples, 64):
-        weights = rng.multinomial(
-            len(unique), np.full(len(unique), 1 / len(unique)),
-            size=min(64, resamples - start),
-        )
-        draws[start:start + len(weights)] = (
-            weights @ successes / (weights @ totals)[:, None]
-        )
-    return draws
+from research.evaluation.cluster_bootstrap import cluster_rate_draws
 
 
 def quality_tail_transfer(calibration, test, model, *, safety_fraction, seed):
@@ -203,6 +175,8 @@ def run_fiqa_priority_diagnostics(
         "target_fpirs": list(targets), "resamples": resamples,
         "bootstrap_seed": bootstrap_seed,
         "implementation_sha256": sha256_file(Path(__file__)),
+        "cluster_ci_implementation_sha256": sha256_file(
+            Path(__file__).parents[1] / "evaluation" / "cluster_bootstrap.py"),
         "conditional_implementation_sha256": sha256_file(
             Path(__file__).parents[1] / "calibration" / "conditional.py"),
         "uncertainty": {"tpir": "query_weighted_mated_identity_cluster",

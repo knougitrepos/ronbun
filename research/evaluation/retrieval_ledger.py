@@ -495,6 +495,7 @@ def iter_retrieval_source_batches(
     columns: Sequence[str] | None = None,
     chunksize: int = 100_000,
     dtype: Mapping[str, object] | None = None,
+    condition_ids: Sequence[str] | None = None,
 ) -> Iterator[pd.DataFrame]:
     """Yield CSV, Parquet, or normalized-ledger rows in bounded batches."""
 
@@ -508,6 +509,8 @@ def iter_retrieval_source_batches(
         raise ValueError(f"retrieval source is missing columns: {missing}")
 
     if not is_retrieval_ledger(source):
+        if condition_ids is not None:
+            raise ValueError("condition_ids requires a normalized ledger")
         if source.suffix.lower() == ".parquet":
             import pyarrow.parquet as pq
 
@@ -541,6 +544,12 @@ def iter_retrieval_source_batches(
     conditions = payload["conditions"]
     if not isinstance(conditions, list):
         raise ValueError("retrieval ledger conditions are invalid")
+    if condition_ids is not None:
+        requested_ids = set(condition_ids)
+        available_ids = {item["condition_id"] for item in conditions}
+        if not requested_ids or not requested_ids <= available_ids:
+            raise ValueError("explicit condition_ids are empty or missing from ledger")
+        conditions = [item for item in conditions if item["condition_id"] in requested_ids]
     decision_set = set(DECISION_COLUMNS)
     detail_set = set(TOPK_DETAIL_COLUMNS)
     requested_core = [
