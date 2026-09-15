@@ -12,6 +12,9 @@ from research.experiments.fiqa_split_stability import (
 from research.experiments.fiqa_threshold_calibration import ConditionScoreTables
 from research.fiqa import FIQAScoreArtifact
 from research.runtime.hashing import sha256_file
+from research.experiments.fiqa_priority_diagnostics import (
+    run_fiqa_priority_diagnostics, write_fiqa_priority_diagnostics,
+)
 from test_fiqa_threshold_calibration import _calibration_rows, _condition_manifest, _fiqa_manifest
 
 
@@ -116,3 +119,61 @@ def test_all_mixed_and_no_target_attainment_are_descriptive(tmp_path):
     assert summary.loc["fiqa_s", "observed_pattern"] == "split_sensitive_target_attainment"
     assert summary.loc["fiqa_l", "observed_pattern"] == "all_observed_splits_meet"
     assert np.isfinite(summary.fpir_median).all()
+
+
+def test_multibin_panel_pairs_bins_and_shares_partitions(tmp_path):
+    condition, artifacts = _inputs(tmp_path)
+    result = _run(condition, artifacts, bin_counts=(2, 5))
+    assert len(result["seed_metrics"]) == 18
+    assert result["stability_summary"].split_count.eq(3).all()
+    paired = result["seed_paired_comparisons"]
+    assert len(paired.query("reference_method == 'fiqa_l_2bin' and candidate_method == 'fiqa_l_5bin'")) == 6
+    assert result["partition_inventory"].shared_by.str.contains("fiqa_l_5bin").all()
+    shifted = copy.deepcopy(condition)
+    shifted.test.loc[~shifted.test.is_mated, "score"] = 100
+    after = _run(shifted, artifacts, bin_counts=(2, 5))
+    pd.testing.assert_frame_equal(result["seed_thresholds"], after["seed_thresholds"])
+    pd.testing.assert_frame_equal(result["partition_inventory"], after["partition_inventory"])
+    path = write_fiqa_split_stability(tmp_path / "multi", result)
+    assert write_fiqa_split_stability(tmp_path / "multi", result, reuse_existing=True) == path
+    (path / "seed_metrics.csv").write_text("corrupt", encoding="utf-8")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        write_fiqa_split_stability(tmp_path / "multi", result, reuse_existing=True)
+
+
+def test_multibin_matches_standalone_and_exposes_sparse_group_fallback(tmp_path):
+    condition, artifacts = _inputs(tmp_path)
+    kwargs = dict(target_fpirs=(.1,), minimum_group_non_mated=5, resamples=100)
+    combined = run_fiqa_priority_diagnostics(condition, *artifacts, bin_counts=(2, 5), **kwargs)
+    for bins in (2, 5):
+        single = run_fiqa_priority_diagnostics(condition, *artifacts, bin_count=bins, **kwargs)
+        for name in ("global_empirical", "global_safe", "fiqa_s", "fiqa_l"):
+            candidate = name if name.startswith("global") else f"{name}_{bins}bin"
+            left = single["method_summary"].query("method == @name").reset_index(drop=True)
+            right = combined["method_summary"].loc[
+                combined["method_summary"].method.eq(candidate)
+            ].reset_index(drop=True)
+            right["method"] = name
+            pd.testing.assert_frame_equal(left, right)
+    paired = combined["paired_comparisons"]
+    sl = paired.query("reference_method == 'fiqa_s_5bin' and candidate_method == 'fiqa_l_5bin'")
+    assert sl.paired_bootstrap95_low.eq(0).all()
+    assert sl.paired_bootstrap95_high.eq(0).all()
+    sparse = run_fiqa_priority_diagnostics(
+        condition, *artifacts, bin_counts=(2, 5),
+        **{**kwargs, "minimum_group_non_mated": 10000})
+    thresholds = sparse["thresholds"].query("method.str.startswith('fiqa')", engine="python")
+    assert thresholds.used_global_fallback.all()
+    assert np.isfinite(thresholds.final_threshold).all()
+    path = write_fiqa_priority_diagnostics(tmp_path / "multi", combined)
+    assert write_fiqa_priority_diagnostics(tmp_path / "multi", combined, reuse_existing=True) == path
+    (path / "thresholds.csv").write_text("corrupt", encoding="utf8")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        write_fiqa_priority_diagnostics(tmp_path / "multi", combined, reuse_existing=True)
+
+
+@pytest.mark.parametrize("bins", [(), (2, 2), (True, 5), (2, 1), (2, 5.5)])
+def test_invalid_bin_plan_fails_before_fitting(tmp_path, bins):
+    condition, artifacts = _inputs(tmp_path)
+    with pytest.raises(ValueError, match="bin_counts"):
+        run_fiqa_priority_diagnostics(condition, *artifacts, bin_counts=bins)

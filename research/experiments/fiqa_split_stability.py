@@ -15,7 +15,9 @@ from research.calibration.conditional import (
     _boolean_values,
     deterministic_calibration_partition,
 )
-from research.experiments.fiqa_priority_diagnostics import run_fiqa_priority_diagnostics
+from research.experiments.fiqa_priority_diagnostics import (
+    _reuse_completed_result, run_fiqa_priority_diagnostics,
+)
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 DEFAULT_PARTITION_SEEDS = (*range(19), 8972)
@@ -130,7 +132,7 @@ def run_fiqa_split_stability(
     condition, fiqa_s, fiqa_l, *, partition_seeds=DEFAULT_PARTITION_SEEDS,
     target_fpirs=(.01, .05, .10, .20, .30), safety_fraction=.30,
     bin_count=2, shrinkage_strength=200., minimum_group_non_mated=100,
-    resamples=2000, bootstrap_seed=8972, progress=None,
+    resamples=2000, bootstrap_seed=8972, progress=None, bin_counts=None,
 ):
     """Refit on calibration only for each shared seed; keep test/gallery frozen.
 
@@ -138,6 +140,7 @@ def run_fiqa_split_stability(
     split and test uncertainty. No best seed or model is selected from test.
     """
     seeds = _validated_seeds(partition_seeds)
+    bin_counts = None if bin_counts is None else tuple(bin_counts)
     targets = tuple(float(t) for t in target_fpirs)
     inventory = []
     parts = {name: [] for name in ("method_summary", "paired_comparisons", "thresholds", "group_tail_transfer")}
@@ -149,6 +152,7 @@ def run_fiqa_split_stability(
             safety_fraction=safety_fraction, bin_count=bin_count,
             shrinkage_strength=shrinkage_strength, minimum_group_non_mated=minimum_group_non_mated,
             resamples=resamples, bootstrap_seed=bootstrap_seed,
+            bin_counts=bin_counts,
         )
         for name in parts:
             parts[name].append(result[name].assign(partition_seed=seed))
@@ -156,6 +160,10 @@ def run_fiqa_split_stability(
         if progress is not None:
             progress({"completed": index + 1, "total": len(seeds), "partition_seed": seed})
     merged = {name: pd.concat(frames, ignore_index=True) for name, frames in parts.items()}
+    if bin_counts is not None:
+        shared_by = ",".join(merged["method_summary"].method.unique()[1:])
+        for row in inventory:
+            row["shared_by"] = shared_by
     distinct_partitions = len({row["assignment_sha256"] for row in inventory})
     if distinct_partitions < 2:
         raise ValueError("seed panel produced fewer than two distinct fit/safety partitions")
@@ -204,12 +212,14 @@ def run_fiqa_split_stability(
     }
 
 
-def write_fiqa_split_stability(root, result):
+def write_fiqa_split_stability(root, result, *, reuse_existing=False):
     """Publish new derived results atomically; never overwrite completed results."""
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     destination = root / result["manifest"]["stability_uid"]
     if destination.exists():
+        if reuse_existing:
+            return _reuse_completed_result(destination, result, TABLES)
         raise FileExistsError(destination)
     staging = root / (".staging-" + uuid4().hex)
     staging.mkdir()

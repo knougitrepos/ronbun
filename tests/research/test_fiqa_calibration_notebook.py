@@ -16,7 +16,7 @@ NOTEBOOK_PATH = (
 )
 
 
-def test_fiqa_calibration_notebook_is_clean_and_restartable():
+def test_fiqa_calibration_notebook_is_valid_and_preserves_historical_outputs():
     notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
     cells = notebook["cells"]
     identifiers = [str(cell["id"]) for cell in cells]
@@ -25,8 +25,11 @@ def test_fiqa_calibration_notebook_is_clean_and_restartable():
     assert notebook["nbformat"] == 4
     for cell in cells:
         if cell["cell_type"] == "code":
-            assert cell["execution_count"] is None
-            assert cell["outputs"] == []
+            assert cell["execution_count"] is None or isinstance(cell["execution_count"], int)
+            assert isinstance(cell["outputs"], list)
+            if cell["id"].startswith("multibin-"):
+                assert cell["execution_count"] is None
+                assert cell["outputs"] == []
 
 
 def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
@@ -37,12 +40,10 @@ def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
         "RUN_MODEL_SMOKE = False",
         "RUN_FIQA_INFERENCE = False",
         "WRITE_FIQA_ARTIFACT = False",
-        "RUN_SCORE_REPLAY = False",
-        "WRITE_SCORE_ARTIFACT = False",
-        "RUN_THRESHOLD_CALIBRATION = False",
-        "WRITE_CALIBRATION_ARTIFACT = False",
-        "RUN_SPLIT_STABILITY = False",
-        "WRITE_SPLIT_STABILITY = False",
+        "RUN_MULTIBIN_DIAGNOSTICS = False",
+        "WRITE_MULTIBIN_DIAGNOSTICS = False",
+        "RUN_MULTIBIN_SPLIT_STABILITY = False",
+        "WRITE_MULTIBIN_SPLIT_STABILITY = False",
         "OVERWRITE_OUTPUTS = False",
     ):
         assert flag in full_source
@@ -80,22 +81,52 @@ def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
     assert "not applicable" in full_source
 
 
-def test_split_stability_cell_is_disabled_and_independent_of_priority_stage():
+def test_split_stability_cell_uses_top_settings_and_is_independent_of_priority_stage():
     notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
     cell = next(c for c in notebook["cells"] if c["id"] == "split-stability")
     source = "".join(cell["source"])
-    context = {"display": lambda *args: None, "Markdown": str}
+    context = {"display": lambda *args: None, "Markdown": str,
+               "RUN_SPLIT_STABILITY": False, "WRITE_SPLIT_STABILITY": False}
     # No condition, source run, or 8.1 variables needed when disabled.
     exec(compile(source, str(NOTEBOOK_PATH), "exec"), context)
     assert context["split_stability"] is None
-    assert len(context["SPLIT_STABILITY_SEEDS"]) == 20
     assert "priority_diagnostics" not in source
     with pytest.raises(ValueError, match="WRITE requires"):
-        exec(compile(source.replace("WRITE_SPLIT_STABILITY = False", "WRITE_SPLIT_STABILITY = True"),
-                     str(NOTEBOOK_PATH), "exec"), context)
+        exec(compile(source, str(NOTEBOOK_PATH), "exec"),
+             {**context, "WRITE_SPLIT_STABILITY": True})
     with pytest.raises(RuntimeError, match="v2 condition"):
-        exec(compile(source.replace("RUN_SPLIT_STABILITY = False", "RUN_SPLIT_STABILITY = True"),
-                     str(NOTEBOOK_PATH), "exec"), {**context, "condition_tables": None})
+        exec(compile(source, str(NOTEBOOK_PATH), "exec"),
+             {**context, "RUN_SPLIT_STABILITY": True, "condition_tables": None})
+
+
+def test_user_settings_are_defined_once_in_first_code_cell():
+    notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    cells = [c for c in notebook["cells"] if c["cell_type"] == "code"]
+    assert cells[0]["id"] == "user-configuration"
+    settings = {}
+    for cell in cells:
+        for node in ast.walk(ast.parse("".join(cell["source"]))):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        name = target.id
+                        if (name.startswith(("RUN_", "WRITE_", "LOAD_", "CLUSTER_BOOTSTRAP_", "SPLIT_STABILITY_"))
+                                or name in {"QUALITY_BIN_COUNTS", "QUALITY_BIN_COUNT", "PARTITION_SEED",
+                                            "SALIENCY_FEATURE_PATH", "SALIENCY_MINIMUM_COVERAGE",
+                                            "SALIENCY_REQUESTED_FEATURES", "INTEGRATED_EVIDENCE_SOURCES"}):
+                            settings.setdefault(name, []).append(cell["id"])
+    assert settings and all(ids == ["user-configuration"] for ids in settings.values())
+    assert "QUALITY_BIN_COUNTS" in settings
+
+
+@pytest.mark.parametrize("stage", ["multibin-diagnostics", "multibin-split-stability"])
+def test_multibin_cells_can_be_disabled_without_inputs(stage):
+    notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    source = "".join(next(c for c in notebook["cells"] if c["id"] == stage)["source"])
+    context = {"display": lambda *args: None, "Markdown": str,
+               "RUN_MULTIBIN_DIAGNOSTICS": False, "WRITE_MULTIBIN_DIAGNOSTICS": False,
+               "RUN_MULTIBIN_SPLIT_STABILITY": False, "WRITE_MULTIBIN_SPLIT_STABILITY": False}
+    exec(compile(source, str(NOTEBOOK_PATH), "exec"), context)
 
 
 def test_fiqa_notebook_separates_metric_versions_and_documents_ci_scope():

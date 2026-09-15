@@ -69,7 +69,7 @@ def run_fiqa_priority_diagnostics(
     condition, fiqa_s, fiqa_l, *, target_fpirs=(.01, .05, .10, .20, .30),
     partition_seed=8972, safety_fraction=.30, bin_count=2,
     shrinkage_strength=200., minimum_group_non_mated=100,
-    resamples=2000, bootstrap_seed=8972,
+    resamples=2000, bootstrap_seed=8972, bin_counts=None,
 ):
     """Compare four methods under one split; test data never chooses thresholds.
 
@@ -87,6 +87,11 @@ def run_fiqa_priority_diagnostics(
         raise ValueError("targets must be nonempty, unique and increasing")
     if not 0 < safety_fraction < 1:
         raise ValueError("a nonempty held-out safety partition is required")
+    bins = (bin_count,) if bin_counts is None else tuple(bin_counts)
+    if (not bins or any(isinstance(b, (bool, np.bool_)) or
+                        not isinstance(b, (int, np.integer)) or b < 2 for b in bins)
+            or len(set(bins)) != len(bins)):
+        raise ValueError("bin_counts must contain unique integers >= 2")
     joined = {}
     for name, artifact in (("fiqa_s", fiqa_s), ("fiqa_l", fiqa_l)):
         cal, test = join_fiqa_score_artifacts(condition, artifact)
@@ -101,7 +106,17 @@ def run_fiqa_priority_diagnostics(
             if not joined["fiqa_s"][i][column].equals(joined["fiqa_l"][i][column]):
                 raise ValueError(f"unpaired S/L inputs: {column}")
     summaries, paired_rows, tails, thresholds = [], [], [], []
-    names = ("global_empirical", "global_safe", "fiqa_s", "fiqa_l")
+    specifications = {
+        (variant if bin_counts is None else f"{variant}_{count}bin"): (variant, count)
+        for count in bins for variant in ("fiqa_s", "fiqa_l")
+    }
+    names = ("global_empirical", "global_safe", *specifications)
+    inputs = {name: joined[variant] for name, (variant, _) in specifications.items()}
+    comparisons = [(ref, cand) for cand in range(2, len(names)) for ref in (0, 1)]
+    comparisons += [(2 + 2*i, 3 + 2*i) for i in range(len(bins))]
+    # Compare every added bin count directly with the first, separately for S/L.
+    comparisons += [(2 + variant, 2 + 2*i + variant)
+                    for i in range(1, len(bins)) for variant in (0, 1)]
     for target in targets:
         common = dict(target_fpir=target, partition_seed=partition_seed,
                       partition_column="identity_id",
@@ -110,14 +125,14 @@ def run_fiqa_priority_diagnostics(
             "global_empirical": fit_global_threshold(cal, safety_fraction=0, **common),
             "global_safe": fit_global_threshold(cal, safety_fraction=safety_fraction, **common),
         }
-        for name in names[2:]:
+        for name, (variant, count) in specifications.items():
             models[name] = fit_conditional_threshold(
-                joined[name][0], safety_fraction=safety_fraction,
-                bin_count=bin_count, shrinkage_strength=shrinkage_strength,
+                joined[variant][0], safety_fraction=safety_fraction,
+                bin_count=count, shrinkage_strength=shrinkage_strength,
                 minimum_group_non_mated=minimum_group_non_mated, **common,
             )
         evaluations = {
-            name: apply_threshold_model(joined.get(name, (cal, test))[1], models[name])
+            name: apply_threshold_model(inputs.get(name, (cal, test))[1], models[name])
             for name in names
         }
         mated = test.is_mated.astype(bool).to_numpy()
@@ -139,12 +154,12 @@ def run_fiqa_priority_diagnostics(
                                    "model_uid": models[name].model_uid,
                                    **group.as_dict()})
             if name != "global_empirical":
-                c, t = joined.get(name, (cal, test))
+                c, t = inputs.get(name, (cal, test))
                 tail = quality_tail_transfer(c, t, models[name],
                                              safety_fraction=safety_fraction,
                                              seed=partition_seed)
                 tails.append(tail.assign(method=name, target_fpir=target))
-        for ref, cand in ((0, 2), (1, 2), (0, 3), (1, 3), (2, 3)):
+        for ref, cand in comparisons:
             evidence = paired_method_comparison(evaluations[names[ref]], evaluations[names[cand]])
             for metric in ("fpir", "tpir_at_rank_k"):
                 result = dict(evidence[metric])
@@ -187,6 +202,10 @@ def run_fiqa_priority_diagnostics(
                         "interpretation": "exploratory_fixed_threshold"},
         "threshold_fit_on_test": False,
     }
+    if bin_counts is not None:
+        manifest.pop("bin_count")
+        manifest["bin_counts"] = [int(b) for b in bins]
+        manifest["bin_selection_on_test"] = False
     manifest["diagnostic_uid"] = "fiqa-priority-" + canonical_sha256(manifest)[:24]
     return {"method_summary": pd.DataFrame(summaries),
             "paired_comparisons": pd.DataFrame(paired_rows),
@@ -194,12 +213,28 @@ def run_fiqa_priority_diagnostics(
             "thresholds": pd.DataFrame(thresholds), "manifest": manifest}
 
 
-def write_fiqa_priority_diagnostics(root, result):
+def _reuse_completed_result(destination, result, tables):
+    """Verify the complete manifest and all table hashes before reusing a UID."""
+    manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+    expected = {**result["manifest"], "status": "completed"}
+    actual = {k: v for k, v in manifest.items() if k != "files"}
+    if actual != expected or set(manifest.get("files", {})) != {f"{t}.csv" for t in tables}:
+        raise ValueError(f"Completed diagnostic manifest mismatch: {destination}")
+    for filename, digest in manifest["files"].items():
+        if sha256_file(destination / filename) != digest:
+            raise ValueError(f"Completed diagnostic hash mismatch: {filename}")
+    return destination
+
+
+def write_fiqa_priority_diagnostics(root, result, *, reuse_existing=False):
     """Publish a new content-addressed directory; never replace completed data."""
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     destination = root / result["manifest"]["diagnostic_uid"]
     if destination.exists():
+        if reuse_existing:
+            return _reuse_completed_result(destination, result, (
+                "method_summary", "paired_comparisons", "group_tail_transfer", "thresholds"))
         raise FileExistsError(f"Completed diagnostic already exists: {destination}")
     staging = root / (".staging-" + uuid4().hex)
     staging.mkdir()
