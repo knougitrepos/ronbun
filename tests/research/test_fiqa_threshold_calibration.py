@@ -225,6 +225,50 @@ def test_condition_score_artifact_round_trip(tmp_path: Path):
     assert len(loaded.test) == 2
 
 
+def test_manifestless_recovery_preserves_orphans_and_validates_first(tmp_path, monkeypatch):
+    import research.experiments.fiqa_threshold_calibration as module
+    destination = tmp_path / "condition"
+    destination.mkdir()
+    orphan = destination / "test_scores.parquet"
+    orphan.write_bytes(b"original orphan bytes")
+    tables = ConditionScoreTables(
+        calibration=_scores("calibration"), test=_scores("test"),
+        manifest={"schema_version": 2, "metric_contract": IDENTIFICATION_METRIC_CONTRACT,
+                  "artifact_type": "compressed_calibration_test_score_tables",
+                  "condition_uid": "replayed", "status": "completed_in_memory"},
+    )
+    def failed_replay(*args, **kwargs):
+        raise RuntimeError("threshold mismatch")
+    monkeypatch.setattr(module, "replay_survface_adc_condition_scores", failed_replay)
+    with pytest.raises(RuntimeError, match="threshold mismatch"):
+        module.recover_incomplete_condition_score_artifact(destination, tmp_path / "run")
+    assert orphan.read_bytes() == b"original orphan bytes"
+    assert not list(tmp_path.glob(".condition.incomplete-*"))
+    monkeypatch.setattr(module, "replay_survface_adc_condition_scores", lambda *a, **k: tables)
+    result, backup = module.recover_incomplete_condition_score_artifact(destination, tmp_path / "run")
+    assert result.condition_uid == "replayed"
+    assert (backup / orphan.name).read_bytes() == b"original orphan bytes"
+    assert load_condition_score_artifact(destination).condition_uid == "replayed"
+    with pytest.raises(ValueError, match="no manifest"):
+        module.recover_incomplete_condition_score_artifact(destination, tmp_path / "run")
+
+
+def test_manifestless_recovery_rolls_back_failed_write(tmp_path, monkeypatch):
+    import research.experiments.fiqa_threshold_calibration as module
+    destination = tmp_path / "condition"
+    destination.mkdir()
+    (destination / "orphan").write_bytes(b"keep")
+    monkeypatch.setattr(module, "replay_survface_adc_condition_scores", lambda *a, **k: None)
+    def failed_write(*args, **kwargs):
+        raise OSError("disk error")
+    monkeypatch.setattr(module, "write_condition_score_artifact", failed_write)
+    with pytest.raises(OSError, match="disk error"):
+        module.recover_incomplete_condition_score_artifact(destination, tmp_path / "run")
+    assert (destination / "orphan").read_bytes() == b"keep"
+    with pytest.raises(ValueError, match="separate"):
+        module.recover_incomplete_condition_score_artifact(destination, destination)
+
+
 def _calibration_rows(prefix: str, count: int) -> pd.DataFrame:
     row_ids = list(range(count))
     is_mated = [(index % 2) == 0 for index in row_ids]

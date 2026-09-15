@@ -1163,6 +1163,43 @@ def write_condition_score_artifact(
     return load_condition_score_artifact(destination)
 
 
+def recover_incomplete_condition_score_artifact(
+    directory: str | Path,
+    run_dir: str | Path,
+    *,
+    compression_profile: str = "pq_512_m128_b8",
+    search_mode: str = SURVFACE_ADC_SEARCH_MODE,
+) -> tuple[ConditionScoreTables, Path]:
+    """Rebuild a manifest-less derived artifact; preserve every original byte.
+
+    Never invent lineage from orphan parquet files or repair a corrupt completed
+    manifest silently. Replay validates the frozen source and its thresholds
+    before the incomplete directory is moved to a recoverable sibling backup.
+    """
+    destination = Path(directory).resolve()
+    source = Path(run_dir).resolve()
+    if (destination == source or destination in source.parents
+            or source in destination.parents):
+        raise ValueError("recovery destination must be separate from the source run")
+    if not destination.is_dir() or (destination / "manifest.json").exists():
+        raise ValueError("recovery requires a directory with no manifest.json")
+    tables = replay_survface_adc_condition_scores(
+        source, compression_profile=compression_profile, search_mode=search_mode,
+    )
+    # Recheck after expensive replay; never replace a newly completed artifact.
+    if (destination / "manifest.json").exists():
+        raise FileExistsError("condition manifest appeared during recovery")
+    backup = destination.with_name(f".{destination.name}.incomplete-{uuid4().hex}")
+    destination.rename(backup)
+    try:
+        result = write_condition_score_artifact(destination, tables, overwrite=False)
+    except BaseException:
+        if not destination.exists():
+            backup.rename(destination)
+        raise
+    return result, backup
+
+
 def load_condition_score_artifact(directory: str | Path) -> ConditionScoreTables:
     return _load_condition_score_artifact(directory, allow_legacy=False)
 

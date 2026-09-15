@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "artifact_type": "fiqa_priority_diagnostics",
+  "metric_contract": "genuine-score-topk-v2",
+  "condition_manifest_sha256": "96c66664d89e3d3297d871191961aafa912c8d98730c49f81a148ed2030751da",
+  "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+  "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+  "condition_uid": "compressed-scores-25187ef2a81dce1f2ffbdd24",
+  "partition_seed": 8972,
+  "safety_fraction": 0.3,
+  "shrinkage_strength": 200.0,
+  "minimum_group_non_mated": 100,
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "resamples": 2000,
+  "bootstrap_seed": 8972,
+  "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+  "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+  "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+  "uncertainty": {
+    "tpir": "query_weighted_mated_identity_cluster",
+    "fpir": "query_only_unknown_identity_labels_unavailable",
+    "threshold_uncertainty_included": false,
+    "gallery_uncertainty_included": false,
+    "multiple_comparison_adjustment": "none",
+    "interpretation": "exploratory_fixed_threshold"
+  },
+  "threshold_fit_on_test": false,
+  "bin_counts": [
+    2,
+    5
+  ],
+  "bin_selection_on_test": false,
+  "diagnostic_uid": "fiqa-priority-3de8a423f324aed5e0089a59",
+  "status": "completed",
+  "files": {
+    "method_summary.csv": "1af296105c891f32b8bca2f797d2ec33e2e7bb7d13522fc20988e431b55c51ea",
+    "paired_comparisons.csv": "d28ee4831333879643ddb08e42a009778179dd0a49ad48a1e2d67a87b749cee1",
+    "group_tail_transfer.csv": "8995a560123cb09b1939671387921c01ba19509d5ee7486f7daea07419a650d8",
+    "thresholds.csv": "9e6187b7223dfea28581701e63628751e132f8ca347d25a64f92ff4e1be91e00"
+  }
+}

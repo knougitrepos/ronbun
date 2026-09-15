@@ -1,0 +1,899 @@
+{
+  "schema_version": 1,
+  "artifact_type": "fiqa_split_stability",
+  "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+  "partition_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    8972
+  ],
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "seed_plan_origin": "existing_exploratory_panel_not_new_preregistration",
+  "distinct_partition_count": 20,
+  "seed_manifests": [
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 0,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-27ad00cf354e16adc22bf16d"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 1,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-f25d83ea15b96311b22c496f"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 2,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-394843860ad230c98903f863"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 3,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-4ec92c02c16d05f6cf0a7615"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 4,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-eb640eb216a613f198dec99d"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 5,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-095a65881e991c2d5e7a7be4"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 6,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-504c79ca94d1b43eac9bd867"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 7,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-3f0a272608086f452d5d0444"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 8,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-73f827b8be3351bcd5fd3b5d"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 9,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-fa833e9043d4a75b0a898177"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 10,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-f5a4f2da14bb68a797737045"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 11,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-df6a86a4ac28616337c9760b"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 12,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-fe7762e35c6229c9b81eaa47"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 13,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-6b81d7db783f9e7c80bbcc90"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 14,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-8846e87680ce678c4fa9a88a"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 15,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-6070a8617d97ceed85f41e86"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 16,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-65748b030dba255e670ae65c"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 17,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-48bfaf7c6b90eccd853e1307"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 18,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-2cde11e665ddbad0f05a07a0"
+    },
+    {
+      "schema_version": 1,
+      "artifact_type": "fiqa_priority_diagnostics",
+      "metric_contract": "genuine-score-topk-v2",
+      "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+      "fiqa_s_manifest_sha256": "8ff9699a5e7be30c5fdaed65bda248888e7d08940dc58a5f22f1b6021d334db2",
+      "fiqa_l_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+      "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+      "partition_seed": 8972,
+      "safety_fraction": 0.3,
+      "shrinkage_strength": 200.0,
+      "minimum_group_non_mated": 100,
+      "target_fpirs": [
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "resamples": 2000,
+      "bootstrap_seed": 8972,
+      "implementation_sha256": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+      "cluster_ci_implementation_sha256": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "conditional_implementation_sha256": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+      "uncertainty": {
+        "tpir": "query_weighted_mated_identity_cluster",
+        "fpir": "query_only_unknown_identity_labels_unavailable",
+        "threshold_uncertainty_included": false,
+        "gallery_uncertainty_included": false,
+        "multiple_comparison_adjustment": "none",
+        "interpretation": "exploratory_fixed_threshold"
+      },
+      "threshold_fit_on_test": false,
+      "bin_counts": [
+        2,
+        5
+      ],
+      "bin_selection_on_test": false,
+      "diagnostic_uid": "fiqa-priority-644f8834c2e2e9aec88b7426"
+    }
+  ],
+  "input_frame_sha256": {
+    "calibration": "03fa975fcd84eecaf47169bc19112ae077accfd5f724945ea7e7989443d12e2e",
+    "test": "c47ce453bc48007508c466863b1b8c81b24ad53ed84c926af1cd29ea02322e76",
+    "fiqa_s": "8e31ac9c5a4f6c7edd1fb19ff367c9cd184b28ddfc1ed9ac92ce3f3879059e7e",
+    "fiqa_l": "faefd2a3b91f17653a2d06d457c6c29288f37e27604e9e388c90bee657ab6bb7"
+  },
+  "implementation_sha256": {
+    "research\\experiments\\fiqa_split_stability.py": "8a5ffa3a8e9dc60e70a81ac153093b0def2562d7a3e7717216715757029bb7cd",
+    "research\\experiments\\fiqa_priority_diagnostics.py": "c34e6e906caaf20d55a3c170bc969bcb319ae41ef342fd1ddf2cbdccf7a07386",
+    "research\\experiments\\fiqa_threshold_calibration.py": "f15a3a1af2358fc9dcbe28271c92c09c36570c9eebb1fa64ea2d2548da5ab8e0",
+    "research\\evaluation\\cluster_bootstrap.py": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+    "research\\evaluation\\metrics.py": "bae78f0349a68c086de795d47553876243271e6a210bff2664ee223485c2e64d",
+    "research\\calibration\\conditional.py": "bd7d3448c523a4b78b7ed3620b084b339a7cad31cf80ee60e16248e45653ae33",
+    "research\\calibration\\rejection.py": "19ace3e6e40d03117553dfe2354e73e610ddc23d4950c1d62d077dc1d38d6f96"
+  },
+  "partition_assignment_sha256": {
+    "0": "8130a2f9ba03e406ef053ec404bde096c96d51d2c27b1013d6f9df08fd0f1e4f",
+    "1": "45bf6ea10f3a6b34a37c5f8147c4e528bc12aa98c511c6e6b56893a20217ffaa",
+    "2": "0a790fa79be9162e6b353ecdd2d68ece6439fcdcec039f1b0b325aa45e797a3c",
+    "3": "9f0d8598dc2f255f9d692a6e0652e7d6c12f3be6299a57a531e29d4576b1a0e5",
+    "4": "036bfb6d9dc2b9971d88d692bdcd048cf43a82c247a3375eedb86bf795fbf84e",
+    "5": "432758c7086ebfc6af66b83e7c5d812990992659d82b11381da334ef4754f9e4",
+    "6": "83b34e67265c1f640244a255d95ef52d38b3c6b40e2407da2c3ae9c578516bbf",
+    "7": "40105d1a857fcef3deedfa729d6a128693c46423d7c5eb86fd5c027bf17467e1",
+    "8": "d5053b98778774a10be036807f39722c0ee242d0b865ffbdb4bf620ec72ca465",
+    "9": "29c1456cbaf3971002ffa2a668d22ff7f79479b14b165bc0c22fc446e8ea4c43",
+    "10": "e524bf530f9ddd2f9c918c6e7634c4c2b7e831fe699c961f273a90fe0718ee63",
+    "11": "970b1225a07f1c11da137647e8a43d3ca3a5729d8d9738b3dbf80142714a5870",
+    "12": "c171521cdae48cdc17078e3fd75d2856e19e93e399becdc316239d9f6d5153e5",
+    "13": "d59e4b51e3c21338e95b90fccf2362d0463498d80c40aac556975f017d6ff9db",
+    "14": "b087a2ded57c3da34af4b110c82767dee6ed0234a97b3101aa65d69e605906e7",
+    "15": "3091cfb50ebd27bb4ed0aa173a71b8fcbe12bb9d655d215951ed8553efa29e74",
+    "16": "dcb180e21157a0c96b1da7840014a9810379c0a2f99db512943b0a7cd3599c75",
+    "17": "3966ed9f7a2211f202138da8c10f4f1cd01f77cf4744c46181b011c1841b7ebf",
+    "18": "c67b3c10a7120b216a685375422c67828634e4e55db16f3c06f17710b163d7d9",
+    "8972": "564d8eb8b64baa7fafe50f5395fd40fcb09d1515e62063b800882abe2acc5ce1"
+  },
+  "uncertainty": {
+    "per_seed_tpir_ci": "query_weighted_mated_identity_cluster_fixed_threshold",
+    "per_seed_fpir_ci": "query_wilson_fixed_threshold",
+    "between_splits": "descriptive_min_quartiles_median_max_not_ci",
+    "joint_split_test_ci": false,
+    "independent_replications": false,
+    "gallery_or_codec_refitted": false,
+    "calibration_cohort_resampled": false,
+    "test_based_seed_selection": false,
+    "multiple_comparison_adjustment": "none",
+    "scope": "frozen_cohort_internal_fit_safety_sensitivity_only"
+  },
+  "stability_uid": "fiqa-split-6d6458a1e94a93537b616a4b",
+  "status": "completed",
+  "files": {
+    "seed_metrics.csv": "7a2f672b6378fe7bfa46855ae49ae7f4339543c294d7cc1777a1e56cecd5a8f0",
+    "seed_paired_comparisons.csv": "962bb1a2c89bb140137a6b3f49629a02033ef82802ae06215ab6140ff2e6d74a",
+    "seed_thresholds.csv": "9348a4541cb995738fcd29e8cbeafb8dc4cc2d7d67eef28eb772dce900c84eab",
+    "seed_group_tail_transfer.csv": "eea2fef4fc02c51b1cc6f14c0821bb700a1d25f72a16590b2101d20cc9ef875f",
+    "partition_inventory.csv": "3e87e2a37093ef183636c263887c4914b8b26f08164c87b5604853201597a16b",
+    "stability_summary.csv": "6fec422bad9fe61553a503316c32bbf15d7051ba32efbf99b322da9b7aa7d114",
+    "paired_stability_summary.csv": "b6f566516cf8a98cdefe5868e2db1d17d53c7ca8deb7555c682407a49ac1c522",
+    "threshold_stability_summary.csv": "ebabd2a9c9e8338795318deccd97477e3b1a64e60e5a1fc22e37736a59a521f8"
+  }
+}
