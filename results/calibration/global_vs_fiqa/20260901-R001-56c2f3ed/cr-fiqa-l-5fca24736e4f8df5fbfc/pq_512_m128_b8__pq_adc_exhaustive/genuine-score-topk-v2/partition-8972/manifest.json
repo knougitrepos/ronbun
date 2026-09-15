@@ -1,0 +1,156 @@
+{
+  "schema_version": 2,
+  "metric_contract": "genuine-score-topk-v2",
+  "uncertainty_contract": {
+    "resampling_unit": "query",
+    "threshold_uncertainty_included": false,
+    "multiple_comparison_adjustment": "none",
+    "interpretation": "exploratory_fixed_threshold"
+  },
+  "artifact_type": "global_vs_fiqa_threshold_calibration",
+  "status": "completed",
+  "condition_uid": "compressed-scores-25187ef2a81dce1f2ffbdd24",
+  "fiqa_uid": "fiqa-scores-ed59bb0ec8ff871a8475ae82",
+  "condition_manifest_sha256": "96c66664d89e3d3297d871191961aafa912c8d98730c49f81a148ed2030751da",
+  "fiqa_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+  "target_fpirs": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "score_space": "negative_squared_l2_adc",
+  "threshold_comparator": ">=",
+  "rank_k": 20,
+  "calibration_rows": 160408,
+  "test_rows": 182159,
+  "quality_condition": {
+    "column": "fiqa_score",
+    "bin_count": 2,
+    "cutpoint_source": "calibration_fit_only",
+    "shrinkage_strength": 200.0,
+    "minimum_group_non_mated": 100
+  },
+  "safety_calibration": {
+    "fraction": 0.3,
+    "partition_seed": 8972,
+    "partition_key": "sha256(identity_id)",
+    "partition_unit": "identity_cluster"
+  },
+  "methods": [
+    "global_empirical",
+    "global_safe",
+    "fiqa_2bin_conservative_shrunk_safe"
+  ],
+  "threshold_fit_on_test": false,
+  "saliency_contract": {
+    "primary_purpose": "analyze associations between FR spatial evidence and compression-induced embedding/retrieval behavior",
+    "secondary_purpose": "test incremental value beyond FIQA only after calibration saliency coverage passes a leakage-safe readiness gate",
+    "included_in_this_comparison": false
+  },
+  "model_uids": [
+    "conditional-threshold-07ac8f430c681f6d6741a307",
+    "conditional-threshold-0e9d00062c243c3e4d67aba3",
+    "conditional-threshold-1f5a2b5876c9c7b7196bd4cb",
+    "conditional-threshold-213e3722b41d5033574300e8",
+    "conditional-threshold-23467c16e00b2755a0f49cca",
+    "conditional-threshold-427d9602c70124f780e9c60e",
+    "conditional-threshold-4806b5aa30b2e3a7a9a8ec0a",
+    "conditional-threshold-4ff1a0092836d98c5b8d7dac",
+    "conditional-threshold-53e9bcf9a6eb493a115de180",
+    "conditional-threshold-5b47cf4b43738ac1160a6ec4",
+    "conditional-threshold-cc8be883f60a6731b5174bc8",
+    "conditional-threshold-d22191b44397f151ec24bed1",
+    "conditional-threshold-e205a8457b6207aca970843c",
+    "conditional-threshold-e75a172f6a9cc0ec758ab244",
+    "conditional-threshold-f24bed78ff20e6527a98f9a5"
+  ],
+  "comparison_uid": "global-fiqa-39df8093366b3b0ccdc29fc0",
+  "files": {
+    "method_summary.csv": {
+      "sha256": "91ab0e095ccf94f30928e278ce839e7e25d7a81d2195921d0c1498410e1ce018",
+      "bytes": 6024,
+      "row_count": 15,
+      "columns": [
+        "schema_version",
+        "metric_contract",
+        "rank_k",
+        "model_uid",
+        "method",
+        "target_fpir",
+        "score_space",
+        "test_probe_count",
+        "test_non_mated_count",
+        "test_mated_count",
+        "false_accept_count",
+        "true_identification_at_rank_k_count",
+        "realized_fpir",
+        "fpir_wilson95_low",
+        "fpir_wilson95_high",
+        "tpir_at_rank_k",
+        "tpir_at_rank_k_wilson95_low",
+        "tpir_at_rank_k_wilson95_high",
+        "target_met_on_test",
+        "target_met_by_wilson_upper",
+        "threshold_fit_on_test",
+        "condition_uid",
+        "fiqa_uid"
+      ]
+    },
+    "thresholds.csv": {
+      "sha256": "9812dde86fe98ff6a4112c2c276d5aa51359a292b75e53f555850c18b760d841",
+      "bytes": 5751,
+      "row_count": 20,
+      "columns": [
+        "method",
+        "model_uid",
+        "target_fpir",
+        "score_space",
+        "rank_k",
+        "quality_group",
+        "quality_cutpoints",
+        "name",
+        "fit_non_mated_count",
+        "safety_non_mated_count",
+        "raw_threshold",
+        "shrinkage_weight",
+        "threshold_before_safety",
+        "safety_threshold",
+        "final_threshold",
+        "used_global_fallback",
+        "fit_fpir_at_final_threshold",
+        "safety_fpir_at_final_threshold",
+        "fit_target_met",
+        "safety_target_met"
+      ]
+    },
+    "paired_comparisons.csv": {
+      "sha256": "d88445130bd0599d5876f77597698026f8e7bab9c3792f06e8f1a20d599d30e9",
+      "bytes": 5724,
+      "row_count": 20,
+      "columns": [
+        "reference_method",
+        "candidate_method",
+        "target_fpir",
+        "score_space",
+        "rank_k",
+        "metric",
+        "reference_successes",
+        "candidate_successes",
+        "both_successes",
+        "total",
+        "candidate_minus_reference",
+        "paired_bootstrap95_low",
+        "paired_bootstrap95_high",
+        "confidence_interval_method",
+        "resamples",
+        "random_seed",
+        "metric_contract",
+        "resampling_unit",
+        "threshold_uncertainty_included",
+        "multiple_comparison_adjustment"
+      ]
+    }
+  }
+}
