@@ -207,6 +207,9 @@ def test_paired_results_use_genuine_events_and_expose_ci_scope():
     assert result["tpir_at_rank_k"]["candidate_minus_reference"] == 0
     assert result["resampling_unit"] == "query"
     assert result["threshold_uncertainty_included"] is False
+    custom = paired_method_comparison(reference, candidate, resamples=51, random_seed=13)
+    assert custom['resamples'] == 51 and custom['random_seed'] == 13
+    assert custom['fpir']['paired_bootstrap95_low'] == 0
     candidate.decisions.loc[0, "true_identity_rank"] = 2
     with pytest.raises(ValueError, match="different true_identity_rank"):
         paired_method_comparison(reference, candidate)

@@ -10,11 +10,18 @@ from research.calibration.continuous import fit_continuous_threshold, apply_cont
 from research.calibration.conditional import deterministic_calibration_partition
 from research.experiments.fiqa_retrieval_features import adc_feature_frame, join_retrieval_features
 from research.experiments.fiqa_continuous_calibration import (
-    run_continuous_calibration, write_continuous_calibration,
+    run_continuous_calibration, write_continuous_calibration, summarize_continuous_ablations,
 )
 from research.runtime.hashing import canonical_sha256
-from test_fiqa_split_stability import _inputs
+from research.evaluation.metrics import paired_binary_rate_difference_bootstrap_interval
+from test_fiqa_split_stability import _inputs as _base_inputs
 from test_fiqa_threshold_calibration import _calibration_rows
+
+
+def _inputs(tmp_path):
+    condition, artifacts = _base_inputs(tmp_path)
+    condition.manifest['source_run_id'] = 'source'
+    return condition, artifacts
 
 
 def _features(rows):
@@ -72,6 +79,11 @@ def test_full_ablation_is_reproducible_and_never_fits_on_test(tmp_path):
                    target_fpirs=(.1,), resamples=100, minimum_group_non_mated=5)
     result = run_continuous_calibration(condition, artifacts[1], **options)
     assert len(result["method_summary"]) == 7
+    assert result['manifest']['schema_version'] == 2
+    assert set(result['ablation_summary'].stage) == {
+        'continuous_vs_2bin', 'continuous_vs_5bin', 'add_margin',
+        'add_gallery_distortion', 'runnerup_control'}
+    assert result['paired_comparisons'].resamples.eq(100).all()
     assert result["models"].model_json.map(json.loads).notna().all()
     changed = copy.deepcopy(condition)
     changed.test.loc[~changed.test.is_mated, "score"] += .05
@@ -83,6 +95,7 @@ def test_full_ablation_is_reproducible_and_never_fits_on_test(tmp_path):
     assert result["models"].model_json.equals(after["models"].model_json)
     assert result["manifest"]["result_uid"] != after["manifest"]["result_uid"]
     path = write_continuous_calibration(tmp_path, result)
+    assert (path/'ablation_summary.csv').is_file()
     assert write_continuous_calibration(tmp_path, result) == path
     (path/"models.csv").write_text("damaged", encoding="utf8")
     with pytest.raises(ValueError, match="hash mismatch"):
@@ -199,7 +212,7 @@ def test_continuous_notebook_settings_and_execution_contract():
     ids = [c.id for c in notebook.cells]
     assert len(ids) == len(set(ids))
     for cell in code:
-        assert cell.execution_count is None and cell.outputs == []
+        # Saved user execution history is valid; editing must not erase it.
         for node in ast.walk(ast.parse(cell.source)):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
@@ -208,3 +221,49 @@ def test_continuous_notebook_settings_and_execution_contract():
     assert 'BUILD_RETRIEVAL_FEATURES = False' in code[0].source
     assert 'RUN_CONTINUOUS_CALIBRATION = False' in code[0].source
     assert 'WRITE_CONTINUOUS_RESULTS = False' in code[0].source
+    assert "'edgeface'" in code[0].source
+    assert 'incremental-ablation' in ids
+
+
+def test_ci_settings_apply_to_both_metrics_and_do_not_change_fits(tmp_path):
+    condition, artifacts = _inputs(tmp_path)
+    options = dict(target_fpirs=(.1,), minimum_group_non_mated=5)
+    first = run_continuous_calibration(condition, artifacts[1], resamples=101, bootstrap_seed=11, **options)
+    second = run_continuous_calibration(condition, artifacts[1], resamples=171, bootstrap_seed=13, **options)
+    assert first['paired_comparisons'].resamples.eq(101).all()
+    assert first['paired_comparisons'].bootstrap_seed.eq(11).all()
+    for _, evidence in first['paired_comparisons'].query("metric == 'fpir'").iterrows():
+        expected = paired_binary_rate_difference_bootstrap_interval(
+            int(evidence.reference_successes), int(evidence.candidate_successes),
+            int(evidence.both_successes), int(evidence.total), resamples=101, random_seed=11)
+        assert (evidence.paired_bootstrap95_low, evidence.paired_bootstrap95_high) == expected
+    assert second['paired_comparisons'].resamples.eq(171).all()
+    assert second['paired_comparisons'].bootstrap_seed.eq(13).all()
+    assert first['models'].model_json.equals(second['models'].model_json)
+    assert first['manifest']['result_uid'] != second['manifest']['result_uid']
+
+
+def test_ablations_keep_target_miss_visible_and_reject_incomplete_evidence(tmp_path):
+    condition, artifacts = _inputs(tmp_path)
+    result = run_continuous_calibration(condition, artifacts[1], target_fpirs=(.1,),
+                                        resamples=101, minimum_group_non_mated=5)
+    summary, paired = result['method_summary'].copy(), result['paired_comparisons']
+    summary.loc[summary.method.eq('continuous_fiqa'), 'target_met_on_test'] = False
+    table = summarize_continuous_ablations(summary, paired)
+    assert table.operating_point_status.eq('candidate_misses_target').all()
+    assert table.same_realized_fpir_enforced.eq(False).all()
+    with pytest.raises(ValueError, match='incomplete'):
+        summarize_continuous_ablations(summary, paired.loc[paired.metric.ne('fpir')])
+    with pytest.raises(ValueError, match='duplicate'):
+        summarize_continuous_ablations(pd.concat([summary, summary.iloc[:1]]), paired)
+
+
+@pytest.mark.parametrize('settings', [
+    {'resamples': 0}, {'resamples': True}, {'bootstrap_seed': -1},
+    {'bootstrap_seed': 1.5},
+    {'methods': ('continuous_fiqa', 'continuous_fiqa_margin_distortion')},
+])
+def test_invalid_continuous_execution_plan(tmp_path, settings):
+    condition, artifacts = _inputs(tmp_path)
+    with pytest.raises(ValueError):
+        run_continuous_calibration(condition, artifacts[1], **settings)

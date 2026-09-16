@@ -30,7 +30,63 @@ CONTINUOUS_FEATURES = {
     "continuous_fiqa_margin_distortion": ("fiqa_score", "adc_margin", "top1_gallery_pq_distortion"),
     "continuous_fiqa_runnerup": ("fiqa_score", "adc_s2"),
 }
-TABLES = ("method_summary", "paired_comparisons", "models", "split_summary")
+TABLES = ("method_summary", "paired_comparisons", "models", "split_summary", "ablation_summary")
+
+
+def summarize_continuous_ablations(method_summary, paired_comparisons):
+    """Expose planned incremental contrasts without ranking/selecting a method.
+
+    Same target FPIR is not the same realized operating point. Carry both rates
+    and target checks alongside the paired TPIR evidence, including target misses.
+    """
+    keys = ["partition_seed", "target_fpir"]
+    if method_summary.duplicated([*keys, "method"]).any():
+        raise ValueError("duplicate method summary keys")
+    if paired_comparisons.duplicated([*keys, "reference_method", "candidate_method", "metric"]).any():
+        raise ValueError("duplicate paired comparison keys")
+    contrasts = (
+        ("continuous_vs_2bin", "fiqa_2bin", "continuous_fiqa"),
+        ("continuous_vs_5bin", "fiqa_5bin", "continuous_fiqa"),
+        ("add_margin", "continuous_fiqa", "continuous_fiqa_margin"),
+        ("add_gallery_distortion", "continuous_fiqa_margin", "continuous_fiqa_margin_distortion"),
+        ("runnerup_control", "continuous_fiqa", "continuous_fiqa_runnerup"),
+    )
+    records = []
+    for (seed, target), group in method_summary.groupby(keys, sort=False):
+        methods = group.set_index("method")
+        for stage, reference, candidate in contrasts:
+            if reference not in methods.index or candidate not in methods.index:
+                continue
+            evidence = paired_comparisons.loc[
+                paired_comparisons.partition_seed.eq(seed) & paired_comparisons.target_fpir.eq(target)
+                & paired_comparisons.reference_method.eq(reference)
+                & paired_comparisons.candidate_method.eq(candidate)
+            ].set_index("metric")
+            if set(evidence.index) != {"fpir", "tpir_at_rank_k"}:
+                raise ValueError("incomplete incremental paired evidence")
+            ref, cand = methods.loc[reference], methods.loc[candidate]
+            row = dict(partition_seed=seed, target_fpir=target, stage=stage,
+                       reference_method=reference, candidate_method=candidate)
+            for prefix, item in (("reference", ref), ("candidate", cand)):
+                row.update({f"{prefix}_{col}": item[col] for col in (
+                    "realized_fpir", "tpir_at_rank_k", "target_met_on_test", "target_met_by_wilson_upper")})
+            for metric, rate in (("fpir", "realized_fpir"), ("tpir_at_rank_k", "tpir_at_rank_k")):
+                e = evidence.loc[metric]
+                if not np.isclose(e.candidate_minus_reference, cand[rate]-ref[rate], rtol=0, atol=1e-12):
+                    raise ValueError("paired delta disagrees with method rates")
+                row.update({f"delta_{metric}": e.candidate_minus_reference,
+                            f"delta_{metric}_ci_low": e.paired_bootstrap95_low,
+                            f"delta_{metric}_ci_high": e.paired_bootstrap95_high,
+                            f"{metric}_resampling_unit": e.resampling_unit})
+            low, high = row["delta_tpir_at_rank_k_ci_low"], row["delta_tpir_at_rank_k_ci_high"]
+            row["tpir_ci_direction"] = "increase" if low > 0 else "decrease" if high < 0 else "includes_zero"
+            row["operating_point_status"] = (
+                "candidate_misses_target" if not cand.target_met_on_test else
+                "reference_misses_target" if not ref.target_met_on_test else "both_point_targets_met")
+            row["same_realized_fpir_enforced"] = False
+            row["test_based_selection"] = False
+            records.append(row)
+    return pd.DataFrame(records)
 
 
 def run_continuous_calibration(
@@ -45,6 +101,11 @@ def run_continuous_calibration(
     if (not methods or len(set(methods)) != len(methods) or not set(methods) <= set(CONTINUOUS_FEATURES)
             or methods[0] != "continuous_fiqa"):
         raise ValueError("explicit methods must begin with continuous_fiqa")
+    if "continuous_fiqa_margin_distortion" in methods and "continuous_fiqa_margin" not in methods:
+        raise ValueError("distortion ablation requires the margin-only control")
+    if (isinstance(resamples, bool) or not isinstance(resamples, int) or resamples < 100
+            or isinstance(bootstrap_seed, bool) or not isinstance(bootstrap_seed, int) or bootstrap_seed < 0):
+        raise ValueError("at least 100 integer resamples and non-negative integer bootstrap_seed required")
     if (not seeds or len(set(seeds)) != len(seeds)
             or any(isinstance(s, bool) or not isinstance(s, int) or s < 0 for s in seeds)):
         raise ValueError("unique non-negative integer seeds required")
@@ -112,7 +173,8 @@ def run_continuous_calibration(
             if "continuous_fiqa_margin" in methods and "continuous_fiqa_margin_distortion" in methods:
                 pairs.append(("continuous_fiqa_margin", "continuous_fiqa_margin_distortion"))
             for ref, cand in pairs:
-                evidence = paired_method_comparison(evaluations[ref], evaluations[cand])
+                evidence = paired_method_comparison(evaluations[ref], evaluations[cand],
+                                                    resamples=resamples, random_seed=bootstrap_seed)
                 for metric in ("fpir", "tpir_at_rank_k"):
                     item = dict(evidence[metric])
                     unit = "query"
@@ -144,7 +206,11 @@ def run_continuous_calibration(
              Path(__file__).parents[1]/"calibration/rejection.py",
              Path(__file__).parents[1]/"evaluation/cluster_bootstrap.py",
              Path(__file__).parents[1]/"evaluation/metrics.py"]
-    manifest = {"artifact_type": "fiqa_continuous_calibration", "schema_version": 1,
+    manifest = {"artifact_type": "fiqa_continuous_calibration", "schema_version": 2,
+                "metric_contract": condition.manifest["metric_contract"],
+                "score_space": condition.manifest["score_space"],
+                "source_run_id": condition.manifest["source_run_id"],
+                "model_uid": condition.manifest["model_uid"],
                 "condition_manifest_sha256": canonical_sha256(condition.manifest),
                 "condition_uid": condition.condition_uid,
                 "fiqa_manifest_sha256": canonical_sha256(fiqa.manifest),
@@ -159,7 +225,9 @@ def run_continuous_calibration(
                                 "multiple_comparison_adjustment": "none", "test_based_selection": False,
                                 "between_splits": "descriptive_not_ci_not_independent_replications"}}
     manifest["result_uid"] = "fiqa-continuous-" + canonical_sha256(manifest)[:24]
-    return {"method_summary": metrics, "paired_comparisons": pd.DataFrame(paired),
+    paired_frame = pd.DataFrame(paired)
+    ablations = summarize_continuous_ablations(metrics, paired_frame)
+    return {"method_summary": metrics, "paired_comparisons": paired_frame, "ablation_summary": ablations,
             "models": pd.DataFrame(fitted), "split_summary": split_summary, "manifest": manifest}
 
 

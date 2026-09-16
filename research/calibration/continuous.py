@@ -69,7 +69,9 @@ def fit_continuous_threshold(
     This does not guarantee FPIR after calibration-to-test distribution shift.
     """
     features = tuple(features)
-    allowed = {"fiqa_score", "adc_margin", "adc_s2", "top1_gallery_pq_distortion"}
+    # Saliency covariates are used only by the separately gated 02 experiment.
+    allowed = {"fiqa_score", "adc_margin", "adc_s2", "top1_gallery_pq_distortion",
+               "outside_face_attention", "saliency_entropy"}
     if (not features or features[0] != "fiqa_score" or len(set(features)) != len(features)
             or not set(features) <= allowed):
         raise ValueError("explicit quality-first feature set required")

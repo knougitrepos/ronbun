@@ -675,8 +675,11 @@ def apply_threshold_model(
 def paired_method_comparison(
     reference: ThresholdEvaluation,
     candidate: ThresholdEvaluation,
+    *,
+    resamples: int = PAIRED_BOOTSTRAP_RESAMPLES,
+    random_seed: int = PAIRED_BOOTSTRAP_RANDOM_SEED,
 ) -> dict[str, Any]:
-    """Return paired candidate-minus-reference FPIR and TPIR@K evidence."""
+    """Return paired evidence; omitted CI settings preserve historical defaults."""
 
     left = reference.decisions
     right = candidate.decisions
@@ -707,8 +710,8 @@ def paired_method_comparison(
             cand_count,
             both_count,
             len(ref),
-            resamples=PAIRED_BOOTSTRAP_RESAMPLES,
-            random_seed=PAIRED_BOOTSTRAP_RANDOM_SEED,
+            resamples=resamples,
+            random_seed=random_seed,
         )
         return {
             "reference_successes": ref_count,
@@ -734,6 +737,6 @@ def paired_method_comparison(
         "resampling_unit": "query",
         "threshold_uncertainty_included": False,
         "multiple_comparison_adjustment": "none",
-        "resamples": PAIRED_BOOTSTRAP_RESAMPLES,
-        "random_seed": PAIRED_BOOTSTRAP_RANDOM_SEED,
+        "resamples": resamples,
+        "random_seed": random_seed,
     }
