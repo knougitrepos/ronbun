@@ -1,0 +1,238 @@
+{
+  "model": "edgeface",
+  "source_run": "C:\\ronbun\\runs\\survface_20260901\\20260901-R001-56c2f3ed_step4_survface_edgeface-a348c305af33c223b337",
+  "run_id": "20260901-R001-56c2f3ed",
+  "generated_at_utc": "2026-09-16T02:05:58.221939+00:00",
+  "run_manifest_sha256": "6f4f967c42c5617fb2d9057adce195e95f4c13d5b31d918c326d2534f401c9e3",
+  "summary_manifest_sha256": "ca0a4423446076dc7f6cb42af2b90898d2f7d65d5379cc2c7ed4474cd1d1916a",
+  "ledger_manifest_sha256": "23ce579fd96b0c0ea6bcd7df68072086b671de4736a0f01ac16f4a7f4bb49eca",
+  "implementation_sha256": "8493b3d8437473f4f673e0e607f38928c213e0bf4e0812a0917f08ebc08a5a1d",
+  "metrics_sha256": "bae78f0349a68c086de795d47553876243271e6a210bff2664ee223485c2e64d",
+  "search_conditions_sha256": "a1c7abecb8c029f48bdf625a586de0e6cea9aac6d8cef6be01938f77c1829796",
+  "numpy_version": "1.26.4",
+  "pandas_version": "3.0.3",
+  "source_evaluator_git": {
+    "commit": "9627e9f33b15256aaaf77e4731f88833c3eff89f",
+    "branch": "step10",
+    "dirty": false,
+    "working_tree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_source_changes": [],
+    "ignored_notebook_runtime_paths": [],
+    "ignored_tracked_artifact_paths": [],
+    "untracked_paths": [],
+    "untracked_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "allowed_untracked_roots": [
+      "runs",
+      "results"
+    ]
+  },
+  "origin_calibration_signatures": {
+    "0.1": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.1,
+      "decision_threshold": 0.8537619113922119,
+      "calibration_non_mated_count": 98825,
+      "calibration_false_accept_count": 9882,
+      "calibration_fpir": 0.0999949405514799,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 11993,
+      "test_fpir": 0.0985164618518762,
+      "status": "target_met"
+    },
+    "0.01": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.01,
+      "decision_threshold": 0.9286932945251465,
+      "calibration_non_mated_count": 98825,
+      "calibration_false_accept_count": 988,
+      "calibration_fpir": 0.009997470275739944,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 1444,
+      "test_fpir": 0.011861733587435105,
+      "status": "failed_target_fpir"
+    },
+    "0.05": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.05,
+      "decision_threshold": 0.8842889070510864,
+      "calibration_non_mated_count": 98825,
+      "calibration_false_accept_count": 4941,
+      "calibration_fpir": 0.04999747027573995,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 6411,
+      "test_fpir": 0.05266313990931196,
+      "status": "failed_target_fpir"
+    },
+    "0.2": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.2,
+      "decision_threshold": 0.8093010783195496,
+      "calibration_non_mated_count": 98825,
+      "calibration_false_accept_count": 19765,
+      "calibration_fpir": 0.2,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 23493,
+      "test_fpir": 0.19298317671025828,
+      "status": "target_met"
+    },
+    "0.3": {
+      "protocol_uid": "qmul-survface-v1-training-derived-3000-watchlist-calibration-v2",
+      "threshold_selection": "non-mated maximum-score empirical FPIR only; most permissive tie-preserving threshold within target",
+      "target_fpir": 0.3,
+      "decision_threshold": 0.7734835147857666,
+      "calibration_non_mated_count": 98825,
+      "calibration_false_accept_count": 29647,
+      "calibration_fpir": 0.2999949405514799,
+      "test_non_mated_count": 121736,
+      "test_false_accept_count": 35124,
+      "test_fpir": 0.28852599066833146,
+      "status": "target_met"
+    }
+  },
+  "source_claim_status": "validation_required",
+  "seed": 8972,
+  "resamples": 2000,
+  "profiles": [
+    "pq_512_m128_b8",
+    "pq_512_m64_b8",
+    "pq_512_m32_b8",
+    "pq_512_m16_b8",
+    "pq_512_m8_b8"
+  ],
+  "modes": [
+    "pq_reconstruction_cosine",
+    "pq_one_sided_cosine",
+    "pq_adc_exhaustive"
+  ],
+  "targets": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.3
+  ],
+  "ci_contract": "fixed-condition-query-paired-bootstrap-v1",
+  "limitations": "Descriptive diagnostic, not a causal identification of quantization geometry. FPIR Wilson and paired bootstrap are query-level, fixed-gallery/threshold/codec; identity dependence, calibration uncertainty and multiple comparisons are not covered. TPIR20 is genuine-score threshold AND rank<=20, not maximum-score acceptance. ADC and cosine scores are not subtracted. Recalibration is not recognition recovery. Test results must not select thresholds, seeds or compression profiles.",
+  "source_artifacts_preserved": true,
+  "inventory": [
+    {
+      "condition_id": "5544edaff783ef8b3466",
+      "core_sha256": "21ea9d0ea3ceff91817de4f5ce5029e701bae082774da53ba0fe4e0d66e697ff",
+      "profile": "pq_512_m128_b8",
+      "mode": "pq_reconstruction_cosine"
+    },
+    {
+      "condition_id": "03d4cf7338d5b5af055c",
+      "core_sha256": "20f8721616aad387fcaef5f5858d14a4402a38273b525d844b97946155cdd819",
+      "profile": "pq_512_m64_b8",
+      "mode": "pq_reconstruction_cosine"
+    },
+    {
+      "condition_id": "d9952675b43f8aaa00a8",
+      "core_sha256": "01aebb4b7a33b02d00e9437fed695ae2d2eaeaf697769b742d987df400fa4e4e",
+      "profile": "pq_512_m32_b8",
+      "mode": "pq_reconstruction_cosine"
+    },
+    {
+      "condition_id": "8283193e1bbd8846e0f8",
+      "core_sha256": "51f6e1f46fc3f870a4eab030501b59dda9157581d2bade24429db7b99c82432d",
+      "profile": "pq_512_m16_b8",
+      "mode": "pq_reconstruction_cosine"
+    },
+    {
+      "condition_id": "db9e965dcb3eefd24594",
+      "core_sha256": "92a1116b258ce3bd2747524398eb457dc1fa47e64bf6e3ded8e9e5bbad250cb8",
+      "profile": "pq_512_m8_b8",
+      "mode": "pq_reconstruction_cosine"
+    },
+    {
+      "condition_id": "851adb15d3f1a77f1ec2",
+      "core_sha256": "c27ec2b646695a1a6f78a6487c6d50a6f3cc71965090c9e649ef831b31690187",
+      "profile": "pq_512_m128_b8",
+      "mode": "pq_one_sided_cosine"
+    },
+    {
+      "condition_id": "3c26b12235953bbb63ca",
+      "core_sha256": "491cc3b1eb5b1f02dd9cd2104636f6cebe0aa302ff7b17b99ae3e8960916c6a7",
+      "profile": "pq_512_m64_b8",
+      "mode": "pq_one_sided_cosine"
+    },
+    {
+      "condition_id": "1571d3ac849cf80bbfd9",
+      "core_sha256": "a518a2f97d1349e0cc79087bf5b074079e4a0ae44335c0a2df5e96819571862b",
+      "profile": "pq_512_m32_b8",
+      "mode": "pq_one_sided_cosine"
+    },
+    {
+      "condition_id": "23f2047bf28edc4e6857",
+      "core_sha256": "9e570fa3450374183706dcdc61e2b24607c50b138544d64b52eabe9de7dd8cb5",
+      "profile": "pq_512_m16_b8",
+      "mode": "pq_one_sided_cosine"
+    },
+    {
+      "condition_id": "e8f4d390df4a94bff192",
+      "core_sha256": "8fa709d5b9f6cbfc25f39c5507489f734e8151edeb91a4c80ad3c05758ba76ca",
+      "profile": "pq_512_m8_b8",
+      "mode": "pq_one_sided_cosine"
+    },
+    {
+      "condition_id": "4ee1fbee159df2df4abc",
+      "core_sha256": "b2656c796c702c971d328abebf3544509300167f3e7212d65da56b10dc3a597a",
+      "profile": "pq_512_m128_b8",
+      "mode": "pq_adc_exhaustive"
+    },
+    {
+      "condition_id": "48be97e8900ef3a086d3",
+      "core_sha256": "4276724623c857aa06f1e04a4a4453af17b833307a93accdabea2c1c62daca4e",
+      "profile": "pq_512_m64_b8",
+      "mode": "pq_adc_exhaustive"
+    },
+    {
+      "condition_id": "691809ebfbac552c49c2",
+      "core_sha256": "c80e8bea93b82f419ec262b99e0592bc60de33ed1f5d76e31759e6db195f9af0",
+      "profile": "pq_512_m32_b8",
+      "mode": "pq_adc_exhaustive"
+    },
+    {
+      "condition_id": "18f3be187fb66a0dbf0b",
+      "core_sha256": "a96cb28f637af3c1d50ea94a02f92957f6180ce30bed8ccddbd32f6a14b4fd79",
+      "profile": "pq_512_m16_b8",
+      "mode": "pq_adc_exhaustive"
+    },
+    {
+      "condition_id": "b2422d1a58800532f442",
+      "core_sha256": "0c12753b5f8d693cd4e4c0aed1dc8a81c077a719a809c0364236db5fff56beab",
+      "profile": "pq_512_m8_b8",
+      "mode": "pq_adc_exhaustive"
+    }
+  ],
+  "artifact_type": "compression_fpir_failure_diagnosis",
+  "schema_version": 1,
+  "status": "completed",
+  "output_files": {
+    "summary.csv": {
+      "path": "summary.csv",
+      "bytes": 75375,
+      "sha256": "060834526598dfe6e42d709e1a273d2134dc1cd81897675cd59107a1fafb0955"
+    },
+    "tails.csv": {
+      "path": "tails.csv",
+      "bytes": 164469,
+      "sha256": "322f635e6d3ef22e7dcd0a80432674754c5a396ee37ad0d5d9820236ce14acf4"
+    },
+    "winners.csv": {
+      "path": "winners.csv",
+      "bytes": 67196,
+      "sha256": "69f9216893da712bd5732d2f4c0da9a9303c442299e9b4d5a2949d892164cdea"
+    },
+    "adjacent.csv": {
+      "path": "adjacent.csv",
+      "bytes": 18133,
+      "sha256": "5b128dfbc50d76ebbed09e4090eb4fa2fe04f933d22b2e42b509961def00c36d"
+    }
+  }
+}
