@@ -1,8 +1,9 @@
 """Restartable split-matched Grad-CAM and calibration-only masking evidence for 02."""
 
+import ast
 import hashlib
 import json
-import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +15,7 @@ from research.evaluation.saliency_faithfulness import summarize_faithfulness, FA
 from research.experiments.fiqa_threshold_calibration import _completed_run, _read_json, _strict_boolean_series
 from research.experiments.fiqa_split_stability import _frame_hash
 from research.experiments.step2_compression import prepared_population_frame, open_set_protocol_arrays
-from research.explainability.gradcam.artifacts import read_prepared_population_artifact
+from research.explainability.gradcam.artifacts import read_prepared_population_artifact, _replace_with_retry
 from research.explainability.gradcam.extraction import measure_population_faithfulness
 from research.explainability.gradcam.features import summarize_saliency_features
 from research.explainability.gradcam.landmark_regions import read_landmark_region_bundle
@@ -24,12 +25,66 @@ from research.runtime.hashing import canonical_sha256, sha256_file
 
 TARGET = "origin_top1_gallery_cosine"
 FEATURES = ("outside_face_attention", "saliency_entropy")
+# Audited c6fda99 producer: migration is limited to this I/O-only repair.
+_LEGACY_PRODUCER_SHA256 = "4a1fdf7ba3f527efaa8708dc78ecb798e4fcc36db865b3d467dc90870cdbf0a8"
+_LEGACY_GENERATION_SHA256 = "de36b2e2e01ff69554a670bebb684b738244d930c322a56a6bc6433f016350cd"
 
 
 def _atomic_json(path, value):
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf8")
-    os.replace(tmp, path)
+    _replace_with_retry(tmp, path)
+
+
+def _generation_contract_hash():
+    """Keep I/O repair compatibility separate from the scientific implementation."""
+    names = {"TARGET", "FEATURES", "_source_context", "select_calibration_faithfulness",
+             "_origin_targets", "_generate_chunk", "_reuse_test_features"}
+    tree = ast.parse(Path(__file__).read_text(encoding="utf8"))
+    nodes = [node for node in tree.body
+             if (isinstance(node, ast.FunctionDef) and node.name in names)
+             or (isinstance(node, ast.Assign)
+                 and any(isinstance(t, ast.Name) and t.id in names for t in node.targets))]
+    return hashlib.sha256(ast.dump(ast.Module(body=nodes, type_ignores=[]),
+                                   include_attributes=False).encode()).hexdigest()
+
+
+def _resume_journal(source, spec):
+    """Read an explicit recovery source without modifying its files or provenance."""
+    source = Path(source).resolve()
+    path = source / "progress.json"
+    journal = _read_json(path)
+    old = journal["spec"]
+    if old != spec:
+        normalized = json.loads(json.dumps(spec))
+        if (old.get("implementation_sha256", {}).get("saliency_calibration_inputs.py") != _LEGACY_PRODUCER_SHA256
+                or normalized.pop("generation_contract_sha256", None) != _LEGACY_GENERATION_SHA256):
+            raise ValueError("resume source implementation is not compatible with this I/O-only repair")
+        normalized["implementation_sha256"]["saliency_calibration_inputs.py"] = _LEGACY_PRODUCER_SHA256
+        if normalized != old:
+            raise ValueError("resume source settings/data/runtime/implementation differ")
+    if source.name != "saliency-inputs-" + canonical_sha256(old)[:24]:
+        raise ValueError("resume source UID differs from its specification")
+    pending_path = source / "progress.tmp"
+    if pending_path.exists():
+        try:
+            pending = _read_json(pending_path)
+        except json.JSONDecodeError:
+            pending = None  # Interrupted write: retain the committed journal.
+        if pending is not None:
+            if pending.get("spec") != old or any(
+                pending.get("shards", {}).get(s, [])[:len(journal["shards"][s])] != journal["shards"][s]
+                for s in ("calibration", "test")
+            ):
+                raise ValueError("pending resume journal is not an exact extension")
+            journal, path = pending, pending_path
+    for split in ("calibration", "test"):
+        for index, receipt in enumerate(journal["shards"][split]):
+            if receipt["path"] != f"{split}-{index:06d}.parquet":
+                raise ValueError("resume source shard order differs")
+            _verified(source, receipt)
+    return journal, dict(directory=str(source), journal=path.name, journal_sha256=sha256_file(path),
+                         spec_sha256=canonical_sha256(old))
 
 
 def _receipt(path):
@@ -237,7 +292,7 @@ def build_saliency_calibration_inputs(
     run_dir, condition, output_root, *, device="cuda", reuse_test_saliency=True,
     gradcam_batch_size=4, chunk_size=128, faithfulness_batch_size=32,
     faithfulness_maximum_samples=10000, occlusion_fraction=.1, random_repeats=5,
-    seed=8972, bootstrap_repeats=2000, max_queries_per_split=None, progress=None,
+    seed=8972, bootstrap_repeats=2000, max_queries_per_split=None, progress=None, resume_from=None,
 ):
     """Build both inputs once; checkpoint each chunk. Limited builds cannot authorize 02."""
     import torch
@@ -290,6 +345,7 @@ def build_saliency_calibration_inputs(
                 condition_manifest_sha256=canonical_sha256(condition.manifest),
                 condition_frame_sha256={s:_frame_hash(getattr(condition,s)) for s in ("calibration","test")},
                 settings=settings, runtime=runtime, source_test_saliency_manifest_sha256=reuse_hash,
+                generation_contract_sha256=_generation_contract_hash(),
                 selection_sha256=_frame_hash(selected[["sample_id","identity_id","aligned_content_sha256"]]),
                 implementation_sha256={p.name:sha256_file(p) for p in source_modules})
     uid = "saliency-inputs-" + canonical_sha256(spec)[:24]
@@ -309,6 +365,19 @@ def build_saliency_calibration_inputs(
             progress(dict(stage="reuse_completed", directory=str(destination)))
         return dict(directory=destination, saliency_directory=destination/"saliency",
                     faithfulness_directory=destination/"faithfulness", manifest=complete)
+    recovery = None
+    if resume_from is not None and Path(resume_from).resolve() != destination:
+        recovery, provenance = _resume_journal(resume_from, spec)
+        if any(len(recovery["shards"][s]) > (len(getattr(condition, s).iloc[:max_queries_per_split]) + chunk_size - 1) // chunk_size
+               for s in ("calibration", "test")):
+            raise ValueError("resume source has more shards than the configured cohort")
+        if "resume_from" in journal and journal["resume_from"] != provenance:
+            raise ValueError("explicit resume source changed since recovery started")
+        journal["resume_from"] = provenance
+        _atomic_json(journal_path, journal)
+        if progress:
+            progress(dict(stage="recover_verified_shards", **provenance,
+                          shard_counts={s:len(v) for s,v in recovery["shards"].items()}))
     adapter = None
     frames = []
     faith_ids = set(selected.sample_id)
@@ -323,7 +392,11 @@ def build_saliency_calibration_inputs(
                     raise ValueError("resume shard order differs")
                 frame = pd.read_parquet(_verified(destination, entry))
             else:
-                if split == "test" and reused is not None:
+                source_shard = None
+                if recovery is not None and shard < len(recovery["shards"][split]):
+                    source_shard = _verified(Path(resume_from), recovery["shards"][split][shard])
+                    frame = pd.read_parquet(source_shard)
+                elif split == "test" and reused is not None:
                     frame = reused.iloc[start:start+len(part)].copy()
                 else:
                     if adapter is None:
@@ -333,8 +406,16 @@ def build_saliency_calibration_inputs(
                     frame = _generate_chunk(context, adapter, part, split, start, settings, faith_ids)
                 path = destination / name
                 tmp = path.with_suffix(".tmp")
-                frame.to_parquet(tmp, index=False)
-                os.replace(tmp, path)
+                if (not np.array_equal(frame.sample_id, part.sample_id)
+                        or not np.array_equal(frame.aligned_content_sha256, part.aligned_content_sha256)
+                        or not frame.split.eq(split).all()):
+                    raise ValueError("generated/recovered shard cohort differs")
+                if source_shard is None:
+                    frame.to_parquet(tmp, index=False)
+                else:
+                    shutil.copyfile(source_shard, tmp)
+                    _verified(destination, {**recovery["shards"][split][shard], "path":tmp.name})
+                _replace_with_retry(tmp, path)
                 journal["shards"][split].append(_receipt(path))
                 _atomic_json(journal_path, journal)
             if (not np.array_equal(frame.sample_id, part.sample_id)
@@ -378,6 +459,8 @@ def build_saliency_calibration_inputs(
                               bootstrap_repeats=bootstrap_repeats, seed=seed),
               occlusion=dict(fraction=occlusion_fraction, random_repeats=random_repeats, seed=seed),
               outputs=[_receipt(faith_dir/n) for n in ("faithfulness_rows.csv","faithfulness_summary.csv")])
+    if "resume_from" in journal:
+        sm["resume_from"] = fm["resume_from"] = journal["resume_from"]
     _atomic_json(sal_dir/"manifest.json", sm)
     _atomic_json(faith_dir/"manifest.json", fm)
     outputs = []
@@ -386,5 +469,7 @@ def build_saliency_calibration_inputs(
             if path.is_file():
                 outputs.append({**_receipt(path), "path":path.relative_to(destination).as_posix()})
     complete = dict(spec=spec, status="completed", input_uid=uid, outputs=outputs)
+    if "resume_from" in journal:
+        complete["resume_from"] = journal["resume_from"]
     _atomic_json(destination/"manifest.json", complete)
     return dict(directory=destination, saliency_directory=sal_dir, faithfulness_directory=faith_dir, manifest=complete)

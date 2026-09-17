@@ -1,4 +1,6 @@
 import copy
+import json
+import shutil
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -7,6 +9,8 @@ import pytest
 import torch
 
 from research.experiments import saliency_calibration_inputs as producer
+from research.explainability.gradcam import artifacts as gradcam_artifacts
+from research.runtime.hashing import canonical_sha256, sha256_file
 from research.experiments.saliency_incremental_calibration import (
     load_saliency_incremental_inputs, assess_incremental_gate,
 )
@@ -96,3 +100,64 @@ def test_cuda_required_before_reading_source(tmp_path, monkeypatch):
     monkeypatch.setattr(torch.cuda, 'is_available', lambda: False)
     with pytest.raises(RuntimeError, match='CPU fallback is disabled'):
         producer.build_saliency_calibration_inputs('missing', None, tmp_path)
+
+
+@pytest.mark.parametrize('permanent', [False, True])
+def test_atomic_json_retries_windows_permission_error_without_deleting_old_file(tmp_path, monkeypatch, permanent):
+    path = tmp_path/'progress.json'
+    path.write_text('{"old": true}', encoding='utf8')
+    real_replace = gradcam_artifacts.os.replace
+    attempts = []
+
+    def locked_replace(source, destination):
+        attempts.append(1)
+        if permanent or len(attempts) <= 3:
+            raise PermissionError(13, 'simulated Windows file lock')
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(gradcam_artifacts.os, 'replace', locked_replace)
+    monkeypatch.setattr(gradcam_artifacts.time, 'sleep', lambda _: None)
+    if permanent:
+        with pytest.raises(PermissionError):
+            producer._atomic_json(path, {'new': True})
+        assert json.loads(path.read_text()) == {'old': True}
+        assert json.loads(path.with_suffix('.tmp').read_text()) == {'new': True}
+        assert len(attempts) == 8
+    else:
+        producer._atomic_json(path, {'new': True})
+        assert json.loads(path.read_text()) == {'new': True}
+        assert len(attempts) == 4
+
+
+def test_verified_legacy_recovery_includes_pending_receipt_without_recomputing(tmp_path, monkeypatch):
+    condition, calls, _ = _mock_producer(tmp_path, monkeypatch)
+    options = dict(reuse_test_saliency=False, chunk_size=20, bootstrap_repeats=100,
+                   faithfulness_maximum_samples=None)
+    original = producer.build_saliency_calibration_inputs('source', condition, tmp_path/'initial', **options)
+    journal = json.loads((original['directory']/'progress.json').read_text())
+    journal['spec'].pop('generation_contract_sha256')
+    journal['spec']['implementation_sha256']['saliency_calibration_inputs.py'] = producer._LEGACY_PRODUCER_SHA256
+    legacy = tmp_path / ('saliency-inputs-' + canonical_sha256(journal['spec'])[:24])
+    legacy.mkdir()
+    for split in ('calibration', 'test'):
+        for entry in journal['shards'][split]:
+            shutil.copyfile(original['directory']/entry['path'], legacy/entry['path'])
+    (legacy/'progress.tmp').write_text(json.dumps(journal), encoding='utf8')
+    committed = copy.deepcopy(journal)
+    committed['shards']['test'].pop()
+    (legacy/'progress.json').write_text(json.dumps(committed), encoding='utf8')
+    before = {p.name:sha256_file(p) for p in legacy.iterdir()}
+    recovered = producer.build_saliency_calibration_inputs('source', condition, tmp_path/'recovered',
+        resume_from=legacy, **options)
+    assert len(calls) == 5  # Every calibration/test shard was reused, including pending test shard.
+    assert recovered['manifest']['resume_from']['journal'] == 'progress.tmp'
+    assert before == {p.name:sha256_file(p) for p in legacy.iterdir()}
+    assert sha256_file(original['saliency_directory']/'saliency_features.csv') == sha256_file(
+        recovered['saliency_directory']/'saliency_features.csv')
+    with pytest.raises(ValueError, match='settings/data/runtime'):
+        producer.build_saliency_calibration_inputs('source', condition, tmp_path/'different',
+            resume_from=legacy, **{**options, 'seed':7})
+    monkeypatch.setattr(producer, '_generation_contract_hash', lambda: 'scientific-logic-changed')
+    with pytest.raises(ValueError, match='not compatible'):
+        producer.build_saliency_calibration_inputs('source', condition, tmp_path/'changed',
+            resume_from=legacy, **options)

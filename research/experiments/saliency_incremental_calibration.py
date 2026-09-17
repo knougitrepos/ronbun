@@ -1,6 +1,7 @@
-"""Gate-first, offline saliency incremental calibration; no Grad-CAM inference.
+"""Integrity-gated, offline saliency calibration with diagnostic faithfulness.
 
 High/Low/Random occlusion drops are faithfulness evidence, NEVER predictors.
+Their statistical failure is reported, not used to suppress the ablation.
 Test-only saliency/faithfulness cannot authorize fitting. Missing features are
 not imputed, and no subset of easier queries silently replaces the 01 cohort.
 """
@@ -29,7 +30,9 @@ from research.experiments.fiqa_threshold_calibration import (
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 SALIENCY_FEATURES = ("outside_face_attention", "saliency_entropy")
-TABLES = ("method_summary", "paired_comparisons", "models", "split_summary")
+TABLES = ("method_summary", "paired_comparisons", "models", "split_summary", "faithfulness_diagnostics")
+FAITHFULNESS_POLICY = "diagnostic_only"
+EXECUTION_CONTRACT = "data-integrity-required-faithfulness-diagnostic-v1"
 
 
 def _verified_file(root, entry):
@@ -103,7 +106,11 @@ def load_saliency_incremental_inputs(condition, saliency_directory, faithfulness
             raise ValueError("faithfulness CI requires at least two identified clusters")
         for gain, control in (("faithfulness_gain_over_low_saliency", "low_saliency_occlusion_score_drop"),
                               ("faithfulness_gain_over_random", "random_occlusion_score_drop")):
-            if not np.allclose(rows[gain], rows.high_saliency_occlusion_score_drop-rows[control], atol=1e-9, rtol=0):
+            # The extractor subtracts float32 masked scores for gains, whereas
+            # drops use a float64 origin score. Permit one float32 relative ULP
+            # plus CSV round-trip noise, not a relaxed scientific gate or CI.
+            if not np.allclose(rows[gain], rows.high_saliency_occlusion_score_drop-rows[control],
+                               atol=1e-12, rtol=np.finfo(np.float32).eps):
                 raise ValueError("faithfulness paired rows are inconsistent")
         recalculated = summarize_faithfulness(rows, group_columns=(), bootstrap_repeats=repeats, seed=seed)
         recorded = summary.loc[summary.group.eq("all")].set_index("metric").loc[recalculated.metric]
@@ -124,7 +131,7 @@ def load_saliency_incremental_inputs(condition, saliency_directory, faithfulness
 
 
 def assess_incremental_gate(condition, inputs):
-    """Recompute gates on every use; there is no force/ignore-gate switch."""
+    """Enforce integrity on every use; report faithfulness failure separately."""
     if inputs["condition_manifest_sha256"] != canonical_sha256(condition.manifest):
         raise ValueError("gate condition lineage mismatch")
     if inputs["verified_manifest_sha256"] != {
@@ -141,7 +148,8 @@ def assess_incremental_gate(condition, inputs):
     readiness = assess_saliency_incremental_readiness(condition.calibration, condition.test, sal,
                                                      requested_features=SALIENCY_FEATURES, minimum_coverage=1.)
     reliability = assess_saliency_faithfulness_reliability(summary, group="all")
-    reasons = [*readiness.reasons, *reliability.reasons]
+    reasons = list(readiness.reasons)
+    diagnostic_warnings = list(reliability.reasons)
     sm, fm = inputs["saliency_manifest"], inputs["faithfulness_manifest"]
     if (sm.get("artifact_type") != "saliency_calibration_features" or sm.get("status") != "completed"
             or sm.get("condition_manifest_sha256") != canonical_sha256(condition.manifest)
@@ -188,11 +196,16 @@ def assess_incremental_gate(condition, inputs):
             if (not matched.split.eq(split).all() or
                     not matched.aligned_content_sha256.eq(expected.aligned_content_sha256).all()):
                 reasons.append(f"{split} saliency alignment/split mismatch")
+    faithfulness_status = "passed" if reliability.strong_faithfulness_pass else "failed"
     return {"status": "ready" if not reasons else "blocked", "comparison_enabled": not reasons,
+            "data_validation_status": "passed" if not reasons else "failed",
+            "faithfulness_status": faithfulness_status, "faithfulness_policy": FAITHFULNESS_POLICY,
+            "faithfulness_required_for_comparison": False, "warnings": diagnostic_warnings,
             "calibration_coverage": readiness.calibration_coverage, "test_coverage": readiness.test_coverage,
             "strong_faithfulness_pass": reliability.strong_faithfulness_pass,
             "faithfulness_test_overlap": overlap, "reasons": reasons,
-            "faithfulness": reliability.as_dict(), "readiness": readiness.as_dict(),
+            "faithfulness": {**reliability.as_dict(), "status": faithfulness_status,
+                             "role": FAITHFULNESS_POLICY}, "readiness": readiness.as_dict(),
             "requires_origin_gallery": True, "deployment_claim_supported": False,
             "random_occlusion_is_threshold_feature": False}
 
@@ -278,7 +291,8 @@ def run_saliency_incremental_calibration(
              Path(__file__).parents[1]/"evaluation/cluster_bootstrap.py", Path(__file__).parents[1]/"evaluation/metrics.py",
              Path(__file__).parents[1]/"evaluation/saliency_faithfulness.py", Path(__file__).with_name("fiqa_threshold_calibration.py"),
              Path(__file__).with_name("fiqa_retrieval_features.py"), Path(__file__).with_name("fiqa_continuous_calibration.py")]
-    manifest = dict(artifact_type="saliency_incremental_calibration", schema_version=1,
+    manifest = dict(artifact_type="saliency_incremental_calibration", schema_version=2,
+                    execution_contract=EXECUTION_CONTRACT, faithfulness_policy=FAITHFULNESS_POLICY,
                     source_run_id=condition.manifest["source_run_id"], model_uid=condition.manifest["model_uid"],
                     metric_contract=condition.manifest["metric_contract"], score_space=condition.manifest["score_space"],
                     condition_uid=condition.condition_uid, gate=gate,
@@ -294,13 +308,22 @@ def run_saliency_incremental_calibration(
                                   safety_fraction=safety_fraction, knot_quantiles=list(knot_quantiles), smoothing=smoothing,
                                   ridge=ridge, max_iterations=max_iterations, margin_slope_cap=margin_slope_cap,
                                   resamples=resamples, bootstrap_seed=bootstrap_seed),
+                    interpretation=dict(analysis_scope="exploratory_incremental_predictive_utility",
+                                        performance_gain_validates_faithfulness=False,
+                                        compression_error_causality_established=False),
                     uncertainty=dict(threshold_uncertainty_included=False, multiple_comparison_adjustment="none",
                                       formal_fpir_guarantee=False, automatic_test_based_selection=False,
                                       baseline_selection="01_test_informed_exploratory",
                                      between_splits="descriptive_not_ci", deployment_claim_supported=False))
     manifest["result_uid"] = "saliency-incremental-" + canonical_sha256(manifest)[:24]
-    return dict(method_summary=metrics, paired_comparisons=pd.DataFrame(paired), models=pd.DataFrame(fitted),
-                split_summary=split_summary, manifest=manifest)
+    tables = dict(method_summary=metrics, paired_comparisons=pd.DataFrame(paired), models=pd.DataFrame(fitted),
+                  split_summary=split_summary, faithfulness_diagnostics=inputs["faithfulness_summary"].copy())
+    # Standalone CSVs must not hide a failed diagnostic behind successful execution.
+    for frame in tables.values():
+        frame["faithfulness_status"] = gate["faithfulness_status"]
+        frame["strong_faithfulness_pass"] = gate["strong_faithfulness_pass"]
+        frame["faithfulness_policy"] = FAITHFULNESS_POLICY
+    return {**tables, "manifest": manifest}
 
 
 def write_saliency_incremental_result(root, result):
