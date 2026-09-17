@@ -55,6 +55,65 @@ class ContinuousThresholdModel:
                 (self.design(frame) @ np.asarray(self.coefficients)) + self.safety_offset)
 
 
+def _fit_continuous_quantile(fit, *, features, target_fpir, method, score_space,
+                             knots, smoothing, ridge, max_iterations, margin_slope_cap):
+    """Fit preprocessing and coefficients on explicit non-mated FIT rows only."""
+    values = fit[list(features)].to_numpy(dtype=float)
+    centers = np.median(values, axis=0)
+    scales = np.quantile(values, .75, axis=0) - np.quantile(values, .25, axis=0)
+    scales = np.where(scales > 1e-12, scales, 1.)
+    q = (values[:, 0] - centers[0]) / scales[0]
+    ycenter = float(np.median(fit.score))
+    yscale = max(float(np.std(fit.score)), 1e-6)
+    model = ContinuousThresholdModel(
+        method, float(target_fpir), score_space, features, tuple(centers), tuple(scales),
+        (float(q.min()), float(q.max())), tuple(np.quantile(q, knots)), (),
+        ycenter, yscale, 0., {},
+    )
+    x = model.design(fit)
+    y = (fit.score.to_numpy(dtype=float) - ycenter) / yscale
+    quantile = 1 - target_fpir
+    def objective(beta):
+        residual = y - x @ beta
+        loss = np.mean(smoothing * np.logaddexp(0., residual / smoothing)
+                       + (quantile - 1) * residual) + ridge * (beta[1:] @ beta[1:]) / 2
+        grad = -(x.T @ (expit(residual / smoothing) + quantile - 1)) / len(x)
+        grad[1:] += ridge * beta[1:]
+        return loss, grad
+    initial = np.zeros(x.shape[1])
+    initial[0] = np.quantile(y, quantile)
+    bounds = [(None, None)] * len(initial)
+    if "adc_margin" in features:
+        j = features.index("adc_margin")
+        bounds[1 + len(knots) + j] = (0., margin_slope_cap * scales[j] / yscale)
+    # Tiny feature dimension: avoid oversubscribing BLAS for each optimizer step.
+    with threadpool_limits(limits=1, user_api="blas"):
+        result = minimize(objective, initial, jac=True, method="L-BFGS-B", bounds=bounds,
+                          options={"maxiter": int(max_iterations), "ftol": 1e-12, "gtol": 1e-8})
+    if not result.success or not np.isfinite(result.x).all():
+        raise RuntimeError(f"continuous fit did not converge: {result.message}")
+    model = replace(model, coefficients=tuple(float(v) for v in result.x))
+    return model, result
+
+
+def _heldout_safety_offset(scores, safety_base, *, target_fpir):
+    """One shared offset for the actual whole-cohort floating-point decisions."""
+    residual = scores - safety_base
+    offset = max(0., float(choose_non_mated_fpir_threshold(
+        residual, np.zeros(len(residual), dtype=bool), target_fpir=target_fpir)))
+    # Residual -> score addition can lose the nextafter used to reject tied maxima.
+    # Check the actual floating-point decision and move conservatively if needed.
+    adjustment = max(float(np.max(np.abs(np.spacing(safety_base)))), np.finfo(float).eps)
+    for _ in range(8):
+        if np.mean(scores >= safety_base + offset) <= target_fpir + 1e-15:
+            break
+        offset += adjustment
+        adjustment *= 2
+    else:
+        raise RuntimeError("held-out safety rounding guard failed")
+    return offset
+
+
 def fit_continuous_threshold(
     calibration, *, target_fpir, features=("fiqa_score",),
     partition_seed=8972, safety_fraction=.3, knot_quantiles=(1/3, 2/3),
@@ -94,55 +153,12 @@ def fit_continuous_threshold(
     safety = rows.loc[partition.eq("safety") & ~rows.is_mated]
     if len(fit) < 20 or len(safety) < 20:
         raise ValueError("at least 20 non-mated probes per fit/safety partition required")
-    values = fit[list(features)].to_numpy(dtype=float)
-    centers = np.median(values, axis=0)
-    scales = np.quantile(values, .75, axis=0) - np.quantile(values, .25, axis=0)
-    scales = np.where(scales > 1e-12, scales, 1.)
-    q = (values[:, 0] - centers[0]) / scales[0]
-    ycenter = float(np.median(fit.score))
-    yscale = max(float(np.std(fit.score)), 1e-6)
-    model = ContinuousThresholdModel(
-        method, float(target_fpir), score_space, features, tuple(centers), tuple(scales),
-        (float(q.min()), float(q.max())), tuple(np.quantile(q, knots)), (),
-        ycenter, yscale, 0., {},
-    )
-    x = model.design(fit)
-    y = (fit.score.to_numpy(dtype=float) - ycenter) / yscale
-    quantile = 1 - target_fpir
-    def objective(beta):
-        residual = y - x @ beta
-        loss = np.mean(smoothing * np.logaddexp(0., residual / smoothing)
-                       + (quantile - 1) * residual) + ridge * (beta[1:] @ beta[1:]) / 2
-        grad = -(x.T @ (expit(residual / smoothing) + quantile - 1)) / len(x)
-        grad[1:] += ridge * beta[1:]
-        return loss, grad
-    initial = np.zeros(x.shape[1])
-    initial[0] = np.quantile(y, quantile)
-    bounds = [(None, None)] * len(initial)
-    if "adc_margin" in features:
-        j = features.index("adc_margin")
-        bounds[1 + len(knots) + j] = (0., margin_slope_cap * scales[j] / yscale)
-    # Tiny feature dimension: avoid oversubscribing BLAS for each optimizer step.
-    with threadpool_limits(limits=1, user_api="blas"):
-        result = minimize(objective, initial, jac=True, method="L-BFGS-B", bounds=bounds,
-                          options={"maxiter": int(max_iterations), "ftol": 1e-12, "gtol": 1e-8})
-    if not result.success or not np.isfinite(result.x).all():
-        raise RuntimeError(f"continuous fit did not converge: {result.message}")
-    model = replace(model, coefficients=tuple(float(v) for v in result.x))
-    residual = safety.score.to_numpy(dtype=float) - model.predict(safety)
-    offset = max(0., float(choose_non_mated_fpir_threshold(
-        residual, np.zeros(len(residual), dtype=bool), target_fpir=target_fpir)))
-    # Residual -> score addition can lose the nextafter used to reject tied maxima.
-    # Check the actual floating-point decision and move conservatively if needed.
-    safety_base = model.predict(safety)
-    adjustment = max(float(np.max(np.abs(np.spacing(safety_base)))), np.finfo(float).eps)
-    for _ in range(8):
-        if np.mean(safety.score.to_numpy() >= safety_base + offset) <= target_fpir + 1e-15:
-            break
-        offset += adjustment
-        adjustment *= 2
-    else:
-        raise RuntimeError("held-out safety rounding guard failed")
+    model, result = _fit_continuous_quantile(
+        fit, features=features, target_fpir=target_fpir, method=method, score_space=score_space,
+        knots=knots, smoothing=smoothing, ridge=ridge, max_iterations=max_iterations,
+        margin_slope_cap=margin_slope_cap)
+    offset = _heldout_safety_offset(safety.score.to_numpy(dtype=float), model.predict(safety),
+                                    target_fpir=target_fpir)
     return replace(model, safety_offset=offset, settings={
         "partition_seed": partition_seed, "safety_fraction": safety_fraction,
         "fit_non_mated_count": len(fit), "safety_non_mated_count": len(safety),

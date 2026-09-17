@@ -2,8 +2,8 @@
 
 High/Low/Random occlusion drops are faithfulness evidence, NEVER predictors.
 Their statistical failure is reported, not used to suppress the ablation.
-Test-only saliency/faithfulness cannot authorize fitting. Missing features are
-not imputed, and no subset of easier queries silently replaces the 01 cohort.
+Test-only saliency/faithfulness cannot authorize fitting. Recorded map failures
+route to FIQA-only; missing artifact rows still fail. No query is dropped.
 """
 import json
 import os
@@ -16,6 +16,10 @@ import scipy
 
 from research.calibration.conditional import paired_method_comparison
 from research.calibration.continuous import fit_continuous_threshold, apply_continuous_threshold
+from research.calibration.conditional import deterministic_calibration_partition
+from research.calibration.saliency_fallback import (
+    SALIENCY_FEATURES, FALLBACK_POLICY, fit_saliency_fallback, saliency_valid_mask,
+)
 from research.evaluation.cluster_bootstrap import cluster_rate_draws
 from research.evaluation.saliency_faithfulness import (
     assess_saliency_faithfulness_reliability, summarize_faithfulness, FAITHFULNESS_METRICS,
@@ -29,10 +33,10 @@ from research.experiments.fiqa_threshold_calibration import (
 )
 from research.runtime.hashing import canonical_sha256, sha256_file
 
-SALIENCY_FEATURES = ("outside_face_attention", "saliency_entropy")
-TABLES = ("method_summary", "paired_comparisons", "models", "split_summary", "faithfulness_diagnostics")
+TABLES = ("method_summary", "paired_comparisons", "models", "split_summary", "faithfulness_diagnostics",
+          "fallback_diagnostics", "fallback_queries")
 FAITHFULNESS_POLICY = "diagnostic_only"
-EXECUTION_CONTRACT = "data-integrity-required-faithfulness-diagnostic-v1"
+EXECUTION_CONTRACT = "data-integrity-required-faithfulness-diagnostic-fiqa-fallback-v2"
 
 
 def _verified_file(root, entry):
@@ -148,8 +152,22 @@ def assess_incremental_gate(condition, inputs):
     readiness = assess_saliency_incremental_readiness(condition.calibration, condition.test, sal,
                                                      requested_features=SALIENCY_FEATURES, minimum_coverage=1.)
     reliability = assess_saliency_faithfulness_reliability(summary, group="all")
-    reasons = list(readiness.reasons)
+    # Relax only numerical coverage for explicitly recorded map failures.
+    # Missing columns, duplicate IDs, wrong targets and incomplete cohorts still fail.
+    coverage_reasons = ("calibration saliency coverage is below", "test saliency coverage is below")
+    reasons = [reason for reason in readiness.reasons if not reason.startswith(coverage_reasons)]
     diagnostic_warnings = list(reliability.reasons)
+    fallback_counts = {}
+    try:
+        valid = saliency_valid_mask(sal)
+        invalid_ids = set(sal.loc[~valid, "sample_id"].astype(str))
+        for split in ("calibration", "test"):
+            count = len(invalid_ids.intersection(getattr(condition, split).sample_id.astype(str)))
+            fallback_counts[split] = count
+            if count:
+                diagnostic_warnings.append(f"{split}: {count} invalid saliency queries use FIQA-only fallback")
+    except (ValueError, KeyError, TypeError) as error:
+        reasons.append(str(error))
     sm, fm = inputs["saliency_manifest"], inputs["faithfulness_manifest"]
     if (sm.get("artifact_type") != "saliency_calibration_features" or sm.get("status") != "completed"
             or sm.get("condition_manifest_sha256") != canonical_sha256(condition.manifest)
@@ -205,7 +223,12 @@ def assess_incremental_gate(condition, inputs):
             "strong_faithfulness_pass": reliability.strong_faithfulness_pass,
             "faithfulness_test_overlap": overlap, "reasons": reasons,
             "faithfulness": {**reliability.as_dict(), "status": faithfulness_status,
-                             "role": FAITHFULNESS_POLICY}, "readiness": readiness.as_dict(),
+                             "role": FAITHFULNESS_POLICY},
+            "readiness": {**readiness.as_dict(), "saliency_only_status": readiness.status,
+                          "status": "ready" if not reasons else "blocked",
+                          "secondary_calibration_supported": not reasons,
+                          "reasons": reasons, "fallback_policy": FALLBACK_POLICY},
+            "fallback_policy": FALLBACK_POLICY, "invalid_saliency_counts": fallback_counts,
             "requires_origin_gallery": True, "deployment_claim_supported": False,
             "random_occlusion_is_threshold_feature": False}
 
@@ -241,20 +264,59 @@ def run_saliency_incremental_calibration(
         cal, test = (join_retrieval_features(rows, retrieval[split]) for split, rows in (("calibration", cal), ("test", test)))
     sal = inputs["saliency"].set_index("sample_id")
     for rows in (cal, test):
-        for feature in SALIENCY_FEATURES:
+        for feature in (*SALIENCY_FEATURES, "heatmap_available", "gradcam_valid_heatmap"):
             rows[feature] = sal.loc[rows.sample_id, feature].to_numpy()
     methods = {"baseline": base_features, "plus_outside": (*base_features, SALIENCY_FEATURES[0]),
                "plus_entropy": (*base_features, SALIENCY_FEATURES[1]), "plus_both": (*base_features, *SALIENCY_FEATURES)}
-    metrics, paired, fitted = [], [], []
+    metrics, paired, fitted, routing = [], [], [], []
+    fallback_queries = pd.concat([
+        rows.loc[~saliency_valid_mask(rows), ["sample_id", "identity_id", "heatmap_available",
+                                            "gradcam_valid_heatmap"]].assign(split=split)
+        for split, rows in (("calibration", cal), ("test", test))
+    ], ignore_index=True)
+    fallback_queries["fallback_reason"] = "recorded_unavailable_or_invalid_heatmap"
     for seed in seeds:
+        partition = deterministic_calibration_partition(cal, seed=seed, safety_fraction=safety_fraction,
+                                                         partition_column="identity_id")
         for target in targets:
             evaluated = {}
             for method, features in methods.items():
-                model = fit_continuous_threshold(cal, target_fpir=target, features=features, method=method,
+                fitter = fit_continuous_threshold if method == "baseline" else fit_saliency_fallback
+                model = fitter(cal, target_fpir=target, features=features, method=method,
                                                 partition_seed=seed, safety_fraction=safety_fraction,
                                                 knot_quantiles=knot_quantiles, smoothing=smoothing, ridge=ridge,
                                                 max_iterations=max_iterations, margin_slope_cap=margin_slope_cap)
                 evaluated[method] = apply_continuous_threshold(test, model)
+                fallback = np.zeros(len(test), dtype=bool) if method == "baseline" else model.fallback_mask(test)
+                evaluated[method].decisions["saliency_fallback_used"] = fallback
+                evaluated[method].summary.update(
+                    fallback_query_count=int(fallback.sum()), fallback_query_fraction=float(fallback.mean()),
+                    saliency_branch_enabled=False if method == "baseline" else model.saliency_model is not None)
+                # Calibration caches only need max impostor scores for fitting/safety.
+                # Do not require genuine scores or misreport top-1 acceptance as TPIR.
+                cal_decisions = pd.DataFrame({"accepted": cal.score.to_numpy() >= model.predict(cal)})
+                for split, frame, decisions in (("calibration", cal, cal_decisions),
+                                                 ("test", test, evaluated[method].decisions)):
+                    tpir_available = split == "test"
+                    route = np.full(len(frame), "baseline", dtype=object)
+                    if method != "baseline":
+                        route = np.where(model.fallback_mask(frame), "fiqa_fallback", "saliency")
+                    partitions = partition.astype(str).to_numpy() if split == "calibration" else np.full(len(frame), "test")
+                    for part in sorted(set(partitions)):
+                        for name in (("baseline",) if method == "baseline" else ("saliency", "fiqa_fallback")):
+                            mask = (partitions == part) & (route == name)
+                            m = mask & frame.is_mated.to_numpy(bool)
+                            nm = mask & ~frame.is_mated.to_numpy(bool)
+                            fa = int(decisions.accepted.to_numpy()[nm].sum())
+                            ti = int(decisions.true_identification_at_rank_k.to_numpy()[m].sum()) if tpir_available else None
+                            routing.append(dict(partition_seed=seed, target_fpir=target, method=method,
+                                                split=split, partition=part, route=name,
+                                                query_count=int(mask.sum()), mated_count=int(m.sum()),
+                                                non_mated_count=int(nm.sum()), false_accept_count=fa,
+                                                true_identification_at_rank_k_count=ti,
+                                                tpir_available=tpir_available,
+                                                realized_fpir=fa/int(nm.sum()) if nm.any() else None,
+                                                tpir_at_rank_k=ti/int(m.sum()) if tpir_available and m.any() else None))
                 fitted.append(dict(partition_seed=seed, target_fpir=target, method=method,
                                    model_uid=model.model_uid, model_json=json.dumps(model.as_dict(), allow_nan=False)))
             mated = test.is_mated.to_numpy(bool)
@@ -279,19 +341,23 @@ def run_saliency_incremental_calibration(
                                    "resamples": resamples, "bootstrap_seed": bootstrap_seed,
                                    "reference_realized_fpir": evaluated["baseline"].summary["realized_fpir"],
                                    "candidate_realized_fpir": evaluated[candidate].summary["realized_fpir"],
+                                   "candidate_fallback_query_count": evaluated[candidate].summary["fallback_query_count"],
                                    "candidate_target_met": evaluated[candidate].summary["target_met_on_test"]})
     metrics = pd.DataFrame(metrics)
     split_summary = metrics.groupby(["method", "target_fpir"]).agg(
         split_count=("partition_seed", "count"), target_met_split_count=("target_met_on_test", "sum"),
         fpir_min=("realized_fpir", "min"), fpir_median=("realized_fpir", "median"), fpir_max=("realized_fpir", "max"),
         tpir_min=("tpir_at_rank_k", "min"), tpir_median=("tpir_at_rank_k", "median"), tpir_max=("tpir_at_rank_k", "max"),
+        fallback_count_min=("fallback_query_count", "min"), fallback_count_max=("fallback_query_count", "max"),
+        fallback_fraction_max=("fallback_query_fraction", "max"),
     ).reset_index()
     paths = [Path(__file__), Path(__file__).parents[1]/"calibration/continuous.py",
+             Path(__file__).parents[1]/"calibration/saliency_fallback.py",
              Path(__file__).parents[1]/"calibration/conditional.py", Path(__file__).parents[1]/"calibration/rejection.py",
              Path(__file__).parents[1]/"evaluation/cluster_bootstrap.py", Path(__file__).parents[1]/"evaluation/metrics.py",
              Path(__file__).parents[1]/"evaluation/saliency_faithfulness.py", Path(__file__).with_name("fiqa_threshold_calibration.py"),
              Path(__file__).with_name("fiqa_retrieval_features.py"), Path(__file__).with_name("fiqa_continuous_calibration.py")]
-    manifest = dict(artifact_type="saliency_incremental_calibration", schema_version=2,
+    manifest = dict(artifact_type="saliency_incremental_calibration", schema_version=3,
                     execution_contract=EXECUTION_CONTRACT, faithfulness_policy=FAITHFULNESS_POLICY,
                     source_run_id=condition.manifest["source_run_id"], model_uid=condition.manifest["model_uid"],
                     metric_contract=condition.manifest["metric_contract"], score_space=condition.manifest["score_space"],
@@ -304,7 +370,10 @@ def run_saliency_incremental_calibration(
                     input_frame_sha256={"calibration": _frame_hash(cal), "test": _frame_hash(test)},
                     implementation_sha256={p.name: sha256_file(p) for p in paths},
                     versions={"numpy": np.__version__, "pandas": pd.__version__, "scipy": scipy.__version__},
-                    settings=dict(baseline_method=baseline_method, partition_seeds=list(seeds), target_fpirs=list(targets),
+                    settings=dict(baseline_method=baseline_method, fallback_policy=FALLBACK_POLICY,
+                                  fallback_method="continuous_fiqa", fallback_validity_features=list(SALIENCY_FEATURES),
+                                  minimum_valid_fit_non_mated=20,
+                                  partition_seeds=list(seeds), target_fpirs=list(targets),
                                   safety_fraction=safety_fraction, knot_quantiles=list(knot_quantiles), smoothing=smoothing,
                                   ridge=ridge, max_iterations=max_iterations, margin_slope_cap=margin_slope_cap,
                                   resamples=resamples, bootstrap_seed=bootstrap_seed),
@@ -317,12 +386,14 @@ def run_saliency_incremental_calibration(
                                      between_splits="descriptive_not_ci", deployment_claim_supported=False))
     manifest["result_uid"] = "saliency-incremental-" + canonical_sha256(manifest)[:24]
     tables = dict(method_summary=metrics, paired_comparisons=pd.DataFrame(paired), models=pd.DataFrame(fitted),
-                  split_summary=split_summary, faithfulness_diagnostics=inputs["faithfulness_summary"].copy())
+                  split_summary=split_summary, faithfulness_diagnostics=inputs["faithfulness_summary"].copy(),
+                  fallback_diagnostics=pd.DataFrame(routing), fallback_queries=fallback_queries)
     # Standalone CSVs must not hide a failed diagnostic behind successful execution.
     for frame in tables.values():
         frame["faithfulness_status"] = gate["faithfulness_status"]
         frame["strong_faithfulness_pass"] = gate["strong_faithfulness_pass"]
         frame["faithfulness_policy"] = FAITHFULNESS_POLICY
+        frame["fallback_policy"] = FALLBACK_POLICY
     return {**tables, "manifest": manifest}
 
 

@@ -111,7 +111,7 @@ def test_gate_blocks_without_fitting(tmp_path, monkeypatch, case):
     fm = json.loads((fr/'manifest.json').read_text())
     sal = pd.read_csv(sr/'saliency_features.csv')
     if case == 'coverage':
-        sal.loc[sal.split.eq('calibration'),'heatmap_available'] = False
+        sal = sal.loc[~sal.split.eq('calibration')].copy()
     if case == 'alignment':
         sal.loc[0,'aligned_content_sha256'] = 'wrong'
     if case == 'split':
@@ -173,16 +173,16 @@ def test_failed_faithfulness_is_reported_but_all_methods_and_splits_run(tmp_path
     assert result['method_summary'].faithfulness_status.eq('failed').all()
     assert result['paired_comparisons'].strong_faithfulness_pass.eq(False).all()
     assert result['faithfulness_diagnostics'].faithfulness_status.eq('failed').all()
-    assert result['manifest']['schema_version'] == 2
+    assert result['manifest']['schema_version'] == 3
     assert result['manifest']['faithfulness_policy'] == 'diagnostic_only'
     assert result['manifest']['gate']['faithfulness']['reasons']
     saved = write_saliency_incremental_result(tmp_path/'out', result)
     assert (saved/'faithfulness_diagnostics.csv').is_file()
     assert json.loads((saved/'manifest.json').read_text())['gate']['faithfulness_status'] == 'failed'
     assert _receipt(fr/'faithfulness_summary.csv') == before
-    # Diagnostic-only must never bypass broken feature coverage.
+    # Diagnostic-only/fallback must never bypass missing artifact rows.
     sal = pd.read_csv(sr/'saliency_features.csv')
-    sal.loc[0, 'heatmap_available'] = False
+    sal = sal.iloc[1:].copy()
     sal.to_csv(sr/'saliency_features.csv', index=False)
     sm = json.loads((sr/'manifest.json').read_text())
     sm['saliency_features'] = _receipt(sr/'saliency_features.csv')
