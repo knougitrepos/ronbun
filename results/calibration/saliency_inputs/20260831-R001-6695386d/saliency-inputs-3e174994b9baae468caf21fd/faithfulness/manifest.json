@@ -1,0 +1,45 @@
+{
+  "artifact_type": "open_set_gradcam_faithfulness",
+  "schema_version": 2,
+  "status": "completed",
+  "dataset_id": "survface",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "origin_embedding_artifact_uid": "origin-embedding-3cdf3c1986eaf86432fef276",
+  "source_run_id": "20260831-R001-6695386d",
+  "saliency_spec_uid": "saliency-calibration-3e174994b9baae468caf21fd",
+  "saliency_target_name": "origin_top1_gallery_cosine",
+  "evaluation_split": "calibration",
+  "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+  "sampling": {
+    "method": "sha256_sample_id",
+    "seed": 8972,
+    "maximum_samples": 10000,
+    "selected_count": 10000,
+    "selected_identity_count": 2192,
+    "selected_sample_sha256": "f2e927ef128890799dc339bc59307f115f49cdfb4a0bd5a495ba39c02e42e37b",
+    "excluded_test_content": true
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "confidence_level": 0.95,
+    "bootstrap_repeats": 2000,
+    "seed": 8972
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "random_repeats": 5,
+    "seed": 8972
+  },
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 2325984,
+      "sha256": "7ad20b25d5c960a7ce3cec569d787c638813a5242f96b0caea6df85d868c3892"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 967,
+      "sha256": "5311e086e128467cc6664f372e7d8e5c25f82fb037bef17ab55dcc498ddf092e"
+    }
+  ]
+}
