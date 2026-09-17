@@ -96,6 +96,11 @@ results/calibration/condition_scores/**/*.parquet
 results/calibration/fiqa_retrieval_features/**/*.parquet
 results/calibration/fiqa_retrieval_features/**/progress.json
 results/calibration/fiqa_retrieval_features/**/*.tmp
+results/calibration/saliency_inputs/**/*.parquet
+results/calibration/saliency_inputs/**/progress.json
+results/calibration/saliency_inputs/**/*.tmp
+results/calibration/saliency_inputs/**/saliency_features.csv
+results/calibration/saliency_inputs/**/faithfulness_rows.csv
 # Compact publication results are intentionally tracked.
 # Dataset-level faithfulness rows are reproducible local ledgers. Keep only the
 # compact summary and SHA-verified manifest Git-visible under results/paper.

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from research.evaluation.saliency_faithfulness import FAITHFULNESS_METRICS
+from research.evaluation.saliency_faithfulness import FAITHFULNESS_METRICS, summarize_faithfulness
 from research.experiments.saliency_incremental_calibration import (
     load_saliency_incremental_inputs, assess_incremental_gate,
     run_saliency_incremental_calibration, write_saliency_incremental_result,
@@ -42,16 +42,20 @@ def _sources(tmp_path):
               saliency_features=_receipt(sal_root/'saliency_features.csv'))
     (sal_root/'manifest.json').write_text(json.dumps(sm), encoding='utf8')
     values = dict(zip(FAITHFULNESS_METRICS, [.3, .1, .15, .2, .15]))
-    rows = pd.DataFrame({'sample_id': [f'development-{i}' for i in range(60)], **values})
+    rows = cal.iloc[:60][['sample_id', 'identity_id', 'aligned_content_sha256']].copy()
+    rows['split'] = 'calibration'
+    for key, value in values.items():
+        rows[key] = value
     rows.to_csv(faith_root/'faithfulness_rows.csv', index=False)
-    summary = pd.DataFrame([dict(group='all', metric=k, sample_count=len(rows), mean=v,
-                                 mean_ci_lower=v-.01, mean_ci_upper=v+.01) for k,v in values.items()])
+    summary = summarize_faithfulness(rows, group_columns=(), bootstrap_repeats=100, seed=8972)
     summary.to_csv(faith_root/'faithfulness_summary.csv', index=False)
     fm = dict(artifact_type='open_set_gradcam_faithfulness', schema_version=2,
-              evaluation_split='development', saliency_spec_uid='saliency-test',
+              evaluation_split='calibration', saliency_spec_uid='saliency-test',
+              condition_manifest_sha256=canonical_sha256(cm),
               saliency_target_name='origin_top1_gallery_cosine',
               **{k:cm[k] for k in ('dataset_id', 'model_uid', 'source_run_id', 'origin_embedding_artifact_uid')},
-              statistics={'bootstrap_method':'identity_cluster', 'confidence_level':.95},
+              statistics={'bootstrap_method':'identity_cluster', 'confidence_level':.95,
+                          'bootstrap_repeats':100, 'seed':8972},
               outputs=[_receipt(faith_root/n) for n in ('faithfulness_rows.csv','faithfulness_summary.csv')])
     (faith_root/'manifest.json').write_text(json.dumps(fm), encoding='utf8')
     return condition, fiqa[1], sal_root, faith_root
@@ -99,7 +103,8 @@ def test_retrieval_baseline_requires_matching_artifact(tmp_path):
     assert base['features'] == ['fiqa_score','adc_margin','top1_gallery_pq_distortion']
 
 
-@pytest.mark.parametrize('case', ['coverage','alignment','split','test_faithfulness','weak_random','missing_gallery_contract'])
+@pytest.mark.parametrize('case', ['coverage','alignment','split','test_faithfulness','weak_random',
+                                 'missing_gallery_contract','missing_target','null_target','noncalibration_id'])
 def test_gate_blocks_without_fitting(tmp_path, monkeypatch, case):
     c, fiqa, sr, fr = _sources(tmp_path)
     sm = json.loads((sr/'manifest.json').read_text())
@@ -113,13 +118,24 @@ def test_gate_blocks_without_fitting(tmp_path, monkeypatch, case):
         sal.loc[0,'split'] = 'test'
     if case == 'missing_gallery_contract':
         sm.pop('gallery_contract')
+    if case == 'missing_target':
+        sal = sal.drop(columns='saliency_target_name')
+    if case == 'null_target':
+        sal.loc[0, 'saliency_target_name'] = np.nan
+    if case == 'noncalibration_id':
+        rows = pd.read_csv(fr/'faithfulness_rows.csv')
+        rows.loc[0, 'sample_id'] = 'not-a-calibration-query'
+        rows.to_csv(fr/'faithfulness_rows.csv', index=False)
     if case == 'test_faithfulness':
         rows = pd.read_csv(fr/'faithfulness_rows.csv')
         rows.loc[0,'sample_id'] = c.test.sample_id.iloc[0]
         rows.to_csv(fr/'faithfulness_rows.csv',index=False)
     if case == 'weak_random':
-        summary = pd.read_csv(fr/'faithfulness_summary.csv')
-        summary.loc[summary.metric.eq('faithfulness_gain_over_random'),'mean_ci_lower'] = -.01
+        rows = pd.read_csv(fr/'faithfulness_rows.csv')
+        rows['random_occlusion_score_drop'] = .4
+        rows['faithfulness_gain_over_random'] = -.1
+        rows.to_csv(fr/'faithfulness_rows.csv',index=False)
+        summary = summarize_faithfulness(rows, group_columns=(), bootstrap_repeats=100, seed=8972)
         summary.to_csv(fr/'faithfulness_summary.csv',index=False)
     sal.to_csv(sr/'saliency_features.csv',index=False)
     sm['saliency_features'] = _receipt(sr/'saliency_features.csv')
@@ -155,14 +171,37 @@ def test_hash_lineage_and_in_memory_mutation(tmp_path):
         load_saliency_incremental_inputs(c,sr,fr)
 
 
-def test_notebook_is_restartable_and_defaults_read_only():
+def test_notebook_is_restartable_and_builds_before_gate():
     import ast
     import nbformat
     n=nbformat.read(Path(__file__).parents[2]/'notebooks/calibration/02_saliency_incremental_threshold_calibration.ipynb',as_version=4)
     nbformat.validate(n)
     codes=[c for c in n.cells if c.cell_type=='code']
     assert codes[0].id=='user-configuration'
-    assert 'RUN_INCREMENTAL_CALIBRATION = False' in codes[0].source
+    assert 'BUILD_SALIENCY_INPUTS = True' in codes[0].source
+    assert next(i for i,c in enumerate(codes) if c.id=='build-inputs') < next(i for i,c in enumerate(codes) if c.id=='gate-evidence')
     for c in codes:
         assert c.outputs==[] and c.execution_count is None
         ast.parse(c.source)
+
+
+@pytest.mark.parametrize('case', ['ci', 'metadata', 'paired_rows'])
+def test_calibration_faithfulness_statistics_are_recomputed(tmp_path, case):
+    c, _, sr, fr = _sources(tmp_path)
+    fm = json.loads((fr/'manifest.json').read_text())
+    if case == 'ci':
+        summary = pd.read_csv(fr/'faithfulness_summary.csv')
+        summary.loc[0, 'mean_ci_lower'] += .01
+        summary.to_csv(fr/'faithfulness_summary.csv', index=False)
+    elif case == 'metadata':
+        fm['statistics']['bootstrap_repeats'] = 99
+    else:
+        rows = pd.read_csv(fr/'faithfulness_rows.csv')
+        rows['faithfulness_gain_over_random'] += .1
+        rows.to_csv(fr/'faithfulness_rows.csv', index=False)
+        summarize_faithfulness(rows, group_columns=(), bootstrap_repeats=100, seed=8972).to_csv(
+            fr/'faithfulness_summary.csv', index=False)
+    fm['outputs'] = [_receipt(fr/n) for n in ('faithfulness_rows.csv', 'faithfulness_summary.csv')]
+    (fr/'manifest.json').write_text(json.dumps(fm), encoding='utf8')
+    with pytest.raises(ValueError, match='CI|paired rows'):
+        load_saliency_incremental_inputs(c, sr, fr)

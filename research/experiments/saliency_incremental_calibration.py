@@ -16,7 +16,9 @@ import scipy
 from research.calibration.conditional import paired_method_comparison
 from research.calibration.continuous import fit_continuous_threshold, apply_continuous_threshold
 from research.evaluation.cluster_bootstrap import cluster_rate_draws
-from research.evaluation.saliency_faithfulness import assess_saliency_faithfulness_reliability, FAITHFULNESS_METRICS
+from research.evaluation.saliency_faithfulness import (
+    assess_saliency_faithfulness_reliability, summarize_faithfulness, FAITHFULNESS_METRICS,
+)
 from research.experiments.fiqa_continuous_calibration import CONTINUOUS_FEATURES
 from research.experiments.fiqa_priority_diagnostics import _reuse_completed_result
 from research.experiments.fiqa_retrieval_features import join_retrieval_features
@@ -43,13 +45,13 @@ def _verified_file(root, entry):
 def load_saliency_incremental_inputs(condition, saliency_directory, faithfulness_directory):
     """Read explicit, hash-checked sources; old population artifacts are diagnostic-only.
 
-    A future calibration-ready saliency manifest uses artifact_type
+    A calibration-ready saliency manifest uses artifact_type
     saliency_calibration_features, schema_version=1, status=completed,
     condition_manifest_sha256 and gallery_contract=split_matched_origin_top1.
     It must include the same lineage keys and saliency_features file receipt as
     population_gradcam_saliency. CSV includes aligned_content_sha256 and split.
     Faithfulness uses the existing v2 format plus evaluation_split=calibration
-    or development; its row sample IDs must be disjoint from the test cohort.
+    with verified calibration membership; unbound development evidence is diagnostic-only.
     """
     sal_root, faith_root = Path(saliency_directory), Path(faithfulness_directory)
     sm = json.loads((sal_root / "manifest.json").read_text(encoding="utf8"))
@@ -75,23 +77,50 @@ def load_saliency_incremental_inputs(condition, saliency_directory, faithfulness
     sal = pd.read_csv(path, usecols=lambda c: c in wanted, low_memory=False)
     receipts = {e["path"]: e for e in fm["outputs"]}
     summary = pd.read_csv(_verified_file(faith_root, receipts["faithfulness_summary.csv"]))
+    wanted_faith = {"sample_id", "identity_id", "aligned_content_sha256", "split", *FAITHFULNESS_METRICS}
     rows = pd.read_csv(_verified_file(faith_root, receipts["faithfulness_rows.csv"]),
-                       usecols=["sample_id", *FAITHFULNESS_METRICS])
+                       usecols=lambda c: c in wanted_faith)
     if rows.sample_id.isna().any() or rows.sample_id.duplicated().any() or rows.empty:
         raise ValueError("invalid faithfulness sample IDs")
-    # Reconcile the all-group means with verified row evidence (CI kept as recorded).
+    # Historical test evidence remains readable for diagnostics. New calibration
+    # evidence must also reproduce the statistical contract and both paired CIs.
     for metric in FAITHFULNESS_METRICS:
         selected = summary.loc[summary.group.eq("all") & summary.metric.eq(metric)]
         if (len(selected) != 1 or selected.iloc[0].sample_count != len(rows)
                 or not np.isfinite(rows[metric]).all()
                 or not np.isclose(selected.iloc[0]["mean"], rows[metric].mean(), atol=1e-9, rtol=0)):
             raise ValueError("faithfulness summary/row evidence mismatch")
+    if fm.get("evaluation_split") == "calibration":
+        missing = wanted_faith - set(rows)
+        if missing:
+            raise ValueError(f"calibration faithfulness columns missing: {sorted(missing)}")
+        stats = fm.get("statistics", {})
+        repeats, seed = stats.get("bootstrap_repeats"), stats.get("seed")
+        if (stats.get("bootstrap_method") != "identity_cluster" or stats.get("confidence_level") != .95
+                or type(repeats) is not int or repeats < 100 or type(seed) is not int or seed < 0):
+            raise ValueError("invalid calibration faithfulness CI settings")
+        if rows.identity_id.isna().any() or rows.identity_id.astype(str).eq("").any() or rows.identity_id.nunique() < 2:
+            raise ValueError("faithfulness CI requires at least two identified clusters")
+        for gain, control in (("faithfulness_gain_over_low_saliency", "low_saliency_occlusion_score_drop"),
+                              ("faithfulness_gain_over_random", "random_occlusion_score_drop")):
+            if not np.allclose(rows[gain], rows.high_saliency_occlusion_score_drop-rows[control], atol=1e-9, rtol=0):
+                raise ValueError("faithfulness paired rows are inconsistent")
+        recalculated = summarize_faithfulness(rows, group_columns=(), bootstrap_repeats=repeats, seed=seed)
+        recorded = summary.loc[summary.group.eq("all")].set_index("metric").loc[recalculated.metric]
+        for col in ("bootstrap_method", "confidence_level", "bootstrap_repeats", "identity_count"):
+            if col not in recorded or not np.array_equal(recorded[col].to_numpy(), recalculated[col].to_numpy()):
+                raise ValueError(f"faithfulness CI metadata mismatch: {col}")
+        for col in ("mean_ci_lower", "mean_ci_upper"):
+            if not np.allclose(recorded[col], recalculated[col], atol=1e-9, rtol=0):
+                raise ValueError("faithfulness CI differs from identity-cluster recomputation")
     return {"saliency": sal, "faithfulness_summary": summary, "faithfulness_ids": rows.sample_id.astype(str),
+            "faithfulness_rows": rows,
             "saliency_manifest": sm, "faithfulness_manifest": fm,
             "verified_manifest_sha256": {"saliency": canonical_sha256(sm), "faithfulness": canonical_sha256(fm)},
             "condition_manifest_sha256": canonical_sha256(cm),
             "verified_frame_sha256": {"saliency": _frame_hash(sal), "faithfulness_summary": _frame_hash(summary),
-                                      "faithfulness_ids": _frame_hash(rows[["sample_id"]].astype(str))}}
+                                      "faithfulness_ids": _frame_hash(rows[["sample_id"]].astype(str)),
+                                      "faithfulness_rows": _frame_hash(rows)}}
 
 
 def assess_incremental_gate(condition, inputs):
@@ -105,7 +134,8 @@ def assess_incremental_gate(condition, inputs):
         raise ValueError("verified saliency manifests were modified in memory")
     sal, summary = inputs["saliency"], inputs["faithfulness_summary"]
     current = {"saliency": _frame_hash(sal), "faithfulness_summary": _frame_hash(summary),
-               "faithfulness_ids": _frame_hash(inputs["faithfulness_ids"].to_frame(name="sample_id"))}
+               "faithfulness_ids": _frame_hash(inputs["faithfulness_ids"].to_frame(name="sample_id")),
+               "faithfulness_rows": _frame_hash(inputs["faithfulness_rows"])}
     if current != inputs["verified_frame_sha256"]:
         raise ValueError("verified saliency evidence was modified in memory")
     readiness = assess_saliency_incremental_readiness(condition.calibration, condition.test, sal,
@@ -119,6 +149,28 @@ def assess_incremental_gate(condition, inputs):
         reasons.append("split-matched calibration saliency provenance is not verified")
     if fm.get("evaluation_split") not in ("calibration", "development"):
         reasons.append("faithfulness must be pre-test calibration/development evidence")
+    if sm.get("smoke_only", False):
+        reasons.append("limited smoke inputs cannot authorize the full comparison")
+    if "saliency_target_name" not in sal or not sal.saliency_target_name.eq("origin_top1_gallery_cosine").all():
+        reasons.append("every saliency row must declare the label-free target")
+    if fm.get("evaluation_split") in ("calibration", "development"):
+        if (fm.get("evaluation_split") != "calibration" or
+                fm.get("condition_manifest_sha256") != canonical_sha256(condition.manifest)):
+            reasons.append("verified calibration faithfulness cohort required; unbound development evidence is diagnostic-only")
+        else:
+            evidence = inputs["faithfulness_rows"]
+            columns = {"sample_id", "identity_id", "aligned_content_sha256", "split"}
+            if not columns <= set(evidence) or not evidence.sample_id.isin(condition.calibration.sample_id).all():
+                reasons.append("faithfulness samples are not members of the calibration cohort")
+            else:
+                expected = condition.calibration.set_index("sample_id").loc[evidence.sample_id]
+                if (not evidence.split.eq("calibration").all()
+                        or not np.array_equal(evidence.identity_id.astype(str), expected.identity_id.astype(str))
+                        or not np.array_equal(evidence.aligned_content_sha256, expected.aligned_content_sha256)):
+                    reasons.append("faithfulness calibration identity/alignment/split mismatch")
+                if (evidence.identity_id.isin(condition.test.identity_id).any()
+                        or evidence.aligned_content_sha256.isin(condition.test.aligned_content_sha256).any()):
+                    reasons.append("faithfulness identity/content overlaps test")
     overlap = len(set(inputs["faithfulness_ids"]) & set(condition.test.sample_id.astype(str)))
     if overlap:
         reasons.append("faithfulness overlaps test: cannot use test to enable correction")
@@ -243,7 +295,8 @@ def run_saliency_incremental_calibration(
                                   ridge=ridge, max_iterations=max_iterations, margin_slope_cap=margin_slope_cap,
                                   resamples=resamples, bootstrap_seed=bootstrap_seed),
                     uncertainty=dict(threshold_uncertainty_included=False, multiple_comparison_adjustment="none",
-                                     formal_fpir_guarantee=False, test_based_selection=False,
+                                      formal_fpir_guarantee=False, automatic_test_based_selection=False,
+                                      baseline_selection="01_test_informed_exploratory",
                                      between_splits="descriptive_not_ci", deployment_claim_supported=False))
     manifest["result_uid"] = "saliency-incremental-" + canonical_sha256(manifest)[:24]
     return dict(method_summary=metrics, paired_comparisons=pd.DataFrame(paired), models=pd.DataFrame(fitted),
