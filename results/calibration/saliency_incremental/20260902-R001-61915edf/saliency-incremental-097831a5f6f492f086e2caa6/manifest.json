@@ -1,0 +1,134 @@
+{
+  "artifact_type": "saliency_incremental_calibration",
+  "schema_version": 2,
+  "execution_contract": "data-integrity-required-faithfulness-diagnostic-v1",
+  "faithfulness_policy": "diagnostic_only",
+  "source_run_id": "20260902-R001-61915edf",
+  "model_uid": "arcface-7972a704552df378345f",
+  "metric_contract": "genuine-score-topk-v2",
+  "score_space": "negative_squared_l2_adc",
+  "condition_uid": "compressed-scores-2548cd9ab45de52c3b614a9a",
+  "gate": {
+    "status": "ready",
+    "comparison_enabled": true,
+    "data_validation_status": "passed",
+    "faithfulness_status": "failed",
+    "faithfulness_policy": "diagnostic_only",
+    "faithfulness_required_for_comparison": false,
+    "warnings": [
+      "High does not exceed Random with a strictly positive paired CI"
+    ],
+    "calibration_coverage": 1.0,
+    "test_coverage": 1.0,
+    "strong_faithfulness_pass": false,
+    "faithfulness_test_overlap": 0,
+    "reasons": [],
+    "faithfulness": {
+      "status": "failed",
+      "strong_faithfulness_pass": false,
+      "high_over_low_mean": 0.0594525177389383,
+      "high_over_low_ci_lower": 0.0571948722736463,
+      "high_over_low_ci_upper": 0.0615419054222198,
+      "high_over_random_mean": -0.0209338169962167,
+      "high_over_random_ci_lower": -0.0232087835363087,
+      "high_over_random_ci_upper": -0.0185824120895968,
+      "gated_high_low_contrast": 0.0,
+      "group": "all",
+      "random_control_role": "faithfulness_negative_control_only",
+      "random_is_threshold_feature": false,
+      "reasons": [
+        "High does not exceed Random with a strictly positive paired CI"
+      ],
+      "role": "diagnostic_only"
+    },
+    "readiness": {
+      "status": "ready",
+      "primary_analysis_supported": true,
+      "secondary_calibration_supported": true,
+      "calibration_coverage": 1.0,
+      "test_coverage": 1.0,
+      "reasons": [],
+      "saliency_target_name": "origin_top1_gallery_cosine",
+      "requested_features": [
+        "outside_face_attention",
+        "saliency_entropy"
+      ]
+    },
+    "requires_origin_gallery": true,
+    "deployment_claim_supported": false,
+    "random_occlusion_is_threshold_feature": false
+  },
+  "condition_manifest_sha256": "3db05bbfa14879e376add5fa84c6a65afc97b4adab73123e499bd65bda71f67d",
+  "fiqa_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+  "saliency_manifest_sha256": "9016a72b28485b87e6311730d581f1c02502a7412e26fa7ad16de20c294e7be1",
+  "faithfulness_manifest_sha256": "102c8366637a6c62c7c6e5b72dcbdc960bf02f29bfde8f35b06a7d80b707d78c",
+  "retrieval_manifest_sha256": null,
+  "input_frame_sha256": {
+    "calibration": "a1edd28f989fc994d3d7ba5aa07ba0f21e186b8016a2fdcd6aac9d051433ffd3",
+    "test": "242f2ec6c21d5ca7857fe5e3ea6c87ddc2d35775b451ddaf767d2cbcff6992fb"
+  },
+  "implementation_sha256": {
+    "saliency_incremental_calibration.py": "59a8317f6ed24bcf9840fb7874e999b0b602ccf1accb53c53708645d028aa96b",
+    "continuous.py": "1f5df4cc57691186b70a278aa08634afd30c481f9172cea781466cd8e3bdf37d",
+    "conditional.py": "5354c293fdd792c589ed1705dcc24e1fdb9efe42a5fcfefe20f22c82f0384dab",
+    "rejection.py": "19ace3e6e40d03117553dfe2354e73e610ddc23d4950c1d62d077dc1d38d6f96",
+    "cluster_bootstrap.py": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+    "metrics.py": "bae78f0349a68c086de795d47553876243271e6a210bff2664ee223485c2e64d",
+    "saliency_faithfulness.py": "f3b6c72f57297f13ae57686cf9a01c6056ee8e789f17e19f74f1cee3b0b61be7",
+    "fiqa_threshold_calibration.py": "ee74b0488b59ba377449a3c0967bce54dc865b7b71e999c4c4bb692825abc2e6",
+    "fiqa_retrieval_features.py": "53dd6f10a2e933cc699e0ea3aeca08ad57c5ba9c361f5679b2bdd2186efbf3cb",
+    "fiqa_continuous_calibration.py": "db5bab28c76783eaab672382504ca4d16d5066c9341a551be431fe6b58ac17ca"
+  },
+  "versions": {
+    "numpy": "1.26.4",
+    "pandas": "3.0.3",
+    "scipy": "1.17.1"
+  },
+  "settings": {
+    "baseline_method": "continuous_fiqa",
+    "partition_seeds": [
+      8972
+    ],
+    "target_fpirs": [
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "safety_fraction": 0.3,
+    "knot_quantiles": [
+      0.3333333333333333,
+      0.6666666666666666
+    ],
+    "smoothing": 0.01,
+    "ridge": 0.001,
+    "max_iterations": 2000,
+    "margin_slope_cap": 0.95,
+    "resamples": 2000,
+    "bootstrap_seed": 8972
+  },
+  "interpretation": {
+    "analysis_scope": "exploratory_incremental_predictive_utility",
+    "performance_gain_validates_faithfulness": false,
+    "compression_error_causality_established": false
+  },
+  "uncertainty": {
+    "threshold_uncertainty_included": false,
+    "multiple_comparison_adjustment": "none",
+    "formal_fpir_guarantee": false,
+    "automatic_test_based_selection": false,
+    "baseline_selection": "01_test_informed_exploratory",
+    "between_splits": "descriptive_not_ci",
+    "deployment_claim_supported": false
+  },
+  "result_uid": "saliency-incremental-097831a5f6f492f086e2caa6",
+  "status": "completed",
+  "files": {
+    "method_summary.csv": "7548c088b15b426e0a2155127699434a95370612b4da2244e32ef011f5a5f78c",
+    "paired_comparisons.csv": "5068bb42d641bd718a5aa347271a0898d77573884e8d1326e679299989bffe7a",
+    "models.csv": "f91cb75023c9504e129db755b3c2382422f676865bdb5e44ba2665d8188f2aa1",
+    "split_summary.csv": "db17a917e88de444e0b997665e4b267f04959217c1d18a7924cf1285320668bd",
+    "faithfulness_diagnostics.csv": "f98587c4a8963d98e196a7851578796212a48030385f00c641a1cfea5002f2a2"
+  }
+}
