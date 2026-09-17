@@ -1,0 +1,244 @@
+{
+  "spec": {
+    "artifact_type": "fiqa_retrieval_features",
+    "schema_version": 1,
+    "condition_manifest_sha256": "96c66664d89e3d3297d871191961aafa912c8d98730c49f81a148ed2030751da",
+    "batch_size": 8192,
+    "score_tolerance": 1e-06,
+    "implementation_sha256": {
+      "fiqa_retrieval_features.py": "53dd6f10a2e933cc699e0ea3aeca08ad57c5ba9c361f5679b2bdd2186efbf3cb",
+      "step2_compression.py": "aa6bc6e7ee547651633d21e15a24cae59bec5f8df929bc00616809976d4fbda2",
+      "fiqa_threshold_calibration.py": "ee74b0488b59ba377449a3c0967bce54dc865b7b71e999c4c4bb692825abc2e6",
+      "open_set.py": "92e3a698b2d6856c46c31a0f41880223475639c7a32d02431e93cd16bf631b3b",
+      "profiles.py": "9f910aafb0f2e16d4365da382388c8cb06c5f77579222e226eddcbe5f3bb89e7"
+    },
+    "faiss_version": "1.14.3",
+    "retrieval_backend": "faiss_cpu_pq_adc",
+    "top_k": 2,
+    "distortion_definition": "l2(gallery_template - decoded_pq_template); no renormalization",
+    "margin_definition": "s1 - s2; distinct gallery identity templates"
+  },
+  "feature_uid": "fiqa-retrieval-77406544899535c41d714d0b",
+  "shards": {
+    "calibration": [
+      {
+        "file": "calibration-000000.parquet",
+        "rows": 8192,
+        "sha256": "ae59fb618eaeae9ee88c1aca8d54eaea5e05a9fb5a2d15c9df2c62eb8c2ea309"
+      },
+      {
+        "file": "calibration-000001.parquet",
+        "rows": 8192,
+        "sha256": "c83a4b6f85640238d8c84f497efbac48ec874fe00495e2d863b4bfb0e941252b"
+      },
+      {
+        "file": "calibration-000002.parquet",
+        "rows": 8192,
+        "sha256": "c3b897e6e95dc015880a035f9a70277528fa166297acafae1d79b69feb63ad45"
+      },
+      {
+        "file": "calibration-000003.parquet",
+        "rows": 8192,
+        "sha256": "50026179278c925be9774115705a20f9f315e9c3d8ed00c1508f52acbf706918"
+      },
+      {
+        "file": "calibration-000004.parquet",
+        "rows": 8192,
+        "sha256": "21f5f50ea9f1096743a987e5063d3a28283608e65f9eee1bda1e84e7c2a64600"
+      },
+      {
+        "file": "calibration-000005.parquet",
+        "rows": 8192,
+        "sha256": "d40eea9697ca2d39ad629beda68038aa3bbd11bfa95f71c295d551d0d5da9799"
+      },
+      {
+        "file": "calibration-000006.parquet",
+        "rows": 8192,
+        "sha256": "ce029975fd7884c17dc64e75d07ea3e48a25f90e3013c52d6bb4005ebdcb59cf"
+      },
+      {
+        "file": "calibration-000007.parquet",
+        "rows": 8192,
+        "sha256": "5616a8b7910823f4b601d06808eddf1a6b7b9ae823c624ad39fd6b055e185966"
+      },
+      {
+        "file": "calibration-000008.parquet",
+        "rows": 8192,
+        "sha256": "2710e95ac072707aa28136cf526331ed4456bdbdcc6e87a807d2230762b92664"
+      },
+      {
+        "file": "calibration-000009.parquet",
+        "rows": 8192,
+        "sha256": "679be96c596264a8785cd1484bfb03127e6a0b4d4e8cb84e1bacc1d616b872c9"
+      },
+      {
+        "file": "calibration-000010.parquet",
+        "rows": 8192,
+        "sha256": "be00fc67f6bf171b7c3faddcb49a2cf7f71eb55c53d5fea2cbbf8f39754eccba"
+      },
+      {
+        "file": "calibration-000011.parquet",
+        "rows": 8192,
+        "sha256": "238a6233eb1c431dfae54d839cd22d90dcc1acb58ba752e3996e3a57da515778"
+      },
+      {
+        "file": "calibration-000012.parquet",
+        "rows": 8192,
+        "sha256": "f00002ec65f1d901aa49d5ea8a5704729c2dc2cae63c4e74bdb1381dd366af45"
+      },
+      {
+        "file": "calibration-000013.parquet",
+        "rows": 8192,
+        "sha256": "557cb146fd3e16d988668f3cb9662ddd786251eb2d5a89a944d14d9cf042278a"
+      },
+      {
+        "file": "calibration-000014.parquet",
+        "rows": 8192,
+        "sha256": "1e6d15f20b3fb47c8427d908e1578e0600935ce8bde41d57b83a17a894b58d98"
+      },
+      {
+        "file": "calibration-000015.parquet",
+        "rows": 8192,
+        "sha256": "d80a32521587ca506e8411a1c06ea44b21f61a342ad18205bf93cb3b22696e5c"
+      },
+      {
+        "file": "calibration-000016.parquet",
+        "rows": 8192,
+        "sha256": "4a31b42273b00b39d0624004cd54170bdb6a3741ba3034c35cebd2167b0005cd"
+      },
+      {
+        "file": "calibration-000017.parquet",
+        "rows": 8192,
+        "sha256": "44443822d29798d6b767f065d92e6e8e2b354d4d07b45d34fd6984c0626690d5"
+      },
+      {
+        "file": "calibration-000018.parquet",
+        "rows": 8192,
+        "sha256": "7b03b673292d8240178fab5da737440937865696fed9186aa2d201a3cbe6ed04"
+      },
+      {
+        "file": "calibration-000019.parquet",
+        "rows": 4760,
+        "sha256": "76a8f79b9792e76fc28b40dae530e19e4f72ebdb3560025cdc149d5d4472a367"
+      }
+    ],
+    "test": [
+      {
+        "file": "test-000000.parquet",
+        "rows": 8192,
+        "sha256": "bf90650702bd3e676ff4eed130507fc1d58f9ab081c5ab554eee3a272a7e7a31"
+      },
+      {
+        "file": "test-000001.parquet",
+        "rows": 8192,
+        "sha256": "afd506c2b44c57da260412e0eaa8b969ab3aa963b45fd40e24c025acb478f4f5"
+      },
+      {
+        "file": "test-000002.parquet",
+        "rows": 8192,
+        "sha256": "36fc92aedb4542bda9ee3d64518b309bc55a831206dba229166e0d11e3f14605"
+      },
+      {
+        "file": "test-000003.parquet",
+        "rows": 8192,
+        "sha256": "479cc5b5b92111871bed96c11b12d1d336a1edfee496d3f1aba142f66aac1dd1"
+      },
+      {
+        "file": "test-000004.parquet",
+        "rows": 8192,
+        "sha256": "7c9839655bacca4638c091146404e01e4ca85d7d6f8c359368222b6dc2506de5"
+      },
+      {
+        "file": "test-000005.parquet",
+        "rows": 8192,
+        "sha256": "26f41471392c878836a700c588f392fb06e8652b820284ab89dab829956f7fef"
+      },
+      {
+        "file": "test-000006.parquet",
+        "rows": 8192,
+        "sha256": "057e8b9cc48858cb411c4aa46db783d627f04d6928077770faf0db8a24cc16de"
+      },
+      {
+        "file": "test-000007.parquet",
+        "rows": 8192,
+        "sha256": "1cc6eed532c77e02ff3765e23ed9f9820cefb5f6b9e6dee19797beb97930ec67"
+      },
+      {
+        "file": "test-000008.parquet",
+        "rows": 8192,
+        "sha256": "073c57e195b18423778b9d32a5163abe7a9a354413364585815c5a39756cf24f"
+      },
+      {
+        "file": "test-000009.parquet",
+        "rows": 8192,
+        "sha256": "cf5bf44caf6816d981e24dcbea68293a3a87795ad9fd307012d059d5de9a1416"
+      },
+      {
+        "file": "test-000010.parquet",
+        "rows": 8192,
+        "sha256": "bcce4d9573a47e97f66c7e52c32c9ce4124808768e2706568415e1484f05275a"
+      },
+      {
+        "file": "test-000011.parquet",
+        "rows": 8192,
+        "sha256": "80369182c93e60f6e93f0287905acba10e0a000f0e53e98ce602ced5eca24b65"
+      },
+      {
+        "file": "test-000012.parquet",
+        "rows": 8192,
+        "sha256": "8a1b90d5f2fcc3b7e3fc154e17d434ecff3cc713844be9dfc233ddb6531541e5"
+      },
+      {
+        "file": "test-000013.parquet",
+        "rows": 8192,
+        "sha256": "97e0cc6da79b906f0cc92325adb2d7bd3a0a445b46839bd12bc0f238ddc6e2e7"
+      },
+      {
+        "file": "test-000014.parquet",
+        "rows": 8192,
+        "sha256": "994260ee4cdbac067ecf1a33c2ac215d3fb82bc5167c2ccb20ecd2bfb6f1f4b5"
+      },
+      {
+        "file": "test-000015.parquet",
+        "rows": 8192,
+        "sha256": "1efbcd3b1632bab73a675289d426071399c781887f0dccb9ff766be30da434de"
+      },
+      {
+        "file": "test-000016.parquet",
+        "rows": 8192,
+        "sha256": "c0aa58fd6f96f46900ebf3890b004f9e2f100f600c630f53057048a1e1f09d2f"
+      },
+      {
+        "file": "test-000017.parquet",
+        "rows": 8192,
+        "sha256": "b2937d6f014c37b8743e47ba599a87e5a8c4b342d503fa28288c1ba78e3e269f"
+      },
+      {
+        "file": "test-000018.parquet",
+        "rows": 8192,
+        "sha256": "b8ca3d86da9b981ff5c5d2ccee2284bcfdf05bcc43d62ad2e47d701326baa8c8"
+      },
+      {
+        "file": "test-000019.parquet",
+        "rows": 8192,
+        "sha256": "dc87e3f57ec051e920cc950132093477dbe536cf7f1993a5583df3f67a9e35b4"
+      },
+      {
+        "file": "test-000020.parquet",
+        "rows": 8192,
+        "sha256": "92ff959731dfa8b6e531f60a4e52273d3872af2b2ad5b1f6fb3ee121a434f843"
+      },
+      {
+        "file": "test-000021.parquet",
+        "rows": 8192,
+        "sha256": "103907303afde960e23aa97aa9ef7a4ef555a3e81e16b7f11b566d625dd22c12"
+      },
+      {
+        "file": "test-000022.parquet",
+        "rows": 1935,
+        "sha256": "0ff6665f33b5364b59c70cfc23cf8cd46e5d001cfe6e597d74f91fcd9a721323"
+      }
+    ]
+  },
+  "status": "completed"
+}

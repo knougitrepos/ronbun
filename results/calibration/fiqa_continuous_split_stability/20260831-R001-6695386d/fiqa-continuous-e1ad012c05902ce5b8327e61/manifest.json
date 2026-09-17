@@ -1,0 +1,99 @@
+{
+  "artifact_type": "fiqa_continuous_calibration",
+  "schema_version": 2,
+  "metric_contract": "genuine-score-topk-v2",
+  "score_space": "negative_squared_l2_adc",
+  "source_run_id": "20260831-R001-6695386d",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "condition_manifest_sha256": "eb9528f84e0fd26b477780ec9556e5035aadfbf9effbf14ffcf599680719f75e",
+  "condition_uid": "compressed-scores-1a254faef12ce422a90bc728",
+  "fiqa_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+  "retrieval_manifest_sha256": "acb169f5f1a12529ede6eab855b1957f0e64317d88ad6bf2b2904acdbc3b44e9",
+  "input_frame_sha256": {
+    "calibration": "7433b92ff0852ab818bd6f8d0b36ef8654ca67c5866fd2cc180e687282c7eb63",
+    "test": "ba0d9e2c1d516f751d172e66a37a871a3b86bbcd833fdf489038d86db309c86a"
+  },
+  "settings": {
+    "methods": [
+      "continuous_fiqa",
+      "continuous_fiqa_margin",
+      "continuous_fiqa_margin_distortion",
+      "continuous_fiqa_runnerup"
+    ],
+    "partition_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      8972
+    ],
+    "target_fpirs": [
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "safety_fraction": 0.3,
+    "shrinkage_strength": 200.0,
+    "minimum_group_non_mated": 100,
+    "knot_quantiles": [
+      0.3333333333333333,
+      0.6666666666666666
+    ],
+    "smoothing": 0.01,
+    "ridge": 0.001,
+    "max_iterations": 2000,
+    "margin_slope_cap": 0.95,
+    "resamples": 2000,
+    "bootstrap_seed": 8972
+  },
+  "implementation_sha256": {
+    "fiqa_continuous_calibration.py": "db5bab28c76783eaab672382504ca4d16d5066c9341a551be431fe6b58ac17ca",
+    "fiqa_retrieval_features.py": "53dd6f10a2e933cc699e0ea3aeca08ad57c5ba9c361f5679b2bdd2186efbf3cb",
+    "fiqa_threshold_calibration.py": "ee74b0488b59ba377449a3c0967bce54dc865b7b71e999c4c4bb692825abc2e6",
+    "continuous.py": "1f5df4cc57691186b70a278aa08634afd30c481f9172cea781466cd8e3bdf37d",
+    "conditional.py": "5354c293fdd792c589ed1705dcc24e1fdb9efe42a5fcfefe20f22c82f0384dab",
+    "rejection.py": "19ace3e6e40d03117553dfe2354e73e610ddc23d4950c1d62d077dc1d38d6f96",
+    "cluster_bootstrap.py": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+    "metrics.py": "bae78f0349a68c086de795d47553876243271e6a210bff2664ee223485c2e64d"
+  },
+  "versions": {
+    "numpy": "1.26.4",
+    "scipy": "1.17.1",
+    "pandas": "3.0.3"
+  },
+  "uncertainty": {
+    "tpir": "query_weighted_mated_identity_cluster",
+    "fpir": "query_only_unknown_identity_unavailable",
+    "threshold_uncertainty_included": false,
+    "formal_fpir_guarantee": false,
+    "multiple_comparison_adjustment": "none",
+    "test_based_selection": false,
+    "between_splits": "descriptive_not_ci_not_independent_replications"
+  },
+  "result_uid": "fiqa-continuous-e1ad012c05902ce5b8327e61",
+  "status": "completed",
+  "files": {
+    "method_summary.csv": "8a9ab1f8ab814d4a7ce2e7398329e673a1d17d735e74aa99dfedd786f35cac98",
+    "paired_comparisons.csv": "301641cc92016f2d2fb41b65ee0ecf0bc8729e6234ed202df5aa0e274b8cd4f8",
+    "models.csv": "34c5d173a97ad5acdb009cfe8f4743032a995a8683115ef1b2f8d1c89c46ca65",
+    "split_summary.csv": "f1e5658645312221ada0963a7add9f52278238d2b8b6c9c2ecf240e67508f08e",
+    "ablation_summary.csv": "553ec8e043308f8bd1b22859cc63d8e5bdc091d2b48807a1407a42f1c9f2b6cf"
+  }
+}
