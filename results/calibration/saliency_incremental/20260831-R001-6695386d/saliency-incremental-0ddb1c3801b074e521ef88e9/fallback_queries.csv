@@ -1,0 +1,17 @@
+sample_id,identity_id,heatmap_available,gradcam_valid_heatmap,split,fallback_reason,faithfulness_status,strong_faithfulness_pass,faithfulness_policy,fallback_policy
+survface:train:10394:10394_cam3_33,survface:train:10394,True,False,calibration,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:train:5649:5649_cam2_51,survface:train:5649,True,False,calibration,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:train:5617:5617_cam2_45,survface:train:5617,True,False,calibration,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:train:5860:5860_cam2_124,survface:train:5860,True,False,calibration,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:train:8800:8800_cam2_20,survface:train:8800,True,False,calibration,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:registered_probe:10401_cam2_27,survface:registered:0212,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:registered_probe:5689_cam2_14,survface:registered:2941,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:registered_probe:5747_cam2_42,survface:registered:2975,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:registered_probe:5839_cam2_81,survface:registered:3026,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:10007_cam3_50,survface:unmated:10007_cam3_50,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:2491_cam6_1,survface:unmated:2491_cam6_1,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:5674_cam1_75,survface:unmated:5674_cam1_75,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:8894_cam2_26,survface:unmated:8894_cam2_26,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:distractors_13274,survface:unmated:distractors_13274,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:distractors_27612,survface:unmated:distractors_27612,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:distractors_3497,survface:unmated:distractors_3497,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1

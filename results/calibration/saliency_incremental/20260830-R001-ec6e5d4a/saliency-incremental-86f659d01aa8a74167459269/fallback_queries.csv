@@ -1,0 +1,4 @@
+sample_id,identity_id,heatmap_available,gradcam_valid_heatmap,split,fallback_reason,faithfulness_status,strong_faithfulness_pass,faithfulness_policy,fallback_policy
+survface:train:9538:9538_cam1_6,survface:train:9538,True,False,calibration,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:registered_probe:4721_cam2_3,survface:registered:2410,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1
+survface:unknown_unknown_probe:distractors_28,survface:unmated:distractors_28,True,False,test,recorded_unavailable_or_invalid_heatmap,failed,False,diagnostic_only,invalid-saliency-fiqa-only-joint-safety-v1

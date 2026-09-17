@@ -1,0 +1,153 @@
+{
+  "artifact_type": "saliency_incremental_calibration",
+  "schema_version": 3,
+  "execution_contract": "data-integrity-required-faithfulness-diagnostic-fiqa-fallback-v2",
+  "faithfulness_policy": "diagnostic_only",
+  "source_run_id": "20260830-R001-ec6e5d4a",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "metric_contract": "genuine-score-topk-v2",
+  "score_space": "negative_squared_l2_adc",
+  "condition_uid": "compressed-scores-f830df873474e5adcdbb002a",
+  "gate": {
+    "status": "ready",
+    "comparison_enabled": true,
+    "data_validation_status": "passed",
+    "faithfulness_status": "failed",
+    "faithfulness_policy": "diagnostic_only",
+    "faithfulness_required_for_comparison": false,
+    "warnings": [
+      "High does not exceed Random with a strictly positive paired CI",
+      "calibration: 1 invalid saliency queries use FIQA-only fallback",
+      "test: 2 invalid saliency queries use FIQA-only fallback"
+    ],
+    "calibration_coverage": 0.9999937658969628,
+    "test_coverage": 0.9999890205809211,
+    "strong_faithfulness_pass": false,
+    "faithfulness_test_overlap": 0,
+    "reasons": [],
+    "faithfulness": {
+      "status": "failed",
+      "strong_faithfulness_pass": false,
+      "high_over_low_mean": 0.0865756479471921,
+      "high_over_low_ci_lower": 0.0839770123010994,
+      "high_over_low_ci_upper": 0.089241159901555,
+      "high_over_random_mean": -0.0750178488478064,
+      "high_over_random_ci_lower": -0.0779715368161989,
+      "high_over_random_ci_upper": -0.0721504342120011,
+      "gated_high_low_contrast": 0.0,
+      "group": "all",
+      "random_control_role": "faithfulness_negative_control_only",
+      "random_is_threshold_feature": false,
+      "reasons": [
+        "High does not exceed Random with a strictly positive paired CI"
+      ],
+      "role": "diagnostic_only"
+    },
+    "readiness": {
+      "status": "ready",
+      "primary_analysis_supported": true,
+      "secondary_calibration_supported": true,
+      "calibration_coverage": 0.9999937658969628,
+      "test_coverage": 0.9999890205809211,
+      "reasons": [],
+      "saliency_target_name": "origin_top1_gallery_cosine",
+      "requested_features": [
+        "outside_face_attention",
+        "saliency_entropy"
+      ],
+      "saliency_only_status": "blocked",
+      "fallback_policy": "invalid-saliency-fiqa-only-joint-safety-v1"
+    },
+    "fallback_policy": "invalid-saliency-fiqa-only-joint-safety-v1",
+    "invalid_saliency_counts": {
+      "calibration": 1,
+      "test": 2
+    },
+    "requires_origin_gallery": true,
+    "deployment_claim_supported": false,
+    "random_occlusion_is_threshold_feature": false
+  },
+  "condition_manifest_sha256": "7c009f74abae9ce762cb1527e137cf5fac41bc2ac4cb2b10578a5803384c0990",
+  "fiqa_manifest_sha256": "c859643e855a5b0f49648248672e2abf68425ac2940390ca6dc9e79feadb8d6b",
+  "saliency_manifest_sha256": "dc5fc0553aa9ad744e44d062a4b12ba270482b78bd01a5ed1a06922b564deb22",
+  "faithfulness_manifest_sha256": "d4b40e99e0ac9dfd4ee86ac8a6604c77367c2dea143dc774f8d0236d6e92937d",
+  "retrieval_manifest_sha256": null,
+  "input_frame_sha256": {
+    "calibration": "9ae7cc0119e89e15586035713505f19544a2ecc6a6bd9e14e1d94a0d9d88a803",
+    "test": "cf6143a95f192725bc5ae343d56b4c08f685bbe423fdab8a9faa2f1439347902"
+  },
+  "implementation_sha256": {
+    "saliency_incremental_calibration.py": "e223aad0c99b14226c8052aad596dfb587cac2280333c4bd492d05cad583c00c",
+    "continuous.py": "7adeac5be45b04ad3231916b50a548be1647e8db01823a9d15a51c00f922c84b",
+    "saliency_fallback.py": "6464515b12f94cf6c98ade2c850ddedcf48968165e70fc8883a18ed0d2818494",
+    "conditional.py": "5354c293fdd792c589ed1705dcc24e1fdb9efe42a5fcfefe20f22c82f0384dab",
+    "rejection.py": "19ace3e6e40d03117553dfe2354e73e610ddc23d4950c1d62d077dc1d38d6f96",
+    "cluster_bootstrap.py": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+    "metrics.py": "bae78f0349a68c086de795d47553876243271e6a210bff2664ee223485c2e64d",
+    "saliency_faithfulness.py": "f3b6c72f57297f13ae57686cf9a01c6056ee8e789f17e19f74f1cee3b0b61be7",
+    "fiqa_threshold_calibration.py": "ee74b0488b59ba377449a3c0967bce54dc865b7b71e999c4c4bb692825abc2e6",
+    "fiqa_retrieval_features.py": "53dd6f10a2e933cc699e0ea3aeca08ad57c5ba9c361f5679b2bdd2186efbf3cb",
+    "fiqa_continuous_calibration.py": "db5bab28c76783eaab672382504ca4d16d5066c9341a551be431fe6b58ac17ca"
+  },
+  "versions": {
+    "numpy": "1.26.4",
+    "pandas": "3.0.3",
+    "scipy": "1.17.1"
+  },
+  "settings": {
+    "baseline_method": "continuous_fiqa",
+    "fallback_policy": "invalid-saliency-fiqa-only-joint-safety-v1",
+    "fallback_method": "continuous_fiqa",
+    "fallback_validity_features": [
+      "outside_face_attention",
+      "saliency_entropy"
+    ],
+    "minimum_valid_fit_non_mated": 20,
+    "partition_seeds": [
+      8972
+    ],
+    "target_fpirs": [
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "safety_fraction": 0.3,
+    "knot_quantiles": [
+      0.3333333333333333,
+      0.6666666666666666
+    ],
+    "smoothing": 0.01,
+    "ridge": 0.001,
+    "max_iterations": 2000,
+    "margin_slope_cap": 0.95,
+    "resamples": 2000,
+    "bootstrap_seed": 8972
+  },
+  "interpretation": {
+    "analysis_scope": "exploratory_incremental_predictive_utility",
+    "performance_gain_validates_faithfulness": false,
+    "compression_error_causality_established": false
+  },
+  "uncertainty": {
+    "threshold_uncertainty_included": false,
+    "multiple_comparison_adjustment": "none",
+    "formal_fpir_guarantee": false,
+    "automatic_test_based_selection": false,
+    "baseline_selection": "01_test_informed_exploratory",
+    "between_splits": "descriptive_not_ci",
+    "deployment_claim_supported": false
+  },
+  "result_uid": "saliency-incremental-86f659d01aa8a74167459269",
+  "status": "completed",
+  "files": {
+    "method_summary.csv": "9fdfea64995bfb9a12ddcfd5565ddd8f81a0435eaa6284501c14bedc3fff3d99",
+    "paired_comparisons.csv": "3d64a468f213206dd111b7d91fecafc3e104b265241f8abdfe4b42cbb05834f0",
+    "models.csv": "d659fa6da3ec7396350a2e65acbf6b0de85cddf1fa8e965dd69be6a2db74c5db",
+    "split_summary.csv": "90cba90eba39778f17af90ad1505f05e5f77a0f3bce2b9d4106fd2822b79dbb8",
+    "faithfulness_diagnostics.csv": "7b261c62e1639cfcaf15f30fa9a43f8e3864779a97fdd6281d65f6863f1a99a2",
+    "fallback_diagnostics.csv": "d99129bd9d888ea85342475f51a2681cc43744cba68ed36fc6553d2d2360a277",
+    "fallback_queries.csv": "c32c06ac53922b69a83cb36ff2c3a04c90335580132c08a2037d9596a1be0801"
+  }
+}
