@@ -1,0 +1,1 @@
+sample_id,identity_id,heatmap_available,gradcam_valid_heatmap,split,fallback_reason,faithfulness_status,strong_faithfulness_pass,faithfulness_policy,fallback_policy
