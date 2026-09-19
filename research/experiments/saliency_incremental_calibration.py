@@ -6,7 +6,6 @@ Test-only saliency/faithfulness cannot authorize fitting. Recorded map failures
 route to FIQA-only; missing artifact rows still fail. No query is dropped.
 """
 import json
-import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -32,6 +31,7 @@ from research.experiments.fiqa_threshold_calibration import (
     assess_saliency_incremental_readiness, join_fiqa_score_artifacts, _validate_comparison_contract,
 )
 from research.runtime.hashing import canonical_sha256, sha256_file
+from research.explainability.gradcam.artifacts import _publish_atomic_directory
 
 TABLES = ("method_summary", "paired_comparisons", "models", "split_summary", "faithfulness_diagnostics",
           "fallback_diagnostics", "fallback_queries")
@@ -254,8 +254,8 @@ def run_saliency_incremental_calibration(
         raise ValueError("invalid bootstrap settings")
     cal, test = join_fiqa_score_artifacts(condition, fiqa)
     _validate_comparison_contract(cal, test, condition_manifest=condition.manifest, fiqa_manifest=fiqa.manifest)
-    if condition.manifest["dataset_id"] != "survface" or condition.manifest["score_space"] != "negative_squared_l2_adc":
-        raise ValueError("02 currently supports SurvFace PQ-ADC only")
+    if condition.manifest["dataset_id"] not in ("lfw", "rfw_custom", "survface") or condition.manifest["score_space"] != "negative_squared_l2_adc":
+        raise ValueError("02 requires LFW, RFW-Custom or SurvFace PQ-ADC")
     base_features = CONTINUOUS_FEATURES[baseline_method]
     if len(base_features) > 1:
         if (retrieval is None or retrieval["manifest"].get("status") != "completed" or
@@ -358,6 +358,7 @@ def run_saliency_incremental_calibration(
              Path(__file__).parents[1]/"evaluation/saliency_faithfulness.py", Path(__file__).with_name("fiqa_threshold_calibration.py"),
              Path(__file__).with_name("fiqa_retrieval_features.py"), Path(__file__).with_name("fiqa_continuous_calibration.py")]
     manifest = dict(artifact_type="saliency_incremental_calibration", schema_version=3,
+                    dataset_id=condition.manifest["dataset_id"], compression_profile=condition.manifest["compression_profile"],
                     execution_contract=EXECUTION_CONTRACT, faithfulness_policy=FAITHFULNESS_POLICY,
                     source_run_id=condition.manifest["source_run_id"], model_uid=condition.manifest["model_uid"],
                     metric_contract=condition.manifest["metric_contract"], score_space=condition.manifest["score_space"],
@@ -412,5 +413,5 @@ def write_saliency_incremental_result(root, result):
         files[path.name] = sha256_file(path)
     manifest = {**result["manifest"], "status": "completed", "files": files}
     (staging/"manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False), encoding="utf8")
-    os.rename(staging, destination)
+    _publish_atomic_directory(staging, destination, overwrite=False)
     return destination

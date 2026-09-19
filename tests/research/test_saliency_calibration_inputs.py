@@ -131,6 +131,9 @@ def test_atomic_json_retries_windows_permission_error_without_deleting_old_file(
 
 def test_verified_legacy_recovery_includes_pending_receipt_without_recomputing(tmp_path, monkeypatch):
     condition, calls, _ = _mock_producer(tmp_path, monkeypatch)
+    # Exercise the historical I/O migration under its audited scientific contract.
+    # Current multi-dataset protocol changes intentionally cannot migrate old partial jobs.
+    monkeypatch.setattr(producer, '_generation_contract_hash', lambda: producer._LEGACY_GENERATION_SHA256)
     options = dict(reuse_test_saliency=False, chunk_size=20, bootstrap_repeats=100,
                    faithfulness_maximum_samples=None)
     original = producer.build_saliency_calibration_inputs('source', condition, tmp_path/'initial', **options)

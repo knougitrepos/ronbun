@@ -12,9 +12,7 @@ from research.experiments.fiqa_threshold_calibration import (
 )
 from research.experiments.step2_compression import prepared_population_frame, open_set_protocol_arrays
 from research.explainability.gradcam.artifacts import read_prepared_population_artifact
-from research.protocols.open_set import (
-    build_survface_matched_calibration_protocol, build_survface_official_protocol,
-)
+from research.experiments.calibration_protocols import calibration_protocol
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 FEATURE_COLUMNS = ("adc_s1", "adc_s2", "adc_margin", "top1_gallery_pq_distortion")
@@ -112,7 +110,8 @@ def build_retrieval_features(run_dir, condition, output_root, *, batch_size=8192
             or cm.get("source_run_manifest_sha256") != sha256_file(root / "run_manifest.json")):
         raise ValueError("feature replay requires the exact completed source condition")
     import faiss
-    source_paths = [Path(__file__), Path(__file__).with_name("step2_compression.py"),
+    source_paths = [Path(__file__), Path(__file__).with_name("calibration_protocols.py"),
+                    Path(__file__).with_name("step2_compression.py"),
                     Path(__file__).with_name("fiqa_threshold_calibration.py"),
                     Path(__file__).parents[1] / "protocols/open_set.py",
                     Path(__file__).parents[1] / "compression/profiles.py"]
@@ -142,19 +141,14 @@ def build_retrieval_features(run_dir, condition, output_root, *, batch_size=8192
     for path, key in expected_files.items():
         if sha256_file(path) != cm[key]:
             raise ValueError(f"frozen source hash mismatch: {key}")
-    selected = pd.read_csv(workflow / "selected_manifest.csv")
+    selected = pd.read_csv(workflow / "selected_manifest.csv", low_memory=False)
     prepared = read_prepared_population_artifact(workflow / "prepared_population")
     population = prepared_population_frame(prepared, selected)
     codec, entry, bundle = _frozen_pq_codec(root, workflow, compression_profile=cm["compression_profile"])
     if entry["artifact_sha256"] != cm["frozen_codec"]["sha256"] or bundle["fit_seed"] != cm["calibration_seed"]:
         raise ValueError("frozen codec or protocol seed mismatch")
-    evaluation = run["config"]["step4"]["evaluation"]
-    official_roles = {"gallery", "registered_probe", "unknown_unknown_probe"}
     for split in ("calibration", "test"):
-        protocol = (build_survface_matched_calibration_protocol(
-            population, gallery_identity_count=int(evaluation["survface_calibration_gallery_identities"]),
-            seed=int(cm["calibration_seed"])) if split == "calibration" else
-            build_survface_official_protocol(population.loc[population.protocol_role.isin(official_roles)].copy()))
+        protocol = calibration_protocol(run, population, split, int(cm["calibration_seed"]))
         arrays = open_set_protocol_arrays(protocol, population)
         rows = getattr(condition, split)
         ids = pd.Index(arrays["query_ids"].astype(str))

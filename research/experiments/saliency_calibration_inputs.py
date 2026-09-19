@@ -20,7 +20,7 @@ from research.explainability.gradcam.extraction import measure_population_faithf
 from research.explainability.gradcam.features import summarize_saliency_features
 from research.explainability.gradcam.landmark_regions import read_landmark_region_bundle
 from research.explainability.gradcam.pair import PairCosineGradCAM
-from research.protocols.open_set import build_survface_matched_calibration_protocol, build_survface_official_protocol
+from research.experiments.calibration_protocols import calibration_protocol
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 TARGET = "origin_top1_gallery_cosine"
@@ -103,11 +103,11 @@ def _verified(root, receipt):
 def _source_context(run_dir, condition):
     root, run, workflow = _completed_run(run_dir)
     cm = condition.manifest
-    if (cm.get("dataset_id") != "survface" or cm.get("status") != "completed"
+    if (cm.get("dataset_id") != run["config"]["dataset_id"] or cm.get("status") != "completed"
             or cm.get("source_run_id") != run["run_id"]
             or cm.get("model_uid") != run["config"]["model_uid"]
             or cm.get("source_run_manifest_sha256") != sha256_file(root / "run_manifest.json")):
-        raise ValueError("02 input generation requires the exact completed SurvFace source")
+        raise ValueError("02 input generation requires the exact completed open-set source")
     for path, key in {
         workflow / "freeze_manifest.json": "source_freeze_manifest_sha256",
         workflow / "selected_manifest.csv": "selected_manifest_sha256",
@@ -116,7 +116,7 @@ def _source_context(run_dir, condition):
         if sha256_file(path) != cm[key]:
             raise ValueError(f"frozen source mismatch: {key}")
     freeze = _read_json(workflow / "freeze_manifest.json")
-    selected = pd.read_csv(workflow / "selected_manifest.csv")
+    selected = pd.read_csv(workflow / "selected_manifest.csv", low_memory=False)
     prepared = read_prepared_population_artifact(workflow / "prepared_population")
     for key in ("extraction_uid", "model_uid", "origin_embedding_artifact_uid"):
         if getattr(prepared, key) != cm[key]:
@@ -124,7 +124,7 @@ def _source_context(run_dir, condition):
     population = prepared_population_frame(prepared, selected)
     config = run["config"]["step4"]
     project = Path(__file__).resolve().parents[2]
-    dataset = config["datasets"]["survface"]
+    dataset = config["datasets"][cm["dataset_id"]]
     aligned_root = project / dataset["aligned_bundle_dir"]
     mask_root = project / dataset["landmark_region_bundle_dir"]
     for path, expected in (
@@ -148,11 +148,7 @@ def _source_context(run_dir, condition):
     index = selected.set_index("sample_id")
     splits = {}
     for split in ("calibration", "test"):
-        protocol = (build_survface_matched_calibration_protocol(
-            population, gallery_identity_count=int(config["evaluation"]["survface_calibration_gallery_identities"]),
-            seed=int(cm["calibration_seed"])) if split == "calibration" else
-            build_survface_official_protocol(population.loc[population.protocol_role.isin(
-                {"gallery", "registered_probe", "unknown_unknown_probe"})].copy()))
+        protocol = calibration_protocol(run, population, split, int(cm["calibration_seed"]))
         arrays = open_set_protocol_arrays(protocol, population)
         rows = getattr(condition, split)
         ids = pd.Index(arrays["query_ids"].astype(str))
@@ -330,7 +326,8 @@ def build_saliency_calibration_inputs(
                     occlusion_fraction=occlusion_fraction, random_repeats=random_repeats,
                     seed=seed, bootstrap_repeats=bootstrap_repeats, max_queries_per_split=max_queries_per_split,
                     reuse_test_saliency=reuse_test_saliency)
-    source_modules = [Path(__file__), Path(__file__).with_name("step2_compression.py"),
+    source_modules = [Path(__file__), Path(__file__).with_name("calibration_protocols.py"),
+                      Path(__file__).with_name("step2_compression.py"),
                       Path(__file__).parents[1]/"protocols/open_set.py",
                       Path(__file__).parents[1]/"explainability/gradcam/pair.py",
                       Path(__file__).parents[1]/"explainability/gradcam/features.py",

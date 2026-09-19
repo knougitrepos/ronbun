@@ -1,7 +1,6 @@
 """Continuous FIQA and retrieval-feature ablations on frozen score artifacts."""
 
 import json
-import os
 from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
@@ -23,6 +22,7 @@ from research.experiments.fiqa_priority_diagnostics import _reuse_completed_resu
 from research.experiments.fiqa_retrieval_features import join_retrieval_features
 from research.experiments.fiqa_split_stability import _frame_hash
 from research.runtime.hashing import canonical_sha256, sha256_file
+from research.explainability.gradcam.artifacts import _publish_atomic_directory
 
 CONTINUOUS_FEATURES = {
     "continuous_fiqa": ("fiqa_score",),
@@ -111,8 +111,8 @@ def run_continuous_calibration(
         raise ValueError("unique non-negative integer seeds required")
     if not targets or targets != tuple(sorted(set(targets))) or any(not 0 < t < 1 for t in targets):
         raise ValueError("unique increasing FPIR targets inside (0,1) required")
-    if condition.manifest.get("dataset_id") != "survface":
-        raise ValueError("identity CI semantics are currently audited for SurvFace only")
+    if condition.manifest.get("dataset_id") not in ("lfw", "rfw_custom", "survface"):
+        raise ValueError("requires LFW, RFW-Custom or SurvFace open-set scores")
     cal, test = join_fiqa_score_artifacts(condition, fiqa)
     _validate_comparison_contract(cal, test, condition_manifest=condition.manifest, fiqa_manifest=fiqa.manifest)
     if condition.manifest["score_space"] != "negative_squared_l2_adc":
@@ -207,6 +207,8 @@ def run_continuous_calibration(
              Path(__file__).parents[1]/"evaluation/cluster_bootstrap.py",
              Path(__file__).parents[1]/"evaluation/metrics.py"]
     manifest = {"artifact_type": "fiqa_continuous_calibration", "schema_version": 2,
+                "dataset_id": condition.manifest["dataset_id"],
+                "compression_profile": condition.manifest["compression_profile"],
                 "metric_contract": condition.manifest["metric_contract"],
                 "score_space": condition.manifest["score_space"],
                 "source_run_id": condition.manifest["source_run_id"],
@@ -246,5 +248,5 @@ def write_continuous_calibration(root, result):
         files[path.name] = sha256_file(path)
     manifest = {**result["manifest"], "status": "completed", "files": files}
     (staging/"manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False, allow_nan=False), encoding="utf8")
-    os.rename(staging, destination)
+    _publish_atomic_directory(staging, destination, overwrite=False)
     return destination

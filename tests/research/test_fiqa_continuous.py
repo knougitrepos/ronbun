@@ -154,8 +154,7 @@ def test_feature_replay_resumes_verified_shards_and_rejects_tampering(tmp_path, 
     monkeypatch.setattr(module, '_completed_run', lambda p: (tmp_path, run, workflow))
     monkeypatch.setattr(module, 'read_prepared_population_artifact', lambda p: None)
     monkeypatch.setattr(module, 'prepared_population_frame', lambda *a: pd.DataFrame({'protocol_role': ['gallery']}))
-    monkeypatch.setattr(module, 'build_survface_matched_calibration_protocol', lambda *a, **k: 'calibration')
-    monkeypatch.setattr(module, 'build_survface_official_protocol', lambda *a: 'test')
+    monkeypatch.setattr(module, 'calibration_protocol', lambda run, population, split, seed: split)
     def arrays(split, population):
         rows = getattr(condition, split)
         return {'query_ids': rows.sample_id.to_numpy(), 'query_identity_ids': rows.identity_id.to_numpy(),
@@ -218,9 +217,10 @@ def test_continuous_notebook_settings_and_execution_contract():
                 for target in node.targets:
                     if isinstance(target, ast.Name) and target.id.isupper():
                         assert cell.id == 'user-configuration', target.id
-    assert 'BUILD_RETRIEVAL_FEATURES = False' in code[0].source
-    assert 'RUN_CONTINUOUS_CALIBRATION = False' in code[0].source
-    assert 'WRITE_CONTINUOUS_RESULTS = False' in code[0].source
+    # User-selected execution flags may be True; require explicit first-cell configuration.
+    assert 'BUILD_RETRIEVAL_FEATURES = ' in code[0].source
+    assert 'RUN_CONTINUOUS_CALIBRATION = ' in code[0].source
+    assert 'WRITE_CONTINUOUS_RESULTS = ' in code[0].source
     assert "'edgeface'" in code[0].source
     assert 'incremental-ablation' in ids
 

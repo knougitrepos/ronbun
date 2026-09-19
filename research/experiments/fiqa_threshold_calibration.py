@@ -25,7 +25,7 @@ from research.calibration import (
     fit_global_threshold,
     paired_method_comparison,
 )
-from research.calibration.rejection import choose_non_mated_fpir_threshold
+from research.calibration.rejection import choose_non_mated_fpir_threshold, choose_threshold
 from research.calibration.conditional import (
     IDENTIFICATION_METRIC_CONTRACT,
     validate_identification_scores,
@@ -39,6 +39,7 @@ from research.experiments.step2_compression import (
     prepared_population_frame,
 )
 from research.protocols import build_survface_matched_calibration_protocol
+from research.experiments.calibration_protocols import OPEN_SET_DATASETS, calibration_protocol
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 
@@ -124,8 +125,8 @@ def _completed_run(run_dir: str | Path) -> tuple[Path, dict[str, Any], Path]:
     if manifest.get("status") != "completed":
         raise ValueError("run_manifest status is not completed")
     config = dict(manifest.get("config", {}))
-    if config.get("dataset_id") != "survface":
-        raise ValueError("the initial FIQA replay supports SurvFace completed runs")
+    if config.get("dataset_id") not in OPEN_SET_DATASETS:
+        raise ValueError("FIQA replay requires LFW, RFW-Custom or SurvFace completed runs")
     workflow = root / "artifacts" / "step2_workflow"
     if not workflow.is_dir():
         raise FileNotFoundError(f"Step-4 workflow artifact is missing: {workflow}")
@@ -386,22 +387,23 @@ def replay_survface_adc_condition_scores(
     compression_profile: str = "pq_512_m128_b8",
     search_mode: str = SURVFACE_ADC_SEARCH_MODE,
 ) -> ConditionScoreTables:
-    """Replay only SurvFace calibration ADC and reuse the persisted test core."""
+    """Replay frozen calibration ADC and reuse test; historical name retained."""
 
     if search_mode != SURVFACE_ADC_SEARCH_MODE:
         raise ValueError("the initial replay contract supports PQ ADC only")
     run_root, run_manifest, workflow = _completed_run(run_dir)
+    dataset_id = run_manifest["config"]["dataset_id"]
     step4 = dict(run_manifest["config"]["step4"])
     evaluation = dict(step4["evaluation"])
     selected_path = workflow / "selected_manifest.csv"
     prepared_dir = workflow / "prepared_population"
     freeze_path = workflow / "freeze_manifest.json"
-    selected = pd.read_csv(selected_path)
+    selected = pd.read_csv(selected_path, low_memory=False)
     prepared = read_prepared_population_artifact(prepared_dir)
     freeze = _read_json(freeze_path)
     expected_freeze = {
         "run_id": str(run_manifest["run_id"]),
-        "dataset_id": "survface",
+        "dataset_id": dataset_id,
         "model_uid": str(run_manifest["config"]["model_uid"]),
         "extraction_uid": str(prepared.extraction_uid),
     }
@@ -424,14 +426,14 @@ def replay_survface_adc_condition_scores(
         compression_profile=compression_profile,
     )
     seed = int(codec_manifest["fit_seed"])
-    calibration_protocol = build_survface_matched_calibration_protocol(
+    protocol = build_survface_matched_calibration_protocol(
         population,
         gallery_identity_count=int(
             evaluation["survface_calibration_gallery_identities"]
         ),
         seed=seed,
-    )
-    arrays = open_set_protocol_arrays(calibration_protocol, population)
+    ) if dataset_id == "survface" else calibration_protocol(run_manifest, population, "calibration", seed)
+    arrays = open_set_protocol_arrays(protocol, population)
     top_k = min(int(evaluation["top_k"]), len(arrays["gallery"]))
     gallery_codes = codec.encode(arrays["gallery"])
     distances, indices, _ = codec.search_adc_with_metrics(
@@ -452,13 +454,15 @@ def replay_survface_adc_condition_scores(
         "qmul-survface-v1-training-derived-"
         f"{int(evaluation['survface_calibration_gallery_identities'])}"
         "-watchlist-calibration-v2"
-    )
-    calibration_raw.insert(0, "dataset", "survface")
+    ) if dataset_id == "survface" else (
+        "lfw-identity-disjoint-open-set-v1" if dataset_id == "lfw"
+        else str(population.protocol_uid.iloc[0]))
+    calibration_raw.insert(0, "dataset", dataset_id)
     calibration_raw.insert(1, "model_uid", prepared.model_uid)
     calibration_raw["protocol_uid"] = protocol_uid
     calibration_raw["threshold_source_split"] = "calibration"
     calibration_raw["evaluation_split"] = "calibration"
-    calibration_raw["dataset_id"] = "survface"
+    calibration_raw["dataset_id"] = dataset_id
     calibration_raw["extraction_uid"] = prepared.extraction_uid
     calibration_raw["origin_embedding_artifact_uid"] = (
         prepared.origin_embedding_artifact_uid
@@ -509,7 +513,13 @@ def replay_survface_adc_condition_scores(
         if len(unique) != 1:
             raise ValueError("persisted decision artifact mixes thresholds")
         target = float(item["target_fpir"])
-        reproduced = float(
+        # Reproduce the historical LFW maximize-DIR rule only for this audit.
+        # New FIQA fitting continues to use calibration-fit non-mated rows.
+        reproduced = float(choose_threshold(
+            calibration["score"].to_numpy(dtype=np.float64),
+            calibration["is_mated"].to_numpy(dtype=bool),
+            calibration["rank1_correct"].to_numpy(dtype=bool), target,
+        )) if dataset_id == "lfw" else float(
             choose_non_mated_fpir_threshold(
                 calibration["score"].to_numpy(dtype=np.float64),
                 calibration["is_mated"].to_numpy(dtype=bool),
@@ -543,7 +553,7 @@ def replay_survface_adc_condition_scores(
         "aligned_bundle_manifest_sha256": str(
             freeze["aligned_bundle_manifest_sha256"]
         ),
-        "dataset_id": "survface",
+        "dataset_id": dataset_id,
         "model_uid": prepared.model_uid,
         "extraction_uid": prepared.extraction_uid,
         "origin_embedding_artifact_uid": prepared.origin_embedding_artifact_uid,
@@ -553,7 +563,9 @@ def replay_survface_adc_condition_scores(
         "score_space": ADC_SCORE_SPACE,
         "threshold_comparator": ">=",
         "protocol_uid": protocol_uid,
-        "calibration_protocol": "training_3000_half_gallery_v2",
+        "calibration_protocol": {"survface": "training_3000_half_gallery_v2",
+                                 "lfw": "lfw_identity_disjoint_calibration_v1",
+                                 "rfw_custom": "rfw_custom_gallery_group_matched_calibration_v2"}[dataset_id],
         "calibration_seed": seed,
         "top_k": top_k,
         "prepared_population_manifest_sha256": sha256_file(
@@ -579,6 +591,9 @@ def replay_survface_adc_condition_scores(
         test=test,
         manifest=manifest_base,
     )
+
+
+replay_open_set_adc_condition_scores = replay_survface_adc_condition_scores
 
 
 def join_fiqa_scores(
