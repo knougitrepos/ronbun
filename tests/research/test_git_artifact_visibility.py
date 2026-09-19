@@ -76,6 +76,32 @@ def test_compact_paper_results_remain_visible() -> None:
     )
 
 
+def test_calibration_matrix_archive_reports_and_lineage_visibility() -> None:
+    ignored = (
+        "results/calibration/matrix/jobs/job-id/receipt.json",
+        "results/calibration/matrix/jobs/job-id/result/models.csv",
+        "results/calibration/saliency_bindings/run-id/binding/saliency/saliency_features.csv",
+        "results/calibration/saliency_bindings/run-id/binding/faithfulness/faithfulness_rows.csv",
+        "results/calibration/saliency_bindings/run-id/.staging-id/manifest.json",
+        "results/calibration/matrix/analysis_archive/archive.tmp",
+    )
+    visible = (
+        "results/calibration/matrix/reports/report/manifest.json",
+        "results/calibration/matrix/reports/report/method_summary.csv",
+        "results/calibration/matrix/reports/report/paired_comparisons.csv",
+        "results/calibration/matrix/reports/report/split_summary.csv",
+        "results/calibration/matrix/analysis_archive/evidence.zip",
+        "results/calibration/matrix/analysis_archive/evidence.json",
+        "results/calibration/matrix/publish_recovery/recovery.json",
+        "results/calibration/matrix/ANALYSIS_GUIDE.md",
+        "results/calibration/saliency_bindings/run-id/binding/manifest.json",
+        "results/calibration/saliency_bindings/run-id/binding/saliency/manifest.json",
+        "results/calibration/saliency_bindings/run-id/binding/faithfulness/faithfulness_summary.csv",
+    )
+    assert all(_is_ignored(path) for path in ignored)
+    assert not any(_is_ignored(path) for path in visible)
+
+
 def test_calibration_raw_scores_remain_local_but_compact_results_are_visible() -> None:
     raw = (
         "results/calibration/fiqa_scores/survface/fiqa-id/fiqa_scores.csv",

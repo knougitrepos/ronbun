@@ -101,6 +101,17 @@ results/calibration/saliency_inputs/**/progress.json
 results/calibration/saliency_inputs/**/*.tmp
 results/calibration/saliency_inputs/**/saliency_features.csv
 results/calibration/saliency_inputs/**/faithfulness_rows.csv
+# PQ bindings copy the same origin features; manifests and diagnostic summaries
+# remain visible, while the large row-level copies stay local.
+results/calibration/saliency_bindings/**/saliency_features.csv
+results/calibration/saliency_bindings/**/faithfulness_rows.csv
+results/calibration/saliency_bindings/**/*.tmp
+results/calibration/**/.staging-*/
+# Expanded matrix jobs are local restart checkpoints. Completed report tables
+# remain visible, and analysis_archive retains SHA-verified job evidence in ZIPs.
+# Refresh the archive with scripts/package_calibration_analysis.py after a run.
+results/calibration/matrix/jobs/
+results/calibration/matrix/analysis_archive/*.tmp
 # Compact publication results are intentionally tracked.
 # Dataset-level faithfulness rows are reproducible local ledgers. Keep only the
 # compact summary and SHA-verified manifest Git-visible under results/paper.

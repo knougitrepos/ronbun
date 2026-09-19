@@ -1,0 +1,61 @@
+{
+  "artifact_type": "open_set_gradcam_faithfulness",
+  "schema_version": 2,
+  "status": "completed",
+  "dataset_id": "survface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "origin_embedding_artifact_uid": "origin-embedding-c70c8c1f2657fb794827862c",
+  "source_run_id": "20260902-R001-61915edf",
+  "saliency_spec_uid": "saliency-calibration-a9b8252b75742667b08f67d8",
+  "saliency_target_name": "origin_top1_gallery_cosine",
+  "evaluation_split": "calibration",
+  "condition_manifest_sha256": "6ae347192033520b4ae91ef2c2be697863a6027e599d145d6c2d7455460da64e",
+  "sampling": {
+    "method": "sha256_sample_id",
+    "seed": 8972,
+    "maximum_samples": 10000,
+    "selected_count": 10000,
+    "selected_identity_count": 2192,
+    "selected_sample_sha256": "f2e927ef128890799dc339bc59307f115f49cdfb4a0bd5a495ba39c02e42e37b",
+    "excluded_test_content": true
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "confidence_level": 0.95,
+    "bootstrap_repeats": 2000,
+    "seed": 8972
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "random_repeats": 5,
+    "seed": 8972
+  },
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 2333359,
+      "sha256": "f01ab234c4322854019215a868a6502b6b5465df9c33ad896f0d477e1d6c37e3"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 970,
+      "sha256": "bf00431117d01714537032f5a2df5f07b9454d572f30874590f6071e8b41d0dc"
+    }
+  ],
+  "resume_from": {
+    "directory": "C:\\ronbun\\results\\calibration\\saliency_inputs\\20260902-R001-61915edf\\saliency-inputs-492103c73c999bb998628401",
+    "journal": "progress.tmp",
+    "journal_sha256": "e39b3ee9a5edce229bbe7e2696190a3a3d7fe4b89850ab148b86b84a7664a056",
+    "spec_sha256": "492103c73c999bb998628401f88bb9e1f63214ab0de5bf18912538aa687af910"
+  },
+  "condition_binding": {
+    "artifact_type": "saliency_condition_binding",
+    "schema_version": 1,
+    "source_condition_sha256": "3db05bbfa14879e376add5fa84c6a65afc97b4adab73123e499bd65bda71f67d",
+    "target_condition_sha256": "6ae347192033520b4ae91ef2c2be697863a6027e599d145d6c2d7455460da64e",
+    "source_saliency_sha256": "9016a72b28485b87e6311730d581f1c02502a7412e26fa7ad16de20c294e7be1",
+    "source_faithfulness_sha256": "102c8366637a6c62c7c6e5b72dcbdc960bf02f29bfde8f35b06a7d80b707d78c",
+    "implementation_sha256": "fb35308217a4ae30f22ae166d54a2c07c719fab04d76b58cee5fd6dca1c2e08c",
+    "reason": "same_frozen_origin_gallery_queries_and_targets_different_pq_budget"
+  }
+}

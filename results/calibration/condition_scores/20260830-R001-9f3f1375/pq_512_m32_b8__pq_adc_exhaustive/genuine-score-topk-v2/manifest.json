@@ -1,0 +1,84 @@
+{
+  "schema_version": 2,
+  "metric_contract": "genuine-score-topk-v2",
+  "artifact_type": "compressed_calibration_test_score_tables",
+  "status": "completed",
+  "source_run_id": "20260830-R001-9f3f1375",
+  "source_run_manifest_sha256": "b46d2e9b17c35b0b9f58ffb40c7a6947761b82dde29735b8e4f458c9cd003864",
+  "source_freeze_manifest_sha256": "07bf8dfb671dbed423c4fe3008a3c50dac3e41d5d1816954b43be60ea0fa05f6",
+  "aligned_bundle_manifest_sha256": "c7ad44a3866d89117a157ebd330d27e511bf74e7e5fcdd8c91b8cfeb258cbf17",
+  "dataset_id": "rfw_custom",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "extraction_uid": "population-67d9072e1a940900ed1ee433",
+  "origin_embedding_artifact_uid": "origin-embedding-1d19953bb58acd27f7131f11",
+  "compression_family": "pq",
+  "compression_profile": "pq_512_m32_b8",
+  "search_mode": "pq_adc_exhaustive",
+  "score_space": "negative_squared_l2_adc",
+  "threshold_comparator": ">=",
+  "protocol_uid": "rfw-custom-identity-balanced-open-set-v1-60b0908dc11e16d8",
+  "calibration_protocol": "rfw_custom_gallery_group_matched_calibration_v2",
+  "calibration_seed": 8972,
+  "top_k": 20,
+  "prepared_population_manifest_sha256": "a0b56df185fcca78b864c5ca0dc0aacfe74fc8edcf9b9c1edea6a154cfc33ad5",
+  "selected_manifest_sha256": "5292ba16495454545388f6696bccd3ea69edb60d739005d12141082f98899165",
+  "frozen_codec": {
+    "profile_name": "pq_512_m32_b8",
+    "sha256": "89a55a208a3e518fe9d68413d3c0ebaf07316c43ea2fbeb83bc2f2b0f5d39b36",
+    "fit_count": 16202,
+    "fit_seed": 8972
+  },
+  "persisted_test_core_sha256": "1b3e0b4e16a0b6971865c3d0540b03d1504f889ec1a37651e8d6f9f38dcb186d",
+  "calibration_rows": 6855,
+  "test_rows": 15063,
+  "global_threshold_reproduction": [
+    {
+      "target_fpir": 0.01,
+      "persisted_threshold": -1.139549970626831,
+      "reproduced_threshold": -1.139549970626831,
+      "absolute_difference": 0.0,
+      "exact_match": true
+    },
+    {
+      "target_fpir": 0.05,
+      "persisted_threshold": -1.173488974571228,
+      "reproduced_threshold": -1.173488974571228,
+      "absolute_difference": 0.0,
+      "exact_match": true
+    },
+    {
+      "target_fpir": 0.1,
+      "persisted_threshold": -1.1888962984085083,
+      "reproduced_threshold": -1.1888962984085083,
+      "absolute_difference": 0.0,
+      "exact_match": true
+    },
+    {
+      "target_fpir": 0.2,
+      "persisted_threshold": -1.2073558568954468,
+      "reproduced_threshold": -1.2073558568954468,
+      "absolute_difference": 0.0,
+      "exact_match": true
+    },
+    {
+      "target_fpir": 0.3,
+      "persisted_threshold": -1.2182291746139526,
+      "reproduced_threshold": -1.2182291746139526,
+      "absolute_difference": 0.0,
+      "exact_match": true
+    }
+  ],
+  "condition_uid": "compressed-scores-5322cc3cd84e2f7fd45901f0",
+  "files": {
+    "calibration_scores.parquet": {
+      "sha256": "22a3425c486d98563672f6cb6ac16d91c59e86206531ab6e4c218cd65b02b068",
+      "bytes": 631652,
+      "row_count": 6855
+    },
+    "test_scores.parquet": {
+      "sha256": "1743af6458e79e1445e733d721aa7a60305c53c829d9fdf090d264bed8d68fe0",
+      "bytes": 1349488,
+      "row_count": 15063
+    }
+  }
+}

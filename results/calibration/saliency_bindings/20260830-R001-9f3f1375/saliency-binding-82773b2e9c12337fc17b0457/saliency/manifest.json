@@ -1,0 +1,74 @@
+{
+  "artifact_type": "saliency_calibration_features",
+  "schema_version": 1,
+  "status": "completed",
+  "dataset_id": "rfw_custom",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "origin_embedding_artifact_uid": "origin-embedding-1d19953bb58acd27f7131f11",
+  "extraction_uid": "population-67d9072e1a940900ed1ee433",
+  "condition_manifest_sha256": "b8c61fc6615f2054b814a4f64b03d6209ba7a839754649f90f6550bb2352912f",
+  "gallery_contract": "split_matched_origin_top1",
+  "target_name": "origin_top1_gallery_cosine",
+  "saliency_spec_uid": "saliency-calibration-c64007e6374b7573f77d7578",
+  "smoke_only": false,
+  "producer_spec": {
+    "artifact_type": "saliency_calibration_input_bundle",
+    "schema_version": 1,
+    "condition_manifest_sha256": "44c4c34387416f9c93d51cf88adae6667964686d8db93e1ebd18676bf06e648b",
+    "condition_frame_sha256": {
+      "calibration": "7ec3f45b5ecf1ec1e1fdaafcf960b2a28ac8abf13754889c673c9ac99bb7ffd7",
+      "test": "3fe1ffd2fc9610e98b8380d617bc87d7f5c57f028d032663345823d7418ad96b"
+    },
+    "settings": {
+      "gradcam_batch_size": 4,
+      "chunk_size": 128,
+      "faithfulness_batch_size": 32,
+      "faithfulness_maximum_samples": 10000,
+      "occlusion_fraction": 0.1,
+      "random_repeats": 5,
+      "seed": 8972,
+      "bootstrap_repeats": 2000,
+      "max_queries_per_split": null,
+      "reuse_test_saliency": false
+    },
+    "runtime": {
+      "torch": "2.7.1+cu118",
+      "cuda_runtime": "11.8",
+      "device": "cuda",
+      "device_name": "NVIDIA GeForce GTX 1080 Ti"
+    },
+    "source_test_saliency_manifest_sha256": null,
+    "generation_contract_sha256": "e415041e66ce57a77b8120465c09adfc7c1515369149518a2c0739a7e5920da2",
+    "selection_sha256": "9dd545a76624f6a2e916ef4fd599e8f59242e2a85a97fcaa69befea02a2fbeb1",
+    "implementation_sha256": {
+      "saliency_calibration_inputs.py": "8f2135c461308bbf014ec791da75d8c42d0e5f94f3a95b11892e81e13b37e119",
+      "calibration_protocols.py": "ad7aa02cd21fd5a9bf123e877900601ad1aa22412e416467a1ed11da7f987b00",
+      "step2_compression.py": "aa6bc6e7ee547651633d21e15a24cae59bec5f8df929bc00616809976d4fbda2",
+      "open_set.py": "92e3a698b2d6856c46c31a0f41880223475639c7a32d02431e93cd16bf631b3b",
+      "pair.py": "b1c30bca2bb9ca123a158a9b9b6a9df3c7ded47709db7be1be1f4fcfaa80dfdc",
+      "features.py": "0bbfedcf7e54f784ed3eb44effe538d2109f225c2cd11918ffbdb6898e0b0b84",
+      "extraction.py": "9ee85406a60c46c5da30e873e82d7af77e275ef8f8f7ba52f86d30e80c74d1d4",
+      "landmark_regions.py": "ffa835c5ca78bc39776350e0c6cdbdba23bfaa61c0ed1dbdb469eb15bb55ae05",
+      "metrics.py": "585c5289b6fb19974a58ae9e2c8f952234725237c5399aa7d021d6258edeb406",
+      "adapter.py": "e221e54709f3bbbfc9c554629b8c151dea01359bbd7f4ec72b82ac9d0a2b1b0d",
+      "official_loaders.py": "6ec6799d6f0ddbc07b1e73e6a721bd546731be313c099e144382f899164f381b",
+      "cluster_bootstrap.py": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "saliency_faithfulness.py": "f3b6c72f57297f13ae57686cf9a01c6056ee8e789f17e19f74f1cee3b0b61be7"
+    }
+  },
+  "saliency_features": {
+    "path": "saliency_features.csv",
+    "bytes": 4288613,
+    "sha256": "63e96f9e7864c809a66f0ab8cae57a5bcf33a337a2ddb73b864a1550764f468c"
+  },
+  "condition_binding": {
+    "artifact_type": "saliency_condition_binding",
+    "schema_version": 1,
+    "source_condition_sha256": "44c4c34387416f9c93d51cf88adae6667964686d8db93e1ebd18676bf06e648b",
+    "target_condition_sha256": "b8c61fc6615f2054b814a4f64b03d6209ba7a839754649f90f6550bb2352912f",
+    "source_saliency_sha256": "a80feb202e430d8f2479151d987b8430602b22d62c6b44ae4eb13c77620ef59b",
+    "source_faithfulness_sha256": "3c855a0339d0d27ce4e6d4b06c802805a6ddbe9717ae0fb58f8ae6cc48ebbca4",
+    "implementation_sha256": "fb35308217a4ae30f22ae166d54a2c07c719fab04d76b58cee5fd6dca1c2e08c",
+    "reason": "same_frozen_origin_gallery_queries_and_targets_different_pq_budget"
+  }
+}

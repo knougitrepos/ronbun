@@ -1,0 +1,13 @@
+{
+  "spec": {
+    "artifact_type": "saliency_condition_binding",
+    "schema_version": 1,
+    "source_condition_sha256": "fa00d979cb287f146c9939da34ecb518004f5dea40dc55e37b7a5ebbd8c0c29a",
+    "target_condition_sha256": "f35dd04cf0682d5de1c31db2ba72cdbf135701b250e9f1c78f0d15caae708f36",
+    "source_saliency_sha256": "4240d83a5f52416f319c3b395d2ddb82f805dd2a4fef9a4f4a7f8164d44cb80a",
+    "source_faithfulness_sha256": "da736a2360abc1e256dac0ce6e1014217c950fb2c42b3483fe9c2445d17557a6",
+    "implementation_sha256": "f7f14efe102fde1d7ed14f81fef3baf8675af7e178db821ba74977d3e9d1ca8c",
+    "reason": "same_frozen_origin_gallery_queries_and_targets_different_pq_budget"
+  },
+  "status": "completed"
+}

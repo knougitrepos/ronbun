@@ -1,0 +1,27 @@
+{
+  "artifact_type": "calibration_matrix_analysis_archive",
+  "schema_version": 1,
+  "status": "completed",
+  "archive": "matrix-evidence-7c6031beee4a3d56a3a2e163.zip",
+  "archive_sha256": "9fb945b6f5d7083d8516006c6e9e6cd501e4da649822200df519d92ed084e01d",
+  "archive_bytes": 25603710,
+  "spec_sha256": "7c6031beee4a3d56a3a2e1636fbfeb7c089fd3d1a82be2b2833305318b2e92f2",
+  "result_count": 1440,
+  "file_count": 12188,
+  "unpacked_bytes": 131492506,
+  "reports": [
+    {
+      "path": "reports/matrix-report-2e2ab02ddb1d039ef1084383/manifest.json",
+      "sha256": "746d86cc1b451c01c12847f29a0bffc8e5551de4c43fe2c74dd30d73d12a976e",
+      "expected_jobs": 72,
+      "observed_jobs": 72
+    },
+    {
+      "path": "reports/matrix-report-d690567c6f4f7e7ad44ef19e/manifest.json",
+      "sha256": "a59042d6f8d7611dd94137a35143f51bdc9d6e3e2db819ac435388f84fc92853",
+      "expected_jobs": 1440,
+      "observed_jobs": 1440
+    }
+  ],
+  "producer_script_sha256": "9b76f2143d8085b7b6ba1c3197d04473fcec05d4de886421c820b20b6fef11e7"
+}

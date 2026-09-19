@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "artifact_type": "fiqa_score_table",
+  "status": "completed",
+  "dataset_id": "lfw",
+  "model_family": "cr-fiqa",
+  "variant": "L",
+  "fiqa_model_uid": "cr-fiqa-l-5fca24736e4f8df5fbfc",
+  "checkpoint_sha256": "5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd",
+  "aligned_bundle_manifest_sha256": "e9df1fde8f4d0fd7de642336f42920788dcb238d992a4fc2eafbaa745df92421",
+  "aligned_faces_sha256": "bf1cd9516a5dc0aaac4f9154be94906fcc751cd5e5638df6ab1071b8072cdabf",
+  "aligned_index_sha256": "eb2a34d31124b36437b77500b4147227d04c3db670977ef7afa415acc14019b4",
+  "preprocessing": {
+    "input": "aligned_uint8_nhwc_rgb_112x112",
+    "tensor": "float32_nchw",
+    "normalization": "pixel/127.5-1.0",
+    "augmentation": "none",
+    "score_transform": "none_raw_quality_scalar",
+    "higher_is_better": true
+  },
+  "execution": {
+    "device": "cuda",
+    "batch_size": 64,
+    "shard_size": 8192,
+    "resumable_shards": true,
+    "work_job_uid": "fiqa-work-160b9b33da1967cb0aca077f"
+  },
+  "row_count": 13195,
+  "score_summary": {
+    "minimum": 0.986886739730835,
+    "median": 2.3247156143188477,
+    "maximum": 2.618107318878174,
+    "mean": 2.305053472518921
+  },
+  "fiqa_uid": "fiqa-scores-9b2570d1e7237e34c9562df4",
+  "files": {
+    "fiqa_scores.csv": {
+      "sha256": "927764747762e163e3c729043a9959094293c34c558eee7ccf98a312acd733e3",
+      "bytes": 1979335,
+      "row_count": 13195,
+      "columns": [
+        "sample_id",
+        "aligned_face_index",
+        "aligned_content_sha256",
+        "fiqa_score",
+        "fiqa_model_uid"
+      ]
+    }
+  }
+}

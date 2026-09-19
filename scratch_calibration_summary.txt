@@ -1,0 +1,430 @@
+====================================================================
+ARCFACE DETAILED EXTRACT
+====================================================================
+
+--- TARGET FPIR: 1% ---
+METHOD: global_empirical | Realized FPIR: 1.480% [1.414%, 1.550%] | TPIR20: 0.131% [0.055%, 0.221%] | Met: False
+METHOD: global_safe | Realized FPIR: 1.407% [1.342%, 1.475%] | TPIR20: 0.122% [0.052%, 0.205%] | Met: False
+METHOD: fiqa_s_2bin | Realized FPIR: 1.388% [1.324%, 1.456%] | TPIR20: 0.113% [0.045%, 0.194%] | Met: False
+METHOD: fiqa_l_2bin | Realized FPIR: 1.404% [1.339%, 1.471%] | TPIR20: 0.124% [0.055%, 0.209%] | Met: False
+METHOD: fiqa_s_5bin | Realized FPIR: 1.323% [1.260%, 1.388%] | TPIR20: 0.106% [0.045%, 0.178%] | Met: False
+METHOD: fiqa_l_5bin | Realized FPIR: 1.249% [1.189%, 1.313%] | TPIR20: 0.126% [0.071%, 0.198%] | Met: False
+  [Paired vs Global Safe]
+    fiqa_s_2bin - GS: Delta TPIR20 = -0.010%p [-0.022%p, +0.002%p] | Delta FPIR = -0.019%p [-0.048%p, +0.011%p]
+    fiqa_l_2bin - GS: Delta TPIR20 = +0.002%p [-0.007%p, +0.010%p] | Delta FPIR = -0.003%p [-0.029%p, +0.022%p]
+    fiqa_s_5bin - GS: Delta TPIR20 = -0.017%p [-0.033%p, -0.002%p] | Delta FPIR = -0.085%p [-0.117%p, -0.053%p]
+    fiqa_l_5bin - GS: Delta TPIR20 = +0.003%p [-0.031%p, +0.037%p] | Delta FPIR = -0.158%p [-0.202%p, -0.114%p]
+  [Paired 5-bin vs 2-bin]
+    fiqa_s_5bin - fiqa_s_2bin: Delta TPIR20 = -0.007%p [-0.022%p, +0.005%p] | Delta FPIR = -0.066%p [-0.098%p, -0.037%p]
+    fiqa_l_5bin - fiqa_l_2bin: Delta TPIR20 = +0.002%p [-0.035%p, +0.036%p] | Delta FPIR = -0.154%p [-0.198%p, -0.111%p]
+  [Paired FIQA-L vs FIQA-S]
+    fiqa_l_2bin - fiqa_s_2bin: Delta TPIR20 = +0.012%p [-0.002%p, +0.025%p] | Delta FPIR = +0.016%p [-0.013%p, +0.044%p]
+    fiqa_l_5bin - fiqa_s_5bin: Delta TPIR20 = +0.020%p [-0.008%p, +0.048%p] | Delta FPIR = -0.073%p [-0.117%p, -0.028%p]
+
+--- TARGET FPIR: 5% ---
+METHOD: global_empirical | Realized FPIR: 5.315% [5.190%, 5.442%] | TPIR20: 0.697% [0.426%, 1.043%] | Met: False
+METHOD: global_safe | Realized FPIR: 5.269% [5.145%, 5.396%] | TPIR20: 0.697% [0.426%, 1.043%] | Met: False
+METHOD: fiqa_s_2bin | Realized FPIR: 5.231% [5.107%, 5.357%] | TPIR20: 0.670% [0.400%, 1.015%] | Met: False
+METHOD: fiqa_l_2bin | Realized FPIR: 5.186% [5.063%, 5.312%] | TPIR20: 0.695% [0.422%, 1.049%] | Met: False
+METHOD: fiqa_s_5bin | Realized FPIR: 5.168% [5.045%, 5.294%] | TPIR20: 0.659% [0.396%, 0.986%] | Met: False
+METHOD: fiqa_l_5bin | Realized FPIR: 5.334% [5.210%, 5.462%] | TPIR20: 0.740% [0.506%, 1.026%] | Met: False
+  [Paired vs Global Safe]
+    fiqa_s_2bin - GS: Delta TPIR20 = -0.026%p [-0.060%p, +0.007%p] | Delta FPIR = -0.038%p [-0.100%p, +0.025%p]
+    fiqa_l_2bin - GS: Delta TPIR20 = -0.002%p [-0.019%p, +0.015%p] | Delta FPIR = -0.083%p [-0.113%p, -0.054%p]
+    fiqa_s_5bin - GS: Delta TPIR20 = -0.038%p [-0.095%p, +0.016%p] | Delta FPIR = -0.101%p [-0.169%p, -0.036%p]
+    fiqa_l_5bin - GS: Delta TPIR20 = +0.043%p [-0.052%p, +0.133%p] | Delta FPIR = +0.066%p [-0.024%p, +0.151%p]
+  [Paired 5-bin vs 2-bin]
+    fiqa_s_5bin - fiqa_s_2bin: Delta TPIR20 = -0.012%p [-0.053%p, +0.027%p] | Delta FPIR = -0.063%p [-0.120%p, -0.006%p]
+    fiqa_l_5bin - fiqa_l_2bin: Delta TPIR20 = +0.045%p [-0.048%p, +0.136%p] | Delta FPIR = +0.149%p [+0.062%p, +0.237%p]
+  [Paired FIQA-L vs FIQA-S]
+    fiqa_l_2bin - fiqa_s_2bin: Delta TPIR20 = +0.025%p [-0.010%p, +0.061%p] | Delta FPIR = -0.045%p [-0.108%p, +0.017%p]
+    fiqa_l_5bin - fiqa_s_5bin: Delta TPIR20 = +0.081%p [-0.007%p, +0.171%p] | Delta FPIR = +0.167%p [+0.075%p, +0.257%p]
+
+--- TARGET FPIR: 10% ---
+METHOD: global_empirical | Realized FPIR: 9.573% [9.409%, 9.740%] | TPIR20: 1.278% [0.823%, 1.868%] | Met: True
+METHOD: global_safe | Realized FPIR: 9.538% [9.374%, 9.704%] | TPIR20: 1.274% [0.820%, 1.865%] | Met: True
+METHOD: fiqa_s_2bin | Realized FPIR: 9.417% [9.254%, 9.582%] | TPIR20: 1.251% [0.811%, 1.818%] | Met: True
+METHOD: fiqa_l_2bin | Realized FPIR: 9.369% [9.207%, 9.534%] | TPIR20: 1.304% [0.844%, 1.891%] | Met: True
+METHOD: fiqa_s_5bin | Realized FPIR: 9.421% [9.258%, 9.587%] | TPIR20: 1.271% [0.833%, 1.827%] | Met: True
+METHOD: fiqa_l_5bin | Realized FPIR: 9.824% [9.658%, 9.992%] | TPIR20: 1.364% [0.956%, 1.856%] | Met: True
+  [Paired vs Global Safe]
+    fiqa_s_2bin - GS: Delta TPIR20 = -0.023%p [-0.086%p, +0.034%p] | Delta FPIR = -0.121%p [-0.201%p, -0.037%p]
+    fiqa_l_2bin - GS: Delta TPIR20 = +0.030%p [-0.012%p, +0.071%p] | Delta FPIR = -0.168%p [-0.237%p, -0.103%p]
+    fiqa_s_5bin - GS: Delta TPIR20 = -0.003%p [-0.088%p, +0.082%p] | Delta FPIR = -0.117%p [-0.209%p, -0.029%p]
+    fiqa_l_5bin - GS: Delta TPIR20 = +0.089%p [-0.056%p, +0.226%p] | Delta FPIR = +0.286%p [+0.175%p, +0.403%p]
+  [Paired 5-bin vs 2-bin]
+    fiqa_s_5bin - fiqa_s_2bin: Delta TPIR20 = +0.020%p [-0.040%p, +0.088%p] | Delta FPIR = +0.004%p [-0.075%p, +0.078%p]
+    fiqa_l_5bin - fiqa_l_2bin: Delta TPIR20 = +0.060%p [-0.080%p, +0.198%p] | Delta FPIR = +0.454%p [+0.338%p, +0.574%p]
+  [Paired FIQA-L vs FIQA-S]
+    fiqa_l_2bin - fiqa_s_2bin: Delta TPIR20 = +0.053%p [-0.015%p, +0.129%p] | Delta FPIR = -0.048%p [-0.131%p, +0.034%p]
+    fiqa_l_5bin - fiqa_s_5bin: Delta TPIR20 = +0.093%p [-0.026%p, +0.205%p] | Delta FPIR = +0.403%p [+0.283%p, +0.523%p]
+
+--- TARGET FPIR: 20% ---
+METHOD: global_empirical | Realized FPIR: 18.129% [17.913%, 18.346%] | TPIR20: 2.435% [1.724%, 3.308%] | Met: True
+METHOD: global_safe | Realized FPIR: 17.990% [17.775%, 18.207%] | TPIR20: 2.421% [1.716%, 3.293%] | Met: True
+METHOD: fiqa_s_2bin | Realized FPIR: 18.134% [17.918%, 18.351%] | TPIR20: 2.387% [1.709%, 3.205%] | Met: True
+METHOD: fiqa_l_2bin | Realized FPIR: 18.011% [17.796%, 18.228%] | TPIR20: 2.522% [1.815%, 3.364%] | Met: True
+METHOD: fiqa_s_5bin | Realized FPIR: 18.115% [17.900%, 18.333%] | TPIR20: 2.466% [1.779%, 3.266%] | Met: True
+METHOD: fiqa_l_5bin | Realized FPIR: 18.459% [18.242%, 18.678%] | TPIR20: 2.590% [1.956%, 3.333%] | Met: True
+  [Paired vs Global Safe]
+    fiqa_s_2bin - GS: Delta TPIR20 = -0.035%p [-0.133%p, +0.058%p] | Delta FPIR = +0.144%p [+0.030%p, +0.264%p]
+    fiqa_l_2bin - GS: Delta TPIR20 = +0.101%p [+0.007%p, +0.192%p] | Delta FPIR = +0.021%p [-0.094%p, +0.145%p]
+    fiqa_s_5bin - GS: Delta TPIR20 = +0.045%p [-0.086%p, +0.184%p] | Delta FPIR = +0.126%p [+0.005%p, +0.247%p]
+    fiqa_l_5bin - GS: Delta TPIR20 = +0.169%p [-0.017%p, +0.339%p] | Delta FPIR = +0.469%p [+0.320%p, +0.624%p]
+  [Paired 5-bin vs 2-bin]
+    fiqa_s_5bin - fiqa_s_2bin: Delta TPIR20 = +0.079%p [+0.008%p, +0.166%p] | Delta FPIR = -0.018%p [-0.117%p, +0.090%p]
+    fiqa_l_5bin - fiqa_l_2bin: Delta TPIR20 = +0.068%p [-0.092%p, +0.224%p] | Delta FPIR = +0.448%p [+0.282%p, +0.609%p]
+  [Paired FIQA-L vs FIQA-S]
+    fiqa_l_2bin - fiqa_s_2bin: Delta TPIR20 = +0.136%p [+0.032%p, +0.243%p] | Delta FPIR = -0.122%p [-0.232%p, -0.004%p]
+    fiqa_l_5bin - fiqa_s_5bin: Delta TPIR20 = +0.124%p [-0.044%p, +0.290%p] | Delta FPIR = +0.343%p [+0.182%p, +0.516%p]
+
+--- TARGET FPIR: 30% ---
+METHOD: global_empirical | Realized FPIR: 27.145% [26.896%, 27.395%] | TPIR20: 3.576% [2.729%, 4.589%] | Met: True
+METHOD: global_safe | Realized FPIR: 26.824% [26.575%, 27.073%] | TPIR20: 3.542% [2.702%, 4.559%] | Met: True
+METHOD: fiqa_s_2bin | Realized FPIR: 26.828% [26.580%, 27.077%] | TPIR20: 3.562% [2.743%, 4.550%] | Met: True
+METHOD: fiqa_l_2bin | Realized FPIR: 27.007% [26.758%, 27.257%] | TPIR20: 3.806% [2.948%, 4.836%] | Met: True
+METHOD: fiqa_s_5bin | Realized FPIR: 27.008% [26.760%, 27.259%] | TPIR20: 3.590% [2.769%, 4.572%] | Met: True
+METHOD: fiqa_l_5bin | Realized FPIR: 27.560% [27.309%, 27.811%] | TPIR20: 3.891% [3.115%, 4.804%] | Met: True
+  [Paired vs Global Safe]
+    fiqa_s_2bin - GS: Delta TPIR20 = +0.020%p [-0.094%p, +0.132%p] | Delta FPIR = +0.004%p [-0.138%p, +0.147%p]
+    fiqa_l_2bin - GS: Delta TPIR20 = +0.265%p [+0.150%p, +0.392%p] | Delta FPIR = +0.183%p [+0.031%p, +0.341%p]
+    fiqa_s_5bin - GS: Delta TPIR20 = +0.048%p [-0.102%p, +0.204%p] | Delta FPIR = +0.185%p [+0.040%p, +0.337%p]
+    fiqa_l_5bin - GS: Delta TPIR20 = +0.349%p [+0.143%p, +0.546%p] | Delta FPIR = +0.736%p [+0.557%p, +0.923%p]
+  [Paired 5-bin vs 2-bin]
+    fiqa_s_5bin - fiqa_s_2bin: Delta TPIR20 = +0.028%p [-0.061%p, +0.120%p] | Delta FPIR = +0.181%p [+0.058%p, +0.311%p]
+    fiqa_l_5bin - fiqa_l_2bin: Delta TPIR20 = +0.084%p [-0.114%p, +0.265%p] | Delta FPIR = +0.553%p [+0.370%p, +0.741%p]
+  [Paired FIQA-L vs FIQA-S]
+    fiqa_l_2bin - fiqa_s_2bin: Delta TPIR20 = +0.245%p [+0.110%p, +0.392%p] | Delta FPIR = +0.179%p [+0.028%p, +0.337%p]
+    fiqa_l_5bin - fiqa_s_5bin: Delta TPIR20 = +0.301%p [+0.103%p, +0.492%p] | Delta FPIR = +0.551%p [+0.356%p, +0.745%p]
+
+====================================================================
+ARCFACE STABILITY SUMMARY (20 SPLITS)
+====================================================================
+
+--- TARGET FPIR: 1% ---
+METHOD: fiqa_l_2bin      | Met: 0/20 (0.0%) | FPIR [min, med, max]: [1.170%, 1.404%, 1.456%] | TPIR20 [min, med, max]: [0.093%, 0.125%, 0.129%]
+METHOD: fiqa_l_5bin      | Met: 0/20 (0.0%) | FPIR [min, med, max]: [1.087%, 1.267%, 1.322%] | TPIR20 [min, med, max]: [0.096%, 0.129%, 0.146%]
+METHOD: fiqa_s_2bin      | Met: 0/20 (0.0%) | FPIR [min, med, max]: [1.098%, 1.383%, 1.452%] | TPIR20 [min, med, max]: [0.093%, 0.115%, 0.122%]
+METHOD: fiqa_s_5bin      | Met: 0/20 (0.0%) | FPIR [min, med, max]: [1.116%, 1.348%, 1.424%] | TPIR20 [min, med, max]: [0.088%, 0.108%, 0.118%]
+METHOD: global_empirical | Met: 0/20 (0.0%) | FPIR [min, med, max]: [1.480%, 1.480%, 1.480%] | TPIR20 [min, med, max]: [0.131%, 0.131%, 0.131%]
+METHOD: global_safe      | Met: 0/20 (0.0%) | FPIR [min, med, max]: [1.126%, 1.393%, 1.468%] | TPIR20 [min, med, max]: [0.088%, 0.116%, 0.127%]
+
+--- TARGET FPIR: 5% ---
+METHOD: fiqa_l_2bin      | Met: 5/20 (25.0%) | FPIR [min, med, max]: [4.533%, 5.111%, 5.250%] | TPIR20 [min, med, max]: [0.591%, 0.679%, 0.712%]
+METHOD: fiqa_l_5bin      | Met: 3/20 (15.0%) | FPIR [min, med, max]: [4.759%, 5.259%, 5.366%] | TPIR20 [min, med, max]: [0.636%, 0.727%, 0.746%]
+METHOD: fiqa_s_2bin      | Met: 4/20 (20.0%) | FPIR [min, med, max]: [4.623%, 5.182%, 5.325%] | TPIR20 [min, med, max]: [0.581%, 0.663%, 0.684%]
+METHOD: fiqa_s_5bin      | Met: 4/20 (20.0%) | FPIR [min, med, max]: [4.669%, 5.187%, 5.336%] | TPIR20 [min, med, max]: [0.602%, 0.669%, 0.692%]
+METHOD: global_empirical | Met: 0/20 (0.0%) | FPIR [min, med, max]: [5.315%, 5.315%, 5.315%] | TPIR20 [min, med, max]: [0.697%, 0.697%, 0.697%]
+METHOD: global_safe      | Met: 4/20 (20.0%) | FPIR [min, med, max]: [4.537%, 5.193%, 5.306%] | TPIR20 [min, med, max]: [0.584%, 0.690%, 0.697%]
+
+--- TARGET FPIR: 10% ---
+METHOD: fiqa_l_2bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [8.512%, 9.235%, 9.435%] | TPIR20 [min, med, max]: [1.155%, 1.291%, 1.334%]
+METHOD: fiqa_l_5bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [9.098%, 9.629%, 9.857%] | TPIR20 [min, med, max]: [1.243%, 1.343%, 1.377%]
+METHOD: fiqa_s_2bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [8.652%, 9.376%, 9.558%] | TPIR20 [min, med, max]: [1.150%, 1.247%, 1.283%]
+METHOD: fiqa_s_5bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [8.508%, 9.351%, 9.526%] | TPIR20 [min, med, max]: [1.145%, 1.259%, 1.289%]
+METHOD: global_empirical | Met: 20/20 (100.0%) | FPIR [min, med, max]: [9.573%, 9.573%, 9.573%] | TPIR20 [min, med, max]: [1.278%, 1.278%, 1.278%]
+METHOD: global_safe      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [8.569%, 9.419%, 9.572%] | TPIR20 [min, med, max]: [1.144%, 1.257%, 1.278%]
+
+--- TARGET FPIR: 20% ---
+METHOD: fiqa_l_2bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [16.669%, 17.808%, 18.144%] | TPIR20 [min, med, max]: [2.343%, 2.502%, 2.544%]
+METHOD: fiqa_l_5bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [17.556%, 18.299%, 18.599%] | TPIR20 [min, med, max]: [2.444%, 2.564%, 2.640%]
+METHOD: fiqa_s_2bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [16.602%, 17.937%, 18.220%] | TPIR20 [min, med, max]: [2.211%, 2.359%, 2.393%]
+METHOD: fiqa_s_5bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [16.670%, 17.878%, 18.115%] | TPIR20 [min, med, max]: [2.267%, 2.432%, 2.466%]
+METHOD: global_empirical | Met: 20/20 (100.0%) | FPIR [min, med, max]: [18.129%, 18.129%, 18.129%] | TPIR20 [min, med, max]: [2.435%, 2.435%, 2.435%]
+METHOD: global_safe      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [16.626%, 17.792%, 18.051%] | TPIR20 [min, med, max]: [2.236%, 2.400%, 2.426%]
+
+--- TARGET FPIR: 30% ---
+METHOD: fiqa_l_2bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [25.413%, 26.663%, 27.079%] | TPIR20 [min, med, max]: [3.555%, 3.738%, 3.810%]
+METHOD: fiqa_l_5bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [26.718%, 27.517%, 27.909%] | TPIR20 [min, med, max]: [3.787%, 3.886%, 3.936%]
+METHOD: fiqa_s_2bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [24.991%, 26.720%, 27.055%] | TPIR20 [min, med, max]: [3.264%, 3.544%, 3.600%]
+METHOD: fiqa_s_5bin      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [25.173%, 26.823%, 27.056%] | TPIR20 [min, med, max]: [3.368%, 3.572%, 3.608%]
+METHOD: global_empirical | Met: 20/20 (100.0%) | FPIR [min, med, max]: [27.145%, 27.145%, 27.145%] | TPIR20 [min, med, max]: [3.576%, 3.576%, 3.576%]
+METHOD: global_safe      | Met: 20/20 (100.0%) | FPIR [min, med, max]: [25.001%, 26.636%, 27.091%] | TPIR20 [min, med, max]: [3.335%, 3.521%, 3.570%]
+
+====================================================================
+ARCFACE PAIRED STABILITY DIRECTION (20 SPLITS)
+====================================================================
+
+--- TARGET FPIR: 1% ---
+fiqa_l_5bin vs fiqa_l_2bin | fpir           | Pos: 0/20, Neg: 20/20 | Delta [min, med, max]: [-0.209%p, -0.116%p, -0.054%p] | CI+:0, CI-:20
+fiqa_l_5bin vs fiqa_l_2bin | tpir_at_rank_k | Pos: 16/20, Neg: 4/20 | Delta [min, med, max]: [-0.007%p, +0.009%p, +0.022%p] | CI+:0, CI-:0
+fiqa_l_2bin vs fiqa_s_2bin | fpir           | Pos: 15/20, Neg: 4/20 | Delta [min, med, max]: [-0.018%p, +0.016%p, +0.071%p] | CI+:8, CI-:0
+fiqa_l_2bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 18/20, Neg: 1/20 | Delta [min, med, max]: [-0.007%p, +0.008%p, +0.015%p] | CI+:0, CI-:0
+fiqa_s_5bin vs fiqa_s_2bin | fpir           | Pos: 4/20, Neg: 16/20 | Delta [min, med, max]: [-0.066%p, -0.023%p, +0.017%p] | CI+:0, CI-:7
+fiqa_s_5bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 0/20, Neg: 18/20 | Delta [min, med, max]: [-0.013%p, -0.007%p, +0.000%p] | CI+:0, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | fpir           | Pos: 0/20, Neg: 20/20 | Delta [min, med, max]: [-0.162%p, -0.077%p, -0.004%p] | CI+:0, CI-:14
+fiqa_l_5bin vs fiqa_s_5bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.007%p, +0.022%p, +0.038%p] | CI+:3, CI-:0
+fiqa_l_2bin vs global_safe | fpir           | Pos: 13/20, Neg: 7/20 | Delta [min, med, max]: [-0.080%p, +0.009%p, +0.044%p] | CI+:5, CI-:3
+fiqa_l_2bin vs global_safe | tpir_at_rank_k | Pos: 17/20, Neg: 1/20 | Delta [min, med, max]: [-0.010%p, +0.007%p, +0.013%p] | CI+:1, CI-:0
+fiqa_l_5bin vs global_safe | fpir           | Pos: 0/20, Neg: 20/20 | Delta [min, med, max]: [-0.209%p, -0.112%p, -0.039%p] | CI+:0, CI-:19
+fiqa_l_5bin vs global_safe | tpir_at_rank_k | Pos: 17/20, Neg: 1/20 | Delta [min, med, max]: [-0.007%p, +0.014%p, +0.030%p] | CI+:1, CI-:0
+
+--- TARGET FPIR: 5% ---
+fiqa_l_5bin vs fiqa_l_2bin | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.032%p, +0.135%p, +0.343%p] | CI+:14, CI-:0
+fiqa_l_5bin vs fiqa_l_2bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.025%p, +0.042%p, +0.081%p] | CI+:0, CI-:0
+fiqa_l_2bin vs fiqa_s_2bin | fpir           | Pos: 2/20, Neg: 18/20 | Delta [min, med, max]: [-0.212%p, -0.074%p, +0.043%p] | CI+:0, CI-:11
+fiqa_l_2bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 16/20, Neg: 2/20 | Delta [min, med, max]: [-0.002%p, +0.015%p, +0.033%p] | CI+:0, CI-:0
+fiqa_s_5bin vs fiqa_s_2bin | fpir           | Pos: 11/20, Neg: 9/20 | Delta [min, med, max]: [-0.094%p, +0.015%p, +0.085%p] | CI+:3, CI-:3
+fiqa_s_5bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 17/20, Neg: 3/20 | Delta [min, med, max]: [-0.017%p, +0.007%p, +0.022%p] | CI+:0, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | fpir           | Pos: 14/20, Neg: 6/20 | Delta [min, med, max]: [-0.139%p, +0.075%p, +0.205%p] | CI+:8, CI-:2
+fiqa_l_5bin vs fiqa_s_5bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.022%p, +0.051%p, +0.081%p] | CI+:0, CI-:0
+fiqa_l_2bin vs global_safe | fpir           | Pos: 2/20, Neg: 18/20 | Delta [min, med, max]: [-0.204%p, -0.042%p, +0.016%p] | CI+:0, CI-:12
+fiqa_l_2bin vs global_safe | tpir_at_rank_k | Pos: 7/20, Neg: 12/20 | Delta [min, med, max]: [-0.025%p, -0.005%p, +0.015%p] | CI+:0, CI-:1
+fiqa_l_5bin vs global_safe | fpir           | Pos: 16/20, Neg: 4/20 | Delta [min, med, max]: [-0.172%p, +0.073%p, +0.359%p] | CI+:8, CI-:2
+fiqa_l_5bin vs global_safe | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.007%p, +0.041%p, +0.083%p] | CI+:0, CI-:0
+
+--- TARGET FPIR: 10% ---
+fiqa_l_5bin vs fiqa_l_2bin | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.182%p, +0.427%p, +0.670%p] | CI+:20, CI-:0
+fiqa_l_5bin vs fiqa_l_2bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.013%p, +0.059%p, +0.106%p] | CI+:0, CI-:0
+fiqa_l_2bin vs fiqa_s_2bin | fpir           | Pos: 1/20, Neg: 19/20 | Delta [min, med, max]: [-0.339%p, -0.126%p, +0.076%p] | CI+:0, CI-:15
+fiqa_l_2bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 18/20, Neg: 1/20 | Delta [min, med, max]: [-0.002%p, +0.043%p, +0.088%p] | CI+:2, CI-:0
+fiqa_s_5bin vs fiqa_s_2bin | fpir           | Pos: 5/20, Neg: 13/20 | Delta [min, med, max]: [-0.158%p, -0.018%p, +0.091%p] | CI+:1, CI-:6
+fiqa_s_5bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 15/20, Neg: 4/20 | Delta [min, med, max]: [-0.013%p, +0.012%p, +0.041%p] | CI+:0, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.058%p, +0.317%p, +0.655%p] | CI+:18, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.050%p, +0.087%p, +0.121%p] | CI+:1, CI-:0
+fiqa_l_2bin vs global_safe | fpir           | Pos: 3/20, Neg: 17/20 | Delta [min, med, max]: [-0.317%p, -0.099%p, +0.063%p] | CI+:1, CI-:14
+fiqa_l_2bin vs global_safe | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.012%p, +0.038%p, +0.076%p] | CI+:10, CI-:0
+fiqa_l_5bin vs global_safe | fpir           | Pos: 19/20, Neg: 1/20 | Delta [min, med, max]: [-0.052%p, +0.294%p, +0.728%p] | CI+:18, CI-:0
+fiqa_l_5bin vs global_safe | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.053%p, +0.096%p, +0.152%p] | CI+:1, CI-:0
+
+--- TARGET FPIR: 20% ---
+fiqa_l_5bin vs fiqa_l_2bin | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.234%p, +0.513%p, +0.991%p] | CI+:20, CI-:0
+fiqa_l_5bin vs fiqa_l_2bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.028%p, +0.071%p, +0.159%p] | CI+:1, CI-:0
+fiqa_l_2bin vs fiqa_s_2bin | fpir           | Pos: 6/20, Neg: 14/20 | Delta [min, med, max]: [-0.340%p, -0.090%p, +0.255%p] | CI+:2, CI-:10
+fiqa_l_2bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.101%p, +0.144%p, +0.172%p] | CI+:20, CI-:0
+fiqa_s_5bin vs fiqa_s_2bin | fpir           | Pos: 6/20, Neg: 14/20 | Delta [min, med, max]: [-0.186%p, -0.048%p, +0.215%p] | CI+:2, CI-:5
+fiqa_s_5bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.048%p, +0.072%p, +0.116%p] | CI+:12, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.116%p, +0.515%p, +0.886%p] | CI+:18, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.081%p, +0.146%p, +0.197%p] | CI+:4, CI-:0
+fiqa_l_2bin vs global_safe | fpir           | Pos: 13/20, Neg: 7/20 | Delta [min, med, max]: [-0.197%p, +0.049%p, +0.231%p] | CI+:5, CI-:4
+fiqa_l_2bin vs global_safe | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.071%p, +0.106%p, +0.149%p] | CI+:16, CI-:0
+fiqa_l_5bin vs global_safe | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.196%p, +0.549%p, +1.054%p] | CI+:20, CI-:0
+fiqa_l_5bin vs global_safe | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.114%p, +0.179%p, +0.240%p] | CI+:8, CI-:0
+
+--- TARGET FPIR: 30% ---
+fiqa_l_5bin vs fiqa_l_2bin | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.361%p, +0.876%p, +1.421%p] | CI+:20, CI-:0
+fiqa_l_5bin vs fiqa_l_2bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.060%p, +0.153%p, +0.232%p] | CI+:5, CI-:0
+fiqa_l_2bin vs fiqa_s_2bin | fpir           | Pos: 11/20, Neg: 9/20 | Delta [min, med, max]: [-0.611%p, +0.019%p, +0.422%p] | CI+:3, CI-:4
+fiqa_l_2bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.136%p, +0.206%p, +0.291%p] | CI+:19, CI-:0
+fiqa_s_5bin vs fiqa_s_2bin | fpir           | Pos: 15/20, Neg: 5/20 | Delta [min, med, max]: [-0.117%p, +0.118%p, +0.354%p] | CI+:9, CI-:0
+fiqa_s_5bin vs fiqa_s_2bin | tpir_at_rank_k | Pos: 16/20, Neg: 4/20 | Delta [min, med, max]: [-0.010%p, +0.025%p, +0.104%p] | CI+:2, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.260%p, +0.792%p, +1.544%p] | CI+:20, CI-:0
+fiqa_l_5bin vs fiqa_s_5bin | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.260%p, +0.322%p, +0.419%p] | CI+:20, CI-:0
+fiqa_l_2bin vs global_safe | fpir           | Pos: 14/20, Neg: 6/20 | Delta [min, med, max]: [-0.492%p, +0.120%p, +0.412%p] | CI+:9, CI-:2
+fiqa_l_2bin vs global_safe | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.165%p, +0.222%p, +0.265%p] | CI+:20, CI-:0
+fiqa_l_5bin vs global_safe | fpir           | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.262%p, +0.882%p, +1.717%p] | CI+:20, CI-:0
+fiqa_l_5bin vs global_safe | tpir_at_rank_k | Pos: 20/20, Neg: 0/20 | Delta [min, med, max]: [+0.306%p, +0.370%p, +0.452%p] | CI+:20, CI-:0
+
+====================================================================
+CROSS-MODEL COMPARISON (Target FPIR = 1% and 10%)
+====================================================================
+
+*** ARCFACE ***
+  Target FPIR 1% (seed 8972):
+    global_empirical | FPIR: 1.480% | TPIR20: 0.131% | Met: False
+    global_safe      | FPIR: 1.407% | TPIR20: 0.122% | Met: False
+    fiqa_s_2bin      | FPIR: 1.388% | TPIR20: 0.113% | Met: False
+    fiqa_l_2bin      | FPIR: 1.404% | TPIR20: 0.124% | Met: False
+    fiqa_s_5bin      | FPIR: 1.323% | TPIR20: 0.106% | Met: False
+    fiqa_l_5bin      | FPIR: 1.249% | TPIR20: 0.126% | Met: False
+  Target FPIR 1% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 0/20 | FPIR med: 1.404%
+    fiqa_l_5bin      | Met: 0/20 | FPIR med: 1.267%
+    fiqa_s_2bin      | Met: 0/20 | FPIR med: 1.383%
+    fiqa_s_5bin      | Met: 0/20 | FPIR med: 1.348%
+    global_empirical | Met: 0/20 | FPIR med: 1.480%
+    global_safe      | Met: 0/20 | FPIR med: 1.393%
+  Target FPIR 10% (seed 8972):
+    global_empirical | FPIR: 9.573% | TPIR20: 1.278% | Met: True
+    global_safe      | FPIR: 9.538% | TPIR20: 1.274% | Met: True
+    fiqa_s_2bin      | FPIR: 9.417% | TPIR20: 1.251% | Met: True
+    fiqa_l_2bin      | FPIR: 9.369% | TPIR20: 1.304% | Met: True
+    fiqa_s_5bin      | FPIR: 9.421% | TPIR20: 1.271% | Met: True
+    fiqa_l_5bin      | FPIR: 9.824% | TPIR20: 1.364% | Met: True
+  Target FPIR 10% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 20/20 | FPIR med: 9.235%
+    fiqa_l_5bin      | Met: 20/20 | FPIR med: 9.629%
+    fiqa_s_2bin      | Met: 20/20 | FPIR med: 9.376%
+    fiqa_s_5bin      | Met: 20/20 | FPIR med: 9.351%
+    global_empirical | Met: 20/20 | FPIR med: 9.573%
+    global_safe      | Met: 20/20 | FPIR med: 9.419%
+
+*** ADAFACE ***
+  Target FPIR 1% (seed 8972):
+    global_empirical | FPIR: 1.001% | TPIR20: 0.207% | Met: False
+    global_safe      | FPIR: 0.999% | TPIR20: 0.207% | Met: True
+    fiqa_s_2bin      | FPIR: 0.945% | TPIR20: 0.200% | Met: True
+    fiqa_l_2bin      | FPIR: 0.926% | TPIR20: 0.185% | Met: True
+    fiqa_s_5bin      | FPIR: 0.967% | TPIR20: 0.202% | Met: True
+    fiqa_l_5bin      | FPIR: 1.036% | TPIR20: 0.207% | Met: False
+  Target FPIR 1% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 20/20 | FPIR med: 0.925%
+    fiqa_l_5bin      | Met: 14/20 | FPIR med: 0.990%
+    fiqa_s_2bin      | Met: 20/20 | FPIR med: 0.938%
+    fiqa_s_5bin      | Met: 20/20 | FPIR med: 0.948%
+    global_empirical | Met: 0/20 | FPIR med: 1.001%
+    global_safe      | Met: 20/20 | FPIR med: 0.936%
+  Target FPIR 10% (seed 8972):
+    global_empirical | FPIR: 9.209% | TPIR20: 1.261% | Met: True
+    global_safe      | FPIR: 9.148% | TPIR20: 1.251% | Met: True
+    fiqa_s_2bin      | FPIR: 9.065% | TPIR20: 1.205% | Met: True
+    fiqa_l_2bin      | FPIR: 9.007% | TPIR20: 1.294% | Met: True
+    fiqa_s_5bin      | FPIR: 9.162% | TPIR20: 1.205% | Met: True
+    fiqa_l_5bin      | FPIR: 9.245% | TPIR20: 1.385% | Met: True
+  Target FPIR 10% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 20/20 | FPIR med: 8.864%
+    fiqa_l_5bin      | Met: 20/20 | FPIR med: 9.129%
+    fiqa_s_2bin      | Met: 20/20 | FPIR med: 9.060%
+    fiqa_s_5bin      | Met: 20/20 | FPIR med: 9.160%
+    global_empirical | Met: 20/20 | FPIR med: 9.209%
+    global_safe      | Met: 20/20 | FPIR med: 8.962%
+
+*** MAGFACE ***
+  Target FPIR 1% (seed 8972):
+    global_empirical | FPIR: 1.045% | TPIR20: 0.103% | Met: False
+    global_safe      | FPIR: 0.991% | TPIR20: 0.098% | Met: True
+    fiqa_s_2bin      | FPIR: 1.010% | TPIR20: 0.096% | Met: False
+    fiqa_l_2bin      | FPIR: 0.982% | TPIR20: 0.091% | Met: True
+    fiqa_s_5bin      | FPIR: 0.961% | TPIR20: 0.086% | Met: True
+    fiqa_l_5bin      | FPIR: 1.019% | TPIR20: 0.132% | Met: False
+  Target FPIR 1% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 13/20 | FPIR med: 0.982%
+    fiqa_l_5bin      | Met: 12/20 | FPIR med: 0.980%
+    fiqa_s_2bin      | Met: 11/20 | FPIR med: 0.984%
+    fiqa_s_5bin      | Met: 15/20 | FPIR med: 0.980%
+    global_empirical | Met: 0/20 | FPIR med: 1.045%
+    global_safe      | Met: 13/20 | FPIR med: 0.983%
+  Target FPIR 10% (seed 8972):
+    global_empirical | FPIR: 9.282% | TPIR20: 1.111% | Met: True
+    global_safe      | FPIR: 9.201% | TPIR20: 1.101% | Met: True
+    fiqa_s_2bin      | FPIR: 9.091% | TPIR20: 1.077% | Met: True
+    fiqa_l_2bin      | FPIR: 9.084% | TPIR20: 1.084% | Met: True
+    fiqa_s_5bin      | FPIR: 8.996% | TPIR20: 1.084% | Met: True
+    fiqa_l_5bin      | FPIR: 9.257% | TPIR20: 1.154% | Met: True
+  Target FPIR 10% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 20/20 | FPIR med: 8.938%
+    fiqa_l_5bin      | Met: 20/20 | FPIR med: 9.248%
+    fiqa_s_2bin      | Met: 20/20 | FPIR med: 8.956%
+    fiqa_s_5bin      | Met: 20/20 | FPIR med: 8.978%
+    global_empirical | Met: 20/20 | FPIR med: 9.282%
+    global_safe      | Met: 20/20 | FPIR med: 9.026%
+
+*** EDGEFACE ***
+  Target FPIR 1% (seed 8972):
+    global_empirical | FPIR: 1.157% | TPIR20: 0.002% | Met: False
+    global_safe      | FPIR: 1.141% | TPIR20: 0.002% | Met: False
+    fiqa_s_2bin      | FPIR: 1.076% | TPIR20: 0.002% | Met: False
+    fiqa_l_2bin      | FPIR: 1.081% | TPIR20: 0.005% | Met: False
+    fiqa_s_5bin      | FPIR: 1.080% | TPIR20: 0.002% | Met: False
+    fiqa_l_5bin      | FPIR: 1.044% | TPIR20: 0.018% | Met: False
+  Target FPIR 1% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 2/20 | FPIR med: 1.075%
+    fiqa_l_5bin      | Met: 3/20 | FPIR med: 1.038%
+    fiqa_s_2bin      | Met: 1/20 | FPIR med: 1.093%
+    fiqa_s_5bin      | Met: 2/20 | FPIR med: 1.056%
+    global_empirical | Met: 0/20 | FPIR med: 1.157%
+    global_safe      | Met: 1/20 | FPIR med: 1.125%
+  Target FPIR 10% (seed 8972):
+    global_empirical | FPIR: 9.817% | TPIR20: 0.619% | Met: True
+    global_safe      | FPIR: 9.651% | TPIR20: 0.591% | Met: True
+    fiqa_s_2bin      | FPIR: 9.667% | TPIR20: 0.612% | Met: True
+    fiqa_l_2bin      | FPIR: 9.457% | TPIR20: 0.705% | Met: True
+    fiqa_s_5bin      | FPIR: 9.776% | TPIR20: 0.594% | Met: True
+    fiqa_l_5bin      | FPIR: 9.869% | TPIR20: 0.770% | Met: True
+  Target FPIR 10% (20-seed stability met fraction):
+    fiqa_l_2bin      | Met: 20/20 | FPIR med: 9.338%
+    fiqa_l_5bin      | Met: 20/20 | FPIR med: 9.751%
+    fiqa_s_2bin      | Met: 20/20 | FPIR med: 9.593%
+    fiqa_s_5bin      | Met: 20/20 | FPIR med: 9.645%
+    global_empirical | Met: 20/20 | FPIR med: 9.817%
+    global_safe      | Met: 20/20 | FPIR med: 9.651%
+
+====================================================================
+ARCFACE THRESHOLDS AND GROUP TAIL TRANSFER
+====================================================================
+
+--- Target FPIR = 1% Thresholds ---
+  global_empirical | all    | fit_N=98825, safe_N=    0 | raw=-0.3552, final=-0.3552, fallback=False
+  global_safe      | all    | fit_N=73447, safe_N=25378 | raw=-0.3556, final=-0.3532, fallback=False
+  fiqa_s_2bin      | low    | fit_N=36600, safe_N=12634 | raw=-0.3487, final=-0.3460, fallback=False
+  fiqa_s_2bin      | high   | fit_N=36847, safe_N=12744 | raw=-0.3672, final=-0.3628, fallback=False
+  fiqa_l_2bin      | low    | fit_N=36880, safe_N=12160 | raw=-0.3588, final=-0.3588, fallback=False
+  fiqa_l_2bin      | high   | fit_N=36567, safe_N=13218 | raw=-0.3519, final=-0.3469, fallback=False
+  fiqa_s_5bin      | q1     | fit_N=14509, safe_N= 4947 | raw=-0.3498, final=-0.3376, fallback=False
+  fiqa_s_5bin      | q2     | fit_N=14732, safe_N= 5142 | raw=-0.3468, final=-0.3464, fallback=False
+  fiqa_s_5bin      | q3     | fit_N=14684, safe_N= 5025 | raw=-0.3481, final=-0.3481, fallback=False
+  fiqa_s_5bin      | q4     | fit_N=14762, safe_N= 5130 | raw=-0.3594, final=-0.3519, fallback=False
+  fiqa_s_5bin      | q5     | fit_N=14760, safe_N= 5134 | raw=-0.3898, final=-0.3893, fallback=False
+  fiqa_l_5bin      | q1     | fit_N=14722, safe_N= 4610 | raw=-0.3785, final=-0.3782, fallback=False
+  fiqa_l_5bin      | q2     | fit_N=14739, safe_N= 4774 | raw=-0.3600, final=-0.3496, fallback=False
+  fiqa_l_5bin      | q3     | fit_N=14831, safe_N= 5423 | raw=-0.3358, final=-0.3358, fallback=False
+  fiqa_l_5bin      | q4     | fit_N=14640, safe_N= 5580 | raw=-0.3328, final=-0.3328, fallback=False
+  fiqa_l_5bin      | q5     | fit_N=14515, safe_N= 4991 | raw=-0.4965, final=-0.4820, fallback=False
+
+--- Target FPIR = 1% Tail Transfer ---
+  Method: fiqa_l_2bin
+    split=fit    | grp=low   | N= 36880 (50.21%) | FPIR=0.992% | th=-0.3588
+    split=fit    | grp=high  | N= 36567 (49.79%) | FPIR=0.848% | th=-0.3469
+    split=safety | grp=low   | N= 12160 (47.92%) | FPIR=0.946% | th=-0.3588
+    split=safety | grp=high  | N= 13218 (52.08%) | FPIR=0.999% | th=-0.3469
+    split=test   | grp=low   | N= 58258 (47.86%) | FPIR=1.396% | th=-0.3588
+    split=test   | grp=high  | N= 63478 (52.14%) | FPIR=1.412% | th=-0.3469
+  Method: fiqa_l_5bin
+    split=fit    | grp=q1    | N= 14722 (20.04%) | FPIR=0.992% | th=-0.3782
+    split=fit    | grp=q2    | N= 14739 (20.07%) | FPIR=0.692% | th=-0.3496
+    split=fit    | grp=q3    | N= 14831 (20.19%) | FPIR=0.998% | th=-0.3358
+    split=fit    | grp=q4    | N= 14640 (19.93%) | FPIR=0.997% | th=-0.3328
+    split=fit    | grp=q5    | N= 14515 (19.76%) | FPIR=0.799% | th=-0.4820
+    split=safety | grp=q1    | N=  4610 (18.17%) | FPIR=0.759% | th=-0.3782
+    split=safety | grp=q2    | N=  4774 (18.81%) | FPIR=0.984% | th=-0.3496
+    split=safety | grp=q3    | N=  5423 (21.37%) | FPIR=0.922% | th=-0.3358
+    split=safety | grp=q4    | N=  5580 (21.99%) | FPIR=0.950% | th=-0.3328
+    split=safety | grp=q5    | N=  4991 (19.67%) | FPIR=0.982% | th=-0.4820
+    split=test   | grp=q1    | N= 23370 (19.20%) | FPIR=1.061% | th=-0.3782
+    split=test   | grp=q2    | N= 23051 (18.94%) | FPIR=1.332% | th=-0.3496
+    split=test   | grp=q3    | N= 24066 (19.77%) | FPIR=1.421% | th=-0.3358
+    split=test   | grp=q4    | N= 24682 (20.28%) | FPIR=1.787% | th=-0.3328
+    split=test   | grp=q5    | N= 26567 (21.82%) | FPIR=0.689% | th=-0.4820
+
+--- Target FPIR = 10% Thresholds ---
+  global_empirical | all    | fit_N=98825, safe_N=    0 | raw=-0.4701, final=-0.4701, fallback=False
+  global_safe      | all    | fit_N=73447, safe_N=25378 | raw=-0.4698, final=-0.4698, fallback=False
+  fiqa_s_2bin      | low    | fit_N=36600, safe_N=12634 | raw=-0.4539, final=-0.4515, fallback=False
+  fiqa_s_2bin      | high   | fit_N=36847, safe_N=12744 | raw=-0.4929, final=-0.4928, fallback=False
+  fiqa_l_2bin      | low    | fit_N=36880, safe_N=12160 | raw=-0.4592, final=-0.4592, fallback=False
+  fiqa_l_2bin      | high   | fit_N=36567, safe_N=13218 | raw=-0.4880, final=-0.4851, fallback=False
+  fiqa_s_5bin      | q1     | fit_N=14509, safe_N= 4947 | raw=-0.4538, final=-0.4480, fallback=False
+  fiqa_s_5bin      | q2     | fit_N=14732, safe_N= 5142 | raw=-0.4513, final=-0.4513, fallback=False
+  fiqa_s_5bin      | q3     | fit_N=14684, safe_N= 5025 | raw=-0.4610, final=-0.4591, fallback=False
+  fiqa_s_5bin      | q4     | fit_N=14762, safe_N= 5130 | raw=-0.4752, final=-0.4751, fallback=False
+  fiqa_s_5bin      | q5     | fit_N=14760, safe_N= 5134 | raw=-0.5514, final=-0.5503, fallback=False
+  fiqa_l_5bin      | q1     | fit_N=14722, safe_N= 4610 | raw=-0.4807, final=-0.4806, fallback=False
+  fiqa_l_5bin      | q2     | fit_N=14739, safe_N= 4774 | raw=-0.4521, final=-0.4512, fallback=False
+  fiqa_l_5bin      | q3     | fit_N=14831, safe_N= 5423 | raw=-0.4369, final=-0.4369, fallback=False
+  fiqa_l_5bin      | q4     | fit_N=14640, safe_N= 5580 | raw=-0.4573, final=-0.4548, fallback=False
+  fiqa_l_5bin      | q5     | fit_N=14515, safe_N= 4991 | raw=-0.6704, final=-0.6677, fallback=False
+
+--- Target FPIR = 10% Tail Transfer ---
+  Method: fiqa_l_2bin
+    split=fit    | grp=low   | N= 36880 (50.21%) | FPIR=10.000% | th=-0.4592
+    split=fit    | grp=high  | N= 36567 (49.79%) | FPIR=9.695% | th=-0.4851
+    split=safety | grp=low   | N= 12160 (47.92%) | FPIR=9.663% | th=-0.4592
+    split=safety | grp=high  | N= 13218 (52.08%) | FPIR=9.994% | th=-0.4851
+    split=test   | grp=low   | N= 58258 (47.86%) | FPIR=10.023% | th=-0.4592
+    split=test   | grp=high  | N= 63478 (52.14%) | FPIR=8.770% | th=-0.4851
+  Method: fiqa_l_5bin
+    split=fit    | grp=q1    | N= 14722 (20.04%) | FPIR=9.965% | th=-0.4806
+    split=fit    | grp=q2    | N= 14739 (20.07%) | FPIR=9.770% | th=-0.4512
+    split=fit    | grp=q3    | N= 14831 (20.19%) | FPIR=9.999% | th=-0.4369
+    split=fit    | grp=q4    | N= 14640 (19.93%) | FPIR=9.658% | th=-0.4548
+    split=fit    | grp=q5    | N= 14515 (19.76%) | FPIR=9.700% | th=-0.6677
+    split=safety | grp=q1    | N=  4610 (18.17%) | FPIR=8.872% | th=-0.4806
+    split=safety | grp=q2    | N=  4774 (18.81%) | FPIR=9.992% | th=-0.4512
+    split=safety | grp=q3    | N=  5423 (21.37%) | FPIR=9.570% | th=-0.4369
+    split=safety | grp=q4    | N=  5580 (21.99%) | FPIR=10.000% | th=-0.4548
+    split=safety | grp=q5    | N=  4991 (19.67%) | FPIR=9.637% | th=-0.6677
+    split=test   | grp=q1    | N= 23370 (19.20%) | FPIR=9.491% | th=-0.4806
+    split=test   | grp=q2    | N= 23051 (18.94%) | FPIR=10.342% | th=-0.4512
+    split=test   | grp=q3    | N= 24066 (19.77%) | FPIR=10.725% | th=-0.4369
+    split=test   | grp=q4    | N= 24682 (20.28%) | FPIR=9.675% | th=-0.4548
+    split=test   | grp=q5    | N= 26567 (21.82%) | FPIR=8.989% | th=-0.6677

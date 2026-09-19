@@ -1,0 +1,45 @@
+{
+  "artifact_type": "open_set_gradcam_faithfulness",
+  "schema_version": 2,
+  "status": "completed",
+  "dataset_id": "rfw_custom",
+  "model_uid": "arcface-7972a704552df378345f",
+  "origin_embedding_artifact_uid": "origin-embedding-1fd659ffa3b25e8a0eefb0ed",
+  "source_run_id": "20260903-R001-af875d0f",
+  "saliency_spec_uid": "saliency-calibration-38c7719dcc5cc4f09b25312d",
+  "saliency_target_name": "origin_top1_gallery_cosine",
+  "evaluation_split": "calibration",
+  "condition_manifest_sha256": "2e69a25ee24d25ef027a951ec4947a594d014c76fa6d010e499bffd50e622b93",
+  "sampling": {
+    "method": "sha256_sample_id",
+    "seed": 8972,
+    "maximum_samples": 10000,
+    "selected_count": 6855,
+    "selected_identity_count": 2278,
+    "selected_sample_sha256": "9dd545a76624f6a2e916ef4fd599e8f59242e2a85a97fcaa69befea02a2fbeb1",
+    "excluded_test_content": true
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "confidence_level": 0.95,
+    "bootstrap_repeats": 2000,
+    "seed": 8972
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "random_repeats": 5,
+    "seed": 8972
+  },
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 1569662,
+      "sha256": "e6240ceba15daa7d4f06c4d4c14749bba83ecfc90b9f71e3dc6dfc6155f35201"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 1019,
+      "sha256": "d2952ad8d344349d9656048224f222e6635dcad497442546684392411b8eefc0"
+    }
+  ]
+}

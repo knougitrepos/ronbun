@@ -1,0 +1,79 @@
+{
+  "artifact_type": "saliency_calibration_features",
+  "schema_version": 1,
+  "status": "completed",
+  "dataset_id": "survface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "origin_embedding_artifact_uid": "origin-embedding-c70c8c1f2657fb794827862c",
+  "extraction_uid": "population-be3c0699e9b36cffc1ff86ee",
+  "condition_manifest_sha256": "6ae347192033520b4ae91ef2c2be697863a6027e599d145d6c2d7455460da64e",
+  "gallery_contract": "split_matched_origin_top1",
+  "target_name": "origin_top1_gallery_cosine",
+  "saliency_spec_uid": "saliency-calibration-a9b8252b75742667b08f67d8",
+  "smoke_only": false,
+  "producer_spec": {
+    "artifact_type": "saliency_calibration_input_bundle",
+    "schema_version": 1,
+    "condition_manifest_sha256": "3db05bbfa14879e376add5fa84c6a65afc97b4adab73123e499bd65bda71f67d",
+    "condition_frame_sha256": {
+      "calibration": "58f1d1a384bc14cf26e8a10ea20082562e9525157b8f409b383e3dcff9ad2f44",
+      "test": "2db17d9ad3e75c038ffe4a228cc0011be794e053e6546cdcd7465cf25f8937e8"
+    },
+    "settings": {
+      "gradcam_batch_size": 4,
+      "chunk_size": 128,
+      "faithfulness_batch_size": 32,
+      "faithfulness_maximum_samples": 10000,
+      "occlusion_fraction": 0.1,
+      "random_repeats": 5,
+      "seed": 8972,
+      "bootstrap_repeats": 2000,
+      "max_queries_per_split": null,
+      "reuse_test_saliency": true
+    },
+    "runtime": {
+      "torch": "2.7.1+cu118",
+      "cuda_runtime": "11.8",
+      "device": "cuda",
+      "device_name": "NVIDIA GeForce GTX 1080 Ti"
+    },
+    "source_test_saliency_manifest_sha256": "fd1679f058948f2690a522949fdf41946e1f96b8cdc8be7e36ce1ab75f9b2005",
+    "generation_contract_sha256": "de36b2e2e01ff69554a670bebb684b738244d930c322a56a6bc6433f016350cd",
+    "selection_sha256": "f2e927ef128890799dc339bc59307f115f49cdfb4a0bd5a495ba39c02e42e37b",
+    "implementation_sha256": {
+      "saliency_calibration_inputs.py": "32e73cc7dcaab6c4632b7f5425b64976363848a6fb9515482b47fbe529de26ce",
+      "step2_compression.py": "aa6bc6e7ee547651633d21e15a24cae59bec5f8df929bc00616809976d4fbda2",
+      "open_set.py": "92e3a698b2d6856c46c31a0f41880223475639c7a32d02431e93cd16bf631b3b",
+      "pair.py": "b1c30bca2bb9ca123a158a9b9b6a9df3c7ded47709db7be1be1f4fcfaa80dfdc",
+      "features.py": "0bbfedcf7e54f784ed3eb44effe538d2109f225c2cd11918ffbdb6898e0b0b84",
+      "extraction.py": "9ee85406a60c46c5da30e873e82d7af77e275ef8f8f7ba52f86d30e80c74d1d4",
+      "landmark_regions.py": "ffa835c5ca78bc39776350e0c6cdbdba23bfaa61c0ed1dbdb469eb15bb55ae05",
+      "metrics.py": "585c5289b6fb19974a58ae9e2c8f952234725237c5399aa7d021d6258edeb406",
+      "adapter.py": "e221e54709f3bbbfc9c554629b8c151dea01359bbd7f4ec72b82ac9d0a2b1b0d",
+      "official_loaders.py": "6ec6799d6f0ddbc07b1e73e6a721bd546731be313c099e144382f899164f381b",
+      "cluster_bootstrap.py": "7acf0d4e259c597e6d34024f900cfe56380e622badb293d6da115c125ebe5b94",
+      "saliency_faithfulness.py": "f3b6c72f57297f13ae57686cf9a01c6056ee8e789f17e19f74f1cee3b0b61be7"
+    }
+  },
+  "saliency_features": {
+    "path": "saliency_features.csv",
+    "bytes": 72762043,
+    "sha256": "4a63c198cf08cd7509e97958cbd24b81e893051d561f776ba04233419d661237"
+  },
+  "resume_from": {
+    "directory": "C:\\ronbun\\results\\calibration\\saliency_inputs\\20260902-R001-61915edf\\saliency-inputs-492103c73c999bb998628401",
+    "journal": "progress.tmp",
+    "journal_sha256": "e39b3ee9a5edce229bbe7e2696190a3a3d7fe4b89850ab148b86b84a7664a056",
+    "spec_sha256": "492103c73c999bb998628401f88bb9e1f63214ab0de5bf18912538aa687af910"
+  },
+  "condition_binding": {
+    "artifact_type": "saliency_condition_binding",
+    "schema_version": 1,
+    "source_condition_sha256": "3db05bbfa14879e376add5fa84c6a65afc97b4adab73123e499bd65bda71f67d",
+    "target_condition_sha256": "6ae347192033520b4ae91ef2c2be697863a6027e599d145d6c2d7455460da64e",
+    "source_saliency_sha256": "9016a72b28485b87e6311730d581f1c02502a7412e26fa7ad16de20c294e7be1",
+    "source_faithfulness_sha256": "102c8366637a6c62c7c6e5b72dcbdc960bf02f29bfde8f35b06a7d80b707d78c",
+    "implementation_sha256": "f7f14efe102fde1d7ed14f81fef3baf8675af7e178db821ba74977d3e9d1ca8c",
+    "reason": "same_frozen_origin_gallery_queries_and_targets_different_pq_budget"
+  }
+}

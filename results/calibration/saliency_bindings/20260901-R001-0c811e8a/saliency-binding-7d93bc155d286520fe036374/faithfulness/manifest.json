@@ -1,0 +1,55 @@
+{
+  "artifact_type": "open_set_gradcam_faithfulness",
+  "schema_version": 2,
+  "status": "completed",
+  "dataset_id": "rfw_custom",
+  "model_uid": "edgeface-a348c305af33c223b337",
+  "origin_embedding_artifact_uid": "origin-embedding-6925e396bbd2b64d432af4fd",
+  "source_run_id": "20260901-R001-0c811e8a",
+  "saliency_spec_uid": "saliency-calibration-6cc8106e366fef5f36cf3ffe",
+  "saliency_target_name": "origin_top1_gallery_cosine",
+  "evaluation_split": "calibration",
+  "condition_manifest_sha256": "b709ad61fa9dfc962632715540ef8a2aa5b88f01dd58f02b2cf3223182e54b33",
+  "sampling": {
+    "method": "sha256_sample_id",
+    "seed": 8972,
+    "maximum_samples": 10000,
+    "selected_count": 6855,
+    "selected_identity_count": 2278,
+    "selected_sample_sha256": "9dd545a76624f6a2e916ef4fd599e8f59242e2a85a97fcaa69befea02a2fbeb1",
+    "excluded_test_content": true
+  },
+  "statistics": {
+    "bootstrap_method": "identity_cluster",
+    "confidence_level": 0.95,
+    "bootstrap_repeats": 2000,
+    "seed": 8972
+  },
+  "occlusion": {
+    "fraction": 0.1,
+    "random_repeats": 5,
+    "seed": 8972
+  },
+  "outputs": [
+    {
+      "path": "faithfulness_rows.csv",
+      "bytes": 1569708,
+      "sha256": "46f968408a75ae35bf550eec5c858b104c33593e2af8416bdf918ac6af018e22"
+    },
+    {
+      "path": "faithfulness_summary.csv",
+      "bytes": 1025,
+      "sha256": "729c6802c44e9268f7f37bec2279fb7bfdb1fbf555f037152be2c39f07dce6d5"
+    }
+  ],
+  "condition_binding": {
+    "artifact_type": "saliency_condition_binding",
+    "schema_version": 1,
+    "source_condition_sha256": "fa00d979cb287f146c9939da34ecb518004f5dea40dc55e37b7a5ebbd8c0c29a",
+    "target_condition_sha256": "b709ad61fa9dfc962632715540ef8a2aa5b88f01dd58f02b2cf3223182e54b33",
+    "source_saliency_sha256": "4240d83a5f52416f319c3b395d2ddb82f805dd2a4fef9a4f4a7f8164d44cb80a",
+    "source_faithfulness_sha256": "da736a2360abc1e256dac0ce6e1014217c950fb2c42b3483fe9c2445d17557a6",
+    "implementation_sha256": "f7f14efe102fde1d7ed14f81fef3baf8675af7e178db821ba74977d3e9d1ca8c",
+    "reason": "same_frozen_origin_gallery_queries_and_targets_different_pq_budget"
+  }
+}
