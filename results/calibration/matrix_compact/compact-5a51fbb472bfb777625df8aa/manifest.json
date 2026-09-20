@@ -1,0 +1,69 @@
+{
+  "status": "completed",
+  "spec": {
+    "schema_version": 1,
+    "sources": [
+      {
+        "report": "matrix-report-2e2ab02ddb1d039ef1084383",
+        "hashes": {
+          "manifest.json": "746d86cc1b451c01c12847f29a0bffc8e5551de4c43fe2c74dd30d73d12a976e",
+          "method_summary.csv": "5f352072aa7678226dcb6ac211106e5ce36f30d4cab7db0dfa7000ba00049b0c",
+          "paired_comparisons.csv": "aeeec5c8e852b349775bbc3a67d3189c55ea511c4f35ea48a5e916d4c52313d1",
+          "split_summary.csv": "02f4ecc6073d20174b3d47552c90ec1db1edbd4b719145348022d947fe694b94"
+        },
+        "seeds": [
+          8972
+        ],
+        "jobs": 72,
+        "metric_rows": 1260,
+        "paired_rows": 3240
+      },
+      {
+        "report": "matrix-report-d690567c6f4f7e7ad44ef19e",
+        "hashes": {
+          "manifest.json": "a59042d6f8d7611dd94137a35143f51bdc9d6e3e2db819ac435388f84fc92853",
+          "method_summary.csv": "0a122de63140c42812a32d106dddfd045c1d881bf1983e52ec67b53740450658",
+          "paired_comparisons.csv": "efdeac2075c443ccdec8f2fa40cf1924a38b7704e2996209b4c1e029ce062184",
+          "split_summary.csv": "d3aa649fd090184cc03bdd8db67ac90aa09a02fe51b994f5fe5997e08174195e"
+        },
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          8972
+        ],
+        "jobs": 1440,
+        "metric_rows": 25200,
+        "paired_rows": 64800
+      }
+    ],
+    "preferred_file_bytes": 32000,
+    "max_rows": 150,
+    "implementation_sha256": "c289f9b6b5ec85d9620ae0b4149fee642d458a2168e2222ef2e7fca7fcb09a6f",
+    "pandas": "3.0.3",
+    "numpy": "1.26.4"
+  },
+  "preferred_file_bytes": 32000,
+  "above_preferred_files": 0,
+  "file_count": 161,
+  "inventory_pages": {
+    "inventory-01.csv": "7164e8b9dc7121ae4740368936f6df2733b849e660e4732c398f20bf07541331",
+    "inventory-02.csv": "b327d8ce357f0a9f6a4c872d5807a4205307b0f0e1f7a44ea12e465dc0753f57"
+  }
+}
