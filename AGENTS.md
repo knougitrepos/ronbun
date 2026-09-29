@@ -1,57 +1,87 @@
-# 연구 범위
+# ronbun 작업 지침
 
-- 얼굴 이미지의 ArcFace 임베딩을 압축한 상태로 PostgreSQL/pgvector에 저장하고 검색 성능과 저장 효율을 평가한다.
-- 주요 압축 방법은 PCA와 Product Quantization이며, 1:N Open-set Face Identification/Verification에서 압축에 따른 점수·순위 변화와 threshold 보정을 연구한다.
-- 실험은 Intel Core i5-10600K, GeForce GTX 1080 Ti, RAM 64GB에서 수행 가능한 범위를 우선한다.
+저장소 전체에 적용하는 공통 지침이다. 구체적인 실험 조건·실행 상태·결과는 해당 설정, 코드, manifest와 artifact에서 확인한다. 이 파일에는 장기적으로 유지할 원칙을 두고, 개별 run ID나 최신 성능 수치를 고정하지 않는다.
 
-# 실행 환경 및 하드웨어 가속 원칙
+## 1. 작업 절차와 코드 구성
 
-- 2026-07-27 현재 검증된 로컬 GPU 환경은 GeForce GTX 1080 Ti, PyTorch `2.7.1+cu118`, PyTorch CUDA runtime `11.8`이다. 프로젝트 의존성과 wheel은 우선 CUDA 11.8 및 GTX 1080 Ti(Pascal, compute capability 6.1) 호환성을 유지한다.
-- CUDA 12 계열이나 검증되지 않은 PyTorch·ONNX Runtime 조합으로 임의 업그레이드하지 않는다. 변경이 필요하면 GTX 1080 Ti 지원, CUDA runtime, cuDNN 및 기존 checkpoint smoke test를 먼저 검증한다.
-- PyTorch inference, embedding 추출, Grad-CAM처럼 CUDA를 지원하는 연산은 기본적으로 `cuda` 장치를 우선한다. 실행 전에 `torch.cuda.is_available()`과 실제 device name을 확인하고 run log 또는 manifest에 기록한다.
-- ONNX Runtime과 InsightFace 작업은 `CUDAExecutionProvider`를 우선하고 `CPUExecutionProvider`를 명시적 fallback으로 둔다. `ctx_id=0`만으로 GPU 사용을 판단하지 말고 생성된 session의 실제 provider를 확인한다.
-- 대규모 정식 실행에서 CUDA 사용을 기대했는데 CUDA provider가 적용되지 않으면 조용히 CPU 전체 실행으로 전환하지 않는다. 즉시 중단하거나 명확한 경고와 사용자 승인 후 CPU 실행한다.
-- 얼굴 정렬처럼 일부 모듈만 필요한 작업은 InsightFace의 `allowed_modules`를 사용해 detection 등 필요한 모델만 로드한다. 불필요한 recognition, gender/age, landmark 모델을 함께 실행하지 않는다.
-- GPU 가속을 적용해도 이미지 decode, SHA-256, CSV/JSON 기록, pandas 처리 등 CPU 작업은 남는다. GPU 사용률이 일정하지 않다는 이유만으로 가속 실패로 판단하지 말고 실제 provider와 단계별 시간을 확인한다.
-- GTX 1080 Ti의 11GB VRAM 범위에서 batch size를 설정하고, 첫 실제 run에서 OOM 여부와 처리량을 측정한다. batch size 또는 provider 변경은 config와 실행 기록에 남긴다.
-- Faiss, PostgreSQL/pgvector 등 현재 설치본이 CPU 전용인 구성요소를 GPU로 가장하지 않는다. GPU 구현이 실제 설치·검증된 경우에만 가속됐다고 기록한다.
+- 구현 전 현재 상태, 목표, 변경 범위와 진행 순서를 짧게 브리핑한다. 요청 범위 안의 작업은 진행하고, 결과에 영향을 주는 미확정 조건만 확인한다.
+- 수정 전 `git status --short`로 기존 변경을 확인한다. 사용자 변경·미추적 파일을 보존하고, 작업과 관련된 파일만 수정·스테이징한다.
+- 필요한 근거부터 확인한다: 전체 구조는 실제 디렉터리와 코드, 실행 흐름은 해당 `notebooks/`의 실행 안내, 연구 결정은 관련 `architect/*.md`, 실제 조건은 `configs/`와 대상 run의 manifest를 확인한다. 문서 작성일만으로 현재 구현을 판단하지 않는다.
+- 재사용 계산·모델·DB·압축·검색·평가 로직은 `research/`에 둔다. 노트북은 첫 설정 셀, 모듈 호출, 결과 확인으로 구성하고 커널 재시작 후 순서대로 실행 가능하게 유지한다. 실행·저장 기본값은 해당 워크플로의 계약을 따른다.
+- 변경한 기능에 맞는 테스트·smoke test를 실행한다. 관련 Python 테스트는 프로젝트 루트에서 `py -3.11 -m pytest <대상 경로>`로 실행하며, DB·GPU가 필요한 검증은 실제 환경과 실행 여부를 구분한다. 문구 정리만으로 전체 실험을 재실행하지 않는다.
+- 완료 시 변경 내용, 검증 결과, 미실행 항목·한계, 필요한 재실행 범위를 짧게 보고한다. Python 모듈 변경 후 노트북을 사용할 때는 커널 재시작 필요 여부를 안내한다.
 
-# 논문 조사 원칙
+## 2. 연구 범위와 근거
 
-- 최상위 학회와 Q1 저널을 우선하고 필요한 경우 Q2까지 확대한다.
-- 컴퓨터 비전 분야에서는 IEEE TPAMI 등 신뢰도 높은 출처를 우선한다.
-- arXiv와 OpenReview 자료는 참고할 수 있지만 동료심사 여부와 정식 출판 여부를 구분하여 기록한다.
-- IEEE Access는 필요에 따라 참고하고, MDPI 등 평가가 엇갈리는 출판사는 우선순위를 낮춘다.
-- novelty를 주장할 때는 `최초`라고 단정하지 말고 조사 범위와 기존 연구 대비 정확한 차이를 명시한다.
+- ArcFace 등 사전학습된 얼굴 임베딩의 PCA·Product Quantization 압축에 따른 저장 효율, 검색 점수·순위 변화, open-set threshold 보정·유지 가능성을 연구한다. PostgreSQL/pgvector 기반 검색을 시스템 배경으로 둔다.
+- 1:N open-set identification과 1:1 verification의 프로토콜·점수 통계·지표를 구분한다. 서로 다른 평가 설정의 threshold나 성능을 그대로 비교·전이하지 않는다.
+- 우선 차별화 목표는 압축 얼굴 임베딩 1:N DB 검색에서 원본 점수·순위 불확실성, 그룹별 FPIR 보장, DIR 보존, accept/reject/exact-fallback 비용과 압축 프로파일의 공동 최적화다. 이는 연구 목표이며 구현·보장을 뜻하지 않는다. fallback 사용 등 구체적 실험 정책은 대상 실험의 유효한 결정·설정으로 확인한다.
+- 저장소 루트의 `README.md`와 `THESIS_RESEARCH_PLAN.md`는 과거 아이디어 구상 단계의 메모다. 일반 작업에서 읽거나 참고하지 않으며, 현재 연구 방향·구현·실험 설계의 판단 근거로 사용하지 않는다.
+- `architect/`, `novelty/`와 코드·설정·실험 artifact가 충돌하면 충돌 사실과 해당 작업의 기준·근거를 명시한다. 과거 계획을 현재 구현으로 취급하거나 문서 정리만으로 연구 방향을 바꾸지 않는다.
+- 제안, 구현, 테스트 통과, 실제 실험 결과를 구분한다. 확인한 코드·실험·문헌 등 근거의 범위를 넘어 인과효과·성능 보장·새 기여를 주장하지 않는다.
 
-# Novelty 분석 기록 규칙
+## 3. 실행 환경과 하드웨어 가속
 
-- 사용자가 연구 novelty, 관련 연구 중복, 차별성 또는 돌파 방안을 분석해 달라고 요청하면 결과를 저장소 루트의 `novelty` 폴더에 Markdown으로 기록한다.
-- 파일명은 `1.md`, `2.md`, `3.md`처럼 양의 정수를 순차적으로 사용한다. 새 분석을 시작할 때 기존 숫자 파일 중 최댓값을 확인하고 다음 번호를 사용한다. 기존 파일을 덮어쓰지 않는다.
-- 각 문서에는 작성일, 분석 대상 코드/실험 run, 핵심 결론, 직접 경쟁 논문, 중복되는 기여, 남은 차별점, 수학적 정의, 실험으로 검증할 항목을 포함한다.
-- 논문은 정식 출판 여부와 venue를 확인하고 가능한 한 공식 논문 페이지나 DOI를 기록한다. 프리프린트만 존재하면 이를 명시한다.
-- 새 분석에서는 이전 `novelty/*.md`를 먼저 읽고, 이전 문서에서 지적된 약점과 보강 항목이 현재 코드와 최신 실험에서 실제로 개선됐는지 확인한다.
-- 개선 여부를 `개선됨`, `부분 개선`, `미개선`, `검증 불가` 중 하나로 판정하고 코드·설정·실험 artifact 근거를 함께 기록한다.
-- 새로운 아이디어를 제안하는 것만으로 `개선됨`이라고 판정하지 않는다. 구현 또는 실험 결과로 확인되지 않은 내용은 `미구현` 또는 `검증 불가`로 구분한다.
-- 새 novelty가 MRQ의 압축 오차 기반 reranking, KWS의 quantization 기반 score calibration, 기존 Neyman-Pearson/conformal threshold 또는 uncertainty rejection을 단순히 재명명한 것인지 반드시 점검한다.
-- 현재 연구의 우선 차별화 방향은 압축 얼굴 임베딩 1:N open-set DB 검색에서 원본 점수·순위 불확실성, 그룹별 FPIR 보장, DIR 보존, accept/reject/exact-fallback 비용과 압축 프로파일을 공동 최적화하는 것이다.
-- 분석 채팅 답변과 저장된 Markdown의 결론이 서로 다르지 않도록 하며, 변경된 경우 변경 이유와 새 근거를 문서에 남긴다.
+- 기준 장비는 Intel Core i5-10600K, GeForce GTX 1080 Ti(11GB VRAM), RAM 64GB다. 이 환경에서 수행 가능한 규모를 우선한다. Windows/PowerShell에서는 `py -3.11`을 기본으로 사용하고 실제 실행 인터프리터를 확인한다.
+- 2026-07-27 검증 기준은 PyTorch `2.7.1+cu118`, CUDA runtime `11.8`, Pascal compute capability `6.1`이다. `requirements-step2-cu118.lock.txt`를 참고하되 현재 설치 상태는 실행 전에 확인한다. CUDA 12 계열이나 미검증 PyTorch·ONNX Runtime 조합으로 임의 업그레이드하지 않으며, 변경 시 GPU 지원·runtime·cuDNN·기존 checkpoint smoke test를 검증한다.
+- PyTorch inference·embedding 추출·Grad-CAM은 `cuda`를 우선한다. 실행 전 `torch.cuda.is_available()`과 실제 device name을 확인하고 run log 또는 manifest에 기록한다.
+- ONNX Runtime/InsightFace는 `CUDAExecutionProvider` 우선, `CPUExecutionProvider` fallback을 명시한다. `ctx_id=0`만 믿지 말고 생성된 session의 실제 provider를 확인한다. CPU/GPU ONNX Runtime 배포판을 같은 환경에 함께 설치하지 않는다.
+- CUDA를 기대한 대규모 정식 실행에서 CUDA가 적용되지 않으면 조용히 CPU로 전환하지 않는다. 중단하거나, 명확한 경고와 사용자 승인 후 CPU로 실행한다.
+- InsightFace는 `allowed_modules`로 필요한 모듈만 로드한다. batch size는 VRAM 범위에서 정하고 첫 실제 run의 OOM·처리량을 확인한다. batch size·provider 변경은 config와 실행 기록에 남긴다.
+- 이미지 decode·SHA-256·CSV/JSON·pandas 등 CPU 작업을 고려해 실제 provider와 단계별 시간으로 가속 여부를 판단한다. Faiss·PostgreSQL/pgvector의 CPU 구현을 GPU 가속으로 기록하지 않는다.
 
-# Architecture 변경 기록 규칙
+## 4. 실험 재현성과 결과 해석
 
-- 연구 구조, 실험 단계, 데이터 흐름, 모델·DB 경계, 평가 프로토콜 또는 핵심 모듈 책임에 중요한 변경이 생기면 저장소 루트의 `architect` 폴더에 Markdown으로 기록한다.
-- 파일명은 한국 표준시 기준 `YYYYMMDD.md` 형식을 사용한다. 같은 날짜의 파일이 이미 있으면 기존 내용을 지우지 않고 변경 시각과 제목을 가진 새 절을 뒤에 추가한다.
-- architecture 작업을 시작하기 전에 최신 `architect/*.md`와 관련된 이전 날짜 문서를 읽어, 새 결정이 기존 결정의 유지·보완·폐기 중 무엇인지 확인한다.
-- 각 기록에는 작성일, 상태(`제안`, `구현 중`, `구현됨`, `검증됨`), 변경 배경, 결정 내용, 현재 구현과 목표 구조의 차이, 데이터·모듈 흐름, 영향받는 코드·설정·노트북·DB·artifact, 재실행 범위, 검증 기준, 미해결 위험을 포함한다.
-- 아이디어나 계획만 존재할 때는 `구현됨` 또는 `검증됨`으로 기록하지 않는다. 코드, 설정, 테스트 및 실험 artifact 근거를 구분해 남긴다.
-- 중요한 방향이 바뀌면 이전 기록을 덮어쓰지 않고 새 날짜 문서에서 폐기 또는 변경된 결정과 그 이유를 명시한다.
-- architecture 기록과 `THESIS_RESEARCH_PLAN.md`, `novelty/*.md`, 실제 코드가 충돌하면 충돌 사실을 숨기지 말고 어떤 문서가 현재 기준인지 명시한다.
+### 실행·artifact 관리
 
-# 보고서 작성 및 저장 규칙
+- 데이터셋·모델·압축 프로파일·seed·평가 지표의 실험 행렬을 사전에 명시하고 유지한다. 결과가 좋은 조건만 선택하거나 불리한 조건을 설명 없이 제외하지 않는다.
+- development/calibration/test 역할과 identity 분리 계약을 유지한다. test 데이터로 압축기·threshold·보정 모델을 학습하거나 선택하지 않는다. checkpoint 학습 데이터와 평가 데이터의 overlap이 불명확하면 그 한계를 기록한다.
+- 재사용할 run/report ID를 명시한다. 자동으로 최신 결과를 고르지 않는다. `RunStore`는 `run_manifest.json.status == "completed"`와 `COMPLETED`를 함께 확인하고, 다른 artifact는 해당 schema의 완료 상태를 확인한다. 설정 일치, 입력 lineage, 파일 hash와 필수 phase 산출물도 검증한다.
+- 완료 run과 content-addressed 결과는 불변으로 취급한다. 보정·수정·재분석 결과는 별도 run/파생 artifact로 저장하고 원본 출처를 연결한다. 무엇을 재사용·재계산·교체하는지 명시하며, 잠금·게시 오류를 이유로 원본을 덮어쓰지 않는다.
+- 대용량 CSV/Parquet는 로컬에서 집계하고 필요한 논리 단위의 표만 반환한다. 원본 전체를 채팅에 출력하지 않으며, 임의의 출력 용량 제한 때문에 비교 맥락이나 정보를 버리지 않는다.
 
-- 상세 보고서, 종합 평가, 결과 분석 보고서 등 사용자를 위해 작성하는 마크다운(.md) 문서는 저장소 루트가 아닌 **`publish` 폴더**에 저장한다.
-- `publish` 폴더가 없으면 자동으로 생성하고 저장한다.
-- 파일명 형식은 기존 규칙에 따라 `보고서이름_YYYYMMDD_v버전.md` (예: `게재가능성_및_졸업논문_평가보고서_20260910_v2.md`) 형식을 사용한다.
-- 날짜는 작성일 기준 한국 표준시(KST) `YYYYMMDD` 형식을 사용하고, 버전은 `v1`, `v2` 등으로 표기한다.
-- 보고서 작성 시 참고한 실험 artifact, commit 해시, 주요 수치 근거를 명시한다.
-- 분석 채팅 답변과 저장된 보고서의 결론 및 수치가 서로 다르지 않도록 정합성을 유지한다.
+### 지표·주장 검증
+
+- 원본 cosine과 PQ ADC는 별도 score space다. PQ ADC에 `frozen_origin` cosine threshold를 재사용하지 않고 해당 점수 공간에서 재보정한다. 검색 모드·압축 프로파일·threshold 정책을 함께 기록한다.
+- TPIR@K/DIR 계산은 정의된 프로토콜을 따르며, TPIR@20은 genuine identity의 Top-20 포함과 genuine score의 threshold 통과를 모두 요구한다. Top-1 score의 통과만으로 대신하지 않는다. 원본 검색과의 일치도와 정답 identity에 대한 정확도도 구분한다.
+- 목표 FPIR와 `realized_fpir`, `target_met_on_test`, 성공·오류 수와 분모, 신뢰구간을 함께 확인한다. 목표 충족 여부는 반올림 전 수치로 판단하고, paired 비교는 같은 평가 cohort와 조건을 사용한다.
+- 같은 cohort를 공유하는 seed/split 반복을 독립 표본으로 간주하지 않는다. 경험적 목표 충족이나 held-out safety 보정을 수학적 FPIR 보장으로 표현하지 않는다. 보장을 주장하려면 적용 가정·범위·증명을 제시한다.
+- 압축 code 크기와 전체 저장 비용을 구분한다. codebook·인덱스·원본 fallback 저장 등 비교에 필요한 비용을 명시하고, 서로 다른 query/gallery 압축 조건을 같은 비용 조건으로 표현하지 않는다.
+
+## 5. 논문 조사
+
+- 최상위 학회·Q1 저널을 우선하고 필요한 경우 Q2까지 확대한다. 컴퓨터 비전은 IEEE TPAMI 등 신뢰도 높은 출처를 우선한다. IEEE Access는 필요에 따라 참고하고, MDPI 등 평가가 엇갈리는 출판사는 우선순위를 낮춘다.
+- arXiv·OpenReview 프리프린트도 조사하되 동료심사 여부, 정식 출판 여부와 venue를 확인한다. 가능한 한 공식 논문 페이지나 DOI를 기록하고, 프리프린트만 있으면 명시한다. Q1/Q2를 표기할 때는 분류 출처·연도·분야를 확인한다.
+- novelty는 `최초`라고 단정하지 않고 조사 범위와 기존 연구 대비 정확한 차이를 명시한다. 기존 방법의 적용·수정·ablation과 새로운 기여를 구분한다.
+
+## 6. 문서 작성과 저장
+
+목적별 저장 규칙을 적용한다. 아래 경로는 저장소 루트 기준이며, 필요한 폴더는 생성한다. 날짜·시각은 KST를 사용하고 기존 기록을 보존한다. 일반 보고서 규칙은 `AGENTS.md`·노트북 실행 안내 같은 운영 문서나 아래의 novelty·architecture 기록을 `publish/`로 옮기라는 뜻이 아니다.
+
+| 문서 목적 | 저장 위치 | 생성 조건 |
+| --- | --- | --- |
+| novelty·중복·차별성·돌파 방안 분석 | `novelty/<양의 정수>.md` | 사용자가 해당 분석을 요청한 경우 |
+| 중요한 연구·실험 구조 변경 | `architect/YYYYMMDD.md` | 구조·프로토콜·핵심 책임이 바뀌는 경우 |
+| 상세 분석·종합 평가·결과 보고서 | `publish/보고서이름_YYYYMMDD_v버전.md` | 일반 보고서를 작성하는 경우 |
+
+모든 분석 기록은 대상 코드·설정·실험 artifact와 근거를 명시하고 채팅의 결론·수치와 일치시킨다. 결론이 달라지면 변경 이유와 새 근거를 남긴다. 계획만으로 `구현됨`·`검증됨`·`개선됨`이라고 기록하지 않는다.
+
+### Novelty 분석
+
+- 새 분석 전에 이전 `novelty/*.md`를 읽고, 지적된 약점·보강 항목이 현재 코드와 최신 관련 실험에서 개선됐는지 확인한다.
+- 기존 숫자 파일의 최댓값에 1을 더해 새 파일을 만든다. `1.md`, `2.md` 형식을 사용하고 기존 파일을 덮어쓰지 않는다.
+- 작성일, 분석 대상 코드/실험 run, 핵심 결론, 직접 경쟁 논문, 중복 기여, 남은 차별점, 수학적 정의, 실험 검증 항목을 포함한다. 논문 출처는 위 조사 원칙을 따른다.
+- 기존 약점의 개선 여부는 `개선됨`·`부분 개선`·`미개선`·`검증 불가`로 판정하고 코드·설정·artifact 근거를 붙인다. 아이디어만 있는 항목은 `미구현`, 실행 증거가 부족한 항목은 `검증 불가`로 구분한다.
+- MRQ의 압축 오차 기반 reranking, KWS의 quantization 기반 score calibration, Neyman-Pearson/conformal threshold, uncertainty rejection의 단순 재명명인지 반드시 점검한다.
+
+### Architecture 변경
+
+- 연구 구조, 실험 단계, 데이터 흐름, 모델·DB 경계, 평가 프로토콜, 핵심 모듈 책임의 중요한 변경을 기록한다. 단순 문구 정리에는 새 architecture 기록을 요구하지 않는다.
+- 작업 전 최신 `architect/*.md`와 관련된 이전 기록을 읽고 기존 결정의 유지·보완·폐기를 구분한다. 방향 변경은 이전 기록을 덮어쓰지 않고 새 날짜 기록에 이유를 남긴다. 같은 날짜 파일이 있으면 시각과 제목을 가진 절을 추가한다.
+- 작성일, 상태(`제안`·`구현 중`·`구현됨`·`검증됨`), 변경 배경, 결정, 현재 구현과 목표 구조의 차이, 데이터·모듈 흐름, 영향받는 코드·설정·노트북·DB·artifact, 재실행 범위, 검증 기준, 미해결 위험을 포함한다.
+- 코드·설정·테스트·실험 artifact 근거를 구분하고, 다른 연구 문서와 충돌할 때는 현재 적용하는 기준을 명시한다.
+
+### 일반 보고서
+
+- 상세 보고서·종합 평가·결과 분석 Markdown은 `publish/`에 저장한다. 파일명 예: `게재가능성_및_졸업논문_평가보고서_20260929_v1.md`.
+- 같은 이름·날짜의 보고서가 있으면 다음 버전(`v2`, `v3`, …)을 사용한다. 참고한 artifact 경로/ID, commit 해시, 주요 수치의 출처를 명시한다.
