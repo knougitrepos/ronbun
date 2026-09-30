@@ -111,6 +111,9 @@ results/calibration/**/.staging-*/
 # remain visible, and analysis_archive retains SHA-verified job evidence in ZIPs.
 # Refresh the archive with scripts/package_calibration_analysis.py after a run.
 results/calibration/matrix/jobs/
+results/calibration/origin_vs_pq/checkpoints/
+results/calibration/origin_vs_pq/origin_scores/
+results/calibration/origin_vs_pq/jobs/
 results/calibration/matrix/analysis_archive/*.tmp
 # Compact publication results are intentionally tracked.
 # Dataset-level faithfulness rows are reproducible local ledgers. Keep only the

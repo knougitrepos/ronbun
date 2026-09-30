@@ -204,17 +204,22 @@ def test_campaign_resume_and_output_tampering(tmp_path, monkeypatch):
     assert first["report_dir"] == second["report_dir"]
     assert first["method_summary"].equals(second["method_summary"])
     job = Path(first["source_receipts"].iloc[0].result_dir)
-    (job / "method_summary.csv").write_text("tampered")
+    import sqlite3
+    with sqlite3.connect(job) as db:
+        db.execute("UPDATE tables SET payload=? WHERE name='method_summary'", (b"tampered",))
     with pytest.raises(ValueError, match="hash mismatch"):
         run_origin_pq_campaign(plan, output, partition_seeds=(8972,), settings=options(), progress=None)
 
 
-def test_notebook_is_thin_valid_and_readonly_by_default():
+def test_notebook_is_thin_valid_and_execution_is_bounded():
     path = Path(__file__).parents[2] / "notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb"
     nb = nbformat.read(path, as_version=4)
     nbformat.validate(nb)
     code = [cell.source for cell in nb.cells if cell.cell_type == "code"]
-    assert "EXECUTE = False" in code[0]
+    assert "EXECUTE = " in code[0]  # Preserve the user's execution selection.
+    assert "MAX_NEW_JOBS_PER_RUN = 20" in code[0]
+    assert "BLAS_THREADS = 2" in code[0]
+    assert "MAX_PROCESS_RAM_GB = 16.0" in code[0]
     assert "SOURCE_REPORT_DIR" in code[0] and "PARTITION_SEEDS" in code[0]
     assert any("inspect_origin_pq_experiment" in s for s in code)
     assert any("run_origin_pq_campaign" in s for s in code)
@@ -222,3 +227,78 @@ def test_notebook_is_thin_valid_and_readonly_by_default():
         if cell.cell_type == "code":
             compile(cell.source, str(path), "exec")
             assert not cell.outputs and cell.execution_count is None
+
+
+def _campaign_fixture(tmp_path, monkeypatch):
+    import research.experiments.origin_vs_pq_calibration as module
+    conditions, fiqa = inputs(tmp_path)
+    monkeypatch.setattr(module, "load_run_inputs", lambda *a, **k: (conditions, fiqa))
+    plan = pd.DataFrame([dict(source_run_dir=str(tmp_path / "source"),
+        condition_dir=str(tmp_path / "condition"), fiqa_dir=str(tmp_path / "fiqa"),
+        source_run_id="test-run", dataset_id="survface", model="arcface",
+        compression_profile="pq_512_m128_b8")])
+    return module, plan
+
+
+def test_bounded_campaign_resumes_same_database_and_exports_detail_only_when_complete(tmp_path, monkeypatch):
+    module, plan = _campaign_fixture(tmp_path, monkeypatch)
+    kwargs = dict(partition_seeds=(0, 8972), settings=options(), max_new_jobs=1, progress=None)
+    first = module.run_origin_pq_campaign(plan, tmp_path / "output", **kwargs)
+    assert (first["completed_jobs"], first["expected_jobs"], first["new_jobs"]) == (1, 2, 1)
+    assert not first["completed"] and first["report_dir"] is None
+    assert first["chat_dir"].exists()
+    completed = module.run_origin_pq_campaign(plan, tmp_path / "output", **kwargs)
+    assert completed["completed"] and completed["new_jobs"] == 1
+    assert first["checkpoint_path"] == completed["checkpoint_path"]
+    assert len(list((tmp_path / "output/checkpoints").glob("*"))) == 1
+    assert sorted(p.name for p in completed["report_dir"].iterdir()) == ["manifest.json", "results.zip"]
+    monkeypatch.setattr(module, "run_origin_pq_split", lambda *a, **k: pytest.fail("recomputed completed seed"))
+    reused = module.run_origin_pq_campaign(plan, tmp_path / "output", **kwargs)
+    assert reused["new_jobs"] == 0 and reused["completed"]
+    assert reused["report_dir"] == completed["report_dir"] and reused["chat_dir"] == completed["chat_dir"]
+
+
+@pytest.mark.parametrize("interruption", ["memory", "keyboard"])
+def test_campaign_interruption_retains_completed_job_and_partial_coverage(tmp_path, monkeypatch, interruption):
+    module, plan = _campaign_fixture(tmp_path, monkeypatch)
+    from research.experiments.origin_pq_resources import ResourceBudgetExceeded
+
+    def interrupt(event):
+        if event["stage"] == "new_split" and event["partition_seed"] == 8972:
+            if interruption == "memory":
+                raise ResourceBudgetExceeded("injected resource checkpoint")
+            raise KeyboardInterrupt
+
+    kwargs = dict(partition_seeds=(0, 8972), settings=options())
+    partial = module.run_origin_pq_campaign(plan, tmp_path / "output", progress=interrupt, **kwargs)
+    assert not partial["completed"] and partial["completed_jobs"] == 1
+    assert partial["report_dir"] is None and partial["stop_reason"]
+    manifest = json.loads((partial["chat_dir"] / "manifest.json").read_text(encoding="utf8"))
+    assert manifest["experiment_status"] == "partial"
+    resumed = module.run_origin_pq_campaign(plan, tmp_path / "output", progress=None, **kwargs)
+    assert resumed["completed"] and resumed["new_jobs"] == 1
+
+
+def test_budget_does_not_start_next_source_input_preparation(tmp_path, monkeypatch):
+    module, plan = _campaign_fixture(tmp_path, monkeypatch)
+    second = plan.assign(source_run_dir=str(tmp_path / "second"), source_run_id="second-run")
+    plan = pd.concat([plan, second], ignore_index=True)
+    original = module.load_run_inputs
+    calls = []
+
+    def load(group, *args, **kwargs):
+        calls.append(group.iloc[0].source_run_id)
+        return original(group, *args, **kwargs)
+
+    monkeypatch.setattr(module, "load_run_inputs", load)
+    result = module.run_origin_pq_campaign(plan, tmp_path / "output", partition_seeds=(8972,),
+        settings=options(), max_new_jobs=1, progress=None)
+    assert calls == ["test-run"]
+    assert result["completed_jobs"] == 1 and result["expected_jobs"] == 2
+
+
+def test_zero_budget_rejected_before_input_preparation(tmp_path, monkeypatch):
+    module, plan = _campaign_fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(module, "load_run_inputs", lambda *a, **k: pytest.fail("prepared unnecessary input"))
+    with pytest.raises(ValueError, match="positive integer"):
+        module.run_origin_pq_campaign(plan, tmp_path / "output", settings=options(), max_new_jobs=0)
