@@ -1,0 +1,1397 @@
+{
+  "archive_entries": {
+    "INDEX.csv": {
+      "bytes": 19400,
+      "sha256": "ba15f35e4157fe9e002a603ba77159bf274e3d28ab168f57bcbadc256b16f36e"
+    },
+    "README.md": {
+      "bytes": 2600,
+      "sha256": "5505d751e4191be7329b4e82114ab142bcc9f4fa61926d2bdadcc25a34061341"
+    },
+    "coverage.json": {
+      "bytes": 15888,
+      "sha256": "05b528002550f08405eb4d58030a97cf6e880165566a4f33e894b746a8084233"
+    },
+    "lfw/adaface/diagnostic_curves_001.csv": {
+      "bytes": 28221,
+      "sha256": "f51831e27c109a645d365f5387c6bf7e9836f1d20e06032b8a2b11c1274be603"
+    },
+    "lfw/adaface/diagnostic_curves_002.csv": {
+      "bytes": 28807,
+      "sha256": "2de8ec98bb40698f0648882b1c48b3d99c2feb1a5dc7eb756ec86a841225f0c3"
+    },
+    "lfw/adaface/diagnostic_curves_003.csv": {
+      "bytes": 28832,
+      "sha256": "c3946585b8894ad554a5e0c1d2535e1d786f67b5d0956841bc5696779804e6a3"
+    },
+    "lfw/adaface/diagnostic_curves_004.csv": {
+      "bytes": 28525,
+      "sha256": "5b841f461f2f80ed257c532dc1f0ae93a55c49e2898432b2ba0cea6eaa4e7c66"
+    },
+    "lfw/adaface/diagnostic_curves_005.csv": {
+      "bytes": 28702,
+      "sha256": "51af48096436f6945819ba6400a07db9d52673e01295de7bbd6be19622b9898d"
+    },
+    "lfw/adaface/diagnostic_curves_006.csv": {
+      "bytes": 8296,
+      "sha256": "03c0a25e7447f3e5763518cb37fd3be4511f5de4bbceb048958677565b6570a7"
+    },
+    "lfw/adaface/diagnostic_interactions_001.csv": {
+      "bytes": 32807,
+      "sha256": "6712100e851a3af231c3079ea9ba49fd517378bf028acad89f6b008b41b74b84"
+    },
+    "lfw/adaface/diagnostic_interactions_002.csv": {
+      "bytes": 32784,
+      "sha256": "a0c97610d68fa06dd0b2fa38a49084e50aee09d159fbede8fb1f7083c5e36247"
+    },
+    "lfw/adaface/diagnostic_interactions_003.csv": {
+      "bytes": 19764,
+      "sha256": "5f2e608b0d3fdcb0856a6414868079bf92c104802726ed63112b6af6e48dcd60"
+    },
+    "lfw/adaface/operating_ci_endpoints_001.csv": {
+      "bytes": 30334,
+      "sha256": "75ca6a24449c4512b7f4f79a6601d2e496261e0c78cf1087096415de8e6342bf"
+    },
+    "lfw/adaface/operating_failures_001.csv": {
+      "bytes": 22976,
+      "sha256": "29277de944cf6fa030c19ee35a961ee8c1200c965c330a347285a28d1120b283"
+    },
+    "lfw/adaface/operating_interactions_001.csv": {
+      "bytes": 19036,
+      "sha256": "fd8e06df5c2d56806c42c0ae6c2032279008fcb15c84524fac2bbc43f2dc7297"
+    },
+    "lfw/adaface/operating_performance_001.csv": {
+      "bytes": 21307,
+      "sha256": "95d1a8487f280cf36b1a285bfe5802d54229726e716fa43d9b7c5bc046c2b719"
+    },
+    "lfw/adaface/paired_effects_001.csv": {
+      "bytes": 36273,
+      "sha256": "2dd2444289cdf7b14477bd95259d79037911ad69d2b459f60fd188ded92ea20f"
+    },
+    "lfw/adaface/paired_effects_002.csv": {
+      "bytes": 37094,
+      "sha256": "3bb1ee98a2859d4c8ac7dcbb20ddcedbfab0bcaf9e9cdb055210fdf07ec4b759"
+    },
+    "lfw/adaface/paired_effects_003.csv": {
+      "bytes": 50161,
+      "sha256": "f4794154ef553685caad734e505e56956789161375b9e6496e639e54b8b65c67"
+    },
+    "lfw/adaface/partition_inventory_001.csv": {
+      "bytes": 1470,
+      "sha256": "715426020a1fba392d26824fcd1a8330462dee9188787a8d0070e12062d846cf"
+    },
+    "lfw/arcface/diagnostic_curves_001.csv": {
+      "bytes": 28223,
+      "sha256": "63e022cecce35825ba50a72dffac81d94ed3e5d71bcfc0abb167d4a70e9f02c4"
+    },
+    "lfw/arcface/diagnostic_curves_002.csv": {
+      "bytes": 28813,
+      "sha256": "bae08b984409fb2d7f3a5841b278ea31afe996d7158ec77d1f0bfa396d6c6a2b"
+    },
+    "lfw/arcface/diagnostic_curves_003.csv": {
+      "bytes": 28838,
+      "sha256": "ff84e786bafd466209e27c6b48583b96d867bea0a09c2d242630005fcb08e4f4"
+    },
+    "lfw/arcface/diagnostic_curves_004.csv": {
+      "bytes": 28288,
+      "sha256": "a93198e9b2c0a580c2fa6805ed61106aa585336905123c53a00c570e3d401713"
+    },
+    "lfw/arcface/diagnostic_curves_005.csv": {
+      "bytes": 28704,
+      "sha256": "707fa9fd8d5b95af49e179e120ff35582b4d23cdb55698feeb63c5420386579c"
+    },
+    "lfw/arcface/diagnostic_curves_006.csv": {
+      "bytes": 8296,
+      "sha256": "6e256f8eebacd9d5d10e4320acd04203f98dfdee5d2b173fd752b60ea03b0547"
+    },
+    "lfw/arcface/diagnostic_interactions_001.csv": {
+      "bytes": 28098,
+      "sha256": "c8d2aadc24fe91f2fe58dafbaaa88f4f7a0b641610aaf41e9e0f01f106a546f7"
+    },
+    "lfw/arcface/diagnostic_interactions_002.csv": {
+      "bytes": 28247,
+      "sha256": "9fab4e5fee2eee18416ba5c1d9565ac16a04c727eb1971d7252dbac2a37cab0d"
+    },
+    "lfw/arcface/diagnostic_interactions_003.csv": {
+      "bytes": 17720,
+      "sha256": "5126be4d7a8edafb8f9f3cf6494fa509495ff282184718123fbe48782abaf3eb"
+    },
+    "lfw/arcface/operating_ci_endpoints_001.csv": {
+      "bytes": 30290,
+      "sha256": "113af44ffbeacf2176053c569d818ee62499735ff4af90be73270c919d259495"
+    },
+    "lfw/arcface/operating_failures_001.csv": {
+      "bytes": 22931,
+      "sha256": "95ea93fb8e31fb8bd61143b3392943461af17c23e8a3481c46415ef3444149b4"
+    },
+    "lfw/arcface/operating_interactions_001.csv": {
+      "bytes": 17754,
+      "sha256": "fe876996bf1b1ceeabbd98e8d3cd18743239a5fcad13036ba0e91e493b376ed9"
+    },
+    "lfw/arcface/operating_performance_001.csv": {
+      "bytes": 20337,
+      "sha256": "8ca23d0e934bea3fe9c2a5a72016ec9446848ad2bf7d8b330da2700d4b0ee3a3"
+    },
+    "lfw/arcface/paired_effects_001.csv": {
+      "bytes": 33861,
+      "sha256": "9d47664c4e913d0b34792bffa638d12af611e41aa63bb159b4c2b132cc470155"
+    },
+    "lfw/arcface/paired_effects_002.csv": {
+      "bytes": 36091,
+      "sha256": "9b352294d29bbd49fe2fa97b3e60d63419e5d6b773c0814b6439bc2cb4b04f15"
+    },
+    "lfw/arcface/paired_effects_003.csv": {
+      "bytes": 50448,
+      "sha256": "f2cc4e9d72950505be3285eb7ee6e17871bbc3faa3aaa1b9443705c5cf1d5615"
+    },
+    "lfw/arcface/partition_inventory_001.csv": {
+      "bytes": 1470,
+      "sha256": "9ae784564e4f69841c53d055ad30f925fb70655d393a4db1b32cad84cbce32a7"
+    },
+    "lfw/edgeface/diagnostic_curves_001.csv": {
+      "bytes": 28346,
+      "sha256": "f72682b2704bcb25a2b8bad231323dec4066681d2ee614488ba8d41ad59adf4d"
+    },
+    "lfw/edgeface/diagnostic_curves_002.csv": {
+      "bytes": 28936,
+      "sha256": "1ef016e42c99dcf8cc115f0070508abbc3379e5d9244434eacf24b4a652c9d99"
+    },
+    "lfw/edgeface/diagnostic_curves_003.csv": {
+      "bytes": 28973,
+      "sha256": "1e202bdd437d22a0469067eb6e9a45ba8fd65ad4611708fc010835d6b230c56e"
+    },
+    "lfw/edgeface/diagnostic_curves_004.csv": {
+      "bytes": 28654,
+      "sha256": "4fe50bdefa9c5b257192b19799e2a0f81796d85c3db945b738e9a041eb007c1d"
+    },
+    "lfw/edgeface/diagnostic_curves_005.csv": {
+      "bytes": 28829,
+      "sha256": "3e00756d6f95981b8a29cdfe736f2a264d56947640245ca0d3bcdd6e5768dea4"
+    },
+    "lfw/edgeface/diagnostic_curves_006.csv": {
+      "bytes": 8331,
+      "sha256": "d0c8b781a34daf88b9305487445389dd1e4b072aefc7668fcb63fd869a2b2e0e"
+    },
+    "lfw/edgeface/diagnostic_interactions_001.csv": {
+      "bytes": 29487,
+      "sha256": "9ac1665fe7870e7a683d2d860791ea617ae4f55d9db3add0baed5a32be933638"
+    },
+    "lfw/edgeface/diagnostic_interactions_002.csv": {
+      "bytes": 29274,
+      "sha256": "ebf08663d7abf100d69b180805034d7515c607fa7d1b900557403428c6cb2fe8"
+    },
+    "lfw/edgeface/diagnostic_interactions_003.csv": {
+      "bytes": 17849,
+      "sha256": "56296e817151c42976ae89e379b858041a0c8fc6f5e4ae99d403c4fa746e74f7"
+    },
+    "lfw/edgeface/operating_ci_endpoints_001.csv": {
+      "bytes": 30325,
+      "sha256": "f1b87dfea28ad41bc2b3537e7762026422139e72940681b9e8d948972741c2dd"
+    },
+    "lfw/edgeface/operating_failures_001.csv": {
+      "bytes": 22974,
+      "sha256": "3c6adb5c9204d9d14551ed122eab4f9e621f4d2310e557afd36c2278a9006831"
+    },
+    "lfw/edgeface/operating_interactions_001.csv": {
+      "bytes": 16961,
+      "sha256": "9422b203e657f72b17fe5dabe979b032a9c15aec39f0de81c36f67cf7ac3c374"
+    },
+    "lfw/edgeface/operating_performance_001.csv": {
+      "bytes": 20381,
+      "sha256": "0824096b6f608b12006e8b6b094ffc9ad8e7bfce1246fd5cefdf309d744e1289"
+    },
+    "lfw/edgeface/paired_effects_001.csv": {
+      "bytes": 34417,
+      "sha256": "d43247401177ea8e5a0bf14422b4553b979daffdc367e8f14a93823b2ee8c29a"
+    },
+    "lfw/edgeface/paired_effects_002.csv": {
+      "bytes": 35345,
+      "sha256": "eef3793cdda57dcb5294880bce57384d7545356d8608e39d2664799103b1a260"
+    },
+    "lfw/edgeface/paired_effects_003.csv": {
+      "bytes": 49552,
+      "sha256": "9d9ed27731609553cbbc1f8ec4f43b679667040e0b4bacaab46e48a6f4438479"
+    },
+    "lfw/edgeface/partition_inventory_001.csv": {
+      "bytes": 1478,
+      "sha256": "310de1f03b1875258cd1618712a5099af8768c19352ffc86d5b6737c14576adb"
+    },
+    "lfw/magface/diagnostic_curves_001.csv": {
+      "bytes": 28195,
+      "sha256": "0ae7fbb8cf50f35f94f0aa79a1e96f360b3beab4a37001779f481a010b1dc65c"
+    },
+    "lfw/magface/diagnostic_curves_002.csv": {
+      "bytes": 28813,
+      "sha256": "887ae013c84735f542fe5d8463bf4b4df795702256ecc8dd0f1ac6fe0cf75f3c"
+    },
+    "lfw/magface/diagnostic_curves_003.csv": {
+      "bytes": 28853,
+      "sha256": "164958fd309a5d97effede922fabab36e32a44bc96915e45c59a855b34152fb6"
+    },
+    "lfw/magface/diagnostic_curves_004.csv": {
+      "bytes": 28528,
+      "sha256": "3c998c98062f60b523b29ff32bf49181c379b14e4fa1272965e14e81044ee3b8"
+    },
+    "lfw/magface/diagnostic_curves_005.csv": {
+      "bytes": 28705,
+      "sha256": "c3b0aefbcb52e421e77104ffc1a05928d13115cdab9c9654e6501e14835a6eca"
+    },
+    "lfw/magface/diagnostic_curves_006.csv": {
+      "bytes": 8296,
+      "sha256": "1fc8d5c0f08496fc2dc18ba524a32b27cd3af136519c04fef8f113fce3373801"
+    },
+    "lfw/magface/diagnostic_interactions_001.csv": {
+      "bytes": 27547,
+      "sha256": "296fa5386e664c79b09fe33a92591b94b5466b67dc459a8700316dc2df8e3d15"
+    },
+    "lfw/magface/diagnostic_interactions_002.csv": {
+      "bytes": 26818,
+      "sha256": "31e6bc67458d44e674af9a15735d5b68a8550b3db2c814417f3040c5d2ddeec5"
+    },
+    "lfw/magface/diagnostic_interactions_003.csv": {
+      "bytes": 17163,
+      "sha256": "14d541cc8efd735456ffb532f24831f72bf62b4e9326001c8999fde25fd79bb7"
+    },
+    "lfw/magface/operating_ci_endpoints_001.csv": {
+      "bytes": 30248,
+      "sha256": "f38dfebb69c8b0a7217b58e8ccaa7a0f56e54b550c3d202b517359f931ae143f"
+    },
+    "lfw/magface/operating_failures_001.csv": {
+      "bytes": 22906,
+      "sha256": "e7bf5056625296a2b92f6214795bfbbf8d53d7107e4b01ee1d49eb7ee319b31a"
+    },
+    "lfw/magface/operating_interactions_001.csv": {
+      "bytes": 15616,
+      "sha256": "b1c39b364df0657a3f82a0e6f2a7b6db362c08dca2a9e87a2df6cb36ceedbbc3"
+    },
+    "lfw/magface/operating_performance_001.csv": {
+      "bytes": 20166,
+      "sha256": "ba240adc4fef1d93f207974862556907e6730dc1a7a4b72114e0871ef84cebd5"
+    },
+    "lfw/magface/paired_effects_001.csv": {
+      "bytes": 33712,
+      "sha256": "6dd104f5d83c6cb0de30fe082cc8227371c8c654e56652a39c6f7017110bdaa2"
+    },
+    "lfw/magface/paired_effects_002.csv": {
+      "bytes": 34027,
+      "sha256": "cad0f0b6ff0386385dbbd4fd0074d918e4c315ae72f3c5b2b093c7ee8492266d"
+    },
+    "lfw/magface/paired_effects_003.csv": {
+      "bytes": 49412,
+      "sha256": "8a91080d4d26f3888b7e33da803a5b8f8a5bb5f927ab5efecd86187bd81afbda"
+    },
+    "lfw/magface/partition_inventory_001.csv": {
+      "bytes": 1470,
+      "sha256": "dc187d65a3edb42b3c3da1cf749ea07b199f4e66e46a61f884732818ab0882a0"
+    },
+    "provenance.json": {
+      "bytes": 152345,
+      "sha256": "9efebaa7f637b89a231c95657c30cf18a3f558ebb7aa5c520bcd9ece5f5e4246"
+    },
+    "rfw_custom/adaface/diagnostic_curves_001.csv": {
+      "bytes": 28465,
+      "sha256": "48898e6966888059c751daec8671a69dba33dd6affbb0d89809aa714237780de"
+    },
+    "rfw_custom/adaface/diagnostic_curves_002.csv": {
+      "bytes": 29449,
+      "sha256": "570b5b807042623a38471c7704eaf63bdb86c856b50d3400ef5687c3aab361c5"
+    },
+    "rfw_custom/adaface/diagnostic_curves_003.csv": {
+      "bytes": 29716,
+      "sha256": "be65006a7e9cbe8ea583c8fa2238f34f8f46a01baf6ed8c54a0387c4a691f10a"
+    },
+    "rfw_custom/adaface/diagnostic_curves_004.csv": {
+      "bytes": 29373,
+      "sha256": "7a794a0f17db320882dd68b6c86b9de6f488cf55a8ffd10562406ef2f53cded1"
+    },
+    "rfw_custom/adaface/diagnostic_curves_005.csv": {
+      "bytes": 29472,
+      "sha256": "78933da86d4d929bdfe24736a8f4257a6e6b593e89aa5fd0c7ea676c18ac3286"
+    },
+    "rfw_custom/adaface/diagnostic_curves_006.csv": {
+      "bytes": 8523,
+      "sha256": "0943a1e858cb784116ed5435cf681c44402ab925b83a4992b7d4301e5d279394"
+    },
+    "rfw_custom/adaface/diagnostic_interactions_001.csv": {
+      "bytes": 38980,
+      "sha256": "473237a90003ee37f215a0aec0e82b0e73acb418a096bb97f789e9420243b13f"
+    },
+    "rfw_custom/adaface/diagnostic_interactions_002.csv": {
+      "bytes": 39546,
+      "sha256": "bd0bc591fa43a029e4ef1df3a4cc484d8cd5036c97fc802fdf6987350d88b1a1"
+    },
+    "rfw_custom/adaface/diagnostic_interactions_003.csv": {
+      "bytes": 24034,
+      "sha256": "8b1d9a0a2b7e3b99b691951a9b6479d0c3c7e8b6b56f8028dd984e8245b44b96"
+    },
+    "rfw_custom/adaface/operating_ci_endpoints_001.csv": {
+      "bytes": 30743,
+      "sha256": "2b6f80c4b022d03c785427e7431a1f022da4226f81a890aac349e01543dee958"
+    },
+    "rfw_custom/adaface/operating_failures_001.csv": {
+      "bytes": 22238,
+      "sha256": "edbcece38bb24a257044fdac141d52006fc9ce638c6e7b66920c1178020afa61"
+    },
+    "rfw_custom/adaface/operating_interactions_001.csv": {
+      "bytes": 20906,
+      "sha256": "be4f2e0a45800f995e77c8171db2f7ecb85d68132169f6906817b50560f4dc96"
+    },
+    "rfw_custom/adaface/operating_performance_001.csv": {
+      "bytes": 21611,
+      "sha256": "b6b877d8882b46b30cd222f2b3549b10bb254b321a4c64a7f7053ddfea1aab97"
+    },
+    "rfw_custom/adaface/paired_effects_001.csv": {
+      "bytes": 41122,
+      "sha256": "b9f2cdee2240f9953a82c7f63252c3832605c0f7e038adcf990dfb20e1667e83"
+    },
+    "rfw_custom/adaface/paired_effects_002.csv": {
+      "bytes": 39756,
+      "sha256": "92d03cc2ede2098bd869f628b124ddb9cf59b249263046739e20f360f9a48624"
+    },
+    "rfw_custom/adaface/paired_effects_003.csv": {
+      "bytes": 53037,
+      "sha256": "6cb6478c53f38e6d0f1020c9917531491b1346a745c753d222576035548984b0"
+    },
+    "rfw_custom/adaface/partition_inventory_001.csv": {
+      "bytes": 1570,
+      "sha256": "8a8a4c98b0c39ac8332b220c9aaf423901983fdb36253a5ae093c68a99ad6801"
+    },
+    "rfw_custom/arcface/diagnostic_curves_001.csv": {
+      "bytes": 28489,
+      "sha256": "15ac6c8c8b04a921e4a7e19c640f31356a4e60587091d7579c581127a303228f"
+    },
+    "rfw_custom/arcface/diagnostic_curves_002.csv": {
+      "bytes": 29061,
+      "sha256": "da2fe5761c40a55a2bcb77db5dea5678631c0f6e347a37f4b7832c9cb06a4234"
+    },
+    "rfw_custom/arcface/diagnostic_curves_003.csv": {
+      "bytes": 29058,
+      "sha256": "44ee158d6af58dd282e22309a6c4b69b43708816adb35e0f52a5e36e179b907a"
+    },
+    "rfw_custom/arcface/diagnostic_curves_004.csv": {
+      "bytes": 28778,
+      "sha256": "49793cdce299b25d56415adb8733f181538938aba0bd2e0b650fb7723442c4cf"
+    },
+    "rfw_custom/arcface/diagnostic_curves_005.csv": {
+      "bytes": 28958,
+      "sha256": "361bb973f43afb6abdf0bacf3bd3fc4ce184ddfd6183da5bee30d519129dc770"
+    },
+    "rfw_custom/arcface/diagnostic_curves_006.csv": {
+      "bytes": 8325,
+      "sha256": "e645af9c1b39e313fecb9288d78c4f83e9829acab67ce473d7b10b4aab1ace48"
+    },
+    "rfw_custom/arcface/diagnostic_interactions_001.csv": {
+      "bytes": 38982,
+      "sha256": "404b9d7d251d2200e9dc686092855be46261f0916f61fc665591a776d6515198"
+    },
+    "rfw_custom/arcface/diagnostic_interactions_002.csv": {
+      "bytes": 38437,
+      "sha256": "d579be280074310b8ec9715e4ee6d50a949638cb5fd7a1399db073db3b2468e5"
+    },
+    "rfw_custom/arcface/diagnostic_interactions_003.csv": {
+      "bytes": 23652,
+      "sha256": "1da634b229d20ddaa029adb2d1ced909db38fa936ac997f6e9c40b30888fb370"
+    },
+    "rfw_custom/arcface/operating_ci_endpoints_001.csv": {
+      "bytes": 30297,
+      "sha256": "0d7f050e7baa4ba927ca8d5cf5772283651afa0cd0dbeb51cc95f0152a0cf5da"
+    },
+    "rfw_custom/arcface/operating_failures_001.csv": {
+      "bytes": 16986,
+      "sha256": "268b7c1e35273a19ae068abfe640edac66c0b5b414c778b691f66e05640d0ce2"
+    },
+    "rfw_custom/arcface/operating_interactions_001.csv": {
+      "bytes": 20451,
+      "sha256": "c0f0c02c30f5d9cbb2c09a269263c9186ad81de80eab3e1cc1f4a84385e7efc6"
+    },
+    "rfw_custom/arcface/operating_performance_001.csv": {
+      "bytes": 21987,
+      "sha256": "ee31059cb3e01cb9bc57e70a5115b171fc232500a1925ad88e625ee66c31f9c9"
+    },
+    "rfw_custom/arcface/paired_effects_001.csv": {
+      "bytes": 40918,
+      "sha256": "dd431d7f4decb95003199b191d25b3c1d6423a2c1f6bd22296e585181b32fd08"
+    },
+    "rfw_custom/arcface/paired_effects_002.csv": {
+      "bytes": 39524,
+      "sha256": "d3dae140124b2c0ea0bd8dd6ee9841004802916ee5166f2d12ca698706b8b1c6"
+    },
+    "rfw_custom/arcface/paired_effects_003.csv": {
+      "bytes": 52984,
+      "sha256": "69f8b634cf244378ddeea5386b54ed81f66eb86316d7a230a9d02c15e05a4541"
+    },
+    "rfw_custom/arcface/partition_inventory_001.csv": {
+      "bytes": 1570,
+      "sha256": "08def46cd31e91825336a7a60b692f9db32ab0c6d064c14a63d8c5a9fe08e3bc"
+    },
+    "rfw_custom/edgeface/diagnostic_curves_001.csv": {
+      "bytes": 29182,
+      "sha256": "a1a143652fd1cfffe9edeeda01949951720abaa69b61c8f5818c7337a1c88e09"
+    },
+    "rfw_custom/edgeface/diagnostic_curves_002.csv": {
+      "bytes": 29764,
+      "sha256": "eb7e327f58b119883ecf4a68d6247e8afddae3c2cfc793472a6fc6626c6ad364"
+    },
+    "rfw_custom/edgeface/diagnostic_curves_003.csv": {
+      "bytes": 29774,
+      "sha256": "09a4ea7866f09706cb460ec64f26f1edf08ddd7e7072acaaf34cfeee506355a9"
+    },
+    "rfw_custom/edgeface/diagnostic_curves_004.csv": {
+      "bytes": 29474,
+      "sha256": "732464260b69a60718ebd8df4e9f91bc1ae193bf2c4ba4c6c1c932176f797fbf"
+    },
+    "rfw_custom/edgeface/diagnostic_curves_005.csv": {
+      "bytes": 29595,
+      "sha256": "7906b787ccd0c89ca872c270e2ad83f5644e246d70edb6d1c183bf867aab1604"
+    },
+    "rfw_custom/edgeface/diagnostic_curves_006.csv": {
+      "bytes": 8558,
+      "sha256": "c0fc6f9e3aac806c1c24bcb9a817a61044a1088b7bcb1d2e51a62243b56af5ab"
+    },
+    "rfw_custom/edgeface/diagnostic_interactions_001.csv": {
+      "bytes": 44334,
+      "sha256": "d3d77d5dcc80636779ff5ade3a9160d2994b2322279372c5a1e554fb593827be"
+    },
+    "rfw_custom/edgeface/diagnostic_interactions_002.csv": {
+      "bytes": 44468,
+      "sha256": "f62e617c309a58b136039efbc18d8f8f1214cfb08b60f906416cf5026ff85560"
+    },
+    "rfw_custom/edgeface/diagnostic_interactions_003.csv": {
+      "bytes": 28228,
+      "sha256": "35387acf27aa264e7f57ce76fc98f3c9c3fe6a17f1db8a9366f74f3d32d037a0"
+    },
+    "rfw_custom/edgeface/operating_ci_endpoints_001.csv": {
+      "bytes": 30827,
+      "sha256": "5f2f3f76cc423f62bb9a2d77bd6fc15a3105374c2be404ef0297a9d800cd098b"
+    },
+    "rfw_custom/edgeface/operating_failures_001.csv": {
+      "bytes": 24105,
+      "sha256": "9116a096d422de1f4a97ee108fce78ebd99e9528319f668155e3363a9b39fedf"
+    },
+    "rfw_custom/edgeface/operating_interactions_001.csv": {
+      "bytes": 24181,
+      "sha256": "f22d018c3cbae2676307054102b9b020152ce607277eb2894770a5bd4f96b2c5"
+    },
+    "rfw_custom/edgeface/operating_performance_001.csv": {
+      "bytes": 21724,
+      "sha256": "d1881c05ef105246fb1b545894de80c53efe8edb0068e6380a3b16a90ca856c1"
+    },
+    "rfw_custom/edgeface/paired_effects_001.csv": {
+      "bytes": 40949,
+      "sha256": "067d466b9fa5358e0740c73aad90aa4cb51bf9a0edb5a9e3c337998b62a3b2ea"
+    },
+    "rfw_custom/edgeface/paired_effects_002.csv": {
+      "bytes": 41249,
+      "sha256": "52c7267d83e5ae86ac2d826feeb42e0be1d1ab55ba6205c5785fc66ebef92966"
+    },
+    "rfw_custom/edgeface/paired_effects_003.csv": {
+      "bytes": 56188,
+      "sha256": "e0f70ea905891ce044b6fb40ace6dea87c374fd2889e991c368dc31571367b40"
+    },
+    "rfw_custom/edgeface/partition_inventory_001.csv": {
+      "bytes": 1578,
+      "sha256": "420e0897d8653cc963cb751cb068312ee136c761f358c042949293fd19d84cbe"
+    },
+    "rfw_custom/magface/diagnostic_curves_001.csv": {
+      "bytes": 29064,
+      "sha256": "96c366be0e8cfaf45bbe2314021cb530bf423934faeb0e2fe0720d14b01386ca"
+    },
+    "rfw_custom/magface/diagnostic_curves_002.csv": {
+      "bytes": 29607,
+      "sha256": "8606722eb9220ad11ca16f5022fc96924422a3fb109714ba97cee340b561bb06"
+    },
+    "rfw_custom/magface/diagnostic_curves_003.csv": {
+      "bytes": 29678,
+      "sha256": "936420595a5d9235a7f346bc34d1b1aa731a42689dc715acaadef79c517e94c4"
+    },
+    "rfw_custom/magface/diagnostic_curves_004.csv": {
+      "bytes": 29376,
+      "sha256": "6b64aecc0766ff0d4326ef3c198ffc294ab9c2b1a06eeb33947a1ab2d71bbc49"
+    },
+    "rfw_custom/magface/diagnostic_curves_005.csv": {
+      "bytes": 29545,
+      "sha256": "d09af9f774125d813adaefeb32487f29fa473f8afa6de7960e79666570084114"
+    },
+    "rfw_custom/magface/diagnostic_curves_006.csv": {
+      "bytes": 8541,
+      "sha256": "575a7c839be66fa0439503a9c2c5e48cfc9c1c719a38ce146ce45a84cee74df2"
+    },
+    "rfw_custom/magface/diagnostic_interactions_001.csv": {
+      "bytes": 41832,
+      "sha256": "acc1e7c865b03cd88e9a63cc42099cac3f19bdf1200ea252cbd8a98f6c7e3fb7"
+    },
+    "rfw_custom/magface/diagnostic_interactions_002.csv": {
+      "bytes": 42252,
+      "sha256": "5024a8f38a6f52f19288f6a44869c6f2afd44d43f83c13a8b697fc8c2191a6f2"
+    },
+    "rfw_custom/magface/diagnostic_interactions_003.csv": {
+      "bytes": 26608,
+      "sha256": "50472f314f517552c70b337f16572933bf9521fb7cd8038d931ad4a23c289980"
+    },
+    "rfw_custom/magface/operating_ci_endpoints_001.csv": {
+      "bytes": 30773,
+      "sha256": "b2d0b454918a51ecf7c15d4d2e73621a4813c2fb0cd1756f4dd3cf9c97368797"
+    },
+    "rfw_custom/magface/operating_failures_001.csv": {
+      "bytes": 23895,
+      "sha256": "bf4d1d6d841273f6a3d17aad58561e39f3047e0f28728bb55fc47936655e89eb"
+    },
+    "rfw_custom/magface/operating_interactions_001.csv": {
+      "bytes": 23204,
+      "sha256": "85b4b5cc016768a206a061391f0fdab9ef25c4baaeba3a824edd3a436a7b10c1"
+    },
+    "rfw_custom/magface/operating_performance_001.csv": {
+      "bytes": 21900,
+      "sha256": "4db90e605944e67dac351746a7136f7273a9a097c158f1df7aa56904928e56b9"
+    },
+    "rfw_custom/magface/paired_effects_001.csv": {
+      "bytes": 40925,
+      "sha256": "84ad7960fe5fea36d72c9fc69907a51442df6ea77f50cbce908ec4de610ab4cf"
+    },
+    "rfw_custom/magface/paired_effects_002.csv": {
+      "bytes": 40885,
+      "sha256": "32ab00610c45e226e23552def1a5a1f0a4cbd62d7ab606e1e6cc1cb60ea2923a"
+    },
+    "rfw_custom/magface/paired_effects_003.csv": {
+      "bytes": 54628,
+      "sha256": "a42541151a6f5b3c4f19e784c743547477317547fef1730647edae53f7b29f56"
+    },
+    "rfw_custom/magface/partition_inventory_001.csv": {
+      "bytes": 1570,
+      "sha256": "ce47e58756a9e9bcc441602a7f29f399e605fc107c26e2dd2500a65b61f7a752"
+    },
+    "survface/adaface/diagnostic_curves_001.csv": {
+      "bytes": 29011,
+      "sha256": "91f039d571ff6b4f173f06f03357625bacd87eafc1637835880f5c2bd3736daf"
+    },
+    "survface/adaface/diagnostic_curves_002.csv": {
+      "bytes": 29830,
+      "sha256": "bdfe3fdc9c4f672975b50aeb869950e063d677f7ae4164c3a6193520d253e031"
+    },
+    "survface/adaface/diagnostic_curves_003.csv": {
+      "bytes": 29631,
+      "sha256": "78d64f74aa4d2201377b12d880e08dbacf59cc1d0e95b58a818d88cf6c907b5c"
+    },
+    "survface/adaface/diagnostic_curves_004.csv": {
+      "bytes": 29131,
+      "sha256": "97ce0f5ed62c778ff310a63f760678de418164d06b17fb0cfb39c7612ab3866f"
+    },
+    "survface/adaface/diagnostic_curves_005.csv": {
+      "bytes": 29471,
+      "sha256": "2d15001f68808f120eb7121b82498647dfc4db0443dc0ad3786f1182bd4e8457"
+    },
+    "survface/adaface/diagnostic_curves_006.csv": {
+      "bytes": 8447,
+      "sha256": "0d3de4fb3e4b555645f465b16919a5ff901f7d24ad730586e29bb2dcc886a340"
+    },
+    "survface/adaface/diagnostic_interactions_001.csv": {
+      "bytes": 43343,
+      "sha256": "3d8e826d5315d571bbfb7901f3817886463d5729b7c4504f5612638a4a8dc0a4"
+    },
+    "survface/adaface/diagnostic_interactions_002.csv": {
+      "bytes": 43878,
+      "sha256": "a778c003f0272c43df4a32c416dcb889a28097a14f57a03c3842286c7a54e1af"
+    },
+    "survface/adaface/diagnostic_interactions_003.csv": {
+      "bytes": 28178,
+      "sha256": "4e4a529540288a6022f5b9499c56f83300a98de834e0adb2803b93a01112cb26"
+    },
+    "survface/adaface/operating_ci_endpoints_001.csv": {
+      "bytes": 31664,
+      "sha256": "71bfca19612882b96881e0e45d97383ff7d34e17c74d5f9e0a4886af69775489"
+    },
+    "survface/adaface/operating_failures_001.csv": {
+      "bytes": 24402,
+      "sha256": "23f4a6cc37820aa29aeac5be6948e3855cca740cd67e9bdc4fbdf2fd4d75758c"
+    },
+    "survface/adaface/operating_interactions_001.csv": {
+      "bytes": 24528,
+      "sha256": "3726aeda48de40f94d77ea82bb52cfff1baf827f727ab798857197b784d6db3f"
+    },
+    "survface/adaface/operating_performance_001.csv": {
+      "bytes": 22005,
+      "sha256": "34d56c2826eff807abde458304185d11a1a51f4eaa55f93c193ffadef78a6753"
+    },
+    "survface/adaface/paired_effects_001.csv": {
+      "bytes": 41733,
+      "sha256": "9cd2549b8af4d89f6ea4869a907cf23d67ed0dd36b6b0200e1b6d770d6360ce1"
+    },
+    "survface/adaface/paired_effects_002.csv": {
+      "bytes": 41372,
+      "sha256": "22ece0f13e973a85e5d1864fbc526525083ce27e468de91d5d17646428cef10c"
+    },
+    "survface/adaface/paired_effects_003.csv": {
+      "bytes": 57061,
+      "sha256": "7e01fff39d3fe264bbd7e2a032ee4d2458540cdaa129f88d1a6eb9645415d7df"
+    },
+    "survface/adaface/partition_inventory_001.csv": {
+      "bytes": 1610,
+      "sha256": "d766851ac29973ec59c9c5bf3f1b4ba9f2fe0f98d7a56dac936b9b6ee4c5cfec"
+    },
+    "survface/arcface/diagnostic_curves_001.csv": {
+      "bytes": 28862,
+      "sha256": "73bc6a77e4989328a581094a0e423001835f9b765aaac1a8da9fafcf564a7595"
+    },
+    "survface/arcface/diagnostic_curves_002.csv": {
+      "bytes": 29366,
+      "sha256": "0084d09f838182ab05f8dc2f0153df0f15c6d11572d25fc419a7ed64c95dfd2d"
+    },
+    "survface/arcface/diagnostic_curves_003.csv": {
+      "bytes": 29212,
+      "sha256": "4e4f61b261df9b99e9a2bad68e722a88e5f51cdc6dd42a0304abdb4761b34814"
+    },
+    "survface/arcface/diagnostic_curves_004.csv": {
+      "bytes": 28522,
+      "sha256": "86cba9bbdcf53579a524fc9b00eb1752a56bdf4f9a21633d562039109cd723dd"
+    },
+    "survface/arcface/diagnostic_curves_005.csv": {
+      "bytes": 29148,
+      "sha256": "80f678f422ce722576bf62e8261e850b228a02df6ca2a61648f10331a2d2b36c"
+    },
+    "survface/arcface/diagnostic_curves_006.csv": {
+      "bytes": 8267,
+      "sha256": "50157d26a8f143cd1c1dc4a5ed5d6a60d1b784315288548317772ff5a741c686"
+    },
+    "survface/arcface/diagnostic_interactions_001.csv": {
+      "bytes": 42891,
+      "sha256": "9ec07df5793396be71e397a79bd586c57d46de69cd3a625d2e4d82247885a09e"
+    },
+    "survface/arcface/diagnostic_interactions_002.csv": {
+      "bytes": 43306,
+      "sha256": "6dd43cda19c9aea099d28354e914ab2392c20acd69a8f32bb7e002c208640f18"
+    },
+    "survface/arcface/diagnostic_interactions_003.csv": {
+      "bytes": 27429,
+      "sha256": "ba5e8cca979efad651f42f02f06618f168bae5a6012ee8a4ae2770e3e78f6272"
+    },
+    "survface/arcface/operating_ci_endpoints_001.csv": {
+      "bytes": 31729,
+      "sha256": "98cac1c4ecab99e28229662b81361737d19919af165ac735e39a109ff07c4a81"
+    },
+    "survface/arcface/operating_failures_001.csv": {
+      "bytes": 24368,
+      "sha256": "b006d7b46b5c15964410562ae052a0fd59f6bde174aaaa7dcbd0a3c8e7fbed94"
+    },
+    "survface/arcface/operating_interactions_001.csv": {
+      "bytes": 24481,
+      "sha256": "6451b2c77f5efa09646a375af6a28df9329b9f2732aa648f615865adf2ca492a"
+    },
+    "survface/arcface/operating_performance_001.csv": {
+      "bytes": 22112,
+      "sha256": "c8cc62eaf61eac52ce79b945ec1038169d21e6b1368da31a76dfedf740893d2c"
+    },
+    "survface/arcface/paired_effects_001.csv": {
+      "bytes": 41119,
+      "sha256": "6f772c49a635b240b945aa4f93d14bd57fc3574fcb5459021bbf28844e6d9551"
+    },
+    "survface/arcface/paired_effects_002.csv": {
+      "bytes": 41735,
+      "sha256": "19c41045efd2bc5cff84c934cda86145368e71132a96eea52eba1ed4381e406e"
+    },
+    "survface/arcface/paired_effects_003.csv": {
+      "bytes": 57045,
+      "sha256": "bce81cdc2f46c3108ea93725401463c0d7d1908b0c4049e9b97e3afcaf912988"
+    },
+    "survface/arcface/partition_inventory_001.csv": {
+      "bytes": 1610,
+      "sha256": "a7499ec090b5ec186c837c5bb0c1fa8d110c620a982ff0dbf04b6b705a5eabf7"
+    },
+    "survface/edgeface/diagnostic_curves_001.csv": {
+      "bytes": 28908,
+      "sha256": "e1ca0715f6df0d7f1574dc440566ad630ec6aa7ae89879e51c411763483b7ea7"
+    },
+    "survface/edgeface/diagnostic_curves_002.csv": {
+      "bytes": 29455,
+      "sha256": "1131adb0366ebd75b612a514ba519bec4b0dfed0b9f836f967df64c7e430cdf8"
+    },
+    "survface/edgeface/diagnostic_curves_003.csv": {
+      "bytes": 28833,
+      "sha256": "17754b18a077fb47300b841e623502808ea15d822cbd646d01ceace336d0453b"
+    },
+    "survface/edgeface/diagnostic_curves_004.csv": {
+      "bytes": 28305,
+      "sha256": "d33a46b3a6e88b181ea4bc37431dc5e484353c7ef2b9b10eec6e716d6ec18176"
+    },
+    "survface/edgeface/diagnostic_curves_005.csv": {
+      "bytes": 29088,
+      "sha256": "2f1baf110d6f49d524559552cd01d6f510af9fcfad2ce87c69c8662cbc9be1ed"
+    },
+    "survface/edgeface/diagnostic_curves_006.csv": {
+      "bytes": 7951,
+      "sha256": "43698e3067b716f32eac8e10fba1d894c6febb98ed12ffd4c1f6d02a26e1117a"
+    },
+    "survface/edgeface/diagnostic_interactions_001.csv": {
+      "bytes": 43209,
+      "sha256": "84d5942e0a0ef4299d06e14a94ae26469406235d61d20bab16b2210663aaf0d1"
+    },
+    "survface/edgeface/diagnostic_interactions_002.csv": {
+      "bytes": 43304,
+      "sha256": "5a3723cc8d11cc806765be00607750ad68e2e0a79924d70bcf7025cbc66aaeed"
+    },
+    "survface/edgeface/diagnostic_interactions_003.csv": {
+      "bytes": 27222,
+      "sha256": "d4c77379861b20e2f810604292ed45ed8045f13c09b20514a8c054457308f9ea"
+    },
+    "survface/edgeface/operating_ci_endpoints_001.csv": {
+      "bytes": 31529,
+      "sha256": "5e07724c208cd54b867eb0a3083779cb0515d1406c05441b2c7a8bf3697ec6b8"
+    },
+    "survface/edgeface/operating_failures_001.csv": {
+      "bytes": 24458,
+      "sha256": "ae1c27855a3c8c782297ecfdc36d13e600ddde2b0ab455374253cd1015ea95ca"
+    },
+    "survface/edgeface/operating_interactions_001.csv": {
+      "bytes": 24467,
+      "sha256": "09be8f634ccfcf9fd5f4e0659f260b655b6a5d1e9cd7e028d7602d781e9fd42b"
+    },
+    "survface/edgeface/operating_performance_001.csv": {
+      "bytes": 22383,
+      "sha256": "ca0fe36c680fd3ed2388bebb16934c9bc1da10f023a9855363b13c5c8ea10137"
+    },
+    "survface/edgeface/paired_effects_001.csv": {
+      "bytes": 40898,
+      "sha256": "c7a0a80bc98962c4774fa37a19937d22608291d7767610cd81832a816b4f4403"
+    },
+    "survface/edgeface/paired_effects_002.csv": {
+      "bytes": 41834,
+      "sha256": "2cb00a6896d14c1871b2854de3f31fec381f8ceba5f5d442fb303b0236ca3c24"
+    },
+    "survface/edgeface/paired_effects_003.csv": {
+      "bytes": 57170,
+      "sha256": "9c9423dd635645216c97a78b7257984cec68294c1a98f93994236c591fe096db"
+    },
+    "survface/edgeface/partition_inventory_001.csv": {
+      "bytes": 1618,
+      "sha256": "2a88789e206ebd1b1e819eb1bbf5425a47fba58f760a366748d76616bd327fc9"
+    },
+    "survface/magface/diagnostic_curves_001.csv": {
+      "bytes": 28692,
+      "sha256": "96c97aabbb21676a28e2e8fd953de89972cd37260c6545377e819a25c33f5f58"
+    },
+    "survface/magface/diagnostic_curves_002.csv": {
+      "bytes": 29326,
+      "sha256": "509f13a7746654533e310e17ff436f88e22e665b96d2b86af7e89ca7aee1a89a"
+    },
+    "survface/magface/diagnostic_curves_003.csv": {
+      "bytes": 29370,
+      "sha256": "1c54858fdbf8e3608133f4ae9de96171c727d6c97bd1b49beeb446f9fef0efa3"
+    },
+    "survface/magface/diagnostic_curves_004.csv": {
+      "bytes": 29180,
+      "sha256": "e334282547e3d3be3f967a26fa32a6d4e8158aac8c727c4e36359cf60b7ef52c"
+    },
+    "survface/magface/diagnostic_curves_005.csv": {
+      "bytes": 29215,
+      "sha256": "f55a3b90e50482e9ef578523c9c73cf0bcc22a551656bd003279b656199bac9d"
+    },
+    "survface/magface/diagnostic_curves_006.csv": {
+      "bytes": 8423,
+      "sha256": "4a9a95c7842ab52617df9a4a207954ae313e5305d5611994446bf9730f2bb6a9"
+    },
+    "survface/magface/diagnostic_interactions_001.csv": {
+      "bytes": 42529,
+      "sha256": "96b43fa981dcf1dcb3dbc5a1cb589edf101677200041a68e3781b1553a3da6de"
+    },
+    "survface/magface/diagnostic_interactions_002.csv": {
+      "bytes": 42977,
+      "sha256": "a9b004a3d0d370b6d6e7b185293d9cb0136f89a020d38040e8aead0c70a8afc5"
+    },
+    "survface/magface/diagnostic_interactions_003.csv": {
+      "bytes": 27333,
+      "sha256": "1a55b6a46e7f792c850721d6a669b3d594f200512914c97213dedaf827519ba2"
+    },
+    "survface/magface/operating_ci_endpoints_001.csv": {
+      "bytes": 31768,
+      "sha256": "1eeb352dba40829c816e0fbb80e0bc30915ae2d43749deafda5db64b62fdaacb"
+    },
+    "survface/magface/operating_failures_001.csv": {
+      "bytes": 24442,
+      "sha256": "57fb4c782d614e45428585639a96bffea1ccd232aa9a5c4ad93ad9629d3ae883"
+    },
+    "survface/magface/operating_interactions_001.csv": {
+      "bytes": 24491,
+      "sha256": "ed7664c1cda20a1d95314b0ec12457267995c5246a69cfefc2515b11bb86ebcc"
+    },
+    "survface/magface/operating_performance_001.csv": {
+      "bytes": 21912,
+      "sha256": "7c14715c5116b9bc8c02747c3c5cb0098bf09238be37b3bed9032a2a47c309a4"
+    },
+    "survface/magface/paired_effects_001.csv": {
+      "bytes": 41281,
+      "sha256": "3feebd74b63e5cb65f95fb45a17caf5c8f81f7e96ea5b6c5e1ac1e0d5a9328e9"
+    },
+    "survface/magface/paired_effects_002.csv": {
+      "bytes": 41447,
+      "sha256": "0f4ab4891f0d16ac597742f26b4dcdf8752a38e2172d5ce9309fbf600834e9bf"
+    },
+    "survface/magface/paired_effects_003.csv": {
+      "bytes": 57109,
+      "sha256": "402fd690442a0c51d5a31a14dd0d632e395632b7b4a21656445dbc3f56ead5eb"
+    },
+    "survface/magface/partition_inventory_001.csv": {
+      "bytes": 1610,
+      "sha256": "8a0ab2f562df232d5f8baa8596fd4b77500ac2a699914a58477cd9bfde68a4ac"
+    }
+  },
+  "artifact_type": "origin_pq_chat_bundle",
+  "ci_endpoint_ranges_are_merged_intervals": false,
+  "experiment_status": "completed",
+  "files": {
+    "START_HERE.md": "29d9a76b0bcc859af474c1c16166589a71b4532961edcf061d8c81a42096a7ad",
+    "analysis.zip": "d3abe0e794254661e24b1a2e4e4fcdf0d8e7ff4f58f6e8101c8e275b16a06749"
+  },
+  "formal_fpir_guarantee": false,
+  "result_uid": "origin-pq-chat-a0dfa6bead1990f7c38ff8e1",
+  "same_test_seeds_are_independent": false,
+  "schema_version": 1,
+  "spec": {
+    "coverage": {
+      "completed_job_keys": [
+        "20260902-R001-6c8b08b1:0",
+        "20260902-R001-6c8b08b1:1",
+        "20260902-R001-6c8b08b1:2",
+        "20260902-R001-6c8b08b1:3",
+        "20260902-R001-6c8b08b1:4",
+        "20260902-R001-6c8b08b1:5",
+        "20260902-R001-6c8b08b1:6",
+        "20260902-R001-6c8b08b1:7",
+        "20260902-R001-6c8b08b1:8",
+        "20260902-R001-6c8b08b1:9",
+        "20260902-R001-6c8b08b1:10",
+        "20260902-R001-6c8b08b1:11",
+        "20260902-R001-6c8b08b1:12",
+        "20260902-R001-6c8b08b1:13",
+        "20260902-R001-6c8b08b1:14",
+        "20260902-R001-6c8b08b1:15",
+        "20260902-R001-6c8b08b1:16",
+        "20260902-R001-6c8b08b1:17",
+        "20260902-R001-6c8b08b1:18",
+        "20260902-R001-6c8b08b1:8972",
+        "20260903-R001-af875d0f:0",
+        "20260903-R001-af875d0f:1",
+        "20260903-R001-af875d0f:2",
+        "20260903-R001-af875d0f:3",
+        "20260903-R001-af875d0f:4",
+        "20260903-R001-af875d0f:5",
+        "20260903-R001-af875d0f:6",
+        "20260903-R001-af875d0f:7",
+        "20260903-R001-af875d0f:8",
+        "20260903-R001-af875d0f:9",
+        "20260903-R001-af875d0f:10",
+        "20260903-R001-af875d0f:11",
+        "20260903-R001-af875d0f:12",
+        "20260903-R001-af875d0f:13",
+        "20260903-R001-af875d0f:14",
+        "20260903-R001-af875d0f:15",
+        "20260903-R001-af875d0f:16",
+        "20260903-R001-af875d0f:17",
+        "20260903-R001-af875d0f:18",
+        "20260903-R001-af875d0f:8972",
+        "20260902-R001-61915edf:0",
+        "20260902-R001-61915edf:1",
+        "20260902-R001-61915edf:2",
+        "20260902-R001-61915edf:3",
+        "20260902-R001-61915edf:4",
+        "20260902-R001-61915edf:5",
+        "20260902-R001-61915edf:6",
+        "20260902-R001-61915edf:7",
+        "20260902-R001-61915edf:8",
+        "20260902-R001-61915edf:9",
+        "20260902-R001-61915edf:10",
+        "20260902-R001-61915edf:11",
+        "20260902-R001-61915edf:12",
+        "20260902-R001-61915edf:13",
+        "20260902-R001-61915edf:14",
+        "20260902-R001-61915edf:15",
+        "20260902-R001-61915edf:16",
+        "20260902-R001-61915edf:17",
+        "20260902-R001-61915edf:18",
+        "20260902-R001-61915edf:8972",
+        "20260830-R001-2c810919:0",
+        "20260830-R001-2c810919:1",
+        "20260830-R001-2c810919:2",
+        "20260830-R001-2c810919:3",
+        "20260830-R001-2c810919:4",
+        "20260830-R001-2c810919:5",
+        "20260830-R001-2c810919:6",
+        "20260830-R001-2c810919:7",
+        "20260830-R001-2c810919:8",
+        "20260830-R001-2c810919:9",
+        "20260830-R001-2c810919:10",
+        "20260830-R001-2c810919:11",
+        "20260830-R001-2c810919:12",
+        "20260830-R001-2c810919:13",
+        "20260830-R001-2c810919:14",
+        "20260830-R001-2c810919:15",
+        "20260830-R001-2c810919:16",
+        "20260830-R001-2c810919:17",
+        "20260830-R001-2c810919:18",
+        "20260830-R001-2c810919:8972",
+        "20260830-R001-9f3f1375:0",
+        "20260830-R001-9f3f1375:1",
+        "20260830-R001-9f3f1375:2",
+        "20260830-R001-9f3f1375:3",
+        "20260830-R001-9f3f1375:4",
+        "20260830-R001-9f3f1375:5",
+        "20260830-R001-9f3f1375:6",
+        "20260830-R001-9f3f1375:7",
+        "20260830-R001-9f3f1375:8",
+        "20260830-R001-9f3f1375:9",
+        "20260830-R001-9f3f1375:10",
+        "20260830-R001-9f3f1375:11",
+        "20260830-R001-9f3f1375:12",
+        "20260830-R001-9f3f1375:13",
+        "20260830-R001-9f3f1375:14",
+        "20260830-R001-9f3f1375:15",
+        "20260830-R001-9f3f1375:16",
+        "20260830-R001-9f3f1375:17",
+        "20260830-R001-9f3f1375:18",
+        "20260830-R001-9f3f1375:8972",
+        "20260830-R001-ec6e5d4a:0",
+        "20260830-R001-ec6e5d4a:1",
+        "20260830-R001-ec6e5d4a:2",
+        "20260830-R001-ec6e5d4a:3",
+        "20260830-R001-ec6e5d4a:4",
+        "20260830-R001-ec6e5d4a:5",
+        "20260830-R001-ec6e5d4a:6",
+        "20260830-R001-ec6e5d4a:7",
+        "20260830-R001-ec6e5d4a:8",
+        "20260830-R001-ec6e5d4a:9",
+        "20260830-R001-ec6e5d4a:10",
+        "20260830-R001-ec6e5d4a:11",
+        "20260830-R001-ec6e5d4a:12",
+        "20260830-R001-ec6e5d4a:13",
+        "20260830-R001-ec6e5d4a:14",
+        "20260830-R001-ec6e5d4a:15",
+        "20260830-R001-ec6e5d4a:16",
+        "20260830-R001-ec6e5d4a:17",
+        "20260830-R001-ec6e5d4a:18",
+        "20260830-R001-ec6e5d4a:8972",
+        "20260831-R001-937290ca:0",
+        "20260831-R001-937290ca:1",
+        "20260831-R001-937290ca:2",
+        "20260831-R001-937290ca:3",
+        "20260831-R001-937290ca:4",
+        "20260831-R001-937290ca:5",
+        "20260831-R001-937290ca:6",
+        "20260831-R001-937290ca:7",
+        "20260831-R001-937290ca:8",
+        "20260831-R001-937290ca:9",
+        "20260831-R001-937290ca:10",
+        "20260831-R001-937290ca:11",
+        "20260831-R001-937290ca:12",
+        "20260831-R001-937290ca:13",
+        "20260831-R001-937290ca:14",
+        "20260831-R001-937290ca:15",
+        "20260831-R001-937290ca:16",
+        "20260831-R001-937290ca:17",
+        "20260831-R001-937290ca:18",
+        "20260831-R001-937290ca:8972",
+        "20260831-R001-7c74c5f7:0",
+        "20260831-R001-7c74c5f7:1",
+        "20260831-R001-7c74c5f7:2",
+        "20260831-R001-7c74c5f7:3",
+        "20260831-R001-7c74c5f7:4",
+        "20260831-R001-7c74c5f7:5",
+        "20260831-R001-7c74c5f7:6",
+        "20260831-R001-7c74c5f7:7",
+        "20260831-R001-7c74c5f7:8",
+        "20260831-R001-7c74c5f7:9",
+        "20260831-R001-7c74c5f7:10",
+        "20260831-R001-7c74c5f7:11",
+        "20260831-R001-7c74c5f7:12",
+        "20260831-R001-7c74c5f7:13",
+        "20260831-R001-7c74c5f7:14",
+        "20260831-R001-7c74c5f7:15",
+        "20260831-R001-7c74c5f7:16",
+        "20260831-R001-7c74c5f7:17",
+        "20260831-R001-7c74c5f7:18",
+        "20260831-R001-7c74c5f7:8972",
+        "20260831-R001-6695386d:0",
+        "20260831-R001-6695386d:1",
+        "20260831-R001-6695386d:2",
+        "20260831-R001-6695386d:3",
+        "20260831-R001-6695386d:4",
+        "20260831-R001-6695386d:5",
+        "20260831-R001-6695386d:6",
+        "20260831-R001-6695386d:7",
+        "20260831-R001-6695386d:8",
+        "20260831-R001-6695386d:9",
+        "20260831-R001-6695386d:10",
+        "20260831-R001-6695386d:11",
+        "20260831-R001-6695386d:12",
+        "20260831-R001-6695386d:13",
+        "20260831-R001-6695386d:14",
+        "20260831-R001-6695386d:15",
+        "20260831-R001-6695386d:16",
+        "20260831-R001-6695386d:17",
+        "20260831-R001-6695386d:18",
+        "20260831-R001-6695386d:8972",
+        "20260901-R001-03c98fe5:0",
+        "20260901-R001-03c98fe5:1",
+        "20260901-R001-03c98fe5:2",
+        "20260901-R001-03c98fe5:3",
+        "20260901-R001-03c98fe5:4",
+        "20260901-R001-03c98fe5:5",
+        "20260901-R001-03c98fe5:6",
+        "20260901-R001-03c98fe5:7",
+        "20260901-R001-03c98fe5:8",
+        "20260901-R001-03c98fe5:9",
+        "20260901-R001-03c98fe5:10",
+        "20260901-R001-03c98fe5:11",
+        "20260901-R001-03c98fe5:12",
+        "20260901-R001-03c98fe5:13",
+        "20260901-R001-03c98fe5:14",
+        "20260901-R001-03c98fe5:15",
+        "20260901-R001-03c98fe5:16",
+        "20260901-R001-03c98fe5:17",
+        "20260901-R001-03c98fe5:18",
+        "20260901-R001-03c98fe5:8972",
+        "20260901-R001-0c811e8a:0",
+        "20260901-R001-0c811e8a:1",
+        "20260901-R001-0c811e8a:2",
+        "20260901-R001-0c811e8a:3",
+        "20260901-R001-0c811e8a:4",
+        "20260901-R001-0c811e8a:5",
+        "20260901-R001-0c811e8a:6",
+        "20260901-R001-0c811e8a:7",
+        "20260901-R001-0c811e8a:8",
+        "20260901-R001-0c811e8a:9",
+        "20260901-R001-0c811e8a:10",
+        "20260901-R001-0c811e8a:11",
+        "20260901-R001-0c811e8a:12",
+        "20260901-R001-0c811e8a:13",
+        "20260901-R001-0c811e8a:14",
+        "20260901-R001-0c811e8a:15",
+        "20260901-R001-0c811e8a:16",
+        "20260901-R001-0c811e8a:17",
+        "20260901-R001-0c811e8a:18",
+        "20260901-R001-0c811e8a:8972",
+        "20260901-R001-56c2f3ed:0",
+        "20260901-R001-56c2f3ed:1",
+        "20260901-R001-56c2f3ed:2",
+        "20260901-R001-56c2f3ed:3",
+        "20260901-R001-56c2f3ed:4",
+        "20260901-R001-56c2f3ed:5",
+        "20260901-R001-56c2f3ed:6",
+        "20260901-R001-56c2f3ed:7",
+        "20260901-R001-56c2f3ed:8",
+        "20260901-R001-56c2f3ed:9",
+        "20260901-R001-56c2f3ed:10",
+        "20260901-R001-56c2f3ed:11",
+        "20260901-R001-56c2f3ed:12",
+        "20260901-R001-56c2f3ed:13",
+        "20260901-R001-56c2f3ed:14",
+        "20260901-R001-56c2f3ed:15",
+        "20260901-R001-56c2f3ed:16",
+        "20260901-R001-56c2f3ed:17",
+        "20260901-R001-56c2f3ed:18",
+        "20260901-R001-56c2f3ed:8972"
+      ],
+      "completed_jobs": 240,
+      "expected_job_keys": [
+        "20260902-R001-6c8b08b1:0",
+        "20260902-R001-6c8b08b1:1",
+        "20260902-R001-6c8b08b1:2",
+        "20260902-R001-6c8b08b1:3",
+        "20260902-R001-6c8b08b1:4",
+        "20260902-R001-6c8b08b1:5",
+        "20260902-R001-6c8b08b1:6",
+        "20260902-R001-6c8b08b1:7",
+        "20260902-R001-6c8b08b1:8",
+        "20260902-R001-6c8b08b1:9",
+        "20260902-R001-6c8b08b1:10",
+        "20260902-R001-6c8b08b1:11",
+        "20260902-R001-6c8b08b1:12",
+        "20260902-R001-6c8b08b1:13",
+        "20260902-R001-6c8b08b1:14",
+        "20260902-R001-6c8b08b1:15",
+        "20260902-R001-6c8b08b1:16",
+        "20260902-R001-6c8b08b1:17",
+        "20260902-R001-6c8b08b1:18",
+        "20260902-R001-6c8b08b1:8972",
+        "20260903-R001-af875d0f:0",
+        "20260903-R001-af875d0f:1",
+        "20260903-R001-af875d0f:2",
+        "20260903-R001-af875d0f:3",
+        "20260903-R001-af875d0f:4",
+        "20260903-R001-af875d0f:5",
+        "20260903-R001-af875d0f:6",
+        "20260903-R001-af875d0f:7",
+        "20260903-R001-af875d0f:8",
+        "20260903-R001-af875d0f:9",
+        "20260903-R001-af875d0f:10",
+        "20260903-R001-af875d0f:11",
+        "20260903-R001-af875d0f:12",
+        "20260903-R001-af875d0f:13",
+        "20260903-R001-af875d0f:14",
+        "20260903-R001-af875d0f:15",
+        "20260903-R001-af875d0f:16",
+        "20260903-R001-af875d0f:17",
+        "20260903-R001-af875d0f:18",
+        "20260903-R001-af875d0f:8972",
+        "20260902-R001-61915edf:0",
+        "20260902-R001-61915edf:1",
+        "20260902-R001-61915edf:2",
+        "20260902-R001-61915edf:3",
+        "20260902-R001-61915edf:4",
+        "20260902-R001-61915edf:5",
+        "20260902-R001-61915edf:6",
+        "20260902-R001-61915edf:7",
+        "20260902-R001-61915edf:8",
+        "20260902-R001-61915edf:9",
+        "20260902-R001-61915edf:10",
+        "20260902-R001-61915edf:11",
+        "20260902-R001-61915edf:12",
+        "20260902-R001-61915edf:13",
+        "20260902-R001-61915edf:14",
+        "20260902-R001-61915edf:15",
+        "20260902-R001-61915edf:16",
+        "20260902-R001-61915edf:17",
+        "20260902-R001-61915edf:18",
+        "20260902-R001-61915edf:8972",
+        "20260830-R001-2c810919:0",
+        "20260830-R001-2c810919:1",
+        "20260830-R001-2c810919:2",
+        "20260830-R001-2c810919:3",
+        "20260830-R001-2c810919:4",
+        "20260830-R001-2c810919:5",
+        "20260830-R001-2c810919:6",
+        "20260830-R001-2c810919:7",
+        "20260830-R001-2c810919:8",
+        "20260830-R001-2c810919:9",
+        "20260830-R001-2c810919:10",
+        "20260830-R001-2c810919:11",
+        "20260830-R001-2c810919:12",
+        "20260830-R001-2c810919:13",
+        "20260830-R001-2c810919:14",
+        "20260830-R001-2c810919:15",
+        "20260830-R001-2c810919:16",
+        "20260830-R001-2c810919:17",
+        "20260830-R001-2c810919:18",
+        "20260830-R001-2c810919:8972",
+        "20260830-R001-9f3f1375:0",
+        "20260830-R001-9f3f1375:1",
+        "20260830-R001-9f3f1375:2",
+        "20260830-R001-9f3f1375:3",
+        "20260830-R001-9f3f1375:4",
+        "20260830-R001-9f3f1375:5",
+        "20260830-R001-9f3f1375:6",
+        "20260830-R001-9f3f1375:7",
+        "20260830-R001-9f3f1375:8",
+        "20260830-R001-9f3f1375:9",
+        "20260830-R001-9f3f1375:10",
+        "20260830-R001-9f3f1375:11",
+        "20260830-R001-9f3f1375:12",
+        "20260830-R001-9f3f1375:13",
+        "20260830-R001-9f3f1375:14",
+        "20260830-R001-9f3f1375:15",
+        "20260830-R001-9f3f1375:16",
+        "20260830-R001-9f3f1375:17",
+        "20260830-R001-9f3f1375:18",
+        "20260830-R001-9f3f1375:8972",
+        "20260830-R001-ec6e5d4a:0",
+        "20260830-R001-ec6e5d4a:1",
+        "20260830-R001-ec6e5d4a:2",
+        "20260830-R001-ec6e5d4a:3",
+        "20260830-R001-ec6e5d4a:4",
+        "20260830-R001-ec6e5d4a:5",
+        "20260830-R001-ec6e5d4a:6",
+        "20260830-R001-ec6e5d4a:7",
+        "20260830-R001-ec6e5d4a:8",
+        "20260830-R001-ec6e5d4a:9",
+        "20260830-R001-ec6e5d4a:10",
+        "20260830-R001-ec6e5d4a:11",
+        "20260830-R001-ec6e5d4a:12",
+        "20260830-R001-ec6e5d4a:13",
+        "20260830-R001-ec6e5d4a:14",
+        "20260830-R001-ec6e5d4a:15",
+        "20260830-R001-ec6e5d4a:16",
+        "20260830-R001-ec6e5d4a:17",
+        "20260830-R001-ec6e5d4a:18",
+        "20260830-R001-ec6e5d4a:8972",
+        "20260831-R001-937290ca:0",
+        "20260831-R001-937290ca:1",
+        "20260831-R001-937290ca:2",
+        "20260831-R001-937290ca:3",
+        "20260831-R001-937290ca:4",
+        "20260831-R001-937290ca:5",
+        "20260831-R001-937290ca:6",
+        "20260831-R001-937290ca:7",
+        "20260831-R001-937290ca:8",
+        "20260831-R001-937290ca:9",
+        "20260831-R001-937290ca:10",
+        "20260831-R001-937290ca:11",
+        "20260831-R001-937290ca:12",
+        "20260831-R001-937290ca:13",
+        "20260831-R001-937290ca:14",
+        "20260831-R001-937290ca:15",
+        "20260831-R001-937290ca:16",
+        "20260831-R001-937290ca:17",
+        "20260831-R001-937290ca:18",
+        "20260831-R001-937290ca:8972",
+        "20260831-R001-7c74c5f7:0",
+        "20260831-R001-7c74c5f7:1",
+        "20260831-R001-7c74c5f7:2",
+        "20260831-R001-7c74c5f7:3",
+        "20260831-R001-7c74c5f7:4",
+        "20260831-R001-7c74c5f7:5",
+        "20260831-R001-7c74c5f7:6",
+        "20260831-R001-7c74c5f7:7",
+        "20260831-R001-7c74c5f7:8",
+        "20260831-R001-7c74c5f7:9",
+        "20260831-R001-7c74c5f7:10",
+        "20260831-R001-7c74c5f7:11",
+        "20260831-R001-7c74c5f7:12",
+        "20260831-R001-7c74c5f7:13",
+        "20260831-R001-7c74c5f7:14",
+        "20260831-R001-7c74c5f7:15",
+        "20260831-R001-7c74c5f7:16",
+        "20260831-R001-7c74c5f7:17",
+        "20260831-R001-7c74c5f7:18",
+        "20260831-R001-7c74c5f7:8972",
+        "20260831-R001-6695386d:0",
+        "20260831-R001-6695386d:1",
+        "20260831-R001-6695386d:2",
+        "20260831-R001-6695386d:3",
+        "20260831-R001-6695386d:4",
+        "20260831-R001-6695386d:5",
+        "20260831-R001-6695386d:6",
+        "20260831-R001-6695386d:7",
+        "20260831-R001-6695386d:8",
+        "20260831-R001-6695386d:9",
+        "20260831-R001-6695386d:10",
+        "20260831-R001-6695386d:11",
+        "20260831-R001-6695386d:12",
+        "20260831-R001-6695386d:13",
+        "20260831-R001-6695386d:14",
+        "20260831-R001-6695386d:15",
+        "20260831-R001-6695386d:16",
+        "20260831-R001-6695386d:17",
+        "20260831-R001-6695386d:18",
+        "20260831-R001-6695386d:8972",
+        "20260901-R001-03c98fe5:0",
+        "20260901-R001-03c98fe5:1",
+        "20260901-R001-03c98fe5:2",
+        "20260901-R001-03c98fe5:3",
+        "20260901-R001-03c98fe5:4",
+        "20260901-R001-03c98fe5:5",
+        "20260901-R001-03c98fe5:6",
+        "20260901-R001-03c98fe5:7",
+        "20260901-R001-03c98fe5:8",
+        "20260901-R001-03c98fe5:9",
+        "20260901-R001-03c98fe5:10",
+        "20260901-R001-03c98fe5:11",
+        "20260901-R001-03c98fe5:12",
+        "20260901-R001-03c98fe5:13",
+        "20260901-R001-03c98fe5:14",
+        "20260901-R001-03c98fe5:15",
+        "20260901-R001-03c98fe5:16",
+        "20260901-R001-03c98fe5:17",
+        "20260901-R001-03c98fe5:18",
+        "20260901-R001-03c98fe5:8972",
+        "20260901-R001-0c811e8a:0",
+        "20260901-R001-0c811e8a:1",
+        "20260901-R001-0c811e8a:2",
+        "20260901-R001-0c811e8a:3",
+        "20260901-R001-0c811e8a:4",
+        "20260901-R001-0c811e8a:5",
+        "20260901-R001-0c811e8a:6",
+        "20260901-R001-0c811e8a:7",
+        "20260901-R001-0c811e8a:8",
+        "20260901-R001-0c811e8a:9",
+        "20260901-R001-0c811e8a:10",
+        "20260901-R001-0c811e8a:11",
+        "20260901-R001-0c811e8a:12",
+        "20260901-R001-0c811e8a:13",
+        "20260901-R001-0c811e8a:14",
+        "20260901-R001-0c811e8a:15",
+        "20260901-R001-0c811e8a:16",
+        "20260901-R001-0c811e8a:17",
+        "20260901-R001-0c811e8a:18",
+        "20260901-R001-0c811e8a:8972",
+        "20260901-R001-56c2f3ed:0",
+        "20260901-R001-56c2f3ed:1",
+        "20260901-R001-56c2f3ed:2",
+        "20260901-R001-56c2f3ed:3",
+        "20260901-R001-56c2f3ed:4",
+        "20260901-R001-56c2f3ed:5",
+        "20260901-R001-56c2f3ed:6",
+        "20260901-R001-56c2f3ed:7",
+        "20260901-R001-56c2f3ed:8",
+        "20260901-R001-56c2f3ed:9",
+        "20260901-R001-56c2f3ed:10",
+        "20260901-R001-56c2f3ed:11",
+        "20260901-R001-56c2f3ed:12",
+        "20260901-R001-56c2f3ed:13",
+        "20260901-R001-56c2f3ed:14",
+        "20260901-R001-56c2f3ed:15",
+        "20260901-R001-56c2f3ed:16",
+        "20260901-R001-56c2f3ed:17",
+        "20260901-R001-56c2f3ed:18",
+        "20260901-R001-56c2f3ed:8972"
+      ],
+      "expected_jobs": 240,
+      "experiment_status": "completed",
+      "individual_missing_jobs_known": true,
+      "missing_job_count": 0,
+      "missing_job_keys": []
+    },
+    "implementation_sha256": "d78f5ebe69d19629ad434e101c7b555242dd8a9550874f2b60f0eacccf3fe581",
+    "page_settings": {
+      "bytes_guidance": 65536,
+      "max_rows": 125
+    },
+    "provenance_sha256": "9464e2a7e548a7bf0aaa67a8f3415a6a2681a66754f1fd1b9731323997a574e8",
+    "schema_version": 1,
+    "source_tables": {
+      "diagnostic_curves": {
+        "rows": 158400,
+        "sha256": "186a91f989afe37790b106a00e0a44a6f86046cc62bff605ea3295e108406cfc"
+      },
+      "diagnostic_interactions": {
+        "rows": 79200,
+        "sha256": "e3e55a555d6663e1f64528c2cff4463f89ecfc81937e277bf1222266a0f23270"
+      },
+      "interactions": {
+        "rows": 7200,
+        "sha256": "1186ffb6edbe9be9cea0bd0794aa9ddb6878193e207cd3d3f70d3847ea09a4f6"
+      },
+      "method_summary": {
+        "rows": 14400,
+        "sha256": "59c9ca43b63f679d0d6e40662a0f64cee546d500e1a2039524f5854f25f5392e"
+      },
+      "models": {
+        "rows": 14400,
+        "sha256": "6a695de3281f23ff1866326f98f92032915b97dde665f0d7661510d5d102ad62"
+      },
+      "paired_comparisons": {
+        "rows": 50400,
+        "sha256": "55fd4452b4f26972ebdd694d7a90f8d5a1163c865cb1133a06d14c4eb8422328"
+      },
+      "partition_inventory": {
+        "rows": 1920,
+        "sha256": "89e7d7ab44ac78845db74f4dddcb7000b8bff77a77a00c3aa2e5a190ec9cc2e0"
+      },
+      "source_receipts": {
+        "rows": 240,
+        "sha256": "2b7155617fe95e178810dbceb0024e764095a5da957d402197b61a16c1ec0253"
+      },
+      "split_summary": {
+        "rows": 720,
+        "sha256": "707edeb72a2986b5bb8f9e018683188e1c05c1d0c5ffa42a6f8efae22c44fc57"
+      }
+    }
+  },
+  "status": "completed",
+  "summarized_table_rows": {
+    "diagnostic_curves": 7920,
+    "diagnostic_interactions": 3960,
+    "operating_ci_endpoints": 720,
+    "operating_failures": 720,
+    "operating_interactions": 360,
+    "operating_performance": 720,
+    "paired_effects": 2520,
+    "partition_inventory": 96
+  }
+}
