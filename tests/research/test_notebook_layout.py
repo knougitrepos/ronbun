@@ -8,10 +8,29 @@ import nbformat
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
+ARCHIVE_ROOT = NOTEBOOK_ROOT / "_archive"
 
 EXPECTED_NOTEBOOKS = {
+    "lfw/00_data_preparation": {"00_data_preparation.ipynb"},
+    "survface/00_data_preparation": {"00_data_preparation.ipynb"},
+    "rfw": {"00_rfw_all_in_one.ipynb"},
+    "calibration": {
+        "01_fiqa_continuous_retrieval_conditioned_calibration.ipynb",
+        "03_origin_vs_pq_fiqa_calibration.ipynb",
+    },
+    "common/reports": {"00_cross_dataset_results.ipynb"},
+    "common/maintenance": {"00_selective_cleanup.ipynb"},
+    "common/orchestration": {
+        "00_batch_experiment_runner.ipynb",
+        "01_batch_fiqa_saliency_calibration.ipynb",
+        "01_batch_fiqa_saliency_calibration_compact.ipynb",
+        "cross_dataset_calibration_transfer.ipynb",
+    },
+    "diagnostics": {"00_compression_fpir_failure_diagnosis.ipynb"},
+}
+
+ARCHIVED_NOTEBOOKS = {
     "lfw/00_data_preparation": {
-        "00_data_preparation.ipynb",
         "01_aligned_crop_materialization.ipynb",
         "02_landmark_region_materialization.ipynb",
     },
@@ -40,7 +59,6 @@ EXPECTED_NOTEBOOKS = {
         "04_representative_case_visualization.ipynb",
     },
     "survface/00_data_preparation": {
-        "00_data_preparation.ipynb",
         "01_aligned_crop_materialization.ipynb",
         "02_landmark_region_materialization.ipynb",
     },
@@ -71,17 +89,14 @@ EXPECTED_NOTEBOOKS = {
     "rfw/00_data_preparation": {"00_data_preparation.ipynb"},
     "rfw/01_embeddings": {"00_rfw_origin_embedding_extraction.ipynb"},
     "rfw/02_compression": {"00_rfw_frozen_codec_verification.ipynb"},
-    "rfw": {"00_rfw_all_in_one.ipynb"},
     "balancedface/00_data_preparation": {"00_data_preparation.ipynb"},
     "common/model_preparation": {
         "00_checkpoint_registration.ipynb",
         "01_preprocessing_and_model_smoke.ipynb",
     },
-    "common/reports": {"00_cross_dataset_results.ipynb"},
-    "common/maintenance": {"00_selective_cleanup.ipynb"},
-    "common/orchestration": {
-        "00_batch_experiment_runner.ipynb",
-        "cross_dataset_calibration_transfer.ipynb",
+    "calibration": {
+        "00_fiqa_conditioned_threshold_calibration.ipynb",
+        "02_saliency_incremental_threshold_calibration.ipynb",
     },
 }
 
@@ -91,17 +106,33 @@ def _source(path: Path) -> str:
     return "\n".join(cell.source for cell in notebook.cells)
 
 
-def test_notebooks_are_grouped_by_dataset_then_execution_stage() -> None:
+def test_active_and_archived_notebooks_have_explicit_layouts() -> None:
     assert not list(NOTEBOOK_ROOT.glob("*.ipynb"))
     assert not (NOTEBOOK_ROOT / "step4").exists()
-    actual_directories = {
-        path.parent.relative_to(NOTEBOOK_ROOT).as_posix()
+    active = {
+        path.relative_to(NOTEBOOK_ROOT).as_posix()
         for path in NOTEBOOK_ROOT.rglob("*.ipynb")
+        if not path.is_relative_to(ARCHIVE_ROOT)
     }
-    assert actual_directories == set(EXPECTED_NOTEBOOKS)
-    for relative, expected_names in EXPECTED_NOTEBOOKS.items():
-        directory = NOTEBOOK_ROOT / relative
-        assert {path.name for path in directory.glob("*.ipynb")} == expected_names
+    archived = {
+        path.relative_to(ARCHIVE_ROOT).as_posix()
+        for path in ARCHIVE_ROOT.rglob("*.ipynb")
+    }
+    expected_active = {
+        f"{directory}/{name}"
+        for directory, names in EXPECTED_NOTEBOOKS.items()
+        for name in names
+    }
+    expected_archived = {
+        f"{directory}/{name}"
+        for directory, names in ARCHIVED_NOTEBOOKS.items()
+        for name in names
+    }
+    assert active == expected_active
+    assert archived == expected_archived
+    assert len(active) == 12
+    assert len(archived) == 40
+    assert not active & archived
 
 
 def test_step4_notebooks_are_dataset_specific_single_stage_runbooks() -> None:
@@ -130,11 +161,12 @@ def test_step4_notebooks_are_dataset_specific_single_stage_runbooks() -> None:
         "extract_step4_origin_embeddings",
     }
     for dataset_id in ("lfw", "survface"):
-        root = NOTEBOOK_ROOT / dataset_id / "04_gradcam"
+        root = ARCHIVE_ROOT / dataset_id / "04_gradcam"
         notebooks = [
             *(root / "prerequisite").glob("*.ipynb"),
             *(root / "experiment").glob("*.ipynb"),
         ]
+        assert len(notebooks) == 7
         for path in notebooks:
             source = _source(path)
             expected_function = (
@@ -239,7 +271,7 @@ def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
 
 def test_survface_saliency_join_runbook_exposes_long_run_progress() -> None:
     path = (
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "survface"
         / "04_gradcam"
         / "experiment"
@@ -254,64 +286,60 @@ def test_survface_saliency_join_runbook_exposes_long_run_progress() -> None:
     assert 'progress=PROGRESS.callback(key_prefix="step4-05:")' in source
 
 
-def test_all_notebooks_are_valid_restartable_and_output_free() -> None:
+def test_all_notebooks_are_valid_python_and_preserve_execution_records() -> None:
     for path in sorted(NOTEBOOK_ROOT.rglob("*.ipynb")):
         notebook = nbformat.read(path, as_version=4)
         nbformat.validate(notebook)
-        assert notebook.metadata["ronbun"]["restart_policy"] == (
-            "restart_kernel_and_run_all"
-        )
-        assert notebook.metadata["ronbun"]["outputs_committed"] is False
+        # Saved outputs are historical evidence, not an execution prerequisite.
+        # Newer calibration notebooks do not use the legacy ronbun metadata.
+        if "ronbun" in notebook.metadata:
+            assert notebook.metadata["ronbun"]["restart_policy"] == (
+                "restart_kernel_and_run_all"
+            )
+        assert notebook.metadata.kernelspec.language == "python"
         for index, cell in enumerate(notebook.cells):
             if cell.cell_type != "code":
                 continue
             compile(cell.source, f"{path.name}:cell-{index}", "exec")
-            assert cell.execution_count is None
-            assert cell.outputs == []
+            assert cell.execution_count is None or isinstance(cell.execution_count, int)
+            assert isinstance(cell.outputs, list)
 
 
-def test_experiment_defaults_use_full_data_and_execute() -> None:
-    for path in sorted(NOTEBOOK_ROOT.rglob("*.ipynb")):
-        if "maintenance" in path.parts:
-            continue
+def test_initial_manifest_preparation_keeps_full_scope_and_optional_writing() -> None:
+    for dataset in ("lfw", "survface"):
+        path = NOTEBOOK_ROOT / dataset / "00_data_preparation/00_data_preparation.ipynb"
         source = _source(path)
-        if "DATA_FRACTION =" in source:
-            assert (
-                "DATA_FRACTION = 1.0" in source
-                or 'DATA_FRACTION = float(EXECUTION["data_fraction"])' in source
-            )
-        if "EXECUTE_STAGE =" in source:
-            assert (
-                "EXECUTE_STAGE = True" in source
-                or 'EXECUTE_STAGE = bool(EXECUTION["execute_stage"])' in source
-            )
-        if "WRITE_OUTPUTS =" in source:
-            if path == (
-                NOTEBOOK_ROOT
-                / "common"
-                / "reports"
-                / "00_cross_dataset_results.ipynb"
-            ):
-                assert "WRITE_OUTPUTS = False" in source
-                assert "WRITE_OUTPUTS = bool(WRITE_OUTPUTS)" in source
-            else:
-                assert (
-                    "WRITE_OUTPUTS = True" in source
-                    or 'WRITE_OUTPUTS = bool(EXECUTION["write_outputs"])' in source
-                )
-        if "OVERWRITE =" in source:
-            assert (
-                "OVERWRITE = True" in source
-                or 'OVERWRITE = bool(EXECUTION["overwrite"])' in source
-            )
+        assert "DATA_FRACTION = 1.0" in source
+        assert "if WRITE_OUTPUTS:" in source
+        assert "WRITE_OUTPUTS=False" in source
+
+
+def test_runtime_report_dependency_and_optional_notebook_config_paths_exist() -> None:
+    import yaml
+
+    report = NOTEBOOK_ROOT / "common/reports/00_cross_dataset_results.ipynb"
+    assert report.is_file()
+    caller = (PROJECT_ROOT / "scripts/run_integrated_postprocessing.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'root / "notebooks/common/reports/00_cross_dataset_results.ipynb"' in caller
+    config = yaml.safe_load(
+        (PROJECT_ROOT / "configs/experiments/rfw_balancedface_quantization.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    paths = config["evaluation"]["notebooks"]
+    assert paths
+    assert all((PROJECT_ROOT / path).is_file() for path in paths.values())
 
 
 def test_survface_notebooks_preserve_official_protocol_boundaries() -> None:
     paths = [
-        *(NOTEBOOK_ROOT / "survface" / "01_embeddings").glob("*.ipynb"),
-        *(NOTEBOOK_ROOT / "survface" / "02_compression").glob("*.ipynb"),
-        *(NOTEBOOK_ROOT / "survface" / "03_open_set").glob("*.ipynb"),
+        *(ARCHIVE_ROOT / "survface" / "01_embeddings").glob("*.ipynb"),
+        *(ARCHIVE_ROOT / "survface" / "02_compression").glob("*.ipynb"),
+        *(ARCHIVE_ROOT / "survface" / "03_open_set").glob("*.ipynb"),
     ]
+    assert len(paths) == 7
     sources = "\n".join(_source(path) for path in paths)
     for phrase in (
         "official_all",
@@ -326,13 +354,13 @@ def test_survface_notebooks_preserve_official_protocol_boundaries() -> None:
 
 def test_rfw_notebooks_preserve_frozen_codec_verification_boundary() -> None:
     origin = _source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "rfw"
         / "01_embeddings"
         / "00_rfw_origin_embedding_extraction.ipynb"
     )
     evaluation = _source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "rfw"
         / "02_compression"
         / "00_rfw_frozen_codec_verification.ipynb"
@@ -358,7 +386,7 @@ def test_rfw_notebooks_preserve_frozen_codec_verification_boundary() -> None:
 def test_step1_characterization_and_report_remain_fallback_free() -> None:
     for dataset in ("lfw", "survface"):
         path = (
-            NOTEBOOK_ROOT
+            ARCHIVE_ROOT
             / dataset
             / "02_compression"
             / "02_step1_compression_characterization.ipynb"
@@ -389,7 +417,7 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
             assert phrase in source
 
     lfw_open_set = _source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "lfw"
         / "03_open_set"
         / "00_probe_search_and_certification.ipynb"
@@ -401,7 +429,7 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
     assert "fpir_recomputed" in lfw_open_set
 
     lfw_visualization = _source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "lfw"
         / "03_open_set"
         / "01_evaluation_and_visualization.ipynb"

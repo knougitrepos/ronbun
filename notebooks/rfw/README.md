@@ -11,12 +11,12 @@ RFW는 두 개의 명시적으로 분리된 프로토콜로 사용한다.
 
 1. all-in-one: `00_rfw_all_in_one.ipynb`
    - protocol, origin embedding, 명시적 frozen-codec 선택, 1:1 evaluation을 한 번에 계획·실행·재개한다.
-   - 기본값은 실행하지 않는 preflight이며 `EXECUTE`, 승인 flag와 stage flag를 모두 켜야 장시간 단계가 시작된다.
-2. 절차적 단일 단계: 아래 세 노트북을 순서대로 실행한다.
+   - 첫 설정 셀의 현재 실행 값을 확인하며, `EXECUTE`, 승인 flag와 stage flag를 모두 켜야 장시간 단계가 시작된다.
+2. 절차적 단일 단계: 보관 폴더의 아래 세 노트북을 해당 보조 실험에 필요할 때만 실행한다.
 
-1. `00_data_preparation/00_data_preparation.ipynb`: 공식 4개 group, 10-fold, 24,000 pair protocol과 source identity 목록을 고정한다.
-2. `01_embeddings/00_rfw_origin_embedding_extraction.ipynb`: aligned BIN을 pair batch 단위로 streaming decode하고 선택한 FR 모델의 512D origin embeddings를 immutable artifact로 저장한다.
-3. `02_compression/00_rfw_frozen_codec_verification.ipynb`: 사용자가 명시한 완료 LFW 또는 SurvFace run에서 model UID와 SHA가 일치하는 frozen PCA/PQ codec만 적용한다. RFW에서 codec을 fit하지 않는다. codec이 아직 없으면 origin-only baseline까지만 생성할 수 있다.
+1. `../_archive/rfw/00_data_preparation/00_data_preparation.ipynb`: 공식 4개 group, 10-fold, 24,000 pair protocol과 source identity 목록을 고정한다.
+2. `../_archive/rfw/01_embeddings/00_rfw_origin_embedding_extraction.ipynb`: aligned BIN을 pair batch 단위로 streaming decode하고 선택한 FR 모델의 512D origin embeddings를 immutable artifact로 저장한다.
+3. `../_archive/rfw/02_compression/00_rfw_frozen_codec_verification.ipynb`: 사용자가 명시한 완료 LFW 또는 SurvFace run에서 model UID와 SHA가 일치하는 frozen PCA/PQ codec만 적용한다. RFW에서 codec을 fit하지 않는다. codec이 아직 없으면 origin-only baseline까지만 생성할 수 있다.
 
 각 노트북은 `EXECUTE_STAGE`, `WRITE_OUTPUTS`, `REUSE_COMPLETED`, `ARTIFACT_STORAGE_MODE` 같은 실행 변수를 유지한다. 공통 all-in-one runner와 report notebook은 그대로 유지하며, RFW 단계는 독립된 step-by-step runbook이다.
 

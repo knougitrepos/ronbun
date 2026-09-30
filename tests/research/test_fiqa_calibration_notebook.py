@@ -11,6 +11,7 @@ from research.runtime.hashing import canonical_sha256
 NOTEBOOK_PATH = (
     Path(__file__).resolve().parents[2]
     / "notebooks"
+    / "_archive"
     / "calibration"
     / "00_fiqa_conditioned_threshold_calibration.ipynb"
 )
@@ -27,9 +28,6 @@ def test_fiqa_calibration_notebook_is_valid_and_preserves_historical_outputs():
         if cell["cell_type"] == "code":
             assert cell["execution_count"] is None or isinstance(cell["execution_count"], int)
             assert isinstance(cell["outputs"], list)
-            if cell["id"].startswith("multibin-"):
-                assert cell["execution_count"] is None
-                assert cell["outputs"] == []
 
 
 def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
@@ -40,13 +38,20 @@ def test_fiqa_calibration_notebook_preserves_execution_and_saliency_contracts():
         "RUN_MODEL_SMOKE = False",
         "RUN_FIQA_INFERENCE = False",
         "WRITE_FIQA_ARTIFACT = False",
-        "RUN_MULTIBIN_DIAGNOSTICS = False",
-        "WRITE_MULTIBIN_DIAGNOSTICS = False",
-        "RUN_MULTIBIN_SPLIT_STABILITY = False",
-        "WRITE_MULTIBIN_SPLIT_STABILITY = False",
         "OVERWRITE_OUTPUTS = False",
     ):
         assert flag in full_source
+
+    # Saved execution choices are editable. Verify the write/run dependency
+    # instead of requiring a historical False default or erasing past outputs.
+    settings_source = "".join(next(
+        cell["source"] for cell in notebook["cells"]
+        if cell["id"] == "user-configuration"
+    ))
+    normalized_settings = ast.unparse(ast.parse(settings_source))
+    for stage in ("MULTIBIN_DIAGNOSTICS", "MULTIBIN_SPLIT_STABILITY"):
+        assert f"RUN_{stage}, WRITE_{stage}" in normalized_settings
+    assert "if write_enabled and not run_enabled:" in settings_source
 
     assert "fiqa_2bin_conservative_shrunk_safe" in full_source
     assert "`identity_id` SHA-256" in full_source

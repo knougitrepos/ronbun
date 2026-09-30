@@ -1,142 +1,70 @@
-# 데이터셋별 노트북 실행 안내
+# 노트북 실행 안내
 
-노트북은 계산 구현이 아니라 `research/`의 검증된 Python 함수를 순서대로 호출하는
-runbook이다. 최상위 폴더는 데이터셋, 그 아래 숫자 접두사는 실행 단계를 뜻한다.
-저장된 노트북은 출력과 실행 번호를 포함하지 않으며 항상 커널을 재시작한 뒤
-위에서 아래로 실행한다.
+현재 활성 노트북은 12개이고, 선택 실험·과거 수동 경로 40개는
+[보관 안내](C:/ronbun/notebooks/_archive/README.md)에 정리했다.
+파일 번호는 각 workflow 안의 이름이다. 전체 노트북을 번호순으로 모두 실행하지 않는다.
 
-```text
-notebooks/
-  lfw/
-    00_data_preparation/
-    01_embeddings/
-    02_compression/
-    03_open_set/
-    04_gradcam/
-      prerequisite/
-      experiment/
-  survface/
-    00_data_preparation/
-    01_embeddings/
-    02_compression/
-    03_open_set/
-    04_gradcam/
-      prerequisite/
-      experiment/
-  rfw/
-    00_data_preparation/
-  balancedface/
-    00_data_preparation/
-  common/
-    model_preparation/
-    reports/
-    maintenance/
-```
+## 현재 원본/PQ 실험을 이어갈 때
 
-RFW는 현재 공식 1:1 verification test 준비까지만 구현되어 있고 PCA/PQ fit
-데이터가 아니다. BalancedFace는 RFW 중복 identity를 제거한
-development/calibration 후보이며 최종 test가 아니다. 구현되지 않은 단계를
-빈 폴더나 자리표시자 노트북으로 만들지 않는다.
+[calibration 03](C:/ronbun/notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb)을 사용한다.
+명시한 완료 source run·PQ/FIQA 입력·PQ 모델 보고서가 준비되어 있으면 다른 batch나
+calibration 노트북을 먼저 재실행할 필요가 없다.
 
-## 기본 실행 계약
+- 실험 범위: DATASETS, MODELS, 압축 프로파일, FPIR, PARTITION_SEEDS.
+- 출력 표 선택: DISPLAY_*. 실험 조건을 제한하지 않는다.
+- 이번 호출의 새 계산 수: MAX_NEW_JOBS_PER_RUN. 전체 계획은 유지한다.
+- 완료 checkpoint는 설정·hash 검증 후 재사용한다. 부분 결과는 완료 범위를 확인한다.
+- 원본/PQ 상세 보고와 채팅 분석 ZIP은 자체 생성한다. PQ matrix compact는 다른 보고서용이다.
 
-일반 준비·실험·보고 노트북의 기본값은 다음과 같다.
+## 목적별 실행 메뉴
 
-- `DATA_FRACTION = 1.0`
-- `EXECUTE_STAGE = True`
-- `WRITE_OUTPUTS = True`
-- `OVERWRITE = True`
+| 목적 | 활성 진입점 | 사용 조건 |
+|---|---|---|
+| LFW 최초 manifest 준비 | [LFW 준비](C:/ronbun/notebooks/lfw/00_data_preparation/00_data_preparation.ipynb) | 신규 환경 또는 원본/분할 변경 |
+| SurvFace training·official manifest 준비 | [SurvFace 준비](C:/ronbun/notebooks/survface/00_data_preparation/00_data_preparation.ipynb) | 신규 환경 또는 원본 프로토콜 변경 |
+| 모델별 source run 생성/재사용 | [공통 batch 00](C:/ronbun/notebooks/common/orchestration/00_batch_experiment_runner.ipynb) | 새 모델·데이터·프로토콜 또는 미완료 source 작업 |
+| 전체 PQ FIQA+saliency 행렬 | [공통 calibration 01](C:/ronbun/notebooks/common/orchestration/01_batch_fiqa_saliency_calibration.ipynb) | 고정된 12개 완료 run, 36개 PQ 조건 |
+| 완료 PQ matrix 보고서 요약 | [PQ compact](C:/ronbun/notebooks/common/orchestration/01_batch_fiqa_saliency_calibration_compact.ipynb) | fitting/GPU 재실행 없이 채팅용 집계 |
+| 원본/PQ 동일 보정 대조 | [calibration 03](C:/ronbun/notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb) | 현재 우선 대조 실험 |
+| margin/distortion/runner-up 단일 조건 ablation | [calibration 01](C:/ronbun/notebooks/calibration/01_fiqa_continuous_retrieval_conditioned_calibration.ipynb) | 별도의 retrieval feature 질문 |
+| dataset 간 보정 전이 | [전이 실험](C:/ronbun/notebooks/common/orchestration/cross_dataset_calibration_transfer.ipynb) | 별도 전이 질문 |
+| 압축 이후 FPIR 실패 진단 | [FPIR 진단](C:/ronbun/notebooks/diagnostics/00_compression_fpir_failure_diagnosis.ipynb) | false-accept 교체·점수 꼬리 분석 |
+| RFW-Official 1:1 보조 평가 | [RFW all-in-one](C:/ronbun/notebooks/rfw/00_rfw_all_in_one.ipynb) | Custom 1:N과 별도 평가 |
+| 여러 완료 run의 압축·검색 보고 | [공통 보고](C:/ronbun/notebooks/common/reports/00_cross_dataset_results.ipynb) | 공통 batch에서 자동 호출 또는 명시적 입력으로 보고 |
+| DB/run reset | [관리 도구](C:/ronbun/notebooks/common/maintenance/00_selective_cleanup.ipynb) | 특정 run 폐기·격리. 일반 notebook 정리에 사용하지 않음 |
 
-`OVERWRITE=True`는 같은 단계의 canonical 결과 하나를 완전한 새 결과로 교체한다.
-완료된 `RunStore` run은 수정하지 않는다. open-set threshold나 보정 방법이
-달라지면 새 config hash와 run ID로 실행한다. `common/maintenance/`는 파괴적
-작업을 포함하므로 이 기본값의 예외이며 preview와 confirmation을 계속 요구한다.
+## 새 환경의 준비와 입력 연결
 
-Step 4의 aligned-crop·landmark·Grad-CAM 노트북은 장시간 GPU 실행이므로 별도
-예외다. `configs/experiments/step2_pytorch_gradcam.yaml`의
-`execute_stage=true`, `write_outputs=true`, `overwrite=false`를 읽는다.
-현재 값은 LFW·SurvFace 전체 재실험용 실행 commit 프로필이며,
-`allow_dirty=false`이므로 commit 후 clean worktree에서만 새 run을 시작한다.
+1. 데이터 원본과 모델 checkpoint를 준비한다.
+2. LFW/SurvFace manifest가 없으면 위의 최초 준비 노트북을 실행한다.
+   원본 목록·분할을 검증한 뒤 WRITE_OUTPUTS에 따라 기록한다.
+   공통 runner가 이 원시 manifest 준비까지 대신하지 않는다.
+3. 공통 batch 00에서 모델·데이터셋·실행 tier·run 선택·출력 정책을 확인한다.
+   checkpoint 등록/smoke, aligned crop·landmark 및 Step 4 단계를 공통 runner가 호출한다.
+4. 생성한 run의 완료 상태와 조건을 확인하고 calibration의 명시적 run matrix에 연결한다.
+   공통 batch의 새 출력이 다음 calibration 노트북에 자동 전달되지는 않는다.
+5. 목적에 맞는 calibration 또는 보고 진입점을 실행한다.
 
-## LFW
+공통 batch 00은 모델 하나씩 선택한다. 현재 데이터셋 설정은 LFW/SurvFace/RFW-Custom/TinyFace다.
+전체 PQ calibration은 LFW/RFW-Custom/SurvFace × 4 FR × PQ m128/m64/m32이며 TinyFace는 보조 평가다.
+RFW-Custom은 raw/ aligned-bin archive에서 bundle을 구성하므로 보관된 RFW-Official 준비 노트북이
+Custom 경로의 필수 선행 단계는 아니다.
 
-일반 실행은 다음 폴더 순서를 따른다.
+## 실행·재사용 계약
 
-1. `lfw/00_data_preparation/`
-2. `lfw/01_embeddings/`
-3. `lfw/02_compression/`
-4. `lfw/03_open_set/`
-5. `common/reports/00_cross_dataset_results.ipynb`
+첫 설정 셀을 확인한 후 Kernel Restart → Run All을 사용한다.
+저장 출력과 실행 번호는 과거 기록이며 현재 설정의 결과나 완료 상태를 증명하지 않는다.
+노트북마다 실행·쓰기 flag가 다르므로 같은 기본값을 일괄 가정하지 않는다.
 
-PyTorch Step 2와 Grad-CAM은 다음 순서를 따른다.
+공통 batch 00의 EXECUTE=False는 주요 pipeline 실행을 끄지만, 앞선 checkpoint 등록과
+run_smoke_validation=True 호출은 필요할 때 GPU 검증·registry/검증 결과 저장을 수행할 수 있다.
+읽기 전용 여부를 이 flag 하나로 판단하지 않는다.
+START_NEW_RUN, 완료 run override, faithfulness 범위도 함께 확인한다.
 
-1. `lfw/00_data_preparation/00_data_preparation.ipynb`
-2. `lfw/00_data_preparation/01_aligned_crop_materialization.ipynb`
-3. `lfw/00_data_preparation/02_landmark_region_materialization.ipynb`
-4. `common/model_preparation/00_checkpoint_registration.ipynb`
-5. `common/model_preparation/01_preprocessing_and_model_smoke.ipynb`
-6. `lfw/04_gradcam/prerequisite/`
-7. `lfw/04_gradcam/experiment/`
+공통 보고는 실행기가 정확한 경로로 호출하므로 이동하지 않는다.
+독립 실행의 model UID 기반 자동 후보 선택과 배치의 명시적 run 주입을 구분한다.
+논문에 사용할 run은 선택 결과를 확인해 RUN_IDS/MODEL_RUN_MATRIX로 고정한다.
+완료 run과 content-addressed 결과를 덮어쓰지 않는다.
 
-Grad-CAM의 세부 순서는 [LFW Grad-CAM 안내](lfw/04_gradcam/README.md)를 따른다.
-
-## SurvFace
-
-다음 폴더를 숫자 순서대로 실행한다.
-
-1. `survface/00_data_preparation/`
-2. `survface/01_embeddings/`
-3. `survface/02_compression/`
-4. `survface/03_open_set/`
-5. `survface/04_gradcam/prerequisite/`
-6. `survface/04_gradcam/experiment/`
-7. `common/reports/00_cross_dataset_results.ipynb`
-
-공식 gallery/mated/unmated 역할과 순서를 유지하며, official test에서 압축기나
-threshold를 학습하지 않는다. `00_data_preparation/01`에서 전체 aligned crop,
-`00_data_preparation/02`에서 전체 106-point landmark bundle을 먼저 생성한다.
-SurvFace 파일은 공식 배포본 자체가 저해상도 face crop이므로 `01`은 재검출
-정렬이 아니라 전 표본 공통 bilinear 112×112 resize를 기록한다. detector
-성공 표본과 resize 표본을 혼합하지 않으며 누락이 있으면 fail-closed로
-중단한다.
-`02_compression/00`은 SurvFace training development에서 PCA/PQ를 학습하고,
-`02_compression/01`은 frozen model로 전체 run을 materialize한다. PQ code는
-pgvector vector가 아니다. `03_open_set/00`은 origin/PCA-256의 exact/HNSW
-네 조합을 하나의 공식-order 결과로 만든다. Grad-CAM은 registered/unmated
-target 적격 표본 전체를 사용한다.
-
-SurvFace 장시간 반복 단계는 batch마다 checkpoint를 유지하되 notebook log는
-약 10% 경계에서만 출력한다. 전체 LFW·SurvFace 데이터 실험은 사용자가 각
-노트북을 직접 실행하며 Codex나 일괄 CLI가 자동으로 시작하지 않는다.
-
-## Step 4 데이터셋별 재실행
-
-공용 `notebooks/step4` 폴더나 단일 일괄 CLI는 사용하지 않는다. LFW와
-SurvFace의 각 노트북은 `research/experiments/step4_workflow.py`에 있는 하나의
-단계 함수만 호출한다. 이전 단계 artifact가 없거나 lineage가 다르면 다음
-단계는 fail-closed로 중단한다.
-
-정식 실행은 clean commit과 CUDA/ONNX CUDA provider 확인 후 데이터셋별
-`00_data_preparation`부터 순서대로 수행한다. LFW와 SurvFace는 별도의
-immutable run이며 geometry association과 protocol/threshold별 retrieval
-association도 서로 다른 artifact로 저장한다.
-
-## RFW와 BalancedFace
-
-1. `rfw/00_data_preparation/00_data_preparation.ipynb`
-2. `balancedface/00_data_preparation/00_data_preparation.ipynb`
-
-BalancedFace 준비 단계가 RFW source identity 목록을 읽으므로 이 둘은 위 순서를
-지켜야 한다. RFW를 현재 정량 headline 결과로 승격하거나 BalancedFace를 최종
-test로 해석하지 않는다.
-
-## 결과 저장 형식
-
-- PostgreSQL/pgvector: 임베딩, 압축 벡터, 검색·보정 상세 행
-- CSV: 사람이 확인할 sample index, metric, 집계표, 실패 목록
-- JSON/JSONL: run manifest, hash·lineage, 구조화 event log
-- 일반 log: 장시간 실행의 진행·경고·실패 문맥
-- NPY/NPZ: heatmap·embedding shard처럼 표 형식이 부적합한 배열
-
-새 hash 폴더 규칙은 추가하지 않는다. 기존 `RunStore`의
-`run_id + config_hash + input hash + phase attempt`를 추적 기준으로 사용한다.
+상세 설정은 [orchestration 안내](C:/ronbun/notebooks/common/orchestration/README.md),
+프로토콜 구분은 [RFW 안내](C:/ronbun/notebooks/rfw/README.md)를 따른다.

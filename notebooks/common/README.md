@@ -1,10 +1,9 @@
-# 공통 노트북
+# 공통 실행·보고·관리
 
-데이터셋 하나에 속하지 않는 실행 절차만 둔다.
+- orchestration/: source run 생성/재사용, 전체 PQ 보정, PQ 결과 집계, 별도 전이 실험.
+- reports/: 여러 완료 run의 보고. 실행기가 notebook을 직접 호출하므로 경로를 유지한다.
+- maintenance/: 특정 DB/run 폐기·격리. 일반 실험 실행 순서에 포함하지 않는다.
 
-- `model_preparation/`: 공통 PyTorch checkpoint 등록과 smoke 검증
-- `reports/`: 여러 데이터셋의 완료 run 집계
-- `maintenance/`: 명시적 확인이 필요한 정리·격리 도구
-
-데이터 준비, 임베딩, 압축, open-set, Grad-CAM 노트북은 각각의 데이터셋 폴더에
-둔다.
+현재 실행 메뉴는 [노트북 안내](C:/ronbun/notebooks/README.md)를 따른다.
+독립 checkpoint 등록·smoke 노트북은 _archive/common/model_preparation/에 보관한다.
+일반 source 생성에서는 공통 runner가 모델 준비 함수를 호출한다.

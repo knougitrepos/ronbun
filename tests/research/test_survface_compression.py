@@ -143,7 +143,7 @@ def test_survface_run_freeze_records_training_and_official_inputs():
     root = Path(__file__).resolve().parents[2]
     notebook = nbformat.read(
         root
-        / "notebooks/survface/01_embeddings"
+        / "notebooks/_archive/survface/01_embeddings"
         / "00_official_protocol_and_run_freeze.ipynb",
         as_version=4,
     )
@@ -164,7 +164,7 @@ def test_survface_embedding_uses_aligned_batch_without_detector():
     root = Path(__file__).resolve().parents[2]
     notebook = nbformat.read(
         root
-        / "notebooks/survface/01_embeddings"
+        / "notebooks/_archive/survface/01_embeddings"
         / "01_official_arcface_embedding_extraction.ipynb",
         as_version=4,
     )

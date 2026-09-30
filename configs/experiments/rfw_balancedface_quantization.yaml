@@ -140,8 +140,8 @@ evaluation:
     pca: [direct_cosine, reconstruction_cosine]
     pq: [reconstruction_cosine, symmetric_adc_negative_squared_l2]
   notebooks:
-    origin_embedding: notebooks/rfw/01_embeddings/00_rfw_origin_embedding_extraction.ipynb
-    frozen_codec_evaluation: notebooks/rfw/02_compression/00_rfw_frozen_codec_verification.ipynb
+    origin_embedding: notebooks/_archive/rfw/01_embeddings/00_rfw_origin_embedding_extraction.ipynb
+    frozen_codec_evaluation: notebooks/_archive/rfw/02_compression/00_rfw_frozen_codec_verification.ipynb
   forbidden_official_metrics:
     - dir_at_fpir
     - open_set_rank

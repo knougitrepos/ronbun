@@ -9,6 +9,7 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
+ARCHIVE_ROOT = NOTEBOOK_ROOT / "_archive"
 CONFIG_PATH = (
     PROJECT_ROOT / "configs" / "experiments" / "step1_embedding_compression.yaml"
 )
@@ -63,7 +64,7 @@ def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
 
 def test_survface_execution_profile_uses_the_full_official_probe_set():
     source = _code_source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "survface"
         / "03_open_set"
         / "00_official_probe_search.ipynb"
@@ -77,7 +78,7 @@ def test_survface_execution_profile_uses_the_full_official_probe_set():
 def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
     for dataset in ("lfw", "survface"):
         source = _code_source(
-            NOTEBOOK_ROOT
+            ARCHIVE_ROOT
             / dataset
             / "02_compression"
             / "02_step1_compression_characterization.ipynb"
@@ -98,7 +99,7 @@ def test_step1_notebooks_reject_stale_scope_and_manifest_identity_leakage():
 
 def test_lfw_step1_records_embedding_exclusions_without_origin_fallback():
     source = _code_source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "lfw"
         / "02_compression"
         / "02_step1_compression_characterization.ipynb"
@@ -116,13 +117,13 @@ def test_step1_notebook_paths_are_guarded_by_the_dataset_config():
     lfw_config = config["datasets"]["lfw"]
     survface_config = config["datasets"]["survface"]
     lfw_source = _code_source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "lfw"
         / "02_compression"
         / "02_step1_compression_characterization.ipynb"
     )
     survface_source = _code_source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "survface"
         / "02_compression"
         / "02_step1_compression_characterization.ipynb"
@@ -153,7 +154,7 @@ def test_survface_official_test_is_evaluation_only_in_step1_code_path():
         / "00_data_preparation.ipynb"
     )
     study_source = _code_source(
-        NOTEBOOK_ROOT
+        ARCHIVE_ROOT
         / "survface"
         / "02_compression"
         / "02_step1_compression_characterization.ipynb"

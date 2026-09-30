@@ -7,7 +7,7 @@ import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
+NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks" / "_archive"
 MODEL_ROOT = NOTEBOOK_ROOT / "common" / "model_preparation"
 ALIGNED_CROP_NOTEBOOK = (
     NOTEBOOK_ROOT

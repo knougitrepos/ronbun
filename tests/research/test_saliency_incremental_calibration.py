@@ -215,7 +215,7 @@ def test_hash_lineage_and_in_memory_mutation(tmp_path):
 def test_notebook_is_restartable_and_builds_before_gate():
     import ast
     import nbformat
-    n=nbformat.read(Path(__file__).parents[2]/'notebooks/calibration/02_saliency_incremental_threshold_calibration.ipynb',as_version=4)
+    n=nbformat.read(Path(__file__).parents[2]/'notebooks/_archive/calibration/02_saliency_incremental_threshold_calibration.ipynb',as_version=4)
     nbformat.validate(n)
     codes=[c for c in n.cells if c.cell_type=='code']
     assert codes[0].id=='user-configuration'

@@ -4,7 +4,7 @@ import nbformat
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
+NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks" / "_archive"
 
 
 def _load(dataset: str):
@@ -59,7 +59,7 @@ def test_dataset_prerequisites_use_full_execution_defaults_and_guards():
 
 
 def test_rfw_all_in_one_and_procedural_notebooks_have_complete_contracts():
-    all_in_one_path = NOTEBOOK_ROOT / "rfw" / "00_rfw_all_in_one.ipynb"
+    all_in_one_path = PROJECT_ROOT / "notebooks/rfw/00_rfw_all_in_one.ipynb"
     compression_path = (
         NOTEBOOK_ROOT
         / "rfw"
