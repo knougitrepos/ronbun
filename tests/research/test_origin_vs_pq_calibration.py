@@ -217,7 +217,13 @@ def test_notebook_is_thin_valid_and_execution_is_bounded():
     nbformat.validate(nb)
     code = [cell.source for cell in nb.cells if cell.cell_type == "code"]
     assert "EXECUTE = " in code[0]  # Preserve the user's execution selection.
-    assert "MAX_NEW_JOBS_PER_RUN = 20" in code[0]
+    # The user may select all remaining jobs (None); do not pin their run budget.
+    import ast
+    budget = next(node.value for node in ast.parse(code[0]).body
+                  if isinstance(node, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id == "MAX_NEW_JOBS_PER_RUN" for t in node.targets))
+    value = ast.literal_eval(budget)
+    assert value is None or (type(value) is int and value > 0)
     assert "BLAS_THREADS = 2" in code[0]
     assert "MAX_PROCESS_RAM_GB = 16.0" in code[0]
     assert "SOURCE_REPORT_DIR" in code[0] and "PARTITION_SEEDS" in code[0]

@@ -4,6 +4,34 @@
 [보관 안내](C:/ronbun/notebooks/_archive/README.md)에 정리했다.
 파일 번호는 각 workflow 안의 이름이다. 전체 노트북을 번호순으로 모두 실행하지 않는다.
 
+## LFW 공개 기준과 별도 보정 실험 (2026-10-01)
+
+첫 코드 셀의 `LFW_PROTOCOL_MODE` 기본값은 `legacy`다. 기존 설정·결과를 유지한다.
+아래 두 경로는 서로 다른 연구 질문이며 같은 결과로 합치지 않는다.
+
+| 목적 | 노트북과 설정 | 실행 범위 |
+|---|---|---|
+| BLUFR 공개 목록 준비 | LFW 준비: `LFW_PROTOCOL_MODE="blufr_benchmark"`, 최초에만 `DOWNLOAD_BLUFR_CONFIG=True` | SHA가 고정된 MAT 다운로드·이미지 목록 대응 검증 |
+| BLUFR 압축 기준 평가 | 공통 batch 00: `LFW_PROTOCOL_MODE="blufr_benchmark"` | 기존 `MODEL_NAME`의 한 모델, YAML의 10 trials; `EXECUTE=False`로 누락 확인 후 실행 |
+| 기존 LFW 분할의 보정 조건 개선 | calibration 03: `LFW_PROTOCOL_MODE="matched_calibration"` | `MODELS`의 LFW만, 기존 test 유지·calibration gallery/enrollment를 test와 일치 |
+| 새 보정 입력만 먼저 준비 | 공통 calibration 01: `LFW_PROTOCOL_MODE="matched_calibration"` | 선택 단계. 03에서도 누락된 matched 입력을 준비함 |
+| 완료 결과 읽기 | 공통 보고: `LFW_PROTOCOL_MODE="protocol_report"`, `LFW_PROTOCOL_REPORT_DIR` 명시 | 새 실행이 반환한 `report_dir`; 자동 latest 선택 없음 |
+
+모듈 변경 후 **Kernel Restart → Run All**한다. BLUFR의 trial과 03의 `PARTITION_SEEDS`는 서로 다르다.
+03 matched 모드에서도 `EXECUTE`, `MODELS`, `PARTITION_SEEDS`, `FIT_SETTINGS`, `MAX_NEW_JOBS_PER_RUN`,
+`BLAS_THREADS`, 메모리 점검값을 사용한다. `DATASETS`, `REUSE_PQ_MODELS`, `SOURCE_REPORT_DIR`는 legacy 경로용이다.
+matched 모드는 기존 PQ codebook을 재사용하지만 threshold 모델은 새로 적합한다.
+기존 전체 3-dataset 행렬은 legacy 모드로 그대로 실행한다.
+
+**현재 BLUFR 실행 전제는 충족되지 않았다.** 네 모델 모두 13,233장 중 38장의 임베딩이 없다.
+공통 batch의 새 모드가 누락 목록을 표시하며 정식 실행을 차단한다. 이미지를 제외하거나 기존 결과를 BLUFR로 이름만 바꾸지 않는다.
+공개 목록은 저자 배포 링크 접근 실패 후 toolkit mirror에서 확인했으며 출처·SHA는
+`configs/experiments/lfw_blufr.yaml`에 명시했다. 저자 인증 여부는 별도 한계다.
+
+BLUFR 결과는 `results/lfw_blufr/`, matched 결과는 `results/calibration/lfw_matched/`에 저장한다.
+완료 job은 SQLite에서 재사용하며, 채팅에는 반환된 `chat_dir`의 `START_HERE.md`와 `analysis.zip`을 사용한다.
+공개 benchmark는 test curve 성능이고, matched 결과는 별도 calibration에서 정한 threshold의 test 성능이다.
+
 ## 현재 원본/PQ 실험을 이어갈 때
 
 [calibration 03](C:/ronbun/notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb)을 사용한다.

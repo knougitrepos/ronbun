@@ -1,0 +1,18 @@
+# Public BLUFR test-list benchmark. Calibration is a SEPARATE custom experiment.
+# The pinned toolkit MAT is distributed by a mirror; not authenticated by the author.
+protocol_file: data/external/blufr/blufr_lfw_config.mat
+protocol_sha256: 8f99875f50ee8a7b88659a15527f50ae9b8850a84df52b0b13ce32177895d51c
+protocol_source_url: https://raw.githubusercontent.com/zch-90/face_recognition_evalation/master/BLUFR/config/lfw/blufr_lfw_config.mat
+protocol_project_url: https://shengcailiao.github.io/projects/Benchmark_of_Large-scale_Unconstrained_Face_Recognition.html
+image_manifest: data/interim/lfw/face_manifest.csv
+trial_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+pq_profiles: [pq_512_m128_b8, pq_512_m64_b8, pq_512_m32_b8]
+codec_seed: 8972
+target_fpirs: [0.01, 0.05, 0.10, 0.20, 0.30]
+batch_size: 256
+output_root: results/lfw_blufr
+source_runs:
+  arcface: runs/lfw_20260902/20260902-R001-6c8b08b1_step4_lfw_arcface-7972a704552df378345f
+  adaface: runs/lfw_20260830/20260830-R001-2c810919_step4_lfw_adaface-4df25b75e065b0b9ed43
+  magface: runs/lfw_20260831/20260831-R001-937290ca_step4_lfw_magface-6931178ad2025e1b3799
+  edgeface: runs/lfw_20260901/20260901-R001-03c98fe5_step4_lfw_edgeface-a348c305af33c223b337

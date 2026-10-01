@@ -3,6 +3,13 @@
 현재 실행 메뉴는 [전체 안내](C:/ronbun/notebooks/README.md)를 따른다.
 이 폴더의 노트북을 항상 순서대로 모두 실행하지 않는다.
 
+## LFW 별도 경로
+
+- 공통 batch 00의 `LFW_PROTOCOL_MODE="blufr_benchmark"`는 기존 `MODEL_NAME`의 임베딩을 읽고 공개 trial별 PQ 학습·검색을 실행한다. 기존 pipeline/GPU 추출·Grad-CAM·다른 dataset 실행을 호출하지 않는다. `DATASET_IDS` 대신 `configs/experiments/lfw_blufr.yaml`의 trial/압축 행렬을 따른다.
+- `EXECUTE=False`로 읽기 전용 검사를 먼저 수행한다. 현재 네 모델 각각 38장 누락이 있어 `EXECUTE=True`에서는 정식 실행을 차단한다. `BLUFR_MAX_NEW_JOBS=1`은 모델/trial 단위 새 계산 수이며 `None`은 선택한 전체 trial이다.
+- 공통 calibration 01의 `LFW_PROTOCOL_MODE="matched_calibration"`는 기존 LFW test를 유지하는 별도 보정 입력을 준비한다. 03도 동일 입력을 준비하므로 01을 반드시 먼저 실행하지 않는다. 새 입력에 과거 saliency/threshold 모델을 적용하지 않는다.
+- 기본 `legacy`는 아래의 기존 실행 계약을 유지한다. 자세한 두 경로의 목적·선행 조건은 [전체 안내](C:/ronbun/notebooks/README.md)를 따른다.
+
 ## Source run 생성과 입력 고정
 
 00_batch_experiment_runner.ipynb는 모델 하나를 선택하여 DATASET_IDS의 source run을 생성하거나 재사용한다.

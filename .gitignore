@@ -127,3 +127,9 @@ dbdata/
 *.log
 
 publish/
+
+# Downloaded BLUFR toolkit cache; URL and expected digest live in the config.
+data/external/blufr/
+results/lfw_blufr/*.sqlite3*
+results/calibration/lfw_matched/*.sqlite3*
+results/calibration/lfw_matched/legacy_origin_cache/
