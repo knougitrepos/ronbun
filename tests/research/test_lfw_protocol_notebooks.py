@@ -21,7 +21,8 @@ def test_notebook_source_cells_are_syntactically_valid_and_defaults_preserved():
     for relative in PATHS.values():
         notebook = json.loads((ROOT / relative).read_text(encoding="utf8"))
         code = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
-        assert 'LFW_PROTOCOL_MODE = "legacy"' in code[0]
+        assert 'LFW_PROTOCOL_MODE = ' in code[0]
+        assert 'run_blufr_benchmark' not in '\n'.join(code)
         for cell in code:
             ast.parse(cell)
 
@@ -29,10 +30,11 @@ def test_notebook_source_cells_are_syntactically_valid_and_defaults_preserved():
 @pytest.mark.parametrize("kind", ["benchmark", "inputs", "calibrate", "report"])
 def test_new_notebook_mode_never_calls_legacy_pipeline(kind, monkeypatch):
     from research.experiments import lfw_protocol_experiments as module
+    from research.experiments import lfw_blufr_calibration as calibration
     from research.experiments import pipeline_runner
     legacy = Mock(side_effect=AssertionError("new route called legacy GPU preparation"))
     monkeypatch.setattr(pipeline_runner, "prepare_common_model_checkpoint", legacy)
-    inspection = dict(coverage=pd.DataFrame(), inventory=pd.DataFrame(), missing=pd.DataFrame())
+    inspection = dict(coverage=pd.DataFrame(), inventory=pd.DataFrame(), missing=pd.DataFrame(), ready=False)
     inspect = Mock(return_value=inspection)
     benchmark = Mock(return_value={"completed": True})
     matched = Mock(return_value={"plan": pd.DataFrame(), "execute": False})
@@ -41,13 +43,17 @@ def test_new_notebook_mode_never_calls_legacy_pipeline(kind, monkeypatch):
     monkeypatch.setattr(module, "run_blufr_benchmark", benchmark)
     monkeypatch.setattr(module, "run_matched_lfw_calibration", matched)
     monkeypatch.setattr(module, "read_lfw_protocol_report", report)
+    monkeypatch.setattr(calibration, "inspect_calibration", inspect)
+    monkeypatch.setattr(calibration, "run_calibration", matched)
+    monkeypatch.setattr(calibration, "read_calibration_report", report)
     notebook = json.loads((ROOT / PATHS[kind]).read_text(encoding="utf8"))
     namespace = {}
     cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
-    mode = "blufr_benchmark" if kind == "benchmark" else "protocol_report" if kind == "report" else "matched_calibration"
+    mode = "blufr_calibration_report" if kind == "report" else "blufr_calibration"
     for i, cell in enumerate(cells):
         if i == 0:
-            cell = cell.replace('LFW_PROTOCOL_MODE = "legacy"', f'LFW_PROTOCOL_MODE = "{mode}"')
+            import re
+            cell = re.sub(r'LFW_PROTOCOL_MODE = "[^"]+"', f'LFW_PROTOCOL_MODE = "{mode}"', cell, count=1)
             cell += '\nEXECUTE = False\nLFW_PROTOCOL_REPORT_DIR = "explicit-report"\n'
         exec(compile(cell, PATHS[kind], "exec"), namespace)
     legacy.assert_not_called()

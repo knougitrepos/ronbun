@@ -1,5 +1,12 @@
 # Reports
 
+## LFW 공개 분할 기반 보정
+
+`LFW_PROTOCOL_MODE="blufr_calibration_report"`와 03이 반환한 명시적 `LFW_PROTOCOL_REPORT_DIR`로
+완료 보고서를 읽는다. trial·비율을 구분하며 상세 fitted model/paired CI는 해당 SQLite에 남는다.
+부분 실행 분석은 반환된 `chat_dir/analysis.zip`을 사용한다. 별도 BLUFR benchmark 보고는 연결하지 않는다.
+기존 matched 보고서는 `matched_report`, 아래 기존 통합 보고는 `legacy` 모드를 사용한다.
+
 ## 4 models × 3 open-set datasets
 
 단일 checkpoint 상세 보고는 그대로 유지한다. 4개 checkpoint를 한 표에서 비교하려면

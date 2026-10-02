@@ -1,0 +1,22 @@
+# Derived calibration study. This does NOT invoke the BLUFR benchmark evaluator.
+# Preserve released train/test, gallery (1,000 identities), and probe lists.
+protocol_file: data/external/blufr/blufr_lfw_config.mat
+protocol_sha256: 8f99875f50ee8a7b88659a15527f50ae9b8850a84df52b0b13ce32177895d51c
+protocol_source_url: https://raw.githubusercontent.com/zch-90/face_recognition_evalation/master/BLUFR/config/lfw/blufr_lfw_config.mat
+image_manifest: data/interim/lfw/face_manifest.csv
+trial_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+development_fractions: [0.5, 0.6, 0.7, 0.8, 0.4, 0.3, 0.2]
+calibration_gallery_identities: 100
+split_seed: 8972
+codec_seed: 8972
+top_k: 20
+query_batch_size: 128
+pq_profiles: [pq_512_m128_b8, pq_512_m64_b8, pq_512_m32_b8]
+fiqa_variant: L
+fiqa_root: results/calibration/fiqa_scores
+output_root: results/calibration/lfw_blufr_based
+source_runs:
+  arcface: runs/lfw_20260902/20260902-R001-6c8b08b1_step4_lfw_arcface-7972a704552df378345f
+  adaface: runs/lfw_20260830/20260830-R001-2c810919_step4_lfw_adaface-4df25b75e065b0b9ed43
+  magface: runs/lfw_20260831/20260831-R001-937290ca_step4_lfw_magface-6931178ad2025e1b3799
+  edgeface: runs/lfw_20260901/20260901-R001-03c98fe5_step4_lfw_edgeface-a348c305af33c223b337

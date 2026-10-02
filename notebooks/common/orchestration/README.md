@@ -3,12 +3,15 @@
 현재 실행 메뉴는 [전체 안내](C:/ronbun/notebooks/README.md)를 따른다.
 이 폴더의 노트북을 항상 순서대로 모두 실행하지 않는다.
 
-## LFW 별도 경로
+## LFW 공개 분할 기반 보정
 
-- 공통 batch 00의 `LFW_PROTOCOL_MODE="blufr_benchmark"`는 기존 `MODEL_NAME`의 임베딩을 읽고 공개 trial별 PQ 학습·검색을 실행한다. 기존 pipeline/GPU 추출·Grad-CAM·다른 dataset 실행을 호출하지 않는다. `DATASET_IDS` 대신 `configs/experiments/lfw_blufr.yaml`의 trial/압축 행렬을 따른다.
-- `EXECUTE=False`로 읽기 전용 검사를 먼저 수행한다. 현재 네 모델 각각 38장 누락이 있어 `EXECUTE=True`에서는 정식 실행을 차단한다. `BLUFR_MAX_NEW_JOBS=1`은 모델/trial 단위 새 계산 수이며 `None`은 선택한 전체 trial이다.
-- 공통 calibration 01의 `LFW_PROTOCOL_MODE="matched_calibration"`는 기존 LFW test를 유지하는 별도 보정 입력을 준비한다. 03도 동일 입력을 준비하므로 01을 반드시 먼저 실행하지 않는다. 새 입력에 과거 saliency/threshold 모델을 적용하지 않는다.
-- 기본 `legacy`는 아래의 기존 실행 계약을 유지한다. 자세한 두 경로의 목적·선행 조건은 [전체 안내](C:/ronbun/notebooks/README.md)를 따른다.
+`blufr_calibration`은 공통 batch 00에서 읽기 전용 점검, 공통 calibration 01에서 선택적 입력 준비를 수행한다.
+실제 보정은 calibration 03에서 입력 준비까지 이어서 처리하므로 00→01→03 순서가 필수는 아니다.
+03에서 `EXECUTE=False`로 검사한 후 `ready=True`일 때 실행한다. 현재 고정 source는 모델별 38장 누락 상태다.
+01의 `LFW_MAX_NEW_INPUT_JOBS`는 입력 작업 수(전체 280개)를 제한한다.
+공개 10 trials·7비율·100명 calibration gallery·1,000명 test gallery 설정과 선행조건은
+[전체 안내](C:/ronbun/notebooks/README.md)를 따른다. 별도 benchmark Python은 보존하되 노트북에서 호출하지 않는다.
+아래 내용은 `legacy` 모드의 기존 workflow다. 새 모드에서 다른 데이터셋이나 GPU 추출을 실행하지 않는다.
 
 ## Source run 생성과 입력 고정
 
