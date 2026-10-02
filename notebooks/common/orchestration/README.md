@@ -5,9 +5,12 @@
 
 ## LFW 공개 분할 기반 보정
 
+현재 기본 YAML은 `lfw_blufr_calibration_resize.yaml`이다. LFW 준비 00의 `blufr_resize_inputs`에서
+전체 FR/FIQA 새 입력을 생성한 뒤 사용한다. 실행 순서는 [전체 안내](C:/ronbun/notebooks/README.md)를 따른다.
+
 `blufr_calibration`은 공통 batch 00에서 읽기 전용 점검, 공통 calibration 01에서 선택적 입력 준비를 수행한다.
 실제 보정은 calibration 03에서 입력 준비까지 이어서 처리하므로 00→01→03 순서가 필수는 아니다.
-03에서 `EXECUTE=False`로 검사한 후 `ready=True`일 때 실행한다. 현재 고정 source는 모델별 38장 누락 상태다.
+03에서 `EXECUTE=False`로 검사한 후 `ready=True`일 때 실행한다. 이전 detected/aligned source는 모델별 38장 누락 상태였으며 새 resize source를 사용한다.
 01의 `LFW_MAX_NEW_INPUT_JOBS`는 입력 작업 수(전체 280개)를 제한한다.
 공개 10 trials·7비율·100명 calibration gallery·1,000명 test gallery 설정과 선행조건은
 [전체 안내](C:/ronbun/notebooks/README.md)를 따른다. 별도 benchmark Python은 보존하되 노트북에서 호출하지 않는다.

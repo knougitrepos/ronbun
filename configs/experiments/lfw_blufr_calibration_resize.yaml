@@ -1,0 +1,52 @@
+# LFW whole-image resize; no face detection or extra crop. Separate immutable inputs.
+protocol_file: data/external/blufr/blufr_lfw_config.mat
+protocol_sha256: 8f99875f50ee8a7b88659a15527f50ae9b8850a84df52b0b13ce32177895d51c
+protocol_source_url: https://raw.githubusercontent.com/zch-90/face_recognition_evalation/master/BLUFR/config/lfw/blufr_lfw_config.mat
+image_manifest: data/interim/lfw/face_manifest.csv
+trial_ids:
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- 10
+development_fractions:
+- 0.5
+- 0.6
+- 0.7
+- 0.8
+- 0.4
+- 0.3
+- 0.2
+calibration_gallery_identities: 100
+split_seed: 8972
+codec_seed: 8972
+top_k: 20
+query_batch_size: 128
+pq_profiles:
+- pq_512_m128_b8
+- pq_512_m64_b8
+- pq_512_m32_b8
+fiqa_variant: L
+fiqa_root: results/lfw_deepfunneled_resize_v1/fiqa_scores
+output_root: results/calibration/lfw_blufr_resize_based
+source_runs:
+  arcface: results/lfw_deepfunneled_resize_v1/sources/arcface-7972a704552df378345f
+  adaface: results/lfw_deepfunneled_resize_v1/sources/adaface-4df25b75e065b0b9ed43
+  magface: results/lfw_deepfunneled_resize_v1/sources/magface-6931178ad2025e1b3799
+  edgeface: results/lfw_deepfunneled_resize_v1/sources/edgeface-a348c305af33c223b337
+source_kind: lfw_full_population_resize_embeddings
+resize_inputs:
+  bundle_dir: data/interim/lfw/deepfunneled_whole_resize_112_v1
+  checkpoint_file: results/lfw_deepfunneled_resize_v1/embedding_work.sqlite3
+  embedding_shard_size: 4096
+  model_specs:
+    arcface: runs/step2/model_registry/arcface-7972a704552df378345f.json
+    adaface: runs/step2/model_registry/adaface-4df25b75e065b0b9ed43.json
+    magface: runs/step2/model_registry/magface-6931178ad2025e1b3799.json
+    edgeface: runs/step2/model_registry/edgeface-a348c305af33c223b337.json
+  fiqa_checkpoint: models/fiqa/CR-FIQA(L).pth

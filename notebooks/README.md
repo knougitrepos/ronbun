@@ -4,12 +4,36 @@
 [보관 안내](C:/ronbun/notebooks/_archive/README.md)에 정리했다.
 파일 번호는 각 workflow 안의 이름이다. 전체 노트북을 번호순으로 모두 실행하지 않는다.
 
-## LFW: 공개 BLUFR 분할을 이용한 독립 보정 (2026-10-02)
+## 새 LFW 전체 입력 실험: 실행 순서 (2026-10-02)
 
+현재 기본 새 실험은 **LFW 전체에서 얼굴 재검출을 생략**한다. 250×250 deepfunneled 전체 이미지를
+112×112 bilinear RGB로 동일하게 resize하고 모델별 기존 색상/정규화를 적용한다.
+ArcFace 기준 landmark 정렬과 동일하다는 주장은 하지 않는다. 아래 단계는 LFW만 다시 계산한다.
+
+1. [LFW 준비 00](C:/ronbun/notebooks/lfw/00_data_preparation/00_data_preparation.ipynb):
+   `LFW_PROTOCOL_MODE="blufr_resize_inputs"`, `EXECUTE=False`로 Kernel Restart → Run All.
+   checkpoint/CUDA 점검 후 `EXECUTE=True`, `RESIZE_ONLY=False`, `LFW_INPUT_BATCH_SIZE=32`로 다시 실행한다.
+   공통 resize + FR 4모델 + FIQA 전체를 새로 생성하며 완료 shard/source는 검증 후 재사용한다.
+   `LFW_INPUT_MODELS` 기본 4개 모델을 유지한다. 완료 source와 배치가 달라지면 새 경로가 필요하다.
+2. [calibration 03](C:/ronbun/notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb):
+   `LFW_PROTOCOL_MODE="blufr_calibration"`,
+   `LFW_CALIBRATION_CONFIG_PATH="configs/experiments/lfw_blufr_calibration_resize.yaml"`,
+   `EXECUTE=False`로 재시작 → Run All. 네 모델 `available=13233`, 누락 0, `ready=True`를 확인한다.
+3. 같은 03에서 `EXECUTE=True`로 실행한다. `MAX_NEW_JOBS_PER_RUN=1`은 최초 동작 확인,
+   `None`은 전체 미완료 5,600 jobs 실행이다. 완료 job은 재사용한다. DISPLAY_*는 표시만 선택한다.
+
+공개 MAT 목록 자체가 없으면 먼저 LFW 준비 00의 `blufr_lists`/DOWNLOAD_BLUFR_CONFIG=True를 사용한다.
+별도 공통 batch 00/01은 필수 선행 단계가 아니다. 기존 source 38장 누락을 이 새 실험에 섞지 않는다.
+새 FR/FIQA는 `results/lfw_deepfunneled_resize_v1/`, 새 보정은 `results/calibration/lfw_blufr_resize_based/`에 저장한다.
+기존 `lfw_blufr_calibration.yaml`은 과거 detected/aligned source용으로 보존한다.
+
+## BLUFR 분할 계약과 이전 detected/aligned source 경로 (2026-10-02)
+
+아래 설명의 원래 YAML은 이전 detected/aligned source 경로다. 새 resize 실험은 위 실행 순서의 별도 YAML을 사용한다.
 주 실행점은 [calibration 03](C:/ronbun/notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb)이다.
 **`LFW_PROTOCOL_MODE="blufr_calibration"`, `EXECUTE=False`로 Kernel Restart → Run All**하여 입력을 점검한다.
 `ready=True`를 확인한 후 `EXECUTE=True`로 다시 실행한다. 다른 노트북을 먼저 모두 실행할 필요는 없다.
-현재 고정 source에서는 네 모델 각각 임베딩/FIQA 38장이 누락되어 실행이 차단된다.
+이전 detected/aligned 고정 source에서는 네 모델 각각 임베딩/FIQA 38장이 누락되어 실행이 차단된다.
 누락은 동일 전처리 계약의 새 artifact로 복구하고 YAML의 명시적 source/FIQA 경로를 변경해야 한다.
 공개 평가 이미지 제외나 완료 source 덮어쓰기로 해결하지 않는다.
 

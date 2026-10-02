@@ -41,9 +41,12 @@ OFFICIAL_FACE_CROP_TEMPLATE_ID = "qmul_survface_official_face_crop_resize_112_v1
 DETECTOR_NAME = "buffalo_l"
 DETECT_AND_ALIGN = "detect_and_align"
 OFFICIAL_FACE_CROP_RESIZE = "official_face_crop_resize"
+LFW_DEEPFUNNELED_RESIZE = "lfw_deepfunneled_whole_image_resize"
+LFW_RESIZE_TEMPLATE_ID = "lfw_deepfunneled_whole_image_bilinear_112_v1"
 SUPPORTED_PREPROCESSING_MODES = (
     DETECT_AND_ALIGN,
     OFFICIAL_FACE_CROP_RESIZE,
+    LFW_DEEPFUNNELED_RESIZE,
 )
 DEFAULT_PROVIDERS = (
     "CUDAExecutionProvider",
@@ -151,22 +154,17 @@ def validate_aligned_crop_bundle(
         problems.append(
             f"source_count={source_count}, expected={int(expected_source_count)}"
         )
-    if aligned_count < 0 or failed_count < 0 or (
-        aligned_count + failed_count != source_count
+    if (
+        aligned_count < 0
+        or failed_count < 0
+        or (aligned_count + failed_count != source_count)
     ):
+        problems.append("aligned/failed counts do not partition the source manifest")
+    if require_full_coverage and (failed_count != 0 or aligned_count != source_count):
         problems.append(
-            "aligned/failed counts do not partition the source manifest"
+            f"full coverage required but aligned={aligned_count}, failed={failed_count}"
         )
-    if require_full_coverage and (
-        failed_count != 0 or aligned_count != source_count
-    ):
-        problems.append(
-            f"full coverage required but aligned={aligned_count}, "
-            f"failed={failed_count}"
-        )
-    array_shape = (
-        manifest.get("array_contract", {}).get("shape", [])
-    )
+    array_shape = manifest.get("array_contract", {}).get("shape", [])
     if not array_shape or int(array_shape[0]) != aligned_count:
         problems.append(
             f"array row count={array_shape[0] if array_shape else None}, "
@@ -195,9 +193,7 @@ def _face_area(face: Any) -> float:
     bbox = np.asarray(_face_value(face, "bbox"), dtype=np.float64)
     if bbox.shape != (4,) or not np.isfinite(bbox).all():
         return -1.0
-    return max(0.0, float(bbox[2] - bbox[0])) * max(
-        0.0, float(bbox[3] - bbox[1])
-    )
+    return max(0.0, float(bbox[2] - bbox[0])) * max(0.0, float(bbox[3] - bbox[1]))
 
 
 def _select_best_face(faces: Sequence[Any]) -> tuple[int, Any]:
@@ -228,7 +224,9 @@ def _relative_output_entry(path: Path, root: Path, **extra: Any) -> dict[str, An
     }
 
 
-def _publish_single_result(staging: Path, destination: Path, *, overwrite: bool) -> None:
+def _publish_single_result(
+    staging: Path, destination: Path, *, overwrite: bool
+) -> None:
     """Publish a complete directory while keeping at most one canonical result."""
 
     if not destination.exists():
@@ -354,15 +352,21 @@ def materialize_aligned_crops(
             "preprocessing_mode must be one of "
             f"{SUPPORTED_PREPROCESSING_MODES}, got {selected_mode!r}"
         )
-    if selected_mode == OFFICIAL_FACE_CROP_RESIZE and (
-        detector is not None or aligner is not None
-    ):
+    resize_only = selected_mode != DETECT_AND_ALIGN
+    resize_template = (
+        LFW_RESIZE_TEMPLATE_ID
+        if selected_mode == LFW_DEEPFUNNELED_RESIZE
+        else OFFICIAL_FACE_CROP_TEMPLATE_ID
+    )
+    if selected_mode == LFW_DEEPFUNNELED_RESIZE and dataset_id != "lfw":
+        raise ValueError("lfw_deepfunneled_whole_image_resize requires dataset_id=lfw")
+    if resize_only and (detector is not None or aligner is not None):
         raise ValueError(
-            "official_face_crop_resize does not accept detector or aligner overrides"
+            "resize-only preprocessing does not accept detector or aligner overrides"
         )
-    if selected_mode == OFFICIAL_FACE_CROP_RESIZE and not require_full_coverage:
+    if resize_only and not require_full_coverage:
         raise ValueError(
-            "official_face_crop_resize requires require_full_coverage=True"
+            "resize-only preprocessing requires require_full_coverage=True"
         )
     requested_providers = tuple(str(provider).strip() for provider in providers)
     if (
@@ -415,7 +419,7 @@ def materialize_aligned_crops(
     aligned_rows: list[dict[str, Any]] = []
     failed_rows: list[dict[str, Any]] = []
     try:
-        if selected_mode == OFFICIAL_FACE_CROP_RESIZE:
+        if resize_only:
             streamed_faces = np.lib.format.open_memmap(
                 faces_path,
                 mode="w+",
@@ -469,6 +473,13 @@ def materialize_aligned_crops(
                 continue
 
             source_height, source_width = image_rgb.shape[:2]
+            if selected_mode == LFW_DEEPFUNNELED_RESIZE and (
+                source_width,
+                source_height,
+            ) != (250, 250):
+                raise ValueError(
+                    "LFW-deepfunneled requires every source image to be 250x250"
+                )
             if selected_mode == DETECT_AND_ALIGN:
                 assert active_detector is not None
                 assert active_aligner is not None
@@ -515,9 +526,7 @@ def materialize_aligned_crops(
                     failed_rows.append(
                         {
                             **base,
-                            "alignment_failure_reason": (
-                                "invalid_detection_geometry"
-                            ),
+                            "alignment_failure_reason": ("invalid_detection_geometry"),
                             "face_count": len(faces),
                         }
                     )
@@ -564,8 +573,12 @@ def materialize_aligned_crops(
                 )
                 face_count = 1
                 landmark_json = ""
-                row_detector_name = "not_applicable_official_face_crop"
-                template_id = OFFICIAL_FACE_CROP_TEMPLATE_ID
+                row_detector_name = (
+                    "not_applicable_lfw_deepfunneled"
+                    if selected_mode == LFW_DEEPFUNNELED_RESIZE
+                    else "not_applicable_official_face_crop"
+                )
+                template_id = resize_template
             if crop.shape != (112, 112, 3):
                 failed_rows.append(
                     {
@@ -631,7 +644,7 @@ def materialize_aligned_crops(
 
         _close_memmap(streamed_faces)
         streamed_faces = None
-        if selected_mode == OFFICIAL_FACE_CROP_RESIZE:
+        if resize_only:
             face_shape = (len(aligned_rows), 112, 112, 3)
         else:
             face_array = np.stack(aligned_faces).astype(np.uint8, copy=False)
@@ -651,11 +664,13 @@ def materialize_aligned_crops(
             "alignment_template_id": (
                 ALIGNMENT_TEMPLATE_ID
                 if selected_mode == DETECT_AND_ALIGN
-                else OFFICIAL_FACE_CROP_TEMPLATE_ID
+                else resize_template
             ),
             "preprocessing": {
                 "mode": selected_mode,
                 "require_full_coverage": bool(require_full_coverage),
+                "alignment_recomputed": selected_mode == DETECT_AND_ALIGN,
+                "whole_image_resize": selected_mode == LFW_DEEPFUNNELED_RESIZE,
                 "resize_interpolation": (
                     None
                     if selected_mode == DETECT_AND_ALIGN
@@ -707,7 +722,7 @@ def materialize_aligned_crops(
         )
         (staging / "_SUCCESS").write_text("complete\n", encoding="utf-8")
         _publish_single_result(staging, destination, overwrite=overwrite)
-        if selected_mode == OFFICIAL_FACE_CROP_RESIZE:
+        if resize_only:
             published_faces = np.load(
                 destination / "aligned_faces.npy",
                 mmap_mode="r",

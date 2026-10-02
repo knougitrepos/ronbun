@@ -133,3 +133,13 @@ data/external/blufr/
 results/lfw_blufr/*.sqlite3*
 results/calibration/lfw_matched/*.sqlite3*
 results/calibration/lfw_matched/legacy_origin_cache/
+# LFW whole-image resize payloads/checkpoints remain local. Keep manifests and
+# compact report ZIPs visible, matching the existing results-only policy.
+results/lfw_deepfunneled_resize_v1/**/*.npy
+results/lfw_deepfunneled_resize_v1/**/population.csv
+results/lfw_deepfunneled_resize_v1/**/fiqa_scores.csv
+results/lfw_deepfunneled_resize_v1/*.sqlite3*
+results/lfw_deepfunneled_resize_v1/**/.staging-*/
+results/lfw_deepfunneled_resize_v1/**/.inprogress/
+results/calibration/lfw_blufr_resize_based/*.sqlite3*
+results/calibration/lfw_blufr_based/*.sqlite3*

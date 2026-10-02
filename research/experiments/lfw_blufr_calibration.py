@@ -21,7 +21,7 @@ from research.datasets.lfw_blufr_calibration import build_calibration_split
 from research.experiments.calibration_matrix import MODEL_UIDS, PQ_PROFILES
 from research.experiments.fiqa_threshold_calibration import ConditionScoreTables
 from research.experiments.lfw_protocol_experiments import (
-    _source,
+    _source as _completed_run_source,
     search_rows,
     _pack_conditions,
     _unpack_conditions,
@@ -46,6 +46,15 @@ PROTOCOL_UID = "lfw-blufr-outer-split-independent-calibration-v1"
 CONFIG_PATH = "configs/experiments/lfw_blufr_calibration.yaml"
 
 
+def _source(project, directory):
+    root = Path(project) / directory
+    if (root / "manifest.json").is_file() or not (root / "run_manifest.json").is_file():
+        from research.experiments.lfw_resize_inputs import load_resize_source
+
+        return load_resize_source(project, directory)
+    return _completed_run_source(project, directory)
+
+
 def implementation_hashes():
     root = Path(__file__).resolve().parents[1]
     names = (
@@ -55,6 +64,7 @@ def implementation_hashes():
         "experiments/lfw_protocol_experiments.py",
         "protocols/blufr.py",
         "compression/profiles.py",
+        "experiments/lfw_resize_inputs.py",
     )
     return {**science_hashes(), **{n: sha256_file(root / n) for n in names}}
 
@@ -144,9 +154,36 @@ def inspect_calibration(project_root, *, config_path=CONFIG_PATH, models=None):
     quality_missing = int((~bound.image_id.isin(quality_ids)).sum())
     coverage, missing, sources = [], [], {}
     for model in selected:
-        _, run, _, prepared, population, lineage = _source(
-            project, config["source_runs"][model]
-        )
+        try:
+            _, run, _, prepared, population, lineage = _source(
+                project, config["source_runs"][model]
+            )
+        except FileNotFoundError as error:
+            if config.get("source_kind") != "lfw_full_population_resize_embeddings":
+                raise
+            missing.append(
+                bound[["filename", "image_id", "identity_id"]].assign(model=model)
+            )
+            coverage.append(
+                dict(
+                    model=model,
+                    required=len(bound),
+                    available=0,
+                    missing_embeddings=len(bound),
+                    missing_fiqa=quality_missing,
+                    ready=False,
+                    fiqa_error=quality_error,
+                    source_error=str(error),
+                )
+            )
+            continue
+        if (
+            config.get("source_kind") == "lfw_full_population_resize_embeddings"
+            and lineage.get("source_kind") != config["source_kind"]
+        ):
+            raise ValueError(
+                "resize config cannot reuse detected/aligned legacy embeddings"
+            )
         if prepared.model_uid != MODEL_UIDS[model]:
             raise ValueError("source checkpoint/model label mismatch")
         vectors = prepared.normalized_embeddings

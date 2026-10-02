@@ -1,11 +1,17 @@
-# LFW 준비와 BLUFR 분할 기반 보정
+# LFW 전체 resize 입력과 BLUFR 분할 기반 보정
+
+현재 새 실험은 준비 00에서 `blufr_resize_inputs`, `EXECUTE=False`로 검사한 후
+`EXECUTE=True`, `RESIZE_ONLY=False`, batch32로 FR 4모델·FIQA를 전체 재추출한다.
+13,233장을 동일한 전체 이미지 112×112 resize로 처리한다. 완료 후 03의
+`configs/experiments/lfw_blufr_calibration_resize.yaml`에서 ready=True를 확인하고 보정을 실행한다.
+기존 임베딩/FIQA와 새 입력을 혼합하지 않는다. 아래 목록 준비와 과거 source 설명은 참고용이다.
 
 공개 목록이 없다면 [준비 노트북](C:/ronbun/notebooks/lfw/00_data_preparation/00_data_preparation.ipynb)의
 `LFW_PROTOCOL_MODE="blufr_lists"`, `DOWNLOAD_BLUFR_CONFIG=True`로 Kernel Restart → Run All한다.
 SHA가 고정된 MAT를 받고 원본 manifest와 대응을 확인한다. 기존 분할 파일은 덮어쓰지 않는다.
 
 목록이 준비되어 있다면 calibration 03의 `blufr_calibration`, `EXECUTE=False`로 직접 점검한다.
-현재 공개 13,233장 중 고정된 네 모델 source 임베딩/FIQA가 38장 부족하여 복구 전 정식 실행은 차단된다.
+이전 detected/aligned 고정 source는 공개 13,233장 중 임베딩/FIQA 38장이 부족했다. 새 resize source는 별도 YAML에서 읽는다.
 준비 노트북의 목록 다운로드가 얼굴 검출/임베딩 누락까지 복구하는 것은 아니다.
 
 공개 train/test·gallery/probe를 유지하고 train 내부 7가지 압축 학습:보정 비율을 비교한다.
