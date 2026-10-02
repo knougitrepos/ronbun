@@ -1,0 +1,88 @@
+{
+  "artifact_type": "lfw_full_population_resize_embeddings",
+  "status": "completed",
+  "schema_version": 1,
+  "contract": {
+    "model_uid": "arcface-7972a704552df378345f",
+    "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+    "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+    "model_spec": {
+      "family": "arcface",
+      "architecture": "iresnet100",
+      "training_dataset": "ms1mv3",
+      "implementation_repository": "https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch",
+      "checkpoint": {
+        "path": "C:\\ronbun\\models\\arcface\\ms1mv3_r100_backbone.pth",
+        "sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+        "source_url": "https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch#model-zoo",
+        "verified_local_file": true
+      },
+      "preprocessing": {
+        "input_height": 112,
+        "input_width": 112,
+        "source_color_order": "rgb",
+        "model_color_order": "rgb",
+        "channel_mean": [
+          127.5,
+          127.5,
+          127.5
+        ],
+        "channel_std": [
+          127.5,
+          127.5,
+          127.5
+        ],
+        "input_dtype": "uint8"
+      },
+      "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+      "target_layer": "layer4.2.conv2",
+      "embedding_dim": 512,
+      "module_factory": "research.embeddings.pytorch.official_loaders:load_arcface_checkpoint",
+      "model_uid": "arcface-7972a704552df378345f",
+      "comparison_scope": "pretrained_checkpoint"
+    },
+    "bundle_manifest_sha256": "7677735d3c7cf5a90d3975196649fa1fae4215cc314da5466497aa02488a8736",
+    "implementation": {
+      "experiments/lfw_resize_inputs.py": "d91cc2ad896bc19ceac2c47c37828b141816bf1bf49b558c189e11e6bd622ec8",
+      "preprocessing/aligned_crops.py": "9eeb663fcc23556251a0af0ccd3c06c8308eb2f681109c3ef16a2ce8057ed332",
+      "embeddings/pytorch/adapter.py": "e221e54709f3bbbfc9c554629b8c151dea01359bbd7f4ec72b82ac9d0a2b1b0d",
+      "embeddings/pytorch/official_loaders.py": "6ec6799d6f0ddbc07b1e73e6a721bd546731be313c099e144382f899164f381b",
+      "embeddings/pytorch/official_backbones.py": "495822c56ceee2f8d711581b5652ea5abd5fab6cd6c95419bfc80004e13a7459",
+      "fiqa/artifacts.py": "5b9b70904595fd365979c2890f9c4cff68236e062b5ed8d0bbd6f06e75143001",
+      "fiqa/cr_fiqa.py": "3f3a5998b0339977e4487c0b53d29b804a74849d08fba4802242e3a8cde9982b"
+    },
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "torch": "2.7.1+cu118",
+    "numpy": "1.26.4",
+    "device": "cuda",
+    "device_name": "NVIDIA GeForce GTX 1080 Ti",
+    "batch_size": 32
+  },
+  "source_uid": "lfw-resize-6f0d94c52c1ba2eb7af8f4d8",
+  "dataset_id": "lfw",
+  "preprocessing_mode": "lfw_deepfunneled_whole_image_resize",
+  "model_uid": "arcface-7972a704552df378345f",
+  "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+  "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+  "row_count": 13233,
+  "lineage": {
+    "model_uid": "arcface-7972a704552df378345f",
+    "aligned_bundle_manifest_sha256": "7677735d3c7cf5a90d3975196649fa1fae4215cc314da5466497aa02488a8736",
+    "aligned_faces_sha256": "0475ef85b21679dd2a4ce493c823b521db3dd3baee7e7d6c2beb109be65857aa",
+    "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+    "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+    "input_preprocessing_mode": "lfw_deepfunneled_whole_image_resize",
+    "checkpoint_training_overlap_verified": false
+  },
+  "files": {
+    "population.csv": {
+      "sha256": "3b608e82d98ca523b1ff6236e5b8dace5e65eb855d4c60369c6fcad9b887e90b"
+    },
+    "normalized_embeddings.npy": {
+      "sha256": "c20895c6956fc65f5fbfcfbd573c98f244f1b4fb15c830668c59299396f7fbfe"
+    },
+    "raw_norms.npy": {
+      "sha256": "f103d73e5eda8a6e4863a77a57bef64fc83f4d6df086cc51fbb575026c7eefd7"
+    }
+  }
+}
