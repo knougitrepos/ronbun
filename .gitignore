@@ -143,3 +143,8 @@ results/lfw_deepfunneled_resize_v1/**/.staging-*/
 results/lfw_deepfunneled_resize_v1/**/.inprogress/
 results/calibration/lfw_blufr_resize_based/*.sqlite3*
 results/calibration/lfw_blufr_based/*.sqlite3*
+# LFW 1:1 raw decisions, scores, codebooks and resume checkpoint stay local.
+# Compact reports, manifests and interpretation guides remain Git-visible.
+data/external/lfw/
+results/calibration/lfw_pair_verification/campaign-*/raw/
+results/calibration/lfw_pair_verification/**/.staging-*/

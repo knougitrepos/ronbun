@@ -1,0 +1,29 @@
+# Standard LFW View-2 pairs; extra compression/calibration adaptation, not UCFace reproduction.
+pairs_file: data/external/lfw/pairs.txt
+image_manifest: data/interim/lfw/face_manifest.csv
+fold_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+partition_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 8972]
+codec_seed: 8972
+pq_profiles: [pq_512_m128_b8, pq_512_m64_b8, pq_512_m32_b8]
+fiqa_variant: L
+fiqa_root: results/lfw_deepfunneled_resize_v1/fiqa_scores
+output_root: results/calibration/lfw_pair_verification
+keep_raw_results: false
+source_runs:
+  arcface: results/lfw_deepfunneled_resize_v1/sources/arcface-7972a704552df378345f
+  adaface: results/lfw_deepfunneled_resize_v1/sources/adaface-4df25b75e065b0b9ed43
+  magface: results/lfw_deepfunneled_resize_v1/sources/magface-6931178ad2025e1b3799
+  edgeface: results/lfw_deepfunneled_resize_v1/sources/edgeface-a348c305af33c223b337
+fit_settings:
+  target_fmrs: [0.01, 0.05, 0.10, 0.20, 0.30]
+  diagnostic_fmr_grid: [0.001, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50]
+  safety_fraction: 0.30
+  minimum_group_non_mated: 100
+  shrinkage_strength: 200.0
+  knot_quantiles: [0.3333333333333333, 0.6666666666666666]
+  smoothing: 0.01
+  ridge: 0.001
+  max_iterations: 2000
+  margin_slope_cap: 0.95
+  resamples: 2000
+  bootstrap_seed: 8972
