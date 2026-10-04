@@ -1,19 +1,44 @@
 # Standard LFW View-2 pairs; extra compression/calibration adaptation, not UCFace reproduction.
 pairs_file: data/external/lfw/pairs.txt
-image_manifest: data/interim/lfw/face_manifest.csv
+image_manifest: data/interim/lfw/pair_verification_v1/population.csv
+inputs:
+  raw_image_root: data/raw/LFW/lfw-deepfunneled/lfw-deepfunneled
+  expected_images: 13233
+  expected_identities: 5749
+  # Static model metadata only. No previous run or registry is required.
+  model_profiles_config: configs/experiments/step2_pytorch_gradcam.yaml
+  registry_root: results/lfw_pair_inputs_v1/model_registry
+  models:
+    arcface:
+      profile: arcface_ms1mv3_r100
+      checkpoint: models/arcface/ms1mv3_r100_backbone.pth
+    adaface:
+      profile: adaface_ms1mv3_r100
+      checkpoint: models/adaface/adaface_ir101_ms1mv3.ckpt
+    magface:
+      profile: magface_ms1mv2_iresnet100
+      checkpoint: models/magface/magface_ms1mv2.pth
+    edgeface:
+      profile: edgeface_webface12m_xs_gamma_06
+      checkpoint: models/edgeface/edgeface_xs_gamma_06.pt
+resize_inputs:
+  embedding_shard_size: 4096
+  bundle_dir: data/interim/lfw/pair_verification_v1/whole_resize_112
+  checkpoint_file: results/lfw_pair_inputs_v1/extraction.sqlite3
+  fiqa_checkpoint: models/fiqa/CR-FIQA(L).pth
 fold_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 partition_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 8972]
 codec_seed: 8972
 pq_profiles: [pq_512_m128_b8, pq_512_m64_b8, pq_512_m32_b8]
 fiqa_variant: L
-fiqa_root: results/lfw_deepfunneled_resize_v1/fiqa_scores
+fiqa_root: results/lfw_pair_inputs_v1/fiqa_scores
 output_root: results/calibration/lfw_pair_verification
 keep_raw_results: false
 source_runs:
-  arcface: results/lfw_deepfunneled_resize_v1/sources/arcface-7972a704552df378345f
-  adaface: results/lfw_deepfunneled_resize_v1/sources/adaface-4df25b75e065b0b9ed43
-  magface: results/lfw_deepfunneled_resize_v1/sources/magface-6931178ad2025e1b3799
-  edgeface: results/lfw_deepfunneled_resize_v1/sources/edgeface-a348c305af33c223b337
+  arcface: results/lfw_pair_inputs_v1/sources/arcface-7972a704552df378345f
+  adaface: results/lfw_pair_inputs_v1/sources/adaface-4df25b75e065b0b9ed43
+  magface: results/lfw_pair_inputs_v1/sources/magface-6931178ad2025e1b3799
+  edgeface: results/lfw_pair_inputs_v1/sources/edgeface-a348c305af33c223b337
 fit_settings:
   target_fmrs: [0.01, 0.05, 0.10, 0.20, 0.30]
   diagnostic_fmr_grid: [0.001, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50]

@@ -95,7 +95,7 @@ def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, 
 def _implementation(project):
     paths = ("datasets/lfw_pairs.py", "evaluation/lfw_verification.py",
              "experiments/lfw_pair_verification.py", "experiments/lfw_pair_storage.py",
-             "experiments/lfw_resize_inputs.py", "compression/profiles.py")
+             "experiments/lfw_resize_inputs.py", "experiments/lfw_pair_inputs.py", "compression/profiles.py")
     return {**science_hashes(), **{p: sha256_file(project / "research" / p) for p in paths},
             "interpretation_guide": sha256_file(project / GUIDE)}
 
@@ -270,12 +270,16 @@ def main():
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--config", default=CONFIG_PATH)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--download-pairs", action="store_true")
     parser.add_argument("--output-root")
     parser.add_argument("--max-new-jobs", type=int)
     parser.add_argument("--keep-raw-results", action=argparse.BooleanOptionalAction, default=None)
     args = parser.parse_args()
-    result = run_verification(args.project_root, config_path=args.config, execute=args.execute,
+    from research.experiments.lfw_pair_inputs import run_pair_workflow
+    result = run_pair_workflow(args.project_root, config_path=args.config, execute=args.execute,
+        device=args.device, batch_size=args.batch_size,
         download_pairs=args.download_pairs, output_root=args.output_root,
         max_new_jobs=args.max_new_jobs, keep_raw_results=args.keep_raw_results, progress=print)
     print(json.dumps({k: v for k, v in result.items() if k not in ("tables", "inventory", "coverage")}, default=str))

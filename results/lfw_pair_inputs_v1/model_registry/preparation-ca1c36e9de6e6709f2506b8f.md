@@ -1,3 +1,7 @@
+# LFW input preparation
+
+Summary: `preparation-ca1c36e9de6e6709f2506b8f.json`
+
 # LFW 1:1 검증: 실행과 결과 해석
 
 ## 연구 질문과 범위
@@ -113,8 +117,7 @@ LFW 결과만으로 1:N 미등록자 거절, gallery 크기 전이, Top-k, DB �
 
 첫 설정 셀의 `KEEP_RAW_RESULTS=False`가 기본이며 Python/CLI에도 동일 옵션이 있다.
 입력 준비에서 이 옵션은 완료 FR source와 FIQA를 검증한 뒤 **중복 FR 추출 shard SQLite**를 정리한다.
-실패·중단 또는 다른 설정 모델이 미완료이면 공유 shard는 남는다. 기존 완료 추출의 보존 옵션만
-False로 바꿔도 과거 shard를 소급 삭제하지 않는다. 실제 보존 여부는 준비 JSON에 기록한다. 전체 population CSV, resized 이미지, 모델 registry, 임베딩, FIQA는
+실패·중단 시 해당 shard는 남는다. 전체 population CSV, resized 이미지, 모델 registry, 임베딩, FIQA는
 다음 단계와 반복 평가에 필요한 **재사용 입력/cache**로 유지하며 이 옵션의 삭제 대상이 아니다.
 따라서 False가 생성 파일 전체 삭제나 0-byte 보관을 의미하지 않는다. 이 입력들을 별도로 제거하면
 원본 이미지와 checkpoint에서 GPU 추출부터 다시 해야 한다. per-image 입력/cache도 Git에서는 제외한다.

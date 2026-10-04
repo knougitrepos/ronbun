@@ -240,13 +240,14 @@ def test_campaign_resume_scope_and_retention(tmp_path, pairs, inputs, evaluated,
     "notebooks/common/reports/00_cross_dataset_results.ipynb",
 ])
 def test_default_notebooks_use_pair_path_without_legacy(relative, monkeypatch):
-    from research.experiments import lfw_pair_verification as pair_module
+    from research.experiments import lfw_pair_inputs as pair_module
     from research.experiments import pipeline_runner
     from unittest.mock import Mock
     forbidden = Mock(side_effect=AssertionError("legacy GPU path called"))
     monkeypatch.setattr(pipeline_runner, "prepare_common_model_checkpoint", forbidden)
     called = Mock(return_value=dict(coverage=pd.DataFrame(), inventory=pd.DataFrame(), expected_jobs=800))
-    monkeypatch.setattr(pair_module, "run_verification", called)
+    monkeypatch.setattr(pair_module, "run_pair_workflow", called)
+    monkeypatch.setattr(pair_module, "prepare_pair_inputs", called)
     nb = json.loads((ROOT / relative).read_text(encoding="utf8"))
     ns = {}
     for cell in nb["cells"]:

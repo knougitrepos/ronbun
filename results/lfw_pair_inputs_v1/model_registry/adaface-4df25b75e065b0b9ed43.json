@@ -1,0 +1,35 @@
+{
+  "architecture": "ir_101",
+  "checkpoint": {
+    "path": "C:\\ronbun\\models\\adaface\\adaface_ir101_ms1mv3.ckpt",
+    "sha256": "f0bdc94fd6aa8fec7cd82c428288991ebeca2510f71949e68b89aee016fbaf82",
+    "source_url": "https://drive.google.com/file/d/1hRI8YhlfTx2YMzyDwsqLTOxbyFVOqpSI/view",
+    "verified_local_file": true
+  },
+  "comparison_scope": "pretrained_checkpoint",
+  "embedding_dim": 512,
+  "family": "adaface",
+  "implementation_repository": "https://github.com/mk-minchul/AdaFace",
+  "model_uid": "adaface-4df25b75e065b0b9ed43",
+  "module_factory": "research.embeddings.pytorch.official_loaders:load_adaface_checkpoint",
+  "preprocess_hash": "f980b1c930d3d2c7302e23f935b431ec5de7e04f86b9ffd0f7d6ab725c16d888",
+  "preprocessing": {
+    "channel_mean": [
+      127.5,
+      127.5,
+      127.5
+    ],
+    "channel_std": [
+      127.5,
+      127.5,
+      127.5
+    ],
+    "input_dtype": "uint8",
+    "input_height": 112,
+    "input_width": 112,
+    "model_color_order": "bgr",
+    "source_color_order": "rgb"
+  },
+  "target_layer": "body.48.res_layer.4",
+  "training_dataset": "ms1mv3"
+}

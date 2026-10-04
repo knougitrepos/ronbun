@@ -1,0 +1,35 @@
+{
+  "architecture": "iresnet100",
+  "checkpoint": {
+    "path": "C:\\ronbun\\models\\arcface\\ms1mv3_r100_backbone.pth",
+    "sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+    "source_url": "https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch#model-zoo",
+    "verified_local_file": true
+  },
+  "comparison_scope": "pretrained_checkpoint",
+  "embedding_dim": 512,
+  "family": "arcface",
+  "implementation_repository": "https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch",
+  "model_uid": "arcface-7972a704552df378345f",
+  "module_factory": "research.embeddings.pytorch.official_loaders:load_arcface_checkpoint",
+  "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+  "preprocessing": {
+    "channel_mean": [
+      127.5,
+      127.5,
+      127.5
+    ],
+    "channel_std": [
+      127.5,
+      127.5,
+      127.5
+    ],
+    "input_dtype": "uint8",
+    "input_height": 112,
+    "input_width": 112,
+    "model_color_order": "rgb",
+    "source_color_order": "rgb"
+  },
+  "target_layer": "layer4.2.conv2",
+  "training_dataset": "ms1mv3"
+}

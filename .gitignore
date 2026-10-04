@@ -148,3 +148,11 @@ results/calibration/lfw_blufr_based/*.sqlite3*
 data/external/lfw/
 results/calibration/lfw_pair_verification/campaign-*/raw/
 results/calibration/lfw_pair_verification/**/.staging-*/
+# Cold-start pair inputs: generated per-image payloads and extraction caches.
+data/interim/lfw/pair_verification_v1/
+results/lfw_pair_inputs_v1/**/*.npy
+results/lfw_pair_inputs_v1/**/population.csv
+results/lfw_pair_inputs_v1/**/fiqa_scores.csv
+results/lfw_pair_inputs_v1/*.sqlite3*
+results/lfw_pair_inputs_v1/**/.staging-*/
+results/lfw_pair_inputs_v1/**/.inprogress/

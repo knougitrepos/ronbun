@@ -1,0 +1,88 @@
+{
+  "artifact_type": "lfw_full_population_resize_embeddings",
+  "status": "completed",
+  "schema_version": 1,
+  "contract": {
+    "model_uid": "magface-6931178ad2025e1b3799",
+    "checkpoint_sha256": "cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58",
+    "preprocess_hash": "b0c4a75bb57cc6edd0c89c6ad4b510961e5f18e7beba5be3ccd8c323beea7a41",
+    "model_spec": {
+      "family": "magface",
+      "architecture": "iresnet100",
+      "training_dataset": "ms1mv2",
+      "implementation_repository": "https://github.com/IrvingMeng/MagFace",
+      "checkpoint": {
+        "path": "C:\\ronbun\\models\\magface\\magface_ms1mv2.pth",
+        "sha256": "cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58",
+        "source_url": "https://github.com/IrvingMeng/MagFace#model-zoo",
+        "verified_local_file": true
+      },
+      "preprocessing": {
+        "input_height": 112,
+        "input_width": 112,
+        "source_color_order": "rgb",
+        "model_color_order": "rgb",
+        "channel_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "channel_std": [
+          255.0,
+          255.0,
+          255.0
+        ],
+        "input_dtype": "uint8"
+      },
+      "preprocess_hash": "b0c4a75bb57cc6edd0c89c6ad4b510961e5f18e7beba5be3ccd8c323beea7a41",
+      "target_layer": "layer4.2.conv2",
+      "embedding_dim": 512,
+      "module_factory": "research.embeddings.pytorch.official_loaders:load_magface_checkpoint",
+      "model_uid": "magface-6931178ad2025e1b3799",
+      "comparison_scope": "pretrained_checkpoint"
+    },
+    "bundle_manifest_sha256": "ef4dc2e4231963acad24ecbd796c7c3f40a07d46eaf86c1cc55c9fe2df73c36e",
+    "implementation": {
+      "experiments/lfw_resize_inputs.py": "d91cc2ad896bc19ceac2c47c37828b141816bf1bf49b558c189e11e6bd622ec8",
+      "preprocessing/aligned_crops.py": "9eeb663fcc23556251a0af0ccd3c06c8308eb2f681109c3ef16a2ce8057ed332",
+      "embeddings/pytorch/adapter.py": "e221e54709f3bbbfc9c554629b8c151dea01359bbd7f4ec72b82ac9d0a2b1b0d",
+      "embeddings/pytorch/official_loaders.py": "6ec6799d6f0ddbc07b1e73e6a721bd546731be313c099e144382f899164f381b",
+      "embeddings/pytorch/official_backbones.py": "495822c56ceee2f8d711581b5652ea5abd5fab6cd6c95419bfc80004e13a7459",
+      "fiqa/artifacts.py": "5b9b70904595fd365979c2890f9c4cff68236e062b5ed8d0bbd6f06e75143001",
+      "fiqa/cr_fiqa.py": "3f3a5998b0339977e4487c0b53d29b804a74849d08fba4802242e3a8cde9982b"
+    },
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "torch": "2.7.1+cu118",
+    "numpy": "1.26.4",
+    "device": "cuda",
+    "device_name": "NVIDIA GeForce GTX 1080 Ti",
+    "batch_size": 32
+  },
+  "source_uid": "lfw-resize-43672d565489a85b7ebdd9ee",
+  "dataset_id": "lfw",
+  "preprocessing_mode": "lfw_deepfunneled_whole_image_resize",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "checkpoint_sha256": "cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58",
+  "preprocess_hash": "b0c4a75bb57cc6edd0c89c6ad4b510961e5f18e7beba5be3ccd8c323beea7a41",
+  "row_count": 13233,
+  "lineage": {
+    "model_uid": "magface-6931178ad2025e1b3799",
+    "aligned_bundle_manifest_sha256": "ef4dc2e4231963acad24ecbd796c7c3f40a07d46eaf86c1cc55c9fe2df73c36e",
+    "aligned_faces_sha256": "dfce9d595211a3fbdde720f190b717c19cadbc5235877883d6e95f4ede0647f8",
+    "checkpoint_sha256": "cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58",
+    "preprocess_hash": "b0c4a75bb57cc6edd0c89c6ad4b510961e5f18e7beba5be3ccd8c323beea7a41",
+    "input_preprocessing_mode": "lfw_deepfunneled_whole_image_resize",
+    "checkpoint_training_overlap_verified": false
+  },
+  "files": {
+    "population.csv": {
+      "sha256": "4127f40a402ae97a76ac75d57e3292af1ac306e361a202e996e8538eec314d97"
+    },
+    "normalized_embeddings.npy": {
+      "sha256": "247753da6cbbdfe88ea7ed5f9ac68b5072bf5d8a389d4853d9585eef90aaa6e0"
+    },
+    "raw_norms.npy": {
+      "sha256": "b924af31d165c84546bad434d8ec92f4a066d100502e87fd2c5afb4ef6c091da"
+    }
+  }
+}

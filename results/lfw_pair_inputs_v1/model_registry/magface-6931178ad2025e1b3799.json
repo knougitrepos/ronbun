@@ -1,0 +1,35 @@
+{
+  "architecture": "iresnet100",
+  "checkpoint": {
+    "path": "C:\\ronbun\\models\\magface\\magface_ms1mv2.pth",
+    "sha256": "cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58",
+    "source_url": "https://github.com/IrvingMeng/MagFace#model-zoo",
+    "verified_local_file": true
+  },
+  "comparison_scope": "pretrained_checkpoint",
+  "embedding_dim": 512,
+  "family": "magface",
+  "implementation_repository": "https://github.com/IrvingMeng/MagFace",
+  "model_uid": "magface-6931178ad2025e1b3799",
+  "module_factory": "research.embeddings.pytorch.official_loaders:load_magface_checkpoint",
+  "preprocess_hash": "b0c4a75bb57cc6edd0c89c6ad4b510961e5f18e7beba5be3ccd8c323beea7a41",
+  "preprocessing": {
+    "channel_mean": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "channel_std": [
+      255.0,
+      255.0,
+      255.0
+    ],
+    "input_dtype": "uint8",
+    "input_height": 112,
+    "input_width": 112,
+    "model_color_order": "rgb",
+    "source_color_order": "rgb"
+  },
+  "target_layer": "layer4.2.conv2",
+  "training_dataset": "ms1mv2"
+}

@@ -1,0 +1,35 @@
+{
+  "architecture": "edgeface_xs_gamma_06",
+  "checkpoint": {
+    "path": "C:\\ronbun\\models\\edgeface\\edgeface_xs_gamma_06.pt",
+    "sha256": "5ae7504cd9aee0a5d52c2115fd2eb66b0985dd1730f40134b5854e0cb658ce16",
+    "source_url": "https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface/-/raw/master/checkpoints/edgeface_xs_gamma_06.pt",
+    "verified_local_file": true
+  },
+  "comparison_scope": "pretrained_checkpoint",
+  "embedding_dim": 512,
+  "family": "edgeface",
+  "implementation_repository": "https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface",
+  "model_uid": "edgeface-a348c305af33c223b337",
+  "module_factory": "research.embeddings.pytorch.official_loaders:load_edgeface_checkpoint",
+  "preprocess_hash": "3976664d86e41199f7fd522aa9c1d70decf380ca8b2da9b6d2ee84d6dc4c03a9",
+  "preprocessing": {
+    "channel_mean": [
+      127.5,
+      127.5,
+      127.5
+    ],
+    "channel_std": [
+      127.5,
+      127.5,
+      127.5
+    ],
+    "input_dtype": "uint8",
+    "input_height": 112,
+    "input_width": 112,
+    "model_color_order": "rgb",
+    "source_color_order": "rgb"
+  },
+  "target_layer": "model.stages.2.blocks.8.convs.1",
+  "training_dataset": "webface12m"
+}

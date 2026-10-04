@@ -1,0 +1,42 @@
+{
+  "ready": true,
+  "required_images": 13233,
+  "identities": 5749,
+  "development_images": 1549,
+  "development_identities": 1468,
+  "pairs": 6000,
+  "cuda_available": true,
+  "device_name": "NVIDIA GeForce GTX 1080 Ti",
+  "source_paths": {
+    "arcface": "results/lfw_pair_inputs_v1/sources/arcface-7972a704552df378345f",
+    "adaface": "results/lfw_pair_inputs_v1/sources/adaface-4df25b75e065b0b9ed43",
+    "magface": "results/lfw_pair_inputs_v1/sources/magface-6931178ad2025e1b3799",
+    "edgeface": "results/lfw_pair_inputs_v1/sources/edgeface-a348c305af33c223b337"
+  },
+  "keep_raw_results": false,
+  "reusable_inputs_retained": true,
+  "execute": true,
+  "completed": true,
+  "status": "completed",
+  "bundle_dir": "C:\\ronbun\\data\\interim\\lfw\\pair_verification_v1\\whole_resize_112",
+  "input_policy": "retain reusable population, resized images, embeddings, FIQA and registry; prune redundant FR shards only",
+  "source_manifest_sha256": {
+    "arcface": "f068613e87c3d6b4ad74ad865c7b069993d6e821f60c148aa94910d1f5e071e2",
+    "adaface": "712d6b80194752e36f06b9ffa5ffea63f62e491fe2b9edf393017dc3ba5e90b6",
+    "magface": "89f4bd05c749103bd9c9a6df1e3f26cccf29ddcadbbbc3d961d67701ede16f41",
+    "edgeface": "6f667b7b35aae7701911025f6ddae5a50e8beb5cee13316d0f5f405b7798898d"
+  },
+  "fiqa_manifest_sha256": "822f31acdeb3a2bd4c61a250151ba550143440674ae2fb29bb7faf358734c75c",
+  "expected_models": 4,
+  "completed_models": 4,
+  "failed_images": 0,
+  "torch_version": "2.7.1+cu118",
+  "device": "cuda",
+  "batch_size": 32,
+  "extraction_checkpoint_cleanup_eligible": false,
+  "extraction_checkpoint_retained": false,
+  "pairs_sha256": "ea42330c62c92989f9d7c03237ed5d591365e89b3e649747777b70e692dc1592",
+  "image_manifest_sha256": "7ed7568125f0f2235d9ea223bbdfeb0584012c37613694bc0b7f27a8b039703c",
+  "config_sha256": "f6e4b29c3f66fbbfdc83e924fa661b20cbff808a6ad6cd905f96723134ba168c",
+  "implementation_sha256": "f79007272f84dd63b42f99a76c54b335dfb506b7767879ccb727ef0bbd42de74"
+}
