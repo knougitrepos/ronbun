@@ -25,6 +25,7 @@ def cold(tmp_path, monkeypatch):
     config["inputs"]["expected_images"] = 3
     config["inputs"]["expected_identities"] = 2
     config["source_runs"] = {"arcface":config["source_runs"]["arcface"]}
+    config["inputs"]["models"] = {"arcface":config["inputs"]["models"]["arcface"]}
     for person, count in [("Alice", 2), ("Unused", 1)]:
         folder = tmp_path / "raw" / person
         folder.mkdir(parents=True)
@@ -59,7 +60,8 @@ def cold(tmp_path, monkeypatch):
         (directory/"manifest.json").write_text('{"row_count":3}')
         (root/config["resize_inputs"]["checkpoint_file"]).write_bytes(b"shards")
     monkeypatch.setattr(module, "_extract_source", extract)
-    monkeypatch.setattr(module, "load_resize_source", lambda *a:(None,{"row_count":3},None,None,None,None))
+    monkeypatch.setattr(module, "load_resize_source", lambda *a:(None,{"row_count":3,"model_uid":"fixture-fr"},None,None,None,
+        {"aligned_bundle_manifest_sha256":sha256_file(tmp_path/config["resize_inputs"]["bundle_dir"] / "bundle_manifest.json")}))
     monkeypatch.setattr(module, "load_cr_fiqa", lambda *a,**k:(object(),variant))
     def fiqa(bundle, destination, **kw):
         destination.mkdir(parents=True)
@@ -122,6 +124,7 @@ def test_retention_change_does_not_delete_previous_shards(cold):
 def test_partial_other_model_keeps_shared_resume_shards(cold):
     root,config=cold
     config["source_runs"]["adaface"]="results/lfw_pair_inputs_v1/sources/adaface"
+    config["inputs"]["models"]["adaface"] = dict(config["inputs"]["models"]["arcface"])
     (root/"config.yaml").write_text(yaml.safe_dump(config),encoding="utf8")
     result=module.prepare_pair_inputs(root,config_path="config.yaml",models=("arcface",),execute=True)
     assert result["completed"] and result["extraction_checkpoint_retained"]

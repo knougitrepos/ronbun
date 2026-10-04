@@ -84,7 +84,7 @@ def compact_tables(tables):
         accuracy_fold_mean=("accuracy", "mean"), accuracy_fold_std=("accuracy", "std")).reset_index()
     accuracy_summary["pooled_accuracy"] = accuracy_summary.correct_count / accuracy_summary.test_pairs
     accuracy_summary["all_ten_folds_complete"] = accuracy_summary.evaluated_folds.eq(10)
-    return {
+    result = {
         "operating": seed_summary(tables["operating"], ["model", "fold", "compression_profile", "score_space", "method", "target_fmr"]),
         "diagnostic": seed_summary(tables["diagnostic"], ["model", "fold", "compression_profile", "method", "fitted_target_fmr", "requested_fmr"]),
         "paired": seed_summary(tables["paired"], ["model", "fold", "compression_profile", "method", "target_fmr", "comparison"]),
@@ -92,6 +92,48 @@ def compact_tables(tables):
         "accuracy_summary": accuracy_summary,
         "inventory": tables["inventory"].copy(),
     }
+    catalog = tables.get("baseline_catalog", pd.DataFrame())
+    if not catalog.empty:
+        result["baseline_catalog"] = catalog
+        contrasts = backbone_contrasts(tables["operating"], catalog)
+        if not contrasts.empty:
+            result["backbone_contrasts"] = seed_summary(contrasts, ["model", "parent_baseline", "fold",
+                "compression_profile", "score_space", "method", "target_fmr"])
+    return result
+
+
+def backbone_contrasts(operating, catalog):
+    """Within each fixed cohort compare checkpoints separately from FIQA gains.
+
+    These are descriptive rate differences, not a paired CI or causal claim.
+    The existing paired table estimates FIQA/compression contrasts WITHIN a model.
+    """
+    keys = ["fold", "partition_seed", "compression_profile", "score_space", "method", "target_fmr"]
+    output = []
+    for baseline in catalog.itertuples(index=False):
+        if baseline.parent_baseline == "none":
+            continue
+        candidate = operating.loc[operating.model.eq(baseline.model)]
+        reference = operating.loc[operating.model.eq(baseline.parent_baseline)]
+        joined = candidate.merge(reference, on=keys, suffixes=("_candidate", "_reference"), validate="one_to_one")
+        if len(joined) != len(candidate) or len(joined) != len(reference):
+            raise ValueError("checkpoint comparison requires identical fold/seed/profile/method/target cohorts")
+        for count in ("test_pairs", "genuine_pairs", "impostor_pairs"):
+            if not joined[count+"_candidate"].eq(joined[count+"_reference"]).all():
+                raise ValueError("checkpoint comparison denominators differ")
+        frame = joined[keys].copy()
+        frame["model"], frame["parent_baseline"] = baseline.model, baseline.parent_baseline
+        for metric in ("tar", "realized_fmr"):
+            frame["candidate_"+metric] = joined[metric+"_candidate"]
+            frame["reference_"+metric] = joined[metric+"_reference"]
+            frame[metric+"_difference"] = joined[metric+"_candidate"] - joined[metric+"_reference"]
+        # Difference of the FIQA gain, holding compression fixed in each backbone.
+        global_keys = [k for k in keys if k != "method"]
+        globals_ = frame.loc[frame.method.eq("global_safe"), global_keys+["tar_difference"]].rename(columns={"tar_difference":"global_backbone_tar_difference"})
+        frame = frame.merge(globals_, on=global_keys, validate="many_to_one")
+        frame["fiqa_gain_difference"] = frame.tar_difference-frame.global_backbone_tar_difference
+        output.append(frame)
+    return pd.concat(output, ignore_index=True) if output else pd.DataFrame()
 
 
 def read_report(directory):

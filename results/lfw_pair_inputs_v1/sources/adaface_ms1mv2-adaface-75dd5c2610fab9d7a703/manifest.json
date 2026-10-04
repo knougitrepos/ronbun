@@ -1,0 +1,88 @@
+{
+  "artifact_type": "lfw_full_population_resize_embeddings",
+  "status": "completed",
+  "schema_version": 1,
+  "contract": {
+    "model_uid": "adaface-75dd5c2610fab9d7a703",
+    "checkpoint_sha256": "4a26839460d8e1a5e8a13a0d7968e919d464f482aa0f8350f9e2cec84fe37481",
+    "preprocess_hash": "f980b1c930d3d2c7302e23f935b431ec5de7e04f86b9ffd0f7d6ab725c16d888",
+    "model_spec": {
+      "family": "adaface",
+      "architecture": "ir_101",
+      "training_dataset": "ms1mv2",
+      "implementation_repository": "https://github.com/mk-minchul/AdaFace",
+      "checkpoint": {
+        "path": "C:\\ronbun\\models\\adaface\\adaface_ir101_ms1mv2.ckpt",
+        "sha256": "4a26839460d8e1a5e8a13a0d7968e919d464f482aa0f8350f9e2cec84fe37481",
+        "source_url": "https://github.com/mk-minchul/AdaFace#pretrained-models",
+        "verified_local_file": true
+      },
+      "preprocessing": {
+        "input_height": 112,
+        "input_width": 112,
+        "source_color_order": "rgb",
+        "model_color_order": "bgr",
+        "channel_mean": [
+          127.5,
+          127.5,
+          127.5
+        ],
+        "channel_std": [
+          127.5,
+          127.5,
+          127.5
+        ],
+        "input_dtype": "uint8"
+      },
+      "preprocess_hash": "f980b1c930d3d2c7302e23f935b431ec5de7e04f86b9ffd0f7d6ab725c16d888",
+      "target_layer": "body.48.res_layer.4",
+      "embedding_dim": 512,
+      "module_factory": "research.embeddings.pytorch.official_loaders:load_adaface_checkpoint",
+      "model_uid": "adaface-75dd5c2610fab9d7a703",
+      "comparison_scope": "pretrained_checkpoint"
+    },
+    "bundle_manifest_sha256": "ef4dc2e4231963acad24ecbd796c7c3f40a07d46eaf86c1cc55c9fe2df73c36e",
+    "implementation": {
+      "experiments/lfw_resize_inputs.py": "d91cc2ad896bc19ceac2c47c37828b141816bf1bf49b558c189e11e6bd622ec8",
+      "preprocessing/aligned_crops.py": "9eeb663fcc23556251a0af0ccd3c06c8308eb2f681109c3ef16a2ce8057ed332",
+      "embeddings/pytorch/adapter.py": "e221e54709f3bbbfc9c554629b8c151dea01359bbd7f4ec72b82ac9d0a2b1b0d",
+      "embeddings/pytorch/official_loaders.py": "6ec6799d6f0ddbc07b1e73e6a721bd546731be313c099e144382f899164f381b",
+      "embeddings/pytorch/official_backbones.py": "495822c56ceee2f8d711581b5652ea5abd5fab6cd6c95419bfc80004e13a7459",
+      "fiqa/artifacts.py": "5b9b70904595fd365979c2890f9c4cff68236e062b5ed8d0bbd6f06e75143001",
+      "fiqa/cr_fiqa.py": "3f3a5998b0339977e4487c0b53d29b804a74849d08fba4802242e3a8cde9982b"
+    },
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "torch": "2.7.1+cu118",
+    "numpy": "1.26.4",
+    "device": "cuda",
+    "device_name": "NVIDIA GeForce GTX 1080 Ti",
+    "batch_size": 32
+  },
+  "source_uid": "lfw-resize-a2c6b03dad511be0d267e914",
+  "dataset_id": "lfw",
+  "preprocessing_mode": "lfw_deepfunneled_whole_image_resize",
+  "model_uid": "adaface-75dd5c2610fab9d7a703",
+  "checkpoint_sha256": "4a26839460d8e1a5e8a13a0d7968e919d464f482aa0f8350f9e2cec84fe37481",
+  "preprocess_hash": "f980b1c930d3d2c7302e23f935b431ec5de7e04f86b9ffd0f7d6ab725c16d888",
+  "row_count": 13233,
+  "lineage": {
+    "model_uid": "adaface-75dd5c2610fab9d7a703",
+    "aligned_bundle_manifest_sha256": "ef4dc2e4231963acad24ecbd796c7c3f40a07d46eaf86c1cc55c9fe2df73c36e",
+    "aligned_faces_sha256": "dfce9d595211a3fbdde720f190b717c19cadbc5235877883d6e95f4ede0647f8",
+    "checkpoint_sha256": "4a26839460d8e1a5e8a13a0d7968e919d464f482aa0f8350f9e2cec84fe37481",
+    "preprocess_hash": "f980b1c930d3d2c7302e23f935b431ec5de7e04f86b9ffd0f7d6ab725c16d888",
+    "input_preprocessing_mode": "lfw_deepfunneled_whole_image_resize",
+    "checkpoint_training_overlap_verified": false
+  },
+  "files": {
+    "population.csv": {
+      "sha256": "4127f40a402ae97a76ac75d57e3292af1ac306e361a202e996e8538eec314d97"
+    },
+    "normalized_embeddings.npy": {
+      "sha256": "dcc8b8b298fcbb025bea9665a690957542cd6c372b5da596b9bbf95d89ef9843"
+    },
+    "raw_norms.npy": {
+      "sha256": "70bc581f4a5cf473bf5ea6ff51330c8d51925dd5f314e95f411012998203cbe5"
+    }
+  }
+}

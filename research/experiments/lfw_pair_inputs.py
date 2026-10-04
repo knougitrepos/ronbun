@@ -14,9 +14,8 @@ import yaml
 from threadpoolctl import threadpool_limits
 
 from research.datasets.lfw_pairs import load_pairs, PAIRS_SHA256
-from research.embeddings.base import CheckpointProvenance, ModelSpec, PreprocessingSpec
 from research.embeddings.manifests import write_model_spec
-from research.experiments.calibration_matrix import MODEL_UIDS
+from research.experiments.lfw_baselines import model_specs
 from research.experiments.lfw_resize_inputs import _bundle, _extract_source, load_resize_source
 from research.experiments.origin_pq_resources import check_resources
 from research.fiqa import (CRFIQA_VARIANTS, load_cr_fiqa, load_fiqa_score_artifact,
@@ -51,29 +50,6 @@ def population_from_raw(root, config):
     if frame.image_id.duplicated().any():
         raise ValueError("duplicate LFW source image")
     return frame
-
-
-def model_specs(root, config, models):
-    """Build immutable specs from static profiles plus verified local weights."""
-    profiles = yaml.safe_load((root / config["inputs"]["model_profiles_config"]).read_text(encoding="utf8"))
-    result = {}
-    for model in models:
-        source = config["inputs"]["models"][model]
-        profile = profiles["models"]["profiles"][source["profile"]]
-        prep = profile["preprocessing"]
-        checkpoint = CheckpointProvenance.from_file(root / source["checkpoint"], source_url=(
-            profile.get("checkpoint_source_url") or profile.get("checkpoint_source_page") or profile["implementation_repository"]))
-        spec = ModelSpec(family=profile["family"], architecture=profile["architecture"],
-            training_dataset=profile["training_dataset"], implementation_repository=profile["implementation_repository"],
-            checkpoint=checkpoint, preprocessing=PreprocessingSpec(
-                input_height=prep["input_size"][0], input_width=prep["input_size"][1],
-                source_color_order=profiles["aligned_crops"]["source_color_order"],
-                model_color_order=prep["model_color_order"], channel_mean=tuple(prep["mean"]), channel_std=tuple(prep["std"])),
-            target_layer=profile["target_layer"], embedding_dim=profile["embedding_dim"], module_factory=profile["loader_factory"])
-        if spec.model_uid != MODEL_UIDS[model]:
-            raise ValueError(f"checkpoint/preprocessing UID mismatch: {model}")
-        result[model] = spec
-    return result
 
 
 def _publish_population(path, population):
@@ -129,7 +105,15 @@ def prepare_pair_inputs(project_root, *, config_path=CONFIG_PATH, models=None, e
         source_paths={m: config["source_runs"][m] for m in selected},
         keep_raw_results=keep, reusable_inputs_retained=True, execute=execute)
     if not execute:
-        # Presence is only planning information; the evaluation inspector checks hashes.
+        if ready:
+            quality = load_fiqa_score_artifact(destination)
+            if len(quality.scores) != len(population):
+                raise ValueError("FIQA does not cover the full population")
+            for alias in selected:
+                _, metadata, _, _, _, lineage = load_resize_source(root, config["source_runs"][alias])
+                if (metadata["model_uid"] != specs[alias].model_uid or metadata["row_count"] != len(population)
+                        or lineage["aligned_bundle_manifest_sha256"] != quality.manifest["aligned_bundle_manifest_sha256"]):
+                    raise ValueError("existing input checkpoint/coverage/FIQA lineage mismatch")
         return state
     if device != "cuda" or not cuda:
         raise RuntimeError("full LFW extraction requires CUDA; no automatic CPU fallback")
@@ -224,6 +208,12 @@ def run_pair_workflow(project_root, *, config_path=CONFIG_PATH, execute=False, m
                       progress=None, **evaluation):
     """Single notebook/CLI entry: raw inputs -> pairs -> PQ -> calibration -> report."""
     from research.experiments.lfw_pair_verification import run_verification
+    # Validate the requested experiment before any costly input preparation.
+    from research.experiments.lfw_pair_verification import validate_selection
+    config = yaml.safe_load((Path(project_root) / config_path).read_text(encoding="utf8"))
+    validate_selection(config, models=models, fold_ids=evaluation.get("fold_ids"), partition_seeds=evaluation.get("partition_seeds"))
+    if evaluation.get("max_new_jobs") is not None and (type(evaluation["max_new_jobs"]) is not int or evaluation["max_new_jobs"] < 1):
+        raise ValueError("max_new_jobs must be a positive integer or None")
     inputs = prepare_pair_inputs(project_root, config_path=config_path, models=models, execute=execute,
         download_pairs=download_pairs, device=device, batch_size=batch_size,
         keep_raw_results=keep_raw_results, progress=progress)

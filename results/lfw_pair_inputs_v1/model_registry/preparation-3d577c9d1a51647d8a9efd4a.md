@@ -1,3 +1,7 @@
+# LFW input preparation
+
+Summary: `preparation-3d577c9d1a51647d8a9efd4a.json`
+
 # LFW 1:1 검증: 실행과 결과 해석
 
 ## 연구 질문과 범위
@@ -47,57 +51,6 @@ py -3.11 -m research.experiments.lfw_pair_verification --execute --download-pair
 입력 준비는 최소 4 GiB 여유 공간을 확인한다. 기본 배치는 32, CUDA 장치명을 기록한다.
 Python 모듈 변경 후 **Kernel Restart → Run All**한다. 모델 파인튜닝은 수행하지 않는다.
 
-## 추가 checkpoint / fine-tuned baseline 등록
-
-기본 YAML의 네 pretrained 조건은 유지한다. 같은 ArcFace 계열이라도 다른 가중치는
-`arcface_ft_<이름>` 같은 **별칭과 별도 checkpoint SHA/UID**로 추가한다.
-단순히 기존 `arcface`의 checkpoint 파일만 바꾸면 원래 baseline을 잃으므로 거절한다.
-
-`research.experiments.lfw_baselines`의 등록 도구가 새 YAML을 만들며 원래 YAML은 수정하지 않는다.
-다음은 **파일과 출처가 확보된 뒤 실제 값으로 바꾸어 실행할 예시**다. 지금 가중치가 있다는 뜻이 아니다.
-
-```powershell
-py -3.11 -m research.experiments.lfw_baselines --alias arcface_ft_external --kind fine_tuned --profile arcface_ms1mv3_r100 --checkpoint D:/weights/actual_finetuned_backbone.pth --source-url https://author.example/checkpoint --training-dataset ms1mv3-plus-external-train --parent-baseline arcface --fine-tuning-data external-training-split --lfw-identity-overlap unknown --overlap-evidence unverified --no-evaluation-used-for-training-or-selection --selection-evidence author-documented-training-and-validation-only --output-config configs/experiments/lfw_pair_arcface_ft.yaml --step4-output-config configs/experiments/step4_arcface_ft.yaml
-```
-
-- 등록은 학습/다운로드를 하지 않는다. checkpoint SHA를 고정하고 기존 조건을 보존한 새 설정·출력 경로를 만든다.
-- fine-tuning 데이터, parent baseline, 출처, 인물 overlap 상태/근거와 평가 데이터를 학습·checkpoint 선택에 쓰지 않았다는 선언을 요구한다.
-  확인된 LFW 평가 인물 중복 또는 평가 데이터 사용은 이 1:1 실험에서 거절한다.
-  `unknown`은 숨기지 않고 요약에 남기며 `disjoint` 선언만으로 미관측 인물 성능이 입증되지는 않는다.
-- 기존 공식 loader와 호환되는 **완전한 512D backbone checkpoint**를 대상으로 한다. classifier만 든 파일,
-  별도 LoRA adapter 또는 입력별 조건부 모듈이 필요한 모델은 추가 loader 구현/실제 추론 검증 전에는 사용할 수 없다.
-  파일 등록 성공은 추론 호환성이나 성능 개선의 증명이 아니다. 실행 시 엄격한 state-dict 로드와 CUDA 추론을 거친다.
-- 모든 baseline은 같은 이미지·공식 pair·development/fit/safety/test·FIQA를 사용한다.
-  새 가중치마다 임베딩, PQ codebook, pair score와 보정함수를 새로 만든다.
-  원본/PQ × Global-safe/FIQA 5-bin/Continuous FIQA는 각 baseline 안에서 유지한다.
-- 생성한 YAML을 관련 노트북의 `LFW_PAIR_CONFIG_PATH`로 지정한다. 모델/fold/seed를 `None`으로 두면
-  원래 네 모델과 추가 baseline을 포함한 전체 행렬을 읽는다. fine-tuned 조건을 선택할 때 parent도 함께 선택해야 한다.
-- baseline 숫자는 그 checkpoint를 현재 전처리·프로토콜로 평가해 얻는다. 다른 논문의 수치를 실행 baseline에 대입하지 않는다.
-
-보고서의 `baseline_catalog`는 별칭·UID·SHA·학습 출처·parent·overlap 선언을 보존한다.
-`backbone_contrasts`는 같은 fold/seed/표현/방법/목표에서 새 checkpoint−parent의 TAR 차이와
-**양쪽 실제 FMR**를 함께 기록한다. `fiqa_gain_difference`는 두 checkpoint에서 측정한
-`FIQA TAR − Global TAR`의 차이로, 모델 교체와 FIQA 추가 효과를 분리하는 기술 통계다.
-같은 목표가 같은 실제 FMR를 뜻하지 않으며, 이 표에는 checkpoint 간 paired CI나 인과효과 보장을 붙이지 않는다.
-표의 seed min/median/max는 공유 test에 대한 기술 요약이다. 동일 backbone 내 paired CI는 기존 `paired` 표에서 읽는다.
-
-### SurvFace 1:N에서 같은 checkpoint를 사용할 때
-
-`--step4-output-config`는 같은 모델 metadata/SHA/전처리·fine-tuning 출처를 1:N용 모델 설정으로 내보낸다.
-LFW pair, codebook, threshold를 내보내지는 않는다. SurvFace의 개발/보정/test 계약으로 별도 source run을 생성해야 한다.
-
-1. 공통 batch 00에서 `LFW_PROTOCOL_MODE="legacy"`, `DATASET_IDS=("survface",)`를 명시한다.
-   `STEP4_MODEL_CONFIG_PATH`에 export한 YAML, `MODEL_PROFILE_BY_NAME`의 해당 family에 새 별칭,
-   `MODEL_WEIGHT_PATHS`에 그 checkpoint를 지정한다. 같은 설정이 등록·smoke test·source plan까지 전달된다.
-2. 생성한 **명시적 완료 source run**을 공통 보정 01/평가 03의 legacy run matrix에 별도 별칭으로 넣는다.
-   `EXPECTED_MODEL_UIDS={별칭: 실제 model UID, ...}`와 FR_MODELS/MODELS를 같은 행렬로 설정한다.
-   기존 default UID 검사를 건너뛰는 방식이 아니라 선언한 UID와 source/freeze/codec/score lineage를 대조한다.
-3. 해당 SurvFace 임베딩으로 PQ를 새로 학습하고 보정 점수를 재생성한 뒤 threshold를 재적합한다.
-   LFW FMR/TAR와 별도로 TPIR@20·실제 FPIR·순위/threshold 실패를 보고한다.
-
-이 연결의 모델 정보 전달 및 UID/codec 검사는 테스트한다. 선택한 fine-tuned checkpoint가 없으면
-실제 SurvFace source 생성과 성능은 미검증이다. SurvFace 학습/평가 인물 중복도 별도 확인해야 한다.
-
 ## 역할 분리와 비교 행렬
 
 - 고정 mirror의 View-2 pairs.txt SHA-256은 YAML과 코드에서 지정한 출처와 함께 manifest에 남는다.
@@ -144,7 +97,6 @@ LFW pair, codebook, threshold를 내보내지는 않는다. SurvFace의 개발/�
 - **paired**: 동일 test pair에서 방법−Global 및 PQ−Origin의 TAR 차이와 두 실제 FMR를 함께 표시한다.
   같은 목표 FMR가 실제 FMR 일치를 뜻하지 않는다. 각 seed의 genuine identity bootstrap CI는
   2,000회이며 seed 간 CI 끝점 범위는 통합 CI가 아니다.
-- **baseline_catalog / backbone_contrasts**: 위 추가 baseline 등록 절의 출처와 checkpoint 비교 표다.
 - **inventory**: fold/seed별 fit/safety genuine·impostor·identity 수, 제외 pair 수, assignment hash.
 
 ## 불확실성과 해석 한계

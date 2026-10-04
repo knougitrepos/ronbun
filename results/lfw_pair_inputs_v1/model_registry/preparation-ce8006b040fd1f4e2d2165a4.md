@@ -1,3 +1,7 @@
+# LFW input preparation
+
+Summary: `preparation-ce8006b040fd1f4e2d2165a4.json`
+
 # LFW 1:1 검증: 실행과 결과 해석
 
 ## 연구 질문과 범위

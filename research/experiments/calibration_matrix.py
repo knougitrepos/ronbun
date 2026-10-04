@@ -71,11 +71,15 @@ PQ_PROFILES = ("pq_512_m128_b8", "pq_512_m64_b8", "pq_512_m32_b8")
 
 
 def inspect_calibration_matrix(project_root, run_matrix, *, datasets=OPEN_SET_DATASETS,
-                               models=tuple(MODEL_UIDS), profiles=PQ_PROFILES):
+                               models=tuple(MODEL_UIDS), profiles=PQ_PROFILES, model_uids=None):
     """Read-only preflight; fail before GPU work if any source condition is absent."""
     project = Path(project_root).resolve()
+    expected_uids = dict(MODEL_UIDS if model_uids is None else model_uids)
+    if (not expected_uids or any(not isinstance(v, str) or not v.strip() for v in expected_uids.values())
+            or len(set(expected_uids.values())) != len(expected_uids)):
+        raise ValueError("explicit unique model UIDs required")
     for name, values, allowed in (("datasets", datasets, OPEN_SET_DATASETS),
-                                   ("models", models, MODEL_UIDS), ("profiles", profiles, PQ_PROFILES)):
+                                   ("models", models, expected_uids), ("profiles", profiles, PQ_PROFILES)):
         if not values or len(set(values)) != len(values) or not set(values) <= set(allowed):
             raise ValueError(f"invalid unique {name}")
     rows = []
@@ -83,10 +87,10 @@ def inspect_calibration_matrix(project_root, run_matrix, *, datasets=OPEN_SET_DA
     for model in models:
         for dataset in datasets:
             root, run, workflow = _completed_run(project / run_matrix[model][dataset])
-            if run["config"]["dataset_id"] != dataset or run["config"]["model_uid"] != MODEL_UIDS[model]:
+            if run["config"]["dataset_id"] != dataset or run["config"]["model_uid"] != expected_uids[model]:
                 raise ValueError(f"source dataset/checkpoint differs: {model}/{dataset}")
             freeze = _read_json(workflow / "freeze_manifest.json")
-            for key, expected in dict(run_id=run["run_id"], dataset_id=dataset, model_uid=MODEL_UIDS[model]).items():
+            for key, expected in dict(run_id=run["run_id"], dataset_id=dataset, model_uid=expected_uids[model]).items():
                 if freeze.get(key) != expected:
                     raise ValueError(f"source/freeze lineage mismatch: {key}")
             if freeze["scope"].get("data_fraction") != 1. or not freeze.get("fallback_free"):
@@ -109,12 +113,12 @@ def inspect_calibration_matrix(project_root, run_matrix, *, datasets=OPEN_SET_DA
             for profile in profiles:
                 _, codec, codec_manifest = _frozen_pq_codec(root, workflow, compression_profile=profile)
                 for key, expected in dict(fit_source_run_id=run["run_id"], fit_source_dataset=dataset,
-                                          model_uid=MODEL_UIDS[model]).items():
+                                          model_uid=expected_uids[model]).items():
                     if codec_manifest.get(key) != expected:
                         raise ValueError(f"source/codec lineage mismatch: {key}")
                 item = _ledger_condition(ledger, compression_profile=profile, search_mode="pq_adc_exhaustive")
                 _verified_table(ledger_root, item["core"])
-                rows.append(dict(dataset_id=dataset, model=model, model_uid=MODEL_UIDS[model],
+                rows.append(dict(dataset_id=dataset, model=model, model_uid=expected_uids[model],
                                  compression_profile=profile, source_run_id=run["run_id"],
                                  source_run_dir=str(root), source_manifest_sha256=sha256_file(root / "run_manifest.json"),
                                  codec_sha256=codec["artifact_sha256"], test_core_sha256=item["core"]["sha256"],

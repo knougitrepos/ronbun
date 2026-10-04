@@ -64,7 +64,7 @@ def condition_directory(result_root, run_id, profile):
 
 def inspect_origin_pq_experiment(project_root, *, run_matrix=None, datasets=OPEN_SET_DATASETS,
                                  models=tuple(MODEL_UIDS), profiles=PQ_PROFILES, variant="L",
-                                 calibration_root=None):
+                                 calibration_root=None, model_uids=None):
     """Check every requested source, existing PQ input and FIQA without fitting.
 
     Missing PQ/FIQA inputs fail with their exact paths; use the existing input
@@ -75,7 +75,7 @@ def inspect_origin_pq_experiment(project_root, *, run_matrix=None, datasets=OPEN
     if variant not in CRFIQA_VARIANTS:
         raise ValueError("unknown FIQA variant")
     plan = inspect_calibration_matrix(project, run_matrix or DEFAULT_RUN_MATRIX,
-                                     datasets=datasets, models=models, profiles=profiles)
+                                     datasets=datasets, models=models, profiles=profiles, model_uids=model_uids)
     directories, fiqa_dirs, hashes, fiqa_hashes = [], [], [], []
     verified_fiqa = {}
     for row in plan.itertuples(index=False):

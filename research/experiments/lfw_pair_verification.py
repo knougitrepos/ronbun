@@ -18,7 +18,7 @@ from threadpoolctl import threadpool_limits
 from research.compression import PQCompressor
 from research.datasets.lfw_pairs import load_pairs, calibration_partition, PROTOCOL_UID, PAIRS_SHA256, PAIRS_URL
 from research.evaluation.lfw_verification import pair_scores, evaluate_fold
-from research.experiments.calibration_matrix import MODEL_UIDS
+from research.experiments.lfw_baselines import model_specs, baseline_catalog, validate_aliases
 from research.experiments.lfw_blufr_calibration import _quality
 from research.experiments.lfw_resize_inputs import load_resize_source
 from research.experiments.lfw_protocol_experiments import runtime_versions
@@ -41,21 +41,33 @@ def settings_from_config(config):
     return settings
 
 
-def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold_ids=None,
-                         partition_seeds=None, download_pairs=False):
-    project = Path(project_root).resolve()
-    config = yaml.safe_load((project / config_path).read_text(encoding="utf8"))
+def validate_selection(config, *, models=None, fold_ids=None, partition_seeds=None):
+    validate_aliases(config)
     selected = tuple(models if models is not None else config["source_runs"])
     folds = tuple(fold_ids if fold_ids is not None else config["fold_ids"])
     seeds = tuple(partition_seeds if partition_seeds is not None else config["partition_seeds"])
     if (not selected or len(set(selected)) != len(selected) or not set(selected) <= set(config["source_runs"])
-            or not set(selected) <= set(MODEL_UIDS) or not folds or len(set(folds)) != len(folds)
+            or not folds or len(set(folds)) != len(folds)
+            or any(type(f) is not int for f in folds)
             or not set(folds) <= set(range(1, 11)) or not seeds or len(set(seeds)) != len(seeds)
             or any(isinstance(s, bool) or not isinstance(s, int) or s < 0 for s in seeds)):
         raise ValueError("invalid explicit model/fold/seed matrix")
     if config["pq_profiles"] != ["pq_512_m128_b8", "pq_512_m64_b8", "pq_512_m32_b8"]:
         raise ValueError("preserve the predeclared three-PQ matrix")
     settings = settings_from_config(config)
+    for model in selected:
+        entry = config["inputs"]["models"][model]
+        if "parent_baseline" in entry and entry["parent_baseline"] not in selected:
+            raise ValueError("retain the parent baseline when evaluating a checkpoint comparison")
+    return selected, folds, seeds, settings
+
+
+def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold_ids=None,
+                         partition_seeds=None, download_pairs=False):
+    project = Path(project_root).resolve()
+    config = yaml.safe_load((project / config_path).read_text(encoding="utf8"))
+    selected, folds, seeds, settings = validate_selection(config, models=models, fold_ids=fold_ids, partition_seeds=partition_seeds)
+    specs = model_specs(project, config, selected)
     population = pd.read_csv(project / config["image_manifest"])
     pairs, development = load_pairs(project / config["pairs_file"], population, download=download_pairs)
     required_ids = set(pairs.left_image_id) | set(pairs.right_image_id) | set(development.image_id)
@@ -69,7 +81,9 @@ def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, 
     sources, coverage = {}, []
     for model in selected:
         _, _, _, prepared, frame, lineage = load_resize_source(project, config["source_runs"][model])
-        if prepared.model_uid != MODEL_UIDS[model]:
+        if len(frame) != len(population) or frame.image_id.duplicated().any():
+            raise ValueError("source must contain the full unique LFW population")
+        if prepared.model_uid != specs[model].model_uid:
             raise ValueError("model/source label mismatch")
         if quality.manifest["aligned_bundle_manifest_sha256"] != lineage["aligned_bundle_manifest_sha256"]:
             raise ValueError("FIQA and recognition preprocessing differ")
@@ -87,7 +101,7 @@ def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, 
         sources[model] = dict(**lineage, fiqa_manifest_sha256=canonical_sha256(quality.manifest))
     return dict(config=config, settings=settings, models=selected, folds=folds, seeds=seeds,
         pairs=pairs, development=development, inventory=inventory, coverage=pd.DataFrame(coverage),
-        quality=quality_rows.fiqa_score, sources=sources, ready=all(x["ready"] for x in coverage),
+        quality=quality_rows.fiqa_score, sources=sources, baseline_catalog=baseline_catalog(config, specs), ready=all(x["ready"] for x in coverage),
         expected_jobs=len(selected)*len(folds)*len(seeds), development_images=len(development),
         development_identities=development.identity_id.nunique(), protocol_uid=PROTOCOL_UID)
 
@@ -95,7 +109,7 @@ def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, 
 def _implementation(project):
     paths = ("datasets/lfw_pairs.py", "evaluation/lfw_verification.py",
              "experiments/lfw_pair_verification.py", "experiments/lfw_pair_storage.py",
-             "experiments/lfw_resize_inputs.py", "experiments/lfw_pair_inputs.py", "compression/profiles.py")
+             "experiments/lfw_resize_inputs.py", "experiments/lfw_pair_inputs.py", "experiments/lfw_baselines.py", "compression/profiles.py")
     return {**science_hashes(), **{p: sha256_file(project / "research" / p) for p in paths},
             "interpretation_guide": sha256_file(project / GUIDE)}
 
@@ -166,7 +180,7 @@ def run_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold
     spec = dict(protocol_uid=PROTOCOL_UID, protocol_kind="pair_verification_1to1",
         config=plan["config"], config_sha256=sha256_file(project / config_path),
         models=plan["models"], folds=plan["folds"], seeds=plan["seeds"],
-        sources=plan["sources"], implementation=_implementation(project), runtime=runtime_versions(),
+        baseline_catalog=plan.get("baseline_catalog", pd.DataFrame()).to_dict("records"), sources=plan["sources"], implementation=_implementation(project), runtime=runtime_versions(),
         keep_raw_results=keep, blas_threads=blas_threads, pairs_sha256=PAIRS_SHA256, pairs_url=PAIRS_URL,
         pair_orientation="left_original_query_right_compressed_reference", quality_policy="left_query_only",
         development_assignment_sha256=canonical_sha256(plan["development"].image_id.tolist()),
@@ -256,6 +270,7 @@ def run_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold
                   actual_checkpoint_bytes=raw.stat().st_size, keep_raw_results=keep)
     if completed:
         tables = {k: pd.concat(v, ignore_index=True) for k, v in aggregate.items()}
+        tables["baseline_catalog"] = plan.get("baseline_catalog", pd.DataFrame())
         report = publish(campaign, tables, spec=spec, completed_jobs=completed, expected_jobs=expected,
                          raw_path=raw, guide=project / GUIDE)
         compact, _ = read_report(report)

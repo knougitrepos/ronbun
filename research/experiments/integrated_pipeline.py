@@ -97,6 +97,7 @@ def build_integrated_experiment_plans(
     artifact_storage_mode: str = "results_only",
     device: str = "cuda",
     pq_sdc_settings: Sequence[tuple[int, int]] = ((128, 8),),
+    step4_config_path: str | Path | None = None,
 ) -> dict[str, IntegratedExperimentPlan]:
     """Build every selected dataset plan from one visible notebook contract."""
 
@@ -130,6 +131,7 @@ def build_integrated_experiment_plans(
                 quick_data_fractions=fractions,
                 artifact_storage_mode=artifact_storage_mode,
                 pq_sdc_settings=pq_sdc_settings,
+                **({"step4_config_path": step4_config_path} if step4_config_path is not None else {}),
             )
         if plan.dataset_id != dataset_id:
             raise RuntimeError(
