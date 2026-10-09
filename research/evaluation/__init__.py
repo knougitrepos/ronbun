@@ -38,10 +38,13 @@ from research.evaluation.tinyface import (
     TINYFACE_RANKS,
     TinyFaceCompletedEvaluation,
     TinyFaceIdentificationResult,
+    TinyFaceFallbackResult,
     evaluate_tinyface_identification,
     load_tinyface_completed_evaluation,
     normalize_tinyface_per_query_audit_dtypes,
     paired_tinyface_deltas,
+    simulate_tinyface_fallback_rejection,
+    simulate_tinyface_fallback_sweep,
 )
 from research.evaluation.saliency_compression import (
     DEFAULT_GEOMETRY_METRICS,
@@ -124,8 +127,12 @@ from research.evaluation.report_selection import (
 )
 from research.evaluation.rfw_verification import (
     RFWVerificationResult,
+    RFWContinuousCalibrationResult,
+    compute_rfw_pair_scores,
+    compute_rfw_pair_qualities,
     evaluate_rfw_10fold,
     evaluate_rfw_pair_scores,
+    evaluate_rfw_continuous_fiqa_10fold,
 )
 
 __all__ = [
@@ -152,10 +159,12 @@ __all__ = [
     "SALIENCY_THRESHOLD_METRICS_VERSION",
     "RETRIEVAL_COMPARISON_COLUMNS",
     "RFWVerificationResult",
+    "RFWContinuousCalibrationResult",
     "TINYFACE_NATIVE_PQ_AUDIT_BOOLEAN_COLUMNS",
     "TINYFACE_RANKS",
     "TinyFaceCompletedEvaluation",
     "TinyFaceIdentificationResult",
+    "TinyFaceFallbackResult",
     "annotate_compression_lineage",
     "derive_saliency_threshold_metrics",
     "apply_retrieval_thresholds",
@@ -165,10 +174,15 @@ __all__ = [
     "compare_cosine_retrieval",
     "compare_pq_adc_retrieval",
     "compare_pq_sdc_retrieval",
+    "compute_rfw_pair_scores",
+    "compute_rfw_pair_qualities",
     "expected_calibration_error",
     "evaluate_rfw_10fold",
     "evaluate_rfw_pair_scores",
+    "evaluate_rfw_continuous_fiqa_10fold",
     "evaluate_tinyface_identification",
+    "simulate_tinyface_fallback_rejection",
+    "simulate_tinyface_fallback_sweep",
     "join_population_saliency_with_compression",
     "join_population_saliency_with_retrieval",
     "open_set_identification_metrics",

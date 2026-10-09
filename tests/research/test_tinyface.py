@@ -22,6 +22,10 @@ from research.evaluation import (
     normalize_tinyface_per_query_audit_dtypes,
     paired_tinyface_deltas,
 )
+from research.evaluation.tinyface import (
+    simulate_tinyface_fallback_rejection,
+    simulate_tinyface_fallback_sweep,
+)
 from research.experiments import tinyface_pipeline
 from research.runtime import ProgressReporter
 from research.runtime.hashing import sha256_file
@@ -482,3 +486,173 @@ def test_load_tinyface_completed_evaluation_validates_closed_set_artifact(
         .eq("boolean")
         .all()
     )
+
+
+def test_simulate_tinyface_fallback_rejection():
+    # 10 queries
+    query_ids = [f"probe_{i}" for i in range(10)]
+    # Origin: probes 0..7 succeed (80%), probes 8..9 fail (20%)
+    origin_df = pd.DataFrame({
+        "query_image_id": query_ids,
+        "first_positive_rank": [1, 1, 1, 1, 1, 1, 1, 1, 5, 10],
+        "average_precision": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.1],
+        "rank_1_success": [True, True, True, True, True, True, True, True, False, False],
+        "rank_5_success": [True, True, True, True, True, True, True, True, True, False],
+        "rank_10_success": [True, True, True, True, True, True, True, True, True, True],
+        "rank_20_success": [True, True, True, True, True, True, True, True, True, True],
+    })
+    # Compressed (PQ ADC): probes 0..4 succeed (50%), probes 5..9 fail (50%)
+    compressed_df = pd.DataFrame({
+        "query_image_id": query_ids,
+        "first_positive_rank": [1, 1, 1, 1, 1, 3, 4, 8, 12, 25],
+        "average_precision": [1.0, 1.0, 1.0, 1.0, 1.0, 0.33, 0.25, 0.125, 0.08, 0.04],
+        "rank_1_success": [True, True, True, True, True, False, False, False, False, False],
+        "rank_5_success": [True, True, True, True, True, True, True, False, False, False],
+        "rank_10_success": [True, True, True, True, True, True, True, True, False, False],
+        "rank_20_success": [True, True, True, True, True, True, True, True, True, False],
+        "score_margin": [0.8, 0.7, 0.6, 0.5, 0.5, 0.05, 0.02, 0.01, 0.03, 0.04],
+        "fiqa_score": [70.0, 65.0, 60.0, 55.0, 50.0, 25.0, 20.0, 15.0, 22.0, 18.0],
+    })
+
+    # Test threshold fallback: probes with margin < 0.1 fall back (probes 5, 6, 7, 8, 9)
+    result = simulate_tinyface_fallback_rejection(
+        origin_df,
+        compressed_df,
+        margin_threshold=0.1,
+    )
+
+    summary = result.summary
+    assert summary["query_count"] == 10
+    assert summary["fallback_query_count"] == 5
+    assert summary["fallback_rate"] == pytest.approx(0.5)
+    assert summary["pq_rank_1_failure_count"] == 5
+    # Probes 5, 6, 7 were recovered (failed in compressed, succeed in origin)
+    assert summary["recovered_rank_1_count"] == 3
+    assert summary["recovery_rate"] == pytest.approx(3 / 5)
+    assert summary["fallback_precision"] == pytest.approx(3 / 5)
+    assert summary["unnecessary_fallback_count"] == 0
+    assert summary["regressed_rank_1_count"] == 0
+    assert summary["effective_rank_1"] == pytest.approx(0.8)
+    assert summary["compressed_rank_1"] == pytest.approx(0.5)
+    assert summary["origin_rank_1"] == pytest.approx(0.8)
+    assert summary["delta_rank_1"] == pytest.approx(0.3)
+    assert summary["delta_map"] > 0
+
+    # Test explicit fallback mask
+    mask = [False, False, False, False, False, True, True, False, False, False]
+    res_mask = simulate_tinyface_fallback_rejection(
+        origin_df,
+        compressed_df,
+        fallback_mask=mask,
+    )
+    assert res_mask.summary["fallback_query_count"] == 2
+    assert res_mask.summary["recovered_rank_1_count"] == 2
+    assert res_mask.summary["recovery_rate"] == pytest.approx(2 / 5)
+    assert res_mask.summary["effective_rank_1"] == pytest.approx(0.7)
+
+
+def test_simulate_tinyface_fallback_sweep():
+    query_ids = [f"probe_{i}" for i in range(10)]
+    origin_df = pd.DataFrame({
+        "query_image_id": query_ids,
+        "first_positive_rank": [1] * 10,
+        "average_precision": [1.0] * 10,
+        "rank_1_success": [True] * 10,
+        "rank_5_success": [True] * 10,
+        "rank_10_success": [True] * 10,
+        "rank_20_success": [True] * 10,
+    })
+    compressed_df = pd.DataFrame({
+        "query_image_id": query_ids,
+        "first_positive_rank": [1] * 5 + [2] * 5,
+        "average_precision": [1.0] * 5 + [0.5] * 5,
+        "rank_1_success": [True] * 5 + [False] * 5,
+        "rank_5_success": [True] * 10,
+        "rank_10_success": [True] * 10,
+        "rank_20_success": [True] * 10,
+        "score_margin": [0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.04, 0.03, 0.02, 0.01],
+    })
+
+    sweep = simulate_tinyface_fallback_sweep(
+        origin_df,
+        compressed_df,
+        budgets=(0.0, 0.3, 0.5, 1.0),
+    )
+
+    assert len(sweep) == 4
+    assert sweep.loc[sweep.fallback_budget.eq(0.0), "effective_rank_1"].item() == pytest.approx(0.5)
+    assert sweep.loc[sweep.fallback_budget.eq(1.0), "effective_rank_1"].item() == pytest.approx(1.0)
+    assert sweep.loc[sweep.fallback_budget.eq(0.5), "recovery_rate"].item() == pytest.approx(1.0)
+
+
+def test_simulate_tinyface_fallback_rejection_edge_cases():
+    query_ids = [f"probe_{i}" for i in range(5)]
+    origin_df = pd.DataFrame({
+        "query_image_id": query_ids,
+        "first_positive_rank": [1] * 5,
+        "average_precision": [1.0] * 5,
+        "rank_1_success": [True] * 5,
+        "rank_5_success": [True] * 5,
+        "rank_10_success": [True] * 5,
+        "rank_20_success": [True] * 5,
+    })
+    compressed_df = pd.DataFrame({
+        "query_image_id": query_ids,
+        "first_positive_rank": [2] * 5,
+        "average_precision": [0.5] * 5,
+        "rank_1_success": [False] * 5,
+        "rank_5_success": [True] * 5,
+        "rank_10_success": [True] * 5,
+        "rank_20_success": [True] * 5,
+        "score_margin": [0.0, 0.1, 0.2, 0.3, 0.4],
+        "fiqa_score": [50.0] * 5,
+    })
+
+    # Empty inputs rejected
+    empty_df = pd.DataFrame(columns=origin_df.columns)
+    with pytest.raises(ValueError, match="must not be empty"):
+        simulate_tinyface_fallback_rejection(empty_df, compressed_df)
+
+    # Non-finite FIQA rejected
+    with pytest.raises(ValueError, match="non-finite"):
+        simulate_tinyface_fallback_rejection(
+            origin_df,
+            compressed_df,
+            fiqa_scores=[50.0, np.nan, 50.0, 50.0, 50.0],
+            fallback_budget_fraction=0.4,
+        )
+
+    # Mismatched length score margins rejected
+    with pytest.raises(ValueError, match="does not match query count"):
+        simulate_tinyface_fallback_rejection(
+            origin_df,
+            compressed_df,
+            score_margins=[0.1, 0.2],
+            fallback_budget_fraction=0.4,
+        )
+
+    # Zero margin is highest uncertainty -> selected first under budget
+    res = simulate_tinyface_fallback_rejection(
+        origin_df,
+        compressed_df,
+        fallback_budget_fraction=0.2,
+    )
+    assert res.summary["fallback_query_count"] == 1
+    assert res.per_query.loc[0, "is_fallback"] == True
+    assert res.per_query.loc[1, "is_fallback"] == False
+
+
+def test_evaluate_tinyface_identification_validates_fiqa_scores():
+    query = np.asarray([[1.0, 0.0]], dtype=np.float32)
+    gallery = np.asarray([[1.0, 0.0], [0.5, 0.5]], dtype=np.float32)
+    # Wrong fiqa length rejected upfront
+    with pytest.raises(ValueError, match="does not match query count"):
+        evaluate_tinyface_identification(
+            query,
+            gallery,
+            query_identity_ids=["id1"],
+            gallery_identity_ids=["id1", "d1"],
+            query_fiqa_scores=[50.0, 60.0],
+        )
+
+

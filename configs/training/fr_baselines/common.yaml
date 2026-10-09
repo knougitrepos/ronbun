@@ -1,0 +1,29 @@
+# Common training configuration for MobileFaceNet baselines
+# Reference: UCFace (IEEE T-IFS 2024, DOI: 10.1109/TIFS.2024.3426973)
+
+model:
+  architecture: "mobilefacenet"
+  embedding_dim: 512
+  dropout: 0.6
+  color_order: "bgr"
+
+provenance:
+  facex_zoo_source_commit: "ba50bce7bb0811e9f13883a48e7e1ddc44566c75"
+  facex_zoo_url: "https://github.com/JDAI-CV/FaceX-Zoo"
+
+training:
+  optimizer: "adam"
+  lr: 0.001
+  weight_decay: 0.0005
+  decay_epochs: [10, 20, 30]
+  gamma: 0.1
+  epochs: 40
+  batch_size: 64
+  micro_batch_size: 32
+  num_workers: 4
+  keep_raw_results: true
+
+hardware:
+  preferred_device: "cuda"
+  target_gpu: "GeForce GTX 1080 Ti"
+  vram_gb: 11

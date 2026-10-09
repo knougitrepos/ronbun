@@ -156,3 +156,9 @@ results/lfw_pair_inputs_v1/**/fiqa_scores.csv
 results/lfw_pair_inputs_v1/*.sqlite3*
 results/lfw_pair_inputs_v1/**/.staging-*/
 results/lfw_pair_inputs_v1/**/.inprogress/
+# RFW continuous calibration raw per-pair decisions and fitted models stay local.
+# Compact summary tables, fold_metrics audit tables, manifests, and guides remain Git-visible.
+results/calibration/rfw_continuous_calibration/**/raw_pair_evaluations.*
+results/calibration/rfw_continuous_calibration/**/fitted_calibration_models.*
+results/calibration/rfw_continuous_calibration/**/.staging-*/
+

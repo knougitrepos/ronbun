@@ -1,0 +1,9 @@
+# VGGFace2 pre-training configuration
+# Reference: VGGFace2 (Cao et al., FG 2018)
+# UCFace Pretraining Setup: MobileFaceNet on VGGFace2
+
+dataset:
+  name: "vggface2"
+  raw_root: "data/raw/vggface2"
+  train_classes: 8631
+  image_size: [112, 112]

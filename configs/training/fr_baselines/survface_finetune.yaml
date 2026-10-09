@@ -1,0 +1,16 @@
+# SurvFace fine-tuning protocol configuration
+# Strict zero identity leakage protocol allocating all 5,319 training_set identities:
+# - train: 1,600 identities
+# - val: 219 identities
+# - calib_gallery: 3,000 identities
+# - calib_probe: 500 identities
+
+dataset:
+  name: "qmul-survface-v1"
+  raw_root: "data/raw/QMUL-SurvFace"
+  manifest_path: "data/manifests/training_manifest_v2_finetune.csv"
+  seed: 8972
+  train_identities_count: 1600
+  val_identities_count: 219
+  calib_gallery_count: 3000
+  calib_probe_count: 500

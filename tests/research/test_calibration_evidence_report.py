@@ -113,8 +113,12 @@ def test_common_notebook_skips_nonmatching_model_without_reading_pilot():
     root = Path(__file__).resolve().parents[2]
     n = json.loads((root / "notebooks/common/reports/00_cross_dataset_results.ipynb").read_text(encoding="utf-8"))
     cell = next(c for c in n["cells"] if c["id"] == "calibration-evidence-report")
-    context = dict(PROJECT_ROOT=root, SELECTED_RUN_IDS={"survface": "another-run"},
-                   MODEL_UIDS={"survface": "adaface-test"})
+    context = dict(
+        PROJECT_ROOT=root,
+        SELECTED_RUN_IDS={"survface": "another-run"},
+        MODEL_UIDS={"survface": "adaface-test"},
+        LFW_PROTOCOL_MODE="legacy",
+    )
     exec("".join(cell["source"]), context)
     assert context["CALIBRATION_EVIDENCE"] is None
     assert "mismatch" in context["CALIBRATION_EVIDENCE_STATUS"]

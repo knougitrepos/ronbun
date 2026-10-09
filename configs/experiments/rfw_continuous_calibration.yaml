@@ -1,0 +1,78 @@
+schema_version: 1
+protocol: rfw_official_groupwise_10fold_continuous_calibration
+description: "RFW 1:1 pairwise verification calibration matrix: Origin vs PQ(m128, m64, m32) x (Global, FIQA 5-bin, Continuous FIQA)"
+
+execution:
+  bootstrap_seed: 8972
+  bootstrap_repeats: 500
+  safety_fraction: 0.30
+  strict_official: true
+  keep_raw_results: false
+  device: "cuda"
+
+datasets:
+  rfw:
+    dataset_id: rfw-v1
+    role: evaluation_test_only
+    task: official_10fold_pair_verification
+    archive_path: data/raw/RFW/bin_for_mxnet/RFW_test.tar.gz
+    protocol_path: data/interim/rfw/pair_protocol.csv
+    archive_sha256: 8259e53ab1b542a9747335f34b2ae48e22a675bce472e391d6b94bc900fde572
+    quality_mode: symmetric_min  # min(q_left, q_right)
+  development:
+    dataset_id: lfw-disjoint-non-test
+    role: compression_fit_only
+    sources_root: results/lfw_deepfunneled_resize_v1/sources
+    pairs_path: data/external/lfw/pairs.txt
+    pairs_sha256: ea42330c62c92989f9d7c03237ed5d591365e89b3e649747777b70e692dc1592
+    min_samples: 256
+  fiqa:
+    quality_source: cr_fiqa
+    checkpoint_path: models/fiqa/CR-FIQA(L).pth
+    variant: L
+    expected_sha256: 5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd
+
+models:
+  arcface:
+    spec_path: runs/step2/model_registry/arcface-7972a704552df378345f.json
+    checkpoint: models/arcface/ms1mv3_r100_backbone.pth
+    expected_sha256: a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b
+    development_source_dir: results/lfw_deepfunneled_resize_v1/sources/arcface-7972a704552df378345f
+  adaface:
+    spec_path: runs/step2/model_registry/adaface-4df25b75e065b0b9ed43.json
+    checkpoint: models/adaface/adaface_ir101_ms1mv3.ckpt
+    expected_sha256: f0bdc94fd6aa8fec7cd82c428288991ebeca2510f71949e68b89aee016fbaf82
+    development_source_dir: results/lfw_deepfunneled_resize_v1/sources/adaface-4df25b75e065b0b9ed43
+  magface:
+    spec_path: runs/step2/model_registry/magface-6931178ad2025e1b3799.json
+    checkpoint: models/magface/magface_ms1mv2.pth
+    expected_sha256: cfeba792dada6f1f30d1e118aff077d493dd95dd76c77c30f57f90fd0164ad58
+    development_source_dir: results/lfw_deepfunneled_resize_v1/sources/magface-6931178ad2025e1b3799
+
+compression:
+  source_dimension: 512
+  pq_profiles:
+    - pq_512_m128_b8
+    - pq_512_m64_b8
+    - pq_512_m32_b8
+
+calibration:
+  methods:
+    - global_safe
+    - fiqa_5bin
+    - continuous_fiqa
+  target_fmrs:
+    - 0.001
+    - 0.01
+    - 0.05
+    - 0.10
+  knot_quantiles: [0.3333333333333333, 0.6666666666666666]
+  smoothing: 0.01
+  ridge: 0.001
+  max_iterations: 2000
+  margin_slope_cap: 0.95
+
+claims:
+  formal_fmr_guarantee: false
+  open_set_claims: false
+  fairness_guarantees: false

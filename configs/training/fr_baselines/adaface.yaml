@@ -1,0 +1,11 @@
+# AdaFace baseline configuration
+# Reference: AdaFace (CVPR 2022, DOI: 10.1109/CVPR.2022.01011)
+# UCFace Table / Section: m = 0.4, s = 64.0, h = 0.333
+
+head:
+  type: "adaface"
+  scale: 64.0
+  margin: 0.4
+  h: 0.333
+  t_alpha: 0.01
+  eps: 0.001

@@ -1,0 +1,9 @@
+# ArcFace baseline configuration
+# Reference: ArcFace (CVPR 2019, DOI: 10.1109/CVPR.2019.00482)
+# UCFace Table / Section: m = 0.6, s = 64.0
+
+head:
+  type: "arcface"
+  scale: 64.0
+  margin: 0.6
+  easy_margin: false

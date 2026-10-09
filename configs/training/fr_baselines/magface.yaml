@@ -1,0 +1,12 @@
+# MagFace baseline configuration
+# Reference: MagFace (CVPR 2021, DOI: 10.1109/CVPR.2021.01170)
+# UCFace Table / Section: l_a = 10.0, u_a = 110.0, l_m = 0.45, u_m = 0.8, lambda_g = 20.0, s = 64.0
+
+head:
+  type: "magface"
+  scale: 64.0
+  l_a: 10.0
+  u_a: 110.0
+  l_m: 0.45
+  u_m: 0.8
+  lambda_g: 20.0

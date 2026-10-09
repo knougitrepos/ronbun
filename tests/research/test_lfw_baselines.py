@@ -316,3 +316,17 @@ def test_integrated_survface_plan_receives_custom_profile_config(monkeypatch):
     )
     assert builder.call_args.kwargs["step4_config_path"] == "registered-step4.yaml"
     assert builder.call_args.kwargs["model_uid"] == "fine-uid"
+
+
+def test_baseline_rejects_non_512d_dimension(configured):
+    root, original, kwargs = configured
+    profiles_data = yaml.safe_load((root / original["inputs"]["model_profiles_config"]).read_text(encoding="utf8"))
+    profiles_data["models"]["profiles"]["arcface_ms1mv3_r100"]["embedding_dim"] = 256
+    custom_profiles = root / "custom_profiles.yaml"
+    custom_profiles.write_text(yaml.safe_dump(profiles_data), encoding="utf8")
+    cfg = deepcopy(original)
+    cfg["inputs"]["model_profiles_config"] = str(custom_profiles)
+    with pytest.raises(ValueError, match="512D embedding dimension required"):
+        baselines.model_specs(root, cfg, ("base",))
+
+

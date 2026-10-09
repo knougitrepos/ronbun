@@ -147,65 +147,141 @@ def _load_exact(
     return model
 
 
-def load_arcface_checkpoint(spec: ModelSpec) -> Any:
+def load_arcface_checkpoint(
+    spec: ModelSpec,
+    *,
+    select_prefixes: tuple[str, ...] = (
+        "backbone.",
+        "model.",
+        "module.backbone.",
+        "module.model.",
+    ),
+) -> Any:
     if spec.family != "arcface":
         raise ValueError("ArcFace loader requires family='arcface'")
-    from research.embeddings.pytorch.official_backbones import (
-        build_arcface_backbone,
-    )
+    if spec.architecture == "mobilefacenet":
+        from research.embeddings.pytorch.official_backbones import (
+            build_mobilefacenet_backbone,
+        )
 
-    model = build_arcface_backbone(
-        spec.architecture, embedding_dim=spec.embedding_dim
-    )
+        model = build_mobilefacenet_backbone(
+            spec.architecture, embedding_dim=spec.embedding_dim
+        )
+    else:
+        from research.embeddings.pytorch.official_backbones import (
+            build_arcface_backbone,
+        )
+
+        model = build_arcface_backbone(
+            spec.architecture, embedding_dim=spec.embedding_dim
+        )
     return _load_exact(
         model,
         spec,
-        nested_keys=("state_dict_backbone", "state_dict", "model"),
+        nested_keys=("state_dict_backbone", "state_dict", "model", "backbone"),
         prefixes=("module.", "backbone.", "model."),
+        select_prefixes=tuple(select_prefixes),
     )
 
 
 def load_adaface_checkpoint(spec: ModelSpec) -> Any:
     if spec.family != "adaface":
         raise ValueError("AdaFace loader requires family='adaface'")
-    from research.embeddings.pytorch.official_backbones import (
-        build_adaface_backbone,
-    )
+    if spec.architecture == "mobilefacenet":
+        from research.embeddings.pytorch.official_backbones import (
+            build_mobilefacenet_backbone,
+        )
 
-    model = build_adaface_backbone(
-        spec.architecture, embedding_dim=spec.embedding_dim
-    )
+        model = build_mobilefacenet_backbone(
+            spec.architecture, embedding_dim=spec.embedding_dim
+        )
+    else:
+        from research.embeddings.pytorch.official_backbones import (
+            build_adaface_backbone,
+        )
+
+        model = build_adaface_backbone(
+            spec.architecture, embedding_dim=spec.embedding_dim
+        )
     return _load_exact(
         model,
         spec,
-        nested_keys=("state_dict", "model"),
-        prefixes=("model.", "module.model.", "module.", "backbone."),
-        select_prefixes=("model.", "module.model."),
+        nested_keys=("state_dict", "model", "backbone", "state_dict_backbone"),
+        prefixes=("model.", "module.model.", "module.", "backbone.", "module.backbone."),
+        select_prefixes=("model.", "module.model.", "backbone.", "module.backbone."),
     )
 
 
 def load_magface_checkpoint(spec: ModelSpec) -> Any:
     if spec.family != "magface":
         raise ValueError("MagFace loader requires family='magface'")
-    from research.embeddings.pytorch.official_backbones import (
-        build_magface_backbone,
-    )
+    if spec.architecture == "mobilefacenet":
+        from research.embeddings.pytorch.official_backbones import (
+            build_mobilefacenet_backbone,
+        )
 
-    model = build_magface_backbone(
-        spec.architecture, embedding_dim=spec.embedding_dim
-    )
+        model = build_mobilefacenet_backbone(
+            spec.architecture, embedding_dim=spec.embedding_dim
+        )
+    else:
+        from research.embeddings.pytorch.official_backbones import (
+            build_magface_backbone,
+        )
+
+        model = build_magface_backbone(
+            spec.architecture, embedding_dim=spec.embedding_dim
+        )
     return _load_exact(
         model,
         spec,
-        nested_keys=("state_dict", "model"),
+        nested_keys=("state_dict", "model", "backbone", "state_dict_backbone"),
         prefixes=(
             "module.features.",
             "features.module.",
             "features.",
             "module.",
             "backbone.",
+            "module.backbone.",
         ),
-        select_prefixes=("module.features.", "features.module."),
+        select_prefixes=(
+            "module.features.",
+            "features.module.",
+            "backbone.",
+            "module.backbone.",
+            "model.",
+            "module.model.",
+        ),
+    )
+
+
+def load_mobilefacenet_checkpoint(
+    spec: ModelSpec,
+    *,
+    select_prefixes: tuple[str, ...] = (
+        "backbone.",
+        "model.",
+        "module.backbone.",
+        "module.model.",
+        "module.features.",
+    ),
+) -> Any:
+    if spec.architecture != "mobilefacenet":
+        raise ValueError(
+            f"MobileFaceNet loader requires architecture='mobilefacenet', got {spec.architecture!r}"
+        )
+    from research.embeddings.pytorch.official_backbones import (
+        build_mobilefacenet_backbone,
+    )
+
+    model = build_mobilefacenet_backbone(
+        spec.architecture, embedding_dim=spec.embedding_dim
+    )
+    return _load_exact(
+        model,
+        spec,
+        nested_keys=("state_dict_backbone", "state_dict", "model", "backbone"),
+        prefixes=("module.", "backbone.", "model.", "features.", "module.features."),
+        select_prefixes=tuple(select_prefixes),
     )
 
 
@@ -225,3 +301,4 @@ def load_edgeface_checkpoint(spec: ModelSpec) -> Any:
         nested_keys=("state_dict", "model"),
         prefixes=("module.",),
     )
+

@@ -125,6 +125,10 @@ from research.experiments.rfw_pipeline import (
     rfw_frozen_codec_evaluation_uid,
     rfw_occurrence_pairs,
 )
+from research.experiments.rfw_continuous_calibration import (
+    RFWExperimentMatrixResult,
+    run_rfw_continuous_calibration,
+)
 from research.experiments.tinyface_pipeline import (
     TINYFACE_DEFAULT_PCA_DIMENSIONS,
     TINYFACE_DEFAULT_PQ_SETTINGS,
@@ -245,6 +249,8 @@ __all__ = [
     "resolve_step4_dataset_spec",
     "rfw_occurrence_pairs",
     "rfw_frozen_codec_evaluation_uid",
+    "RFWExperimentMatrixResult",
+    "run_rfw_continuous_calibration",
     "is_open_set_dataset",
     "select_step4_saliency_sample_mask",
     "select_step4_source_manifest",

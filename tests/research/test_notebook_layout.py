@@ -13,7 +13,7 @@ ARCHIVE_ROOT = NOTEBOOK_ROOT / "_archive"
 EXPECTED_NOTEBOOKS = {
     "lfw/00_data_preparation": {"00_data_preparation.ipynb"},
     "survface/00_data_preparation": {"00_data_preparation.ipynb"},
-    "rfw": {"00_rfw_all_in_one.ipynb"},
+    "rfw": {"00_rfw_all_in_one.ipynb", "01_rfw_continuous_calibration.ipynb"},
     "calibration": {
         "01_fiqa_continuous_retrieval_conditioned_calibration.ipynb",
         "03_origin_vs_pq_fiqa_calibration.ipynb",
@@ -27,6 +27,11 @@ EXPECTED_NOTEBOOKS = {
         "cross_dataset_calibration_transfer.ipynb",
     },
     "diagnostics": {"00_compression_fpir_failure_diagnosis.ipynb"},
+    "fine-tune": {
+        "00_data_and_protocol.ipynb",
+        "01_train_baselines.ipynb",
+        "02_validate_and_register.ipynb",
+    },
 }
 
 ARCHIVED_NOTEBOOKS = {
@@ -130,7 +135,7 @@ def test_active_and_archived_notebooks_have_explicit_layouts() -> None:
     }
     assert active == expected_active
     assert archived == expected_archived
-    assert len(active) == 12
+    assert len(active) == 16
     assert len(archived) == 40
     assert not active & archived
 

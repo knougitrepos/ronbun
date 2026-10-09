@@ -1,0 +1,55 @@
+{
+  "run_id": "rfw-cal-f403db181283",
+  "status": "completed",
+  "dataset": "rfw",
+  "real_data": true,
+  "synthetic": false,
+  "quick_smoke": true,
+  "device_name": "NVIDIA GeForce GTX 1080 Ti",
+  "model_alias": "arcface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+  "archive_sha256": "8259e53ab1b542a9747335f34b2ae48e22a675bce472e391d6b94bc900fde572",
+  "config_sha256": "b535bd025ae94f1520cd2acaf1192b7519e884b1348b80569edde6c1159e8d92",
+  "keep_raw_results": false,
+  "seed": 8972,
+  "quality_source": "cr_fiqa",
+  "quality_meta": {
+    "quality_source": "cr_fiqa",
+    "cr_fiqa_variant": "L",
+    "cr_fiqa_model_uid": "cr-fiqa-l-5fca24736e4f8df5fbfc",
+    "cr_fiqa_checkpoint_sha256": "5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd"
+  },
+  "development_meta": {
+    "development_dataset_id": "lfw-disjoint-non-test",
+    "development_source_dir": "results\\lfw_deepfunneled_resize_v1\\sources\\arcface-7972a704552df378345f",
+    "development_sample_count": 1549,
+    "population_sha256": "3b608e82d98ca523b1ff6236e5b8dace5e65eb855d4c60369c6fcad9b887e90b",
+    "embeddings_sha256": "c20895c6956fc65f5fbfcfbd573c98f244f1b4fb15c830668c59299396f7fbfe",
+    "pairs_sha256": "ea42330c62c92989f9d7c03237ed5d591365e89b3e649747777b70e692dc1592"
+  },
+  "profiles": [
+    "origin",
+    "pq_512_m128_b8",
+    "pq_512_m64_b8",
+    "pq_512_m32_b8"
+  ],
+  "methods": [
+    "global_safe",
+    "fiqa_5bin",
+    "continuous_fiqa"
+  ],
+  "target_fmrs": [
+    0.001,
+    0.01,
+    0.05,
+    0.1
+  ],
+  "quality_mode": "symmetric_min",
+  "total_pairs": 1200,
+  "formal_fmr_guarantee": false,
+  "fairness_guarantee": false,
+  "fold_metrics_sha256": "2ac9761fbd1dd7bed7dec4eb0adeca5d69f35c07a50e7fbd83e053da5d056e6f",
+  "group_summary_sha256": "3f4336231e57526848e53a8f749567a82cbff1f4a85a3162d2d31b96378e364f",
+  "comparison_table_sha256": "b07c4374177c2a87cfec99851b0803e1fec7f54bf57dc6cee7ae517b2dfade6e"
+}

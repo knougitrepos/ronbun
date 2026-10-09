@@ -31,15 +31,27 @@ def validate_aliases(config):
             raise ValueError("baseline kind must be pretrained or fine_tuned")
         if alias not in MODEL_UIDS and not source.get("expected_sha256"):
             raise ValueError("additional baselines require an explicit expected_sha256")
-        if "parent_baseline" in source and (source["parent_baseline"] not in models or source["parent_baseline"] == alias):
-            raise ValueError("parent baseline must be a distinct retained condition")
+        has_init_prov = bool(source.get("initialization_provenance"))
+        if "parent_baseline" in source:
+            parent_name = source["parent_baseline"]
+            if parent_name == alias:
+                raise ValueError("parent baseline must be a distinct retained condition")
+            if parent_name not in models and not (has_init_prov or parent_name in ("none", "external")):
+                raise ValueError("parent baseline must be a distinct retained condition")
         if kind == "fine_tuned":
-            for field in ("source_url", "training_dataset", "parent_baseline", "fine_tuning_data",
-                          "lfw_identity_overlap", "overlap_evidence", "selection_evidence"):
+            required_fields = ["source_url", "training_dataset", "fine_tuning_data",
+                               "lfw_identity_overlap", "overlap_evidence", "selection_evidence"]
+            if not has_init_prov:
+                required_fields.append("parent_baseline")
+            for field in required_fields:
                 if not isinstance(source.get(field), str) or not source[field].strip():
                     raise ValueError(f"fine-tuned baseline requires {field}")
-            if source["parent_baseline"] not in models or source["parent_baseline"] == alias:
-                raise ValueError("fine-tuned baseline must retain a distinct parent condition")
+            if "parent_baseline" in source:
+                parent_name = source["parent_baseline"]
+                if parent_name == alias:
+                    raise ValueError("fine-tuned baseline must retain a distinct parent condition")
+                if parent_name not in models and not (has_init_prov or parent_name in ("none", "external")):
+                    raise ValueError("fine-tuned baseline must retain a distinct parent condition")
             if source["lfw_identity_overlap"] not in ("unknown", "disjoint", "overlap"):
                 raise ValueError("lfw_identity_overlap must be unknown, disjoint or overlap")
             if source["lfw_identity_overlap"] == "overlap":
@@ -57,6 +69,8 @@ def model_specs(root, config, models):
     for alias in models:
         source = config["inputs"]["models"][alias]
         profile = profiles["models"]["profiles"][source["profile"]]
+        if profile.get("embedding_dim", 512) != 512:
+            raise ValueError(f"512D embedding dimension required; got {profile.get('embedding_dim')} for {alias}")
         prep = source.get("preprocessing", profile["preprocessing"])
         checkpoint = CheckpointProvenance.from_file(root / source["checkpoint"], source_url=(
             source.get("source_url") or profile.get("checkpoint_source_url")
@@ -70,6 +84,8 @@ def model_specs(root, config, models):
                 source_color_order=profiles["aligned_crops"]["source_color_order"], model_color_order=prep["model_color_order"],
                 channel_mean=tuple(prep["mean"]), channel_std=tuple(prep["std"])),
             target_layer=profile["target_layer"], embedding_dim=profile["embedding_dim"], module_factory=profile["loader_factory"])
+        if spec.embedding_dim != 512:
+            raise ValueError(f"512D embedding dimension required; got {spec.embedding_dim} for {alias}")
         if alias in MODEL_UIDS and spec.model_uid != MODEL_UIDS[alias]:
             raise ValueError(f"original baseline is pinned; register a new alias for changed weights: {alias}")
         result[alias] = spec
@@ -79,9 +95,9 @@ def model_specs(root, config, models):
         raise ValueError("duplicate checkpoint bytes across baseline conditions")
     for alias, spec in result.items():
         entry = config["inputs"]["models"][alias]
-        if entry.get("kind") == "fine_tuned" and entry["parent_baseline"] in result:
+        if entry.get("kind") == "fine_tuned" and entry.get("parent_baseline") in result:
             parent = result[entry["parent_baseline"]]
-            if (spec.family, spec.architecture) != (parent.family, parent.architecture):
+            if spec.architecture != parent.architecture:
                 raise ValueError("fine-tuned condition must retain its parent backbone architecture")
     return result
 
@@ -113,6 +129,11 @@ def register_baseline(project_root, *, config_path, output_config, alias, profil
     if alias in config["inputs"]["models"]:
         raise ValueError("new baseline alias required; existing conditions are immutable")
     path = (root / checkpoint).resolve()
+    profiles = yaml.safe_load((root / config["inputs"]["model_profiles_config"]).read_text(encoding="utf8"))
+    if profile not in profiles["models"]["profiles"]:
+        raise ValueError(f"unknown model profile: {profile}")
+    if int(profiles["models"]["profiles"][profile].get("embedding_dim", 512)) != 512:
+        raise ValueError(f"512D embedding dimension required; got {profiles['models']['profiles'][profile].get('embedding_dim')}")
     entry = dict(profile=profile, checkpoint=path.as_posix(), expected_sha256=sha256_file(path),
                  kind=kind, source_url=source_url, training_dataset=training_dataset,
                  lfw_identity_overlap=lfw_identity_overlap, overlap_evidence=overlap_evidence)

@@ -436,3 +436,202 @@ def build_edgeface_backbone(
             f"unsupported official EdgeFace architecture: {architecture!r}"
         )
     return EdgeFaceBackbone(embedding_dim=embedding_dim)
+
+
+class MobileFaceConvBlock(nn.Module):
+    def __init__(
+        self,
+        in_c: int,
+        out_c: int,
+        kernel: tuple[int, int] = (1, 1),
+        stride: tuple[int, int] = (1, 1),
+        padding: tuple[int, int] = (0, 0),
+        groups: int = 1,
+    ) -> None:
+        super().__init__()
+        self.conv = nn.Conv2d(
+            in_c,
+            out_c,
+            kernel_size=kernel,
+            groups=groups,
+            stride=stride,
+            padding=padding,
+            bias=False,
+        )
+        self.bn = nn.BatchNorm2d(out_c)
+        self.prelu = nn.PReLU(out_c)
+
+    def forward(self, inputs: Any) -> Any:
+        return self.prelu(self.bn(self.conv(inputs)))
+
+
+class MobileFaceLinearBlock(nn.Module):
+    def __init__(
+        self,
+        in_c: int,
+        out_c: int,
+        kernel: tuple[int, int] = (1, 1),
+        stride: tuple[int, int] = (1, 1),
+        padding: tuple[int, int] = (0, 0),
+        groups: int = 1,
+    ) -> None:
+        super().__init__()
+        self.conv = nn.Conv2d(
+            in_c,
+            out_c,
+            kernel_size=kernel,
+            groups=groups,
+            stride=stride,
+            padding=padding,
+            bias=False,
+        )
+        self.bn = nn.BatchNorm2d(out_c)
+
+    def forward(self, inputs: Any) -> Any:
+        return self.bn(self.conv(inputs))
+
+
+class MobileFaceDepthWise(nn.Module):
+    def __init__(
+        self,
+        in_c: int,
+        out_c: int,
+        residual: bool = False,
+        kernel: tuple[int, int] = (3, 3),
+        stride: tuple[int, int] = (2, 2),
+        padding: tuple[int, int] = (1, 1),
+        groups: int = 1,
+    ) -> None:
+        super().__init__()
+        self.residual = residual
+        self.conv = MobileFaceConvBlock(
+            in_c, out_c=groups, kernel=(1, 1), padding=(0, 0), stride=(1, 1)
+        )
+        self.conv_dw = MobileFaceConvBlock(
+            groups, groups, groups=groups, kernel=kernel, padding=padding, stride=stride
+        )
+        self.project = MobileFaceLinearBlock(
+            groups, out_c, kernel=(1, 1), padding=(0, 0), stride=(1, 1)
+        )
+
+    def forward(self, inputs: Any) -> Any:
+        short_cut = inputs if self.residual else None
+        output = self.project(self.conv_dw(self.conv(inputs)))
+        if self.residual:
+            output = short_cut + output
+        return output
+
+
+class MobileFaceResidual(nn.Module):
+    def __init__(
+        self,
+        c: int,
+        num_block: int,
+        groups: int,
+        kernel: tuple[int, int] = (3, 3),
+        stride: tuple[int, int] = (1, 1),
+        padding: tuple[int, int] = (1, 1),
+    ) -> None:
+        super().__init__()
+        modules = [
+            MobileFaceDepthWise(
+                c,
+                c,
+                residual=True,
+                kernel=kernel,
+                stride=stride,
+                padding=padding,
+                groups=groups,
+            )
+            for _ in range(num_block)
+        ]
+        self.layers = nn.Sequential(*modules)
+
+    def forward(self, inputs: Any) -> Any:
+        return self.layers(inputs)
+
+
+class MobileFaceGDC(nn.Module):
+    def __init__(
+        self,
+        embedding_size: int = 512,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        layers: list[nn.Module] = [
+            MobileFaceLinearBlock(
+                512, 512, groups=512, kernel=(7, 7), stride=(1, 1), padding=(0, 0)
+            ),
+            nn.Flatten(),
+        ]
+        if dropout > 0.0:
+            layers.append(nn.Dropout(p=dropout))
+        layers.extend([
+            nn.Linear(512, embedding_size, bias=False),
+            nn.BatchNorm1d(embedding_size),
+        ])
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, inputs: Any) -> Any:
+        return self.layers(inputs)
+
+
+FACEX_ZOO_MOBILEFACENET_COMMIT: str = "ba50bce7bb0811e9f13883a48e7e1ddc44566c75"
+FACEX_ZOO_REPOSITORY_URL: str = "https://github.com/JDAI-CV/FaceX-Zoo"
+
+
+class MobileFaceNetBackbone(nn.Module):
+    """MobileFaceNet backbone matching the FaceX-Zoo and InsightFace PyTorch topologies.
+
+    References:
+    - S. Chen, Y. Liu, X. Gao, Z. Han, 'MobileFaceNets: Efficient CNNs for
+      Accurate Real-Time Face Verification on Mobile Devices', CCBR 2018.
+    - FaceX-Zoo (Apache-2.0, commit ba50bce7bb0811e9f13883a48e7e1ddc44566c75):
+      https://github.com/JDAI-CV/FaceX-Zoo/tree/ba50bce7bb0811e9f13883a48e7e1ddc44566c75
+    - InsightFace (MIT): https://github.com/deepinsight/insightface
+    """
+
+    def __init__(
+        self,
+        *,
+        embedding_dim: int = 512,
+        blocks: tuple[int, int, int, int] = (1, 4, 6, 2),
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.layers = nn.ModuleList([
+            MobileFaceConvBlock(3, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1)),
+            MobileFaceConvBlock(64, 64, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=64)
+            if blocks[0] == 1
+            else MobileFaceResidual(64, num_block=blocks[0], groups=64),
+            MobileFaceDepthWise(64, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=128),
+            MobileFaceResidual(64, num_block=blocks[1], groups=128, kernel=(3, 3), stride=(1, 1), padding=(1, 1)),
+            MobileFaceDepthWise(64, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=256),
+            MobileFaceResidual(128, num_block=blocks[2], groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1)),
+            MobileFaceDepthWise(128, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=512),
+            MobileFaceResidual(128, num_block=blocks[3], groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1)),
+        ])
+        self.conv_sep = MobileFaceConvBlock(128, 512, kernel=(1, 1), stride=(1, 1), padding=(0, 0))
+        self.features = MobileFaceGDC(embedding_size=embedding_dim, dropout=dropout)
+
+    def forward(self, inputs: Any) -> Any:
+        x = inputs
+        for layer in self.layers:
+            x = layer(x)
+        x = self.conv_sep(x)
+        return self.features(x)
+
+
+def build_mobilefacenet_backbone(
+    architecture: str = "mobilefacenet",
+    *,
+    embedding_dim: int = 512,
+    dropout: float = 0.0,
+) -> MobileFaceNetBackbone:
+    if architecture != "mobilefacenet":
+        raise ValueError(
+            f"unsupported MobileFaceNet architecture: {architecture!r}"
+        )
+    return MobileFaceNetBackbone(embedding_dim=embedding_dim, dropout=dropout)
+

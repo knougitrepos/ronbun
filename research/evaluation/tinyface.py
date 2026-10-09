@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -121,6 +122,7 @@ def evaluate_tinyface_identification(
     query_identity_ids: list[str] | tuple[str, ...] | np.ndarray,
     gallery_identity_ids: list[str] | tuple[str, ...] | np.ndarray,
     query_image_ids: list[str] | tuple[str, ...] | np.ndarray | None = None,
+    query_fiqa_scores: Mapping[str, float] | Sequence[float] | None = None,
     score_kind: TinyFaceScoreKind = "cosine",
     query_batch_size: int = 32,
     gallery_batch_size: int = 8_192,
@@ -143,6 +145,14 @@ def evaluate_tinyface_identification(
         image_ids = np.asarray([f"query:{index}" for index in range(len(queries))], dtype=object)
     else:
         image_ids = _identities(query_image_ids, count=len(queries), name="query_image_ids")
+    if query_fiqa_scores is not None and not isinstance(query_fiqa_scores, Mapping):
+        fiqa_seq = np.asarray(query_fiqa_scores, dtype=np.float64)
+        if len(fiqa_seq) != len(queries):
+            raise ValueError(
+                f"query_fiqa_scores length ({len(fiqa_seq)}) does not match query count ({len(queries)})"
+            )
+        if not np.isfinite(fiqa_seq).all():
+            raise ValueError("query_fiqa_scores contains non-finite values")
     if isinstance(query_batch_size, bool) or int(query_batch_size) < 1:
         raise ValueError("query_batch_size must be a positive integer")
     if isinstance(gallery_batch_size, bool) or int(gallery_batch_size) < 1:
@@ -247,6 +257,8 @@ def evaluate_tinyface_identification(
         ]
         greater_counts = [np.zeros(len(indexes), dtype=np.int64) for indexes in positive_indexes]
         equal_earlier_counts = [np.zeros(len(indexes), dtype=np.int64) for indexes in positive_indexes]
+        top1_scores = np.full(query_stop - query_start, -np.inf, dtype=np.float64)
+        top2_scores = np.full(query_stop - query_start, -np.inf, dtype=np.float64)
         for gallery_start in range(0, len(gallery), gallery_batch):
             gallery_stop = min(len(gallery), gallery_start + gallery_batch)
             scores = score_slices(
@@ -269,6 +281,19 @@ def evaluate_tinyface_identification(
                 ):
                     if gallery_start <= positive_index < gallery_stop:
                         row[int(positive_index - gallery_start)] = positive_score
+
+                # Update top1 and top2 running maximums from canonical scores
+                if len(row) >= 2:
+                    p_sorted = np.sort(np.partition(row, -2)[-2:])
+                    cands = np.array([top1_scores[local_index], top2_scores[local_index], p_sorted[1], p_sorted[0]], dtype=np.float64)
+                    top_two = np.sort(cands)[-2:]
+                    top1_scores[local_index] = top_two[1]
+                    top2_scores[local_index] = top_two[0]
+                elif len(row) == 1:
+                    cands = np.array([top1_scores[local_index], top2_scores[local_index], row[0]], dtype=np.float64)
+                    top_two = np.sort(cands)[-2:]
+                    top1_scores[local_index] = top_two[1]
+                    top2_scores[local_index] = top_two[0]
                 for positive_offset, (positive_index, positive_score) in enumerate(
                     zip(indexes, expected_scores, strict=True)
                 ):
@@ -288,6 +313,9 @@ def evaluate_tinyface_identification(
                 + equal_earlier_counts[local_index]
             )
             first_rank = int(np.min(ranks))
+            t1 = float(top1_scores[local_index])
+            t2 = float(top2_scores[local_index])
+            margin = float(t1 - t2) if np.isfinite(t1) and np.isfinite(t2) else 0.0
             record: dict[str, Any] = {
                 "query_index": global_index,
                 "query_image_id": str(image_ids[global_index]),
@@ -295,7 +323,16 @@ def evaluate_tinyface_identification(
                 "relevant_gallery_count": int(len(indexes)),
                 "first_positive_rank": first_rank,
                 "average_precision": _average_precision_from_positive_ranks(ranks),
+                "top1_score": t1,
+                "top2_score": t2,
+                "score_margin": margin,
             }
+            if query_fiqa_scores is not None:
+                img_key = str(image_ids[global_index])
+                if isinstance(query_fiqa_scores, Mapping):
+                    record["fiqa_score"] = float(query_fiqa_scores.get(img_key, np.nan))
+                else:
+                    record["fiqa_score"] = float(query_fiqa_scores[global_index])
             for rank in TINYFACE_RANKS:
                 record[f"rank_{rank}_success"] = bool(first_rank <= rank)
             records.append(record)
@@ -311,6 +348,7 @@ def evaluate_tinyface_identification(
         "gallery_count": int(len(gallery)),
         "match_gallery_count": int(sum(len(value) for value in gallery_by_identity.values()) - sum(str(identity).startswith("tinyface:distractor:") for identity in gallery_ids)),
         "mean_average_precision": float(per_query["average_precision"].mean()),
+        "mean_score_margin": float(per_query["score_margin"].mean()),
         "search_latency_ms_total": float(elapsed * 1_000.0),
         "search_latency_ms_per_query": float(elapsed * 1_000.0 / total),
         "search_queries_per_second": float(total / elapsed if elapsed > 0 else np.inf),
@@ -446,3 +484,296 @@ def load_tinyface_completed_evaluation(run_dir: str | Path) -> TinyFaceCompleted
         condition_summary=condition_summary,
         per_query=per_query,
     )
+
+
+# =========================================================================
+# EXTENSION MODULE: Optional Exploratory Fallback Analysis
+# =========================================================================
+# NOTE: The dataclass and functions below provide an optional exploratory fallback
+# analysis, separated from the core TinyFace 1:N ranking evaluation protocol
+# (Rank-1/5/10/20 & mAP). They are NOT part of the primary benchmark pipeline or
+# mandatory workflow. The core TinyFace evaluation remains purely evaluate_tinyface_identification.
+# Query-dependent thresholds or fallback routines do not alter official 1:N rank metrics.
+
+
+@dataclass(frozen=True)
+class TinyFaceFallbackResult:
+    """Optional extension: TinyFace 1:N closed-set exact fallback rejection evaluation result."""
+
+    per_query: pd.DataFrame
+    summary: dict[str, Any]
+
+
+def simulate_tinyface_fallback_rejection(
+    origin_result: TinyFaceIdentificationResult | pd.DataFrame,
+    compressed_result: TinyFaceIdentificationResult | pd.DataFrame,
+    *,
+    fiqa_scores: Mapping[str, float] | pd.Series | None = None,
+    score_margins: Mapping[str, float] | pd.Series | None = None,
+    fiqa_threshold: float | None = None,
+    margin_threshold: float | None = None,
+    fallback_budget_fraction: float | None = None,
+    fallback_mask: Sequence[bool] | np.ndarray | pd.Series | None = None,
+) -> TinyFaceFallbackResult:
+    """Optional extension: simulate exact 512D fallback retrieval from compressed PQ ADC results.
+
+    Separated from the core TinyFace 1:N ranking evaluation protocol.
+    Uncertainty can be conditioned on query FIQA quality, retrieval score margin (top1 - top2),
+    explicit thresholds, fallback budget fraction, or an explicit fallback mask.
+    Computes resulting closed-set metrics (Rank-1, 5, 10, 20, mAP), fallback rate,
+    recovery rate (복원율), and precision.
+    """
+    origin_df = (
+        origin_result.per_query.copy()
+        if isinstance(origin_result, TinyFaceIdentificationResult)
+        else origin_result.copy()
+    )
+    compressed_df = (
+        compressed_result.per_query.copy()
+        if isinstance(compressed_result, TinyFaceIdentificationResult)
+        else compressed_result.copy()
+    )
+
+    if origin_df.empty or compressed_df.empty:
+        raise ValueError("origin and compressed results must not be empty")
+
+    key = "query_image_id"
+    required = {key, "average_precision", *(f"rank_{rank}_success" for rank in TINYFACE_RANKS)}
+    for name, frame in (("origin", origin_df), ("compressed", compressed_df)):
+        missing = sorted(required - set(frame.columns))
+        if missing or frame[key].duplicated().any():
+            raise ValueError(f"{name} TinyFace rows are invalid: missing={missing}")
+
+    merged = pd.merge(
+        origin_df,
+        compressed_df,
+        on=key,
+        suffixes=("_origin", "_compressed"),
+        validate="one_to_one",
+    )
+    if len(merged) != len(compressed_df) or len(merged) != len(origin_df):
+        raise ValueError("origin and compressed queries must match one-to-one")
+
+    n = len(merged)
+
+    # Resolve FIQA scores
+    if fiqa_scores is not None:
+        if isinstance(fiqa_scores, (pd.Series, Mapping)):
+            fiqa = merged[key].astype(str).map(fiqa_scores).to_numpy(dtype=np.float64)
+        else:
+            fiqa = np.asarray(fiqa_scores, dtype=np.float64)
+            if len(fiqa) != n:
+                raise ValueError(f"fiqa_scores length ({len(fiqa)}) does not match query count ({n})")
+        if not np.isfinite(fiqa).all():
+            raise ValueError("FIQA scores contain missing or non-finite values")
+    elif "fiqa_score_compressed" in merged.columns:
+        fiqa = merged["fiqa_score_compressed"].to_numpy(dtype=np.float64)
+    elif "fiqa_score" in compressed_df.columns:
+        fiqa = merged["fiqa_score"].to_numpy(dtype=np.float64)
+    else:
+        fiqa = None
+
+    # Resolve score margins
+    if score_margins is not None:
+        if isinstance(score_margins, (pd.Series, Mapping)):
+            margins = merged[key].astype(str).map(score_margins).to_numpy(dtype=np.float64)
+        else:
+            margins = np.asarray(score_margins, dtype=np.float64)
+            if len(margins) != n:
+                raise ValueError(f"score_margins length ({len(margins)}) does not match query count ({n})")
+        if not np.isfinite(margins).all():
+            raise ValueError("score margins contain missing or non-finite values")
+    elif "score_margin_compressed" in merged.columns:
+        margins = merged["score_margin_compressed"].to_numpy(dtype=np.float64)
+    elif "score_margin" in compressed_df.columns:
+        margins = merged["score_margin"].to_numpy(dtype=np.float64)
+    else:
+        margins = None
+
+    # Determine fallback mask
+    if fallback_mask is not None:
+        mask = np.asarray(fallback_mask, dtype=bool)
+        if len(mask) != n:
+            raise ValueError(f"fallback_mask length ({len(mask)}) does not match query count ({n})")
+        should_fallback = mask
+    elif fallback_budget_fraction is not None:
+        budget = float(fallback_budget_fraction)
+        if not (0.0 <= budget <= 1.0):
+            raise ValueError("fallback_budget_fraction must be in [0.0, 1.0]")
+        k_fallback = int(np.ceil(budget * n))
+        if k_fallback == 0:
+            should_fallback = np.zeros(n, dtype=bool)
+        elif k_fallback >= n:
+            should_fallback = np.ones(n, dtype=bool)
+        else:
+            if margins is None and fiqa is None:
+                raise ValueError("cannot compute fallback budget without fiqa_scores or score_margins")
+            uncert = np.zeros(n, dtype=np.float64)
+            if margins is not None:
+                if not np.isfinite(margins).all():
+                    raise ValueError("score margins contain non-finite values")
+                m_scale = np.std(margins)
+                m_scale = m_scale if m_scale > 1e-8 else 1.0
+                uncert -= (margins - np.mean(margins)) / m_scale
+            if fiqa is not None:
+                if not np.isfinite(fiqa).all():
+                    raise ValueError("FIQA scores contain non-finite values")
+                q_scale = np.std(fiqa)
+                q_scale = q_scale if q_scale > 1e-8 else 1.0
+                uncert -= (fiqa - np.mean(fiqa)) / q_scale
+            order = np.argsort(-uncert, kind="stable")
+            should_fallback = np.zeros(n, dtype=bool)
+            should_fallback[order[:k_fallback]] = True
+    elif fiqa_threshold is not None or margin_threshold is not None:
+        mask = np.zeros(n, dtype=bool)
+        if fiqa_threshold is not None:
+            if fiqa is None or not np.isfinite(fiqa).all():
+                raise ValueError("fiqa_threshold provided but FIQA scores are missing or non-finite")
+            mask |= (fiqa < float(fiqa_threshold))
+        if margin_threshold is not None:
+            if margins is None or not np.isfinite(margins).all():
+                raise ValueError("margin_threshold provided but score margins are missing or non-finite")
+            mask |= (margins < float(margin_threshold))
+        should_fallback = mask
+    else:
+        should_fallback = np.zeros(n, dtype=bool)
+
+    # Outcomes
+    comp_rank = (
+        merged["first_positive_rank_compressed"].to_numpy(dtype=np.int64)
+        if "first_positive_rank_compressed" in merged.columns
+        else merged["first_positive_rank"].to_numpy(dtype=np.int64)
+        if "first_positive_rank" in merged.columns
+        else np.ones(n, dtype=np.int64)
+    )
+    orig_rank = (
+        merged["first_positive_rank_origin"].to_numpy(dtype=np.int64)
+        if "first_positive_rank_origin" in merged.columns
+        else merged["first_positive_rank"].to_numpy(dtype=np.int64)
+        if "first_positive_rank" in merged.columns
+        else np.ones(n, dtype=np.int64)
+    )
+    comp_ap = merged["average_precision_compressed"].to_numpy(dtype=np.float64)
+    orig_ap = merged["average_precision_origin"].to_numpy(dtype=np.float64)
+
+    effective_rank = np.where(should_fallback, orig_rank, comp_rank)
+    effective_ap = np.where(should_fallback, orig_ap, comp_ap)
+
+    per_query_data: dict[str, Any] = {
+        "query_image_id": merged[key],
+        "is_fallback": should_fallback,
+        "compressed_first_positive_rank": comp_rank,
+        "origin_first_positive_rank": orig_rank,
+        "effective_first_positive_rank": effective_rank,
+        "compressed_average_precision": comp_ap,
+        "origin_average_precision": orig_ap,
+        "effective_average_precision": effective_ap,
+    }
+    if fiqa is not None:
+        per_query_data["fiqa_score"] = fiqa
+    if margins is not None:
+        per_query_data["score_margin"] = margins
+
+    for r in TINYFACE_RANKS:
+        comp_succ = merged[f"rank_{r}_success_compressed"].to_numpy(dtype=bool)
+        orig_succ = merged[f"rank_{r}_success_origin"].to_numpy(dtype=bool)
+        eff_succ = np.where(should_fallback, orig_succ, comp_succ)
+        per_query_data[f"compressed_rank_{r}_success"] = comp_succ
+        per_query_data[f"origin_rank_{r}_success"] = orig_succ
+        per_query_data[f"effective_rank_{r}_success"] = eff_succ
+
+    per_query_df = pd.DataFrame(per_query_data)
+
+    fallback_count = int(np.sum(should_fallback))
+    fallback_rate = float(fallback_count / n)
+
+    comp_r1 = per_query_df["compressed_rank_1_success"].to_numpy()
+    orig_r1 = per_query_df["origin_rank_1_success"].to_numpy()
+    eff_r1 = per_query_df["effective_rank_1_success"].to_numpy()
+
+    pq_r1_failures = ~comp_r1
+    pq_r1_failure_count = int(np.sum(pq_r1_failures))
+    fell_back_and_failed_on_pq = should_fallback & pq_r1_failures
+    recovered_r1_count = int(np.sum(fell_back_and_failed_on_pq & orig_r1))
+    recovery_rate = (
+        float(recovered_r1_count / pq_r1_failure_count)
+        if pq_r1_failure_count > 0
+        else 0.0
+    )
+    fallback_precision = (
+        float(recovered_r1_count / fallback_count)
+        if fallback_count > 0
+        else 0.0
+    )
+    unnecessary_fallback_count = int(np.sum(should_fallback & comp_r1))
+    regressed_r1_count = int(np.sum(should_fallback & comp_r1 & ~orig_r1))
+
+    summary: dict[str, Any] = {
+        "protocol": "tinyface_exact_fallback_rejection_v1",
+        "query_count": n,
+        "fallback_query_count": fallback_count,
+        "fallback_rate": fallback_rate,
+        "pq_rank_1_failure_count": pq_r1_failure_count,
+        "recovered_rank_1_count": recovered_r1_count,
+        "recovery_rate": recovery_rate,
+        "fallback_precision": fallback_precision,
+        "unnecessary_fallback_count": unnecessary_fallback_count,
+        "regressed_rank_1_count": regressed_r1_count,
+        "effective_mean_average_precision": float(np.mean(effective_ap)),
+        "compressed_mean_average_precision": float(np.mean(comp_ap)),
+        "origin_mean_average_precision": float(np.mean(orig_ap)),
+        "delta_map": float(np.mean(effective_ap) - np.mean(comp_ap)),
+    }
+
+    for r in TINYFACE_RANKS:
+        eff_succ = per_query_df[f"effective_rank_{r}_success"].to_numpy()
+        comp_succ = per_query_df[f"compressed_rank_{r}_success"].to_numpy()
+        orig_succ = per_query_df[f"origin_rank_{r}_success"].to_numpy()
+        eff_count = int(np.sum(eff_succ))
+        low, high = wilson_score_interval(eff_count, n)
+        summary[f"effective_rank_{r}"] = float(eff_count / n)
+        summary[f"compressed_rank_{r}"] = float(np.sum(comp_succ) / n)
+        summary[f"origin_rank_{r}"] = float(np.sum(orig_succ) / n)
+        summary[f"delta_rank_{r}"] = float((eff_count - np.sum(comp_succ)) / n)
+        summary[f"effective_rank_{r}_wilson95_low"] = low
+        summary[f"effective_rank_{r}_wilson95_high"] = high
+
+    return TinyFaceFallbackResult(per_query=per_query_df, summary=summary)
+
+
+def simulate_tinyface_fallback_sweep(
+    origin_result: TinyFaceIdentificationResult | pd.DataFrame,
+    compressed_result: TinyFaceIdentificationResult | pd.DataFrame,
+    *,
+    budgets: Sequence[float] = (0.0, 0.05, 0.10, 0.20, 0.30, 0.50, 1.0),
+    fiqa_scores: Mapping[str, float] | pd.Series | None = None,
+    score_margins: Mapping[str, float] | pd.Series | None = None,
+) -> pd.DataFrame:
+    """Sweep fallback budget fractions and evaluate resulting TinyFace metrics."""
+    rows: list[dict[str, Any]] = []
+    for budget in budgets:
+        res = simulate_tinyface_fallback_rejection(
+            origin_result,
+            compressed_result,
+            fiqa_scores=fiqa_scores,
+            score_margins=score_margins,
+            fallback_budget_fraction=float(budget),
+        )
+        row = {
+            "fallback_budget": float(budget),
+            "fallback_rate": res.summary["fallback_rate"],
+            "fallback_query_count": res.summary["fallback_query_count"],
+            "recovered_rank_1_count": res.summary["recovered_rank_1_count"],
+            "recovery_rate": res.summary["recovery_rate"],
+            "fallback_precision": res.summary["fallback_precision"],
+            "unnecessary_fallback_count": res.summary["unnecessary_fallback_count"],
+            "regressed_rank_1_count": res.summary["regressed_rank_1_count"],
+            "effective_mean_average_precision": res.summary["effective_mean_average_precision"],
+            "delta_map": res.summary["delta_map"],
+        }
+        for r in TINYFACE_RANKS:
+            row[f"effective_rank_{r}"] = res.summary[f"effective_rank_{r}"]
+            row[f"delta_rank_{r}"] = res.summary[f"delta_rank_{r}"]
+        rows.append(row)
+    return pd.DataFrame(rows)
+

@@ -214,3 +214,60 @@ def test_official_loader_rejects_partial_state_dict(tmp_path):
 
     with pytest.raises(CheckpointCompatibilityError, match="not an exact match"):
         load_arcface_checkpoint(spec)
+
+
+def test_official_arcface_loader_strips_classifier_head_with_select_prefixes(tmp_path):
+    source = build_arcface_backbone("iresnet18")
+    state_dict = source.state_dict()
+    payload = {
+        "state_dict": {
+            **{f"backbone.{key}": value for key, value in state_dict.items()},
+            "fc.weight": torch.ones(10, 512),
+            "header.weight": torch.ones(10, 512),
+        }
+    }
+    checkpoint = tmp_path / "arcface_with_head.pt"
+    torch.save(payload, checkpoint)
+    spec = _spec(
+        checkpoint,
+        family="arcface",
+        architecture="iresnet18",
+        factory="research.embeddings.pytorch.official_loaders:load_arcface_checkpoint",
+        target_layer="layer4.1.conv2",
+        model_color_order="rgb",
+        mean=(127.5, 127.5, 127.5),
+        std=(127.5, 127.5, 127.5),
+    )
+
+    restored = load_arcface_checkpoint(spec)
+    for key, expected in state_dict.items():
+        assert torch.equal(restored.state_dict()[key], expected)
+
+
+def test_official_arcface_loader_strips_dataparallel_classifier_head(tmp_path):
+    source = build_arcface_backbone("iresnet18")
+    state_dict = source.state_dict()
+    payload = {
+        "state_dict": {
+            **{f"module.backbone.{key}": value for key, value in state_dict.items()},
+            "module.fc.weight": torch.ones(10, 512),
+        }
+    }
+    checkpoint = tmp_path / "arcface_dp_with_head.pt"
+    torch.save(payload, checkpoint)
+    spec = _spec(
+        checkpoint,
+        family="arcface",
+        architecture="iresnet18",
+        factory="research.embeddings.pytorch.official_loaders:load_arcface_checkpoint",
+        target_layer="layer4.1.conv2",
+        model_color_order="rgb",
+        mean=(127.5, 127.5, 127.5),
+        std=(127.5, 127.5, 127.5),
+    )
+
+    restored = load_arcface_checkpoint(spec)
+    for key, expected in state_dict.items():
+        assert torch.equal(restored.state_dict()[key], expected)
+
+

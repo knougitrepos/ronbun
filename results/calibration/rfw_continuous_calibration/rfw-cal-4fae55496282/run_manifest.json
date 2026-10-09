@@ -1,0 +1,77 @@
+{
+  "run_id": "rfw-cal-4fae55496282",
+  "status": "completed",
+  "dataset": "rfw",
+  "real_data": true,
+  "synthetic": false,
+  "quick_smoke": true,
+  "device_name": "NVIDIA GeForce GTX 1080 Ti",
+  "model_alias": "arcface",
+  "model_uid": "arcface-7972a704552df378345f",
+  "checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+  "archive_sha256": "8259e53ab1b542a9747335f34b2ae48e22a675bce472e391d6b94bc900fde572",
+  "config_sha256": "2759cce4baa0941c9854c727dc6cb4ba5da04122b7ea5a22be9433444e7b5c9c",
+  "keep_raw_results": true,
+  "raw_results_preserved": true,
+  "raw_artifacts": {
+    "raw_pair_evaluations.csv.gz": {
+      "sha256": "78ac31b5eb76cd3672968f7972bb0093675e0bc9985c4baaefe8683240d0cb8e",
+      "row_count": 57600,
+      "format": "csv.gz"
+    },
+    "fitted_calibration_models.pkl": {
+      "sha256": "293e78805508276dfd740a18470afe16087457395b46d64d51ed8b1c2ea3272b",
+      "model_count": 96,
+      "format": "pickle"
+    }
+  },
+  "seed": 8972,
+  "quality_source": "cr_fiqa",
+  "quality_meta": {
+    "quality_source": "cr_fiqa",
+    "cr_fiqa_variant": "L",
+    "cr_fiqa_model_uid": "cr-fiqa-l-5fca24736e4f8df5fbfc",
+    "cr_fiqa_checkpoint_sha256": "5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd",
+    "cr_fiqa_expected_sha256": "5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd"
+  },
+  "development_meta": {
+    "development_dataset_id": "lfw-disjoint-non-test",
+    "development_source_dir": "results\\lfw_deepfunneled_resize_v1\\sources\\arcface-7972a704552df378345f",
+    "development_sample_count": 1549,
+    "source_model_uid": "arcface-7972a704552df378345f",
+    "source_checkpoint_sha256": "a566a62357f0c55b679d9ff2f022a294486568be0c00665d39029d0e46a8109b",
+    "source_status": "completed",
+    "source_manifest_sha256": "7894edf9f5322e0ca9a6b460a97662778e2ca88c9536e83437a02f1bea66a12d",
+    "population_sha256": "3b608e82d98ca523b1ff6236e5b8dace5e65eb855d4c60369c6fcad9b887e90b",
+    "embeddings_sha256": "c20895c6956fc65f5fbfcfbd573c98f244f1b4fb15c830668c59299396f7fbfe",
+    "pairs_sha256": "ea42330c62c92989f9d7c03237ed5d591365e89b3e649747777b70e692dc1592",
+    "identity_overlap_verified": false,
+    "identity_overlap_note": "LFW View-2 non-test development split guarantees disjointness from LFW test pairs, but cross-dataset identity overlap against RFW evaluation subjects has not been formally verified."
+  },
+  "profiles": [
+    "origin",
+    "pq_512_m128_b8",
+    "pq_512_m64_b8",
+    "pq_512_m32_b8"
+  ],
+  "methods": [
+    "global_safe",
+    "fiqa_5bin",
+    "continuous_fiqa"
+  ],
+  "target_fmrs": [
+    0.001,
+    0.01,
+    0.05,
+    0.1
+  ],
+  "quality_mode": "symmetric_min",
+  "total_pairs": 1200,
+  "formal_fmr_guarantee": false,
+  "fairness_guarantee": false,
+  "identity_overlap_verified": false,
+  "identity_overlap_note": "LFW View-2 non-test development split guarantees disjointness from LFW test pairs, but cross-dataset identity overlap against RFW evaluation subjects has not been formally verified.",
+  "fold_metrics_sha256": "2ac9761fbd1dd7bed7dec4eb0adeca5d69f35c07a50e7fbd83e053da5d056e6f",
+  "group_summary_sha256": "3f4336231e57526848e53a8f749567a82cbff1f4a85a3162d2d31b96378e364f",
+  "comparison_table_sha256": "b07c4374177c2a87cfec99851b0803e1fec7f54bf57dc6cee7ae517b2dfade6e"
+}

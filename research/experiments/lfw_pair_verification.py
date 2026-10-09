@@ -57,8 +57,10 @@ def validate_selection(config, *, models=None, fold_ids=None, partition_seeds=No
     settings = settings_from_config(config)
     for model in selected:
         entry = config["inputs"]["models"][model]
-        if "parent_baseline" in entry and entry["parent_baseline"] not in selected:
-            raise ValueError("retain the parent baseline when evaluating a checkpoint comparison")
+        parent = entry.get("parent_baseline")
+        if parent and parent not in ("none", "external") and not entry.get("initialization_provenance"):
+            if parent not in selected:
+                raise ValueError("retain the parent baseline when evaluating a checkpoint comparison")
     return selected, folds, seeds, settings
 
 
