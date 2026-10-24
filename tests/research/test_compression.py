@@ -99,8 +99,8 @@ def test_original_and_pca_profiles_record_searchability_and_reconstruction_error
     original = original_profile(vectors)
     pca = fit_pca_profile(vectors, n_components=2, random_state=0)
 
-    assert original.profile_name == "origin_512"
-    assert original.pgvector_searchable is True
+    assert original.profile_name == "origin_3"
+    assert original.pgvector_searchable is False
     assert pca.profile_name == "pca_2"
     # Generic PCA remains a dense pgvector-compatible result.
     assert pca.pgvector_searchable is True

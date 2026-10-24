@@ -584,8 +584,18 @@ def run_cross_dataset_report_notebook(
         rfw_evaluation_dir=rfw_evaluation_dir,
         cross_model_run_matrix=cross_model_run_matrix,
     )
-    notebook_path = root / "notebooks/common/reports/00_cross_dataset_results.ipynb"
+    notebook_path = root / "notebooks/legacy/pipeline/04_results.ipynb"
     notebook = nbformat.read(notebook_path, as_version=4)
+    # This caller supplies 1:N run selectors. Select that retained route in the
+    # in-memory copy; the saved notebook keeps its interactive defaults.
+    route_assignment = 'LFW_PROTOCOL_MODE = "pair_verification_report"'
+    route_cells = [cell for cell in notebook.cells
+                   if cell.cell_type == "code" and route_assignment in cell.source]
+    if len(route_cells) != 1:
+        raise ValueError("legacy report protocol selector is missing or ambiguous")
+    route_cells[0].source = route_cells[0].source.replace(
+        route_assignment, 'LFW_PROTOCOL_MODE = "legacy"', 1
+    )
     notebook.cells.insert(
         0,
         nbformat.v4.new_code_cell(

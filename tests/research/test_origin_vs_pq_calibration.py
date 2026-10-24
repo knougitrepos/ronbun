@@ -212,7 +212,7 @@ def test_campaign_resume_and_output_tampering(tmp_path, monkeypatch):
 
 
 def test_notebook_is_thin_valid_and_execution_is_bounded():
-    path = Path(__file__).parents[2] / "notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb"
+    path = Path(__file__).parents[2] / "notebooks/legacy/pipeline/03_calibration.ipynb"
     nb = nbformat.read(path, as_version=4)
     nbformat.validate(nb)
     code = [cell.source for cell in nb.cells if cell.cell_type == "code"]

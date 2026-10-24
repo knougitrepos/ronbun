@@ -1,6 +1,9 @@
 # Standard LFW View-2 pairs; extra compression/calibration adaptation, not UCFace reproduction.
 pairs_file: data/external/lfw/pairs.txt
 image_manifest: data/interim/lfw/face_manifest.csv
+people_file: data/raw/LFW/people.csv
+pq_training_policy: outer_fold_unused_identities
+embedding_dim: 512
 fold_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 partition_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 8972]
 codec_seed: 8972

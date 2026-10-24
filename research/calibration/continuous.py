@@ -9,7 +9,7 @@ from threadpoolctl import threadpool_limits
 
 from research.calibration.conditional import (
     _validated_rows, deterministic_calibration_partition,
-    apply_threshold_model,
+    apply_threshold_model, explicit_calibration_partition,
 )
 from research.calibration.rejection import choose_non_mated_fpir_threshold
 from research.runtime.hashing import canonical_sha256
@@ -119,6 +119,7 @@ def fit_continuous_threshold(
     partition_seed=8972, safety_fraction=.3, knot_quantiles=(1/3, 2/3),
     smoothing=.01, ridge=.001, max_iterations=2000, margin_slope_cap=.95,
     score_space="negative_squared_l2_adc", method="continuous_fiqa",
+    partition_labels=None,
 ):
     """Smooth pinball regression + one-sided held-out residual quantile guard.
 
@@ -147,8 +148,9 @@ def fit_continuous_threshold(
     rows = _validated_rows(calibration, score_column="score", quality_column="fiqa_score")
     if not np.isfinite(rows[list(features)].to_numpy(dtype=float)).all():
         raise ValueError("continuous features must be finite")
-    partition = deterministic_calibration_partition(
+    partition = (deterministic_calibration_partition(
         rows, safety_fraction=safety_fraction, seed=partition_seed, partition_column="identity_id")
+        if partition_labels is None else explicit_calibration_partition(rows, partition_labels))
     fit = rows.loc[partition.eq("fit") & ~rows.is_mated]
     safety = rows.loc[partition.eq("safety") & ~rows.is_mated]
     if len(fit) < 20 or len(safety) < 20:
@@ -169,6 +171,9 @@ def fit_continuous_threshold(
         "fit_objective": "smoothed_pinball_plus_ridge", "fit_features_source": "fit_non_mated_only",
         "safety_rule": "max(0,heldout_non_mated_residual_quantile)",
         "formal_fpir_guarantee": False, "threshold_fit_on_test": False,
+        **({"partition_method": "explicit_manifest_labels", "assignment_sha256": canonical_sha256(
+            rows[["sample_id", "identity_id"]].assign(role=partition.to_numpy()).to_dict("records"))}
+           if partition_labels is not None else {}),
     })
 
 

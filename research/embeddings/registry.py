@@ -12,6 +12,7 @@ from research.embeddings.pytorch.adapter import (
 from research.embeddings.pytorch.models import (
     AdaFacePyTorchAdapter,
     ArcFacePyTorchAdapter,
+    CosFacePyTorchAdapter,
     EdgeFacePyTorchAdapter,
     MagFacePyTorchAdapter,
 )
@@ -22,6 +23,7 @@ _ADAPTER_TYPES: dict[FRModelFamily, type[PyTorchFaceEmbeddingAdapter]] = {
     "arcface": ArcFacePyTorchAdapter,
     "adaface": AdaFacePyTorchAdapter,
     "magface": MagFacePyTorchAdapter,
+    "cosface": CosFacePyTorchAdapter,
     "edgeface": EdgeFacePyTorchAdapter,
 }
 _MODULE_FACTORIES: dict[FRModelFamily, ModuleFactory] = {}

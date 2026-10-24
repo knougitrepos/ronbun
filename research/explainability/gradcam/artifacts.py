@@ -295,6 +295,11 @@ def read_prepared_population_artifact(
     if expected_start != int(manifest["row_count"]):
         raise ValueError("embedding shard rows do not match manifest row_count")
     combined = {name: np.concatenate(values, axis=0) for name, values in parts.items()}
+    dimension = _positive_integer(manifest["embedding_dimension"], name="embedding_dimension")
+    expected_shape = (int(manifest["row_count"]), dimension)
+    for name in ("raw_embedding", "normalized_embedding", "loo_template"):
+        if name not in combined or combined[name].shape != expected_shape:
+            raise ValueError(f"{name} shape does not match manifest embedding_dimension")
     if len(sample_index) != int(manifest["row_count"]):
         raise ValueError("sample index row count does not match manifest")
     if "sample_id" not in sample_index:

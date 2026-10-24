@@ -12,7 +12,7 @@ import pandas as pd
 from PIL import Image
 
 from research.compression.profiles import (
-    ORIGIN_512,
+    origin_profile_name,
     PCACompressor,
     PQCompressor,
     pq_profile_name,
@@ -63,6 +63,7 @@ def tinyface_condition_keys(
     pca_dimensions: tuple[int, ...],
     pq_settings: tuple[Mapping[str, int], ...],
     pq_sdc_settings: tuple[tuple[int, int], ...],
+    source_dim: int = 512,
 ) -> tuple[tuple[str, str], ...]:
     """Return the exact profile/search-mode contract for a TinyFace run."""
 
@@ -72,10 +73,10 @@ def tinyface_condition_keys(
     normalized_sdc = validate_pq_sdc_settings(
         normalized_pq,
         pq_sdc_settings,
-        source_dim=512,
+        source_dim=source_dim,
     )
     selected_sdc = set(normalized_sdc)
-    keys: list[tuple[str, str]] = [(ORIGIN_512, "origin_cosine")]
+    keys: list[tuple[str, str]] = [(origin_profile_name(source_dim), "origin_cosine")]
     for dimension in pca_dimensions:
         profile = f"pca_{int(dimension)}"
         keys.extend(
@@ -85,7 +86,7 @@ def tinyface_condition_keys(
             )
         )
     for m, nbits in normalized_pq:
-        profile = pq_profile_name(m, nbits)
+        profile = pq_profile_name(m, nbits, source_dim=source_dim)
         keys.extend(
             (
                 (profile, "pq_reconstruction_cosine"),
@@ -124,6 +125,7 @@ class TinyFaceExperimentPlan:
     selected_role_counts: dict[str, int]
     paper_eligible: bool
     plan_id: str
+    embedding_dimension: int = 512
 
     @property
     def dataset_id(self) -> str:
@@ -134,6 +136,7 @@ class TinyFaceExperimentPlan:
             pca_dimensions=self.pca_dimensions,
             pq_settings=self.pq_settings,
             pq_sdc_settings=self.pq_sdc_settings,
+            source_dim=self.embedding_dimension,
         )
         return {
             "pipeline_id": "tinyface_official_compression_pipeline_v1",
@@ -149,6 +152,7 @@ class TinyFaceExperimentPlan:
             "model_name": self.model_name,
             "model_profile": self.model_profile,
             "model_uid": self.model_uid,
+            "embedding_dimension": self.embedding_dimension,
             "model_spec_path": str(self.model_spec_path),
             "preprocessing_mode": "official_face_crop_resize",
             "device": self.device,
@@ -266,25 +270,26 @@ def build_tinyface_experiment_plan(
         )
     dimensions = tuple(int(value) for value in pca_dimensions)
     if len(set(dimensions)) != len(dimensions) or any(
-        value < 1 or value > 512 for value in dimensions
+        value < 1 or value > spec.embedding_dim for value in dimensions
     ):
-        raise ValueError("TinyFace PCA dimensions must be unique values in [1, 512]")
+        raise ValueError(f"TinyFace PCA dimensions must be unique values in [1, {spec.embedding_dim}]")
     normalized_pq = tuple(
         {"m": int(value["m"]), "nbits": int(value["nbits"])}
         for value in pq_settings
     )
     for setting in normalized_pq:
-        if 512 % setting["m"] != 0 or setting["nbits"] < 1:
+        if setting["m"] < 1 or spec.embedding_dim % setting["m"] != 0 or setting["nbits"] < 1:
             raise ValueError(f"invalid TinyFace PQ setting: {setting}")
     normalized_pq_sdc = validate_pq_sdc_settings(
         ((value["m"], value["nbits"]) for value in normalized_pq),
         pq_sdc_settings,
-        source_dim=512,
+        source_dim=spec.embedding_dim,
     )
     tinyface_condition_keys(
         pca_dimensions=dimensions,
         pq_settings=normalized_pq,
         pq_sdc_settings=normalized_pq_sdc,
+        source_dim=spec.embedding_dim,
     )
     plan_payload = {
         "dataset": TINYFACE_DATASET_ID,
@@ -294,6 +299,7 @@ def build_tinyface_experiment_plan(
         "fraction": fraction,
         "seed": int(seed),
         "model_uid": spec.model_uid,
+        "embedding_dimension": spec.embedding_dim,
         "model_profile": str(model_profile),
         "device": str(device),
         "selected_role_counts": selected_counts,
@@ -324,6 +330,7 @@ def build_tinyface_experiment_plan(
         selected_role_counts=selected_counts,
         paper_eligible=(tier == "full" and fraction == 1.0),
         plan_id=canonical_sha256(plan_payload),
+        embedding_dimension=spec.embedding_dim,
     )
 
 
@@ -339,7 +346,10 @@ def inspect_tinyface_experiment_plan(plan: TinyFaceExperimentPlan) -> dict[str, 
         checks["protocol_error"] = f"{type(exc).__name__}: {exc}"
     try:
         spec = read_model_spec(plan.model_spec_path, verify_checkpoint=True)
-        checks["model_spec_verified"] = spec.model_uid == plan.model_uid
+        checks["model_spec_verified"] = (
+            spec.model_uid == plan.model_uid
+            and spec.embedding_dim == plan.embedding_dimension
+        )
     except Exception as exc:
         checks["model_spec_verified"] = False
         checks["model_error"] = f"{type(exc).__name__}: {exc}"
@@ -389,7 +399,11 @@ def _atomic_json(path: Path, payload: Any) -> None:
     os.replace(temporary, path)
 
 
-def _resize_batch(paths: list[Path], *, height: int, width: int) -> np.ndarray:
+def _resize_batch(
+    paths: list[Path], *, height: int, width: int, source_color_order: str = "rgb"
+) -> np.ndarray:
+    if source_color_order not in {"rgb", "bgr"}:
+        raise ValueError("TinyFace source_color_order must be rgb or bgr")
     faces = np.empty((len(paths), height, width, 3), dtype=np.uint8)
     for index, path in enumerate(paths):
         with Image.open(path) as image:
@@ -397,7 +411,7 @@ def _resize_batch(paths: list[Path], *, height: int, width: int) -> np.ndarray:
                 image.convert("RGB").resize((width, height), resample=Image.Resampling.BILINEAR),
                 dtype=np.uint8,
             )
-    return faces
+    return faces if source_color_order == "rgb" else faces[..., ::-1].copy()
 
 
 def _extract_embeddings(
@@ -416,6 +430,7 @@ def _extract_embeddings(
             manifest.get("model_uid") != plan.model_uid
             or manifest.get("plan_id") != plan.plan_id
             or manifest.get("row_count") != len(selected)
+            or manifest.get("embedding_dimension") != plan.embedding_dimension
             or sha256_file(embeddings_path) != manifest.get("embedding_sha256")
             or sha256_file(rows_path) != manifest.get("rows_sha256")
         ):
@@ -428,10 +443,15 @@ def _extract_embeddings(
         current_hashes = [sha256_file(Path(value)) for value in selected["image_path"]]
         if current_hashes != rows["source_image_sha256"].astype(str).tolist():
             raise ValueError("TinyFace source images changed after embedding extraction")
-        return np.load(embeddings_path, mmap_mode="r"), rows
+        embeddings = np.load(embeddings_path, mmap_mode="r", allow_pickle=False)
+        if embeddings.shape != (len(selected), plan.embedding_dimension):
+            raise ValueError("TinyFace cached embeddings differ from the planned embedding_dimension")
+        return embeddings, rows
 
     artifact_root.mkdir(parents=True, exist_ok=True)
     spec = read_model_spec(plan.model_spec_path, verify_checkpoint=True)
+    if spec.model_uid != plan.model_uid or spec.embedding_dim != plan.embedding_dimension:
+        raise ValueError("TinyFace model spec changed after planning")
     adapter = create_pytorch_adapter_from_spec(spec, device=plan.device)
     temporary = embeddings_path.with_name(f".{embeddings_path.name}.{os.getpid()}.tmp")
     matrix = np.lib.format.open_memmap(
@@ -450,6 +470,7 @@ def _extract_embeddings(
             paths,
             height=spec.preprocessing.input_height,
             width=spec.preprocessing.input_width,
+            source_color_order=spec.preprocessing.source_color_order,
         )
         output = adapter.embed(faces)
         matrix[start:stop] = output.normalized_embedding
@@ -485,6 +506,7 @@ def _extract_embeddings(
             "embedding_dimension": spec.embedding_dim,
             "embedding_dtype": "float32",
             "preprocessing_mode": "official_face_crop_resize",
+            "source_color_order": spec.preprocessing.source_color_order,
             "resize_interpolation": "PIL.Image.Resampling.BILINEAR",
             "elapsed_seconds": perf_counter() - started,
             "embedding_sha256": sha256_file(embeddings_path),
@@ -720,12 +742,16 @@ def _run_compression_evaluation(
     run_id: str,
 ) -> dict[str, Any]:
     development, queries, gallery, query_ids, gallery_ids, query_image_ids = _role_arrays(embeddings, rows)
+    source_dim = plan.embedding_dimension
+    if embeddings.ndim != 2 or embeddings.shape[1] != source_dim:
+        raise ValueError("TinyFace embeddings do not match the planned embedding_dimension")
+    origin_profile = origin_profile_name(source_dim)
     summaries: list[dict[str, Any]] = []
     ledgers: list[pd.DataFrame] = []
 
     origin_condition = {
         "compression_family": "origin",
-        "compression_profile": ORIGIN_512,
+        "compression_profile": origin_profile,
         "search_mode": "origin_cosine",
         "query_representation": "origin_float32",
         "gallery_representation": "origin_float32",
@@ -769,7 +795,7 @@ def _run_compression_evaluation(
             (
                 "pca_reconstruction_cosine", query_profile.reconstructed_vectors,
                 gallery_profile.reconstructed_vectors,
-                f"pca_{dimension}_reconstruction_512", f"pca_{dimension}_reconstruction_512",
+                f"pca_{dimension}_reconstruction_{source_dim}", f"pca_{dimension}_reconstruction_{source_dim}",
             ),
         ):
             condition = {
@@ -801,12 +827,12 @@ def _run_compression_evaluation(
             source_dim=queries.shape[1],
             m=m,
             nbits=nbits,
-            source_profile=ORIGIN_512,
+            source_profile=origin_profile,
             random_state=plan.seed,
         ).fit(development)
         query_profile = compressor.transform_profile(queries)
         gallery_profile = compressor.transform_profile(gallery)
-        profile = pq_profile_name(m, nbits)
+        profile = pq_profile_name(m, nbits, source_dim=source_dim)
         common = {
             "compression_family": "pq",
             "compression_profile": profile,
@@ -820,12 +846,12 @@ def _run_compression_evaluation(
         pq_conditions = [
             (
                 "pq_reconstruction_cosine", query_profile.reconstructed_vectors,
-                gallery_profile.reconstructed_vectors, "pq_reconstruction_512",
-                "pq_reconstruction_512", "cosine", int(gallery_profile.metadata["code_bytes"]),
+                gallery_profile.reconstructed_vectors, f"pq_reconstruction_{source_dim}",
+                f"pq_reconstruction_{source_dim}", "cosine", int(gallery_profile.metadata["code_bytes"]),
             ),
             (
                 "pq_one_sided_cosine", queries, gallery_profile.reconstructed_vectors,
-                "origin_float32", "pq_reconstruction_512", "cosine", int(queries.shape[1] * 4),
+                "origin_float32", f"pq_reconstruction_{source_dim}", "cosine", int(queries.shape[1] * 4),
             ),
             (
                 "pq_adc_exhaustive", queries, gallery_profile.reconstructed_vectors,
@@ -923,6 +949,7 @@ def _run_compression_evaluation(
             pca_dimensions=plan.pca_dimensions,
             pq_settings=plan.pq_settings,
             pq_sdc_settings=plan.pq_sdc_settings,
+            source_dim=source_dim,
         )
     )
     observed_condition_keys = set(

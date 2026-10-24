@@ -186,14 +186,14 @@ def test_compact_publish_and_safe_retention(tmp_path, evaluated):
     store.put(dict(test=1), tables)
     store.close()
     report = publish(tmp_path, tables, spec=dict(keep_raw_results=False), completed_jobs=1, expected_jobs=2,
-                     raw_path=raw, guide=ROOT / "notebooks/calibration/LFW_PAIR_VERIFICATION.md")
+                     raw_path=raw, guide=ROOT / "notebooks/legacy/calibration/LFW_PAIR_VERIFICATION.md")
     compact, manifest = read_report(report)
     assert manifest["status"] == "partial"
     assert "decisions" not in compact and "models" not in compact
     with pytest.raises(ValueError):
         cleanup_checkpoint(raw, tmp_path, report)
     report = publish(tmp_path, tables, spec=dict(keep_raw_results=False), completed_jobs=2, expected_jobs=2,
-                     raw_path=raw, guide=ROOT / "notebooks/calibration/LFW_PAIR_VERIFICATION.md")
+                     raw_path=raw, guide=ROOT / "notebooks/legacy/calibration/LFW_PAIR_VERIFICATION.md")
     cleanup_checkpoint(raw, tmp_path, report)
     assert not raw.exists()
     read_report(report)
@@ -233,11 +233,34 @@ def test_campaign_resume_scope_and_retention(tmp_path, pairs, inputs, evaluated,
     assert (first["report_dir"] / "manifest.json").exists()  # previous snapshot immutable
 
 
+def test_outer_fold_prepare_cache_reuses_seeds_but_not_other_folds(tmp_path, pairs, inputs, evaluated, monkeypatch):
+    import yaml
+    from research.experiments import lfw_pair_verification as module
+    from unittest.mock import Mock
+    config = yaml.safe_load((ROOT / module.CONFIG_PATH).read_text(encoding="utf8"))
+    development = pd.DataFrame(dict(image_id=["unused_1", "unused_2"], identity_id=["u1", "u2"]))
+    plan = dict(config=config, settings=evaluated[1], models=("arcface",), folds=(1, 2), seeds=(0, 8972),
+        pairs=pairs, development=development, development_by_fold={1: development.iloc[:1], 2: development.iloc[1:]},
+        inventory=pd.DataFrame(), coverage=pd.DataFrame(), quality=inputs[1], sources={"arcface": {"fixture": True}},
+        ready=True, expected_jobs=4, development_images=2, development_identities=2,
+        protocol_uid=module.OUTER_FOLD_PROTOCOL_UID)
+    monkeypatch.setattr(module, "inspect_verification", lambda *a, **kw: plan)
+    preparation = Mock(return_value=dict(scores=inputs[0], codecs=pd.DataFrame(dict(fixture=[1]))))
+    monkeypatch.setattr(module, "prepare_model", preparation)
+    # prepare_only must prepare both folds, even though no calibration job runs.
+    kwargs = dict(execute=True, output_root=tmp_path, keep_raw_results=True, prepare_only=True)
+    first = module.run_verification(ROOT, **kwargs)
+    assert not first["completed"] and first["completed_jobs"] == 0
+    assert [call.kwargs["fold"] for call in preparation.call_args_list] == [1, 2]
+    module.run_verification(ROOT, **kwargs)
+    assert preparation.call_count == 2
+
+
 @pytest.mark.parametrize("relative", [
-    "notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb",
-    "notebooks/common/orchestration/00_batch_experiment_runner.ipynb",
-    "notebooks/common/orchestration/01_batch_fiqa_saliency_calibration.ipynb",
-    "notebooks/common/reports/00_cross_dataset_results.ipynb",
+    "notebooks/legacy/pipeline/03_calibration.ipynb",
+    "notebooks/legacy/pipeline/02_input_preflight.ipynb",
+    "notebooks/legacy/common/orchestration/01_batch_fiqa_saliency_calibration.ipynb",
+    "notebooks/legacy/pipeline/04_results.ipynb",
 ])
 def test_default_notebooks_use_pair_path_without_legacy(relative, monkeypatch):
     from research.experiments import lfw_pair_verification as pair_module
@@ -253,7 +276,7 @@ def test_default_notebooks_use_pair_path_without_legacy(relative, monkeypatch):
         if cell["cell_type"] == "code":
             exec(compile("".join(cell["source"]), relative, "exec"), ns)
     forbidden.assert_not_called()
-    if "/reports/" not in relative:
+    if Path(relative).name != "04_results.ipynb":
         called.assert_called_once()
         assert called.call_args.kwargs["execute"] is False
     assert ns["LFW_PROTOCOL_MODE"].startswith("pair_verification")

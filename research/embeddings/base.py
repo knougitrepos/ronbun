@@ -10,11 +10,12 @@ import numpy as np
 
 from research.runtime.hashing import canonical_sha256, sha256_file
 
-FRModelFamily = Literal["arcface", "adaface", "magface", "edgeface"]
+FRModelFamily = Literal["arcface", "adaface", "magface", "cosface", "edgeface"]
 SUPPORTED_FR_MODEL_FAMILIES: tuple[FRModelFamily, ...] = (
     "arcface",
     "adaface",
     "magface",
+    "cosface",
     "edgeface",
 )
 ColorOrder = Literal["rgb", "bgr"]
@@ -210,7 +211,7 @@ class ModelSpec:
     def __post_init__(self) -> None:
         if self.family not in SUPPORTED_FR_MODEL_FAMILIES:
             raise ValueError(
-                "family must be arcface, adaface, magface, or edgeface"
+                "family must be arcface, adaface, magface, cosface, or edgeface"
             )
         for value, name in (
             (self.architecture, "architecture"),
@@ -221,8 +222,8 @@ class ModelSpec:
             _require_text(value, name)
         if self.module_factory is not None:
             _require_text(self.module_factory, "module_factory")
-        if self.embedding_dim != 512:
-            raise ValueError("Step 2 FR model checkpoints must output 512D embeddings")
+        if self.embedding_dim not in (512, 1024):
+            raise ValueError("FR model checkpoints must output 512D or 1024D embeddings")
 
     @property
     def model_uid(self) -> str:
@@ -312,9 +313,9 @@ class EmbeddingOutput:
         raw = np.asarray(self.raw_embedding, dtype=np.float32)
         norm = np.asarray(self.raw_norm, dtype=np.float32)
         normalized = np.asarray(self.normalized_embedding, dtype=np.float32)
-        if raw.ndim != 2 or raw.shape[1] != 512:
+        if raw.ndim != 2 or raw.shape[1] not in (512, 1024):
             raise ValueError(
-                f"raw_embedding must have shape (N, 512), got {raw.shape}"
+                f"raw_embedding must have shape (N, 512) or (N, 1024), got {raw.shape}"
             )
         if raw.shape[0] == 0:
             raise ValueError("embedding output must contain at least one row")
@@ -330,6 +331,10 @@ class EmbeddingOutput:
             raise ValueError("raw embeddings and norms must be finite")
         if np.any(norm <= 0.0) or not np.isfinite(normalized).all():
             raise ValueError("embedding norms must be positive and normalized values finite")
+        if not np.allclose(np.linalg.norm(raw, axis=1), norm, atol=1e-5, rtol=1e-5):
+            raise ValueError("raw_norm must match the L2 norm of raw_embedding")
+        if not np.allclose(raw / norm[:, None], normalized, atol=1e-5, rtol=1e-5):
+            raise ValueError("normalized_embedding must equal raw_embedding / raw_norm")
         measured_norm = np.linalg.norm(normalized, axis=1)
         if not np.allclose(measured_norm, 1.0, atol=1e-5, rtol=1e-5):
             raise ValueError("normalized_embedding rows must have L2 norm 1")

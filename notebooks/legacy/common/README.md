@@ -1,0 +1,29 @@
+> 2026-10-21 경로 정리: 기본 실행은 [pipeline 01 → 02 → 03 → 04](C:/ronbun/notebooks/README.md)입니다. 아래의 이전 번호는 과거 설명이며 새 경로는 대표 안내를 따르세요.
+
+# 현재 LFW 기본 경로: 1:1 pair verification (2026-10-04)
+
+UCFace의 LFW 6,000쌍 검증 방향을 반영했습니다. closed-set identification/BLUFR과 구분합니다.
+LFW 준비 00의 `pair_verification`에서 목록을 준비하고, calibration 03의 동일 모드에서
+`EXECUTE=False`로 점검한 뒤 `True`로 실행합니다. 기본은 4모델×10 folds×20 seeds=800 jobs이며
+Origin+PQ 3종×3보정방법×5 FMR 목표를 유지합니다. 기존 7개 development 비율은 이 새 프로토콜에 적용하지 않습니다.
+[전용 실행·지표·보존 안내](C:/ronbun/notebooks/legacy/calibration/LFW_PAIR_VERIFICATION.md)를 따르세요.
+
+이미 완료된 전체 resize FR/FIQA를 재사용하고 PQ·pair score·보정만 새로 계산합니다.
+`KEEP_RAW_RESULTS=False`는 전체 완료/요약 검증 후 이번 캠페인의 상세 checkpoint를 정리합니다.
+부분 실행은 재개용 checkpoint를 남깁니다. 결과는 FMR/TAR이며 SurvFace 1:N TPIR/FPIR와 섞지 않습니다.
+공통 batch 00은 점검, 01은 선택적 PQ/점수 준비, report는 명시한 pair report 읽기입니다.
+기존 완료 결과와 아래 legacy/BLUFR 모드는 보존되며 명시적으로 선택할 때만 실행합니다.
+
+---
+
+## 이전 경로 안내 (보관)
+
+# 공통 실행·보고·관리
+
+- orchestration/: source run 생성/재사용, 전체 PQ 보정, PQ 결과 집계, 별도 전이 실험.
+- reports/: 여러 완료 run의 보고. 실행기가 notebook을 직접 호출하므로 경로를 유지한다.
+- maintenance/: 특정 DB/run 폐기·격리. 일반 실험 실행 순서에 포함하지 않는다.
+
+현재 실행 메뉴는 [노트북 안내](C:/ronbun/notebooks/README.md)를 따른다.
+독립 checkpoint 등록·smoke 노트북은 _archive/common/model_preparation/에 보관한다.
+일반 source 생성에서는 공통 runner가 모델 준비 함수를 호출한다.

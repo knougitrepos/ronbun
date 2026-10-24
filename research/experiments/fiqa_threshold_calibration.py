@@ -30,7 +30,7 @@ from research.calibration.conditional import (
     IDENTIFICATION_METRIC_CONTRACT,
     validate_identification_scores,
 )
-from research.compression import ORIGIN_512, PQCompressor
+from research.compression import PQCompressor, origin_profile_name, pq_profile_name
 from research.explainability.gradcam.artifacts import (
     read_prepared_population_artifact,
 )
@@ -376,7 +376,13 @@ def _frozen_pq_codec(
     ):
         raise ValueError("frozen PQ codec is missing or has a hash mismatch")
     codec = PQCompressor.load(codec_path)
-    codec.source_profile = ORIGIN_512
+    expected_profile = pq_profile_name(codec.m, codec.nbits, source_dim=codec.source_dim)
+    if compression_profile != expected_profile:
+        raise ValueError(
+            "frozen PQ codec dimensions/settings differ from its declared profile: "
+            f"expected={expected_profile}, actual={compression_profile}"
+        )
+    codec.source_profile = origin_profile_name(codec.source_dim)
     codec.fit_count = int(entry["fit_count"])
     return codec, entry, manifest
 

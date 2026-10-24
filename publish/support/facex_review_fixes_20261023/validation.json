@@ -1,0 +1,233 @@
+{
+  "schema": "facex-ronbun-review-fixes-validation-v1",
+  "created_kst": "2026-10-23T20:14:43.945067+09:00",
+  "repositories": {
+    "ronbun": {
+      "root": "C:\\ronbun",
+      "branch": "step14",
+      "head": "e1997a1c78c48627084202d5b691f203fb157266",
+      "git_directory": "C:/ronbun/.git",
+      "preexisting_uncommitted_changes": true,
+      "staged_files": [],
+      "source_sha256": {
+        ".gitignore": "fd65ce37ee8254039abe6f0c1da19ce58e124f207edfc832803409adb6216914",
+        "configs/experiments/facex_workflow.yaml": "30c2bbc64eafeb2d1046faafd79fea56d043fb9dd91defbfe3274f6cb3014caf",
+        "architect/20261023.md": "fea101776f39975b77a87b98362bcf016d11e522c1e537750172615bf6f66690",
+        "notebooks/README.md": "6aba59645565b5b8935a7dee1a19b9531fbd2a09339b028de563e8c5ebd85bae",
+        "notebooks/WORKFLOW_GUIDE.md": "042b660e7fea2858dd92786183d3c43a2b9bd10943c6fbac169e58fdfb179566",
+        "research/experiments/facex_inputs.py": "5ef4a2fa7f6e8f11be1294c9a2e0910b14aefd051617e9c1a9512ab7d22afa31",
+        "research/experiments/facex_workflow.py": "99da0a1a530e67bd8e43da713104578433b8b2898668962fdfcc36bc40874dca",
+        "research/embeddings/facex_zoo.py": "fd98943ab6c64ebcce392d44d27f5e39623b487528f9035a8c35cdffe924a945",
+        "research/embeddings/pytorch/facex_zoo.py": "33bc3b0bfe84e9ac6c91283ad7739a92d5dc8c09e92f4fc0ae9f18136859ba62",
+        "research/embeddings/pytorch/facex_backbone.py": "cb271fdb4cda30caf0b2111493a2cb9274784b5ec9e11a21fe35a5b42135f5fe",
+        "research/embeddings/pytorch/facex_resnet.py": "f700ac232964941786df8b454e8ad868f9066a79e5275c6e6cc8e67e48b10910",
+        "research/protocols/facex_handoff.py": "f15b2880c2f4841f63d19efa07901ac3d038d1a19ec9a1f3a6160bad2cfbc005",
+        "tests/research/test_facex_review_regressions.py": "728366101090d90a42bf7164e7ddb92aa868af77f0cbb39de3cec7807f0d4b41",
+        "tests/research/test_facex_workflow.py": "454fc6aea5ee0faab62f1e41361eb693fc1c2c650acfd18d4a30b25268babb70",
+        "tests/research/test_facex_embeddings.py": "b5974c893521a6ea65fd355bddcb5b7991eb2da03aefe5f5fab20917d569abbf",
+        "tests/research/test_facex_crossrepo.py": "032409c8c3699eccad1ab312b43b1f517aa189ecf82e54e0dd18d4f63928c190"
+      }
+    },
+    "facex_zoo": {
+      "root": "F:\\FaceX-Zoo",
+      "branch": "adjust1",
+      "head": "b7cc6f4772ae09591e0d5b759ca41ec9088ba40b",
+      "git_directory": "F:/FaceX-Zoo/.git",
+      "preexisting_uncommitted_changes": true,
+      "staged_files": [],
+      "source_sha256": {
+        "fine-tune/modules/research_protocol.py": "70ab017bca7352b978f650c2f09c771fd5be1713c884cc9eecdb374080705422",
+        "fine-tune/modules/finetune_protocol.py": "a25e1597a76e9ec1e29ecbbdea23cc8568b2898ec8a85fbf9eb866863afa08f3",
+        "fine-tune/tests/test_research_handoff.py": "e0a806590994e068ec39ac4df89abce1dac91f04f8574a0c23b69bce80ce2c9a",
+        "fine-tune/RESEARCH_HANDOFF.md": "e4bd68a526860c00db2deba5bbc22a53cd55a722d04589085f6c63b8a4096726",
+        "fine-tune/modules/checkpoint_manager.py": "4bf566f2f3a6f6baa5d432e6e669ee7a67e5c11cc9cec5a25ca5b4aa7a4bbf60",
+        "fine-tune/modules/backbone_factory.py": "08f073f2c651a9eed179c9a02833e477b49574bec910988ccedb0f9f6ac8f88f"
+      }
+    }
+  },
+  "ownership": {
+    "facex_zoo": "independent model training and export",
+    "ronbun": "independent model use and experiments",
+    "runtime_boundary": "export/sidecar and explicit split manifest files only",
+    "repositories_merged": false,
+    "git_commit_performed": false,
+    "git_push_performed": false
+  },
+  "fixes": {
+    "empty_optional_csv": "fixed and Windows CRLF resume/publication tested",
+    "population_hash": "once per materialize_inputs invocation; batch-count invariance tested",
+    "detail_retention": "all five dataset evaluators connected; rank/pair True/False tested",
+    "incremental_handoff": "immutable versioned indexes; real SCFace then TinyFace consumed",
+    "preprocessing": "validated export bicubic/bilinear applied and included in input identity"
+  },
+  "tests": {
+    "ronbun": {
+      "tests": 230,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 230,
+      "warnings": 0,
+      "seconds": 82.764,
+      "junit": "C:\\ronbun\\tmp\\facex_review_fixes_20261023\\ronbun_tests.xml",
+      "junit_sha256": "3ec323fa78d7c6ed9bd71d70904f4c3270a5bbb47d23d5bebdca78563dd4e84d",
+      "modules": [
+        "tests.research.test_compression",
+        "tests.research.test_database_1024",
+        "tests.research.test_dimension_compatibility",
+        "tests.research.test_facex_crossrepo",
+        "tests.research.test_facex_embeddings",
+        "tests.research.test_facex_lfw_integration",
+        "tests.research.test_facex_notebooks",
+        "tests.research.test_facex_review_regressions",
+        "tests.research.test_facex_workflow",
+        "tests.research.test_fiqa_continuous",
+        "tests.research.test_fiqa_threshold_calibration",
+        "tests.research.test_git_artifact_visibility",
+        "tests.research.test_lfw_pair_verification",
+        "tests.research.test_lfw_resize_inputs",
+        "tests.research.test_notebook_layout",
+        "tests.research.test_sequential_notebooks",
+        "tests.research.test_step2_compression",
+        "tests.research.test_survface_compression",
+        "tests.research.test_tinyface"
+      ]
+    },
+    "facex_zoo": {
+      "tests": 181,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 181,
+      "warnings": 9,
+      "seconds": 102.473,
+      "junit": "F:\\FaceX-Zoo\\fine-tune\\data\\research_v1\\review_fixes_validation_20261023\\facex_tests.xml",
+      "junit_sha256": "ca132c9344ea7ed07a74dc9e5c9a775589aae1f7d981a36df598244c6277b532",
+      "modules": [
+        "fine-tune.tests.test_adaface_head",
+        "fine-tune.tests.test_adjust1",
+        "fine-tune.tests.test_archive_preparation",
+        "fine-tune.tests.test_audit_fixes",
+        "fine-tune.tests.test_cosface_integration",
+        "fine-tune.tests.test_deferred_loss",
+        "fine-tune.tests.test_fiqa_data_assessment",
+        "fine-tune.tests.test_gpu_memory",
+        "fine-tune.tests.test_heads_common",
+        "fine-tune.tests.test_local_datasets",
+        "fine-tune.tests.test_notebook_workflow",
+        "fine-tune.tests.test_numerical_safety",
+        "fine-tune.tests.test_optimized_workflow",
+        "fine-tune.tests.test_pipeline",
+        "fine-tune.tests.test_preprocessing_v2",
+        "fine-tune.tests.test_research_handoff"
+      ]
+    },
+    "separate_consumer_processes": {
+      "included_in_ronbun_test_count": true,
+      "backbones": [
+        "MobileFaceNet",
+        "Resnet IR-50"
+      ],
+      "head": "ArcFace",
+      "all_facex_checkout_file_access_blocked": true,
+      "synthetic_weights": true,
+      "output_shape": [
+        1,
+        1024
+      ]
+    },
+    "interoperability": {
+      "backbones": 2,
+      "heads": 4,
+      "cases": 8,
+      "synthetic_weights": true,
+      "included_in_ronbun_test_count": true
+    },
+    "targeted_lint": "passed",
+    "git_diff_check_both": "passed"
+  },
+  "gpu_input_validation": [
+    {
+      "interpolation": "bicubic",
+      "input": "F:\\ronbun_results\\facex_review_fixes_validation_20261023\\inputs\\arcface-9e9f85b636bbef74872d\\scface\\a5890472c0192f2370a9",
+      "source_export": "F:\\FaceX-Zoo\\fine-tune\\data\\research_v1\\review_fixes_validation_20261023\\exports\\synthetic_mobilefacenet_bicubic.pt",
+      "model_uid": "arcface-9e9f85b636bbef74872d",
+      "population_hash_calls": 1,
+      "device": "NVIDIA GeForce GTX 1080 Ti",
+      "seconds": 2.478510800003278,
+      "images": 4,
+      "dimension": 1024,
+      "synthetic_fr_weights": true,
+      "facex_python_source_access": false,
+      "official_quality_checkpoint_sha256": "5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd",
+      "input_manifest_sha256": "ebd78cb85610cfaf224f56f9fcf8824dc548c9f17101abfdc9f88b6669647a3a",
+      "export_sha256": "26e2179c5d7a0bbc5a87c249dd09256b5b3716654ba20aacae030672ded59f73"
+    },
+    {
+      "interpolation": "bilinear",
+      "input": "F:\\ronbun_results\\facex_review_fixes_validation_20261023\\inputs\\arcface-93691fd693719e697951\\scface\\19665361779c70bd3a23",
+      "source_export": "F:\\FaceX-Zoo\\fine-tune\\data\\research_v1\\review_fixes_validation_20261023\\exports\\synthetic_mobilefacenet_bilinear.pt",
+      "model_uid": "arcface-93691fd693719e697951",
+      "population_hash_calls": 1,
+      "device": "NVIDIA GeForce GTX 1080 Ti",
+      "seconds": 2.1017133999994257,
+      "images": 4,
+      "dimension": 1024,
+      "synthetic_fr_weights": true,
+      "facex_python_source_access": false,
+      "official_quality_checkpoint_sha256": "5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd",
+      "input_manifest_sha256": "8e6f73f9d0645813a7c99f5933e36eabf425324d8e79180029b74f59cfe64734",
+      "export_sha256": "ebe1b1d8c7a708358bc1c3f6c69fdf9fb9f781556f833f5ad0df9d15cfce2474"
+    }
+  ],
+  "real_data_handoff_validation": {
+    "first": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\facex_fixed_handoff_0qd9v29t\\handoffs\\21d2247912c7a6a0d08e8cece704eaff61a99a143587ea805c81211a1b3140cb.json",
+    "second": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\facex_fixed_handoff_0qd9v29t\\handoffs\\cd27e2b7c0a3381852910c1a1a8664c6e12fea5e36b67967d32bc3213ad494cc.json",
+    "old_snapshots_unchanged": true,
+    "roles": {
+      "scface": {
+        "fr_images": 800,
+        "fr_identities": 50
+      },
+      "tinyface": {
+        "fr_images": 7804,
+        "fr_identities": 2570
+      }
+    },
+    "raw_data_modified": false,
+    "formal_training": false,
+    "first_sha256": "21d2247912c7a6a0d08e8cece704eaff61a99a143587ea805c81211a1b3140cb",
+    "second_sha256": "cd27e2b7c0a3381852910c1a1a8664c6e12fea5e36b67967d32bc3213ad494cc"
+  },
+  "local_diagnostic_sha256": {
+    "C:\\ronbun\\tmp\\facex_review_fixes_20261023\\gpu_validation.json": "fa5267ce91e63d3cc99b998992ce7093b76570d43d32cb6b935cd004a7a63c56",
+    "C:\\ronbun\\tmp\\facex_review_fixes_20261023\\handoff_validation.json": "c60d33af8561aba016d4839dc904311e688c6b1c27f8adb4c0ad88dc6bbf572b",
+    "C:\\ronbun\\tmp\\facex_review_fixes_20261023\\validate_artifacts.py": "8ec4bee20786654d61c07290b7c620b4ab12ac58bdddcad54f426895db0b1841",
+    "F:\\FaceX-Zoo\\fine-tune\\data\\research_v1\\review_fixes_validation_20261023\\export_fixture.py": "fa5294aa04eacdb72c45e78d3e6884e8cee3eff0a2cd79b6838a7be1af73f2ec"
+  },
+  "boundaries": {
+    "formal_training_executed": false,
+    "full_population_extracted": false,
+    "recognition_or_continuous_fiqa_improvement_measured": false,
+    "dataset_split_changed": false,
+    "model_dimension": 1024,
+    "finetune_datasets": [
+      "survface",
+      "tinyface",
+      "scface"
+    ],
+    "evaluation_only_datasets": [
+      "lfw",
+      "rfw"
+    ],
+    "full_notebook_kernel_execution_repeated": false,
+    "existing_completed_artifacts_overwritten": false,
+    "raw_datasets_modified": false
+  },
+  "report": {
+    "path": "C:\\ronbun\\publish\\FaceXZoo_ronbun_실행오류5건_수정검증_20261023_v1.md",
+    "sha256": "758c3fbe414d9fb26ed9252537761a114c969cc2c449e09f93a8bab9c29e759e"
+  },
+  "summary_scope": "test counts, source hashes and bounded validation; raw scores/checkpoints kept local",
+  "python_executable": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe"
+}

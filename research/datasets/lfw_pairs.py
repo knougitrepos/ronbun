@@ -12,6 +12,39 @@ from research.runtime.hashing import sha256_file, canonical_sha256
 PAIRS_URL = "https://raw.githubusercontent.com/davidsandberg/facenet/master/data/pairs.txt"
 PAIRS_SHA256 = "ea42330c62c92989f9d7c03237ed5d591365e89b3e649747777b70e692dc1592"
 PROTOCOL_UID = "lfw-view2-pairs-development-unused-identities-v1"
+OUTER_FOLD_PROTOCOL_UID = "lfw-view2-pairs-outer-fold-unused-identities-v2"
+
+
+def outer_fold_development(people_path, population, pairs, development):
+    """Exclude the whole held-out people fold, including people absent from pairs.
+
+    The supplied CSV conversion preserves people.txt boundaries as empty rows.
+    Its exact hash is recorded by the caller; this is not author-file byte authentication.
+    """
+    people = pd.read_csv(people_path, skip_blank_lines=False)
+    if set(people.columns) != {"name", "images"}:
+        raise ValueError("people CSV requires name/images and empty fold separators")
+    separators = people.name.isna()
+    if separators.sum() != 9 or people.loc[separators, "images"].notna().any():
+        raise ValueError("people CSV must preserve exactly ten folds")
+    people["fold"] = separators.cumsum() + 1
+    people = people.loc[~separators].copy()
+    people["identity_id"] = "lfw:" + people.name.astype(str)
+    counts = population.groupby("identity_id").size()
+    if (people.identity_id.duplicated().any() or set(people.identity_id) != set(counts.index)
+            or not np.array_equal(counts.loc[people.identity_id].to_numpy(), people.images.to_numpy())):
+        raise ValueError("people CSV/population identity or image-count mismatch")
+    result = {}
+    for fold in range(1, 11):
+        test_people = set(people.loc[people.fold.eq(fold), "identity_id"])
+        tests = pairs.loc[pairs.fold.eq(fold)]
+        if not (set(tests.left_identity) | set(tests.right_identity)) <= test_people:
+            raise ValueError("pair fold does not match people CSV fold")
+        part = development.loc[~development.identity_id.isin(test_people)].copy()
+        if len(part) < 256:
+            raise ValueError("outer-fold PQ requires at least 256 development images")
+        result[fold] = part
+    return result
 
 
 def ensure_pairs(path, *, download=False):

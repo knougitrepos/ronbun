@@ -38,6 +38,7 @@ class CompressionResult:
 
 ORIGIN_EMBEDDING_DIMENSION = 512
 ORIGIN_512 = "origin_512"
+ORIGIN_1024 = "origin_1024"
 PCA_32 = "pca_32"
 PCA_64 = "pca_64"
 PCA_128 = "pca_128"
@@ -71,6 +72,15 @@ LEGACY_PCA_PROFILE_DIMENSIONS = {PCA_448: 448}
 
 
 COMPRESSION_PROFILES = {
+    ORIGIN_1024: CompressionProfileSpec(
+        name=ORIGIN_1024,
+        family="origin",
+        source_profile=None,
+        source_dimension=1024,
+        output_dimension=1024,
+        pgvector_searchable=True,
+        description="Original 1024D FaceX-Zoo embedding; separate embedding_1024 schema.",
+    ),
     ORIGIN_512: CompressionProfileSpec(
         name=ORIGIN_512,
         family="origin",
@@ -158,7 +168,15 @@ def pca_profile_dimension(profile: str, *, allow_legacy: bool = False) -> int:
         raise ValueError(f"unsupported PCA profile: {profile}") from exc
 
 
-def pq_profile_name(m: int, nbits: int) -> str:
+def origin_profile_name(source_dim: int) -> str:
+    """Name the actual source space without silently relabelling it as 512D."""
+
+    if isinstance(source_dim, (bool, np.bool_)) or int(source_dim) != source_dim or int(source_dim) < 1:
+        raise ValueError("source_dim must be a positive integer")
+    return f"origin_{int(source_dim)}"
+
+
+def pq_profile_name(m: int, nbits: int, *, source_dim: int = ORIGIN_EMBEDDING_DIMENSION) -> str:
     """Return the unique direct-origin PQ budget name used by run artifacts."""
 
     if isinstance(m, bool) or isinstance(nbits, bool):
@@ -167,7 +185,8 @@ def pq_profile_name(m: int, nbits: int) -> str:
     nbits_value = int(nbits)
     if m_value != m or nbits_value != nbits or m_value < 1 or nbits_value < 1:
         raise ValueError("PQ m and nbits must be positive integers")
-    return f"pq_{ORIGIN_EMBEDDING_DIMENSION}_m{m_value}_b{nbits_value}"
+    origin_profile_name(source_dim)
+    return f"pq_{int(source_dim)}_m{m_value}_b{nbits_value}"
 
 
 def validate_pq_sdc_settings(
@@ -328,7 +347,7 @@ class PCACompressor:
             metadata={
                 "method": "pca",
                 "family": "pca",
-                "source_profile": ORIGIN_512,
+                "source_profile": origin_profile_name(source.shape[1]),
                 "chained_from": None,
                 "n_components": self.n_components,
                 "source_dim": int(source.shape[1]),
@@ -751,13 +770,10 @@ class PQCompressor:
         code_bits = int(self.m * self.nbits)
         code_bytes = int((code_bits + 7) // 8)
         codebook_bytes, codebook_bytes_source = _pq_codebook_storage(index)
-        direct_origin = (
-            self.source_profile == ORIGIN_512
-            and self.source_dim == ORIGIN_EMBEDDING_DIMENSION
-        )
+        direct_origin = self.source_profile == origin_profile_name(self.source_dim)
         return CompressionResult(
             profile_name=(
-                pq_profile_name(self.m, self.nbits)
+                pq_profile_name(self.m, self.nbits, source_dim=self.source_dim)
                 if direct_origin
                 else f"pq_m{self.m}_b{self.nbits}"
             ),
@@ -768,7 +784,7 @@ class PQCompressor:
             metadata={
                 "method": "faiss_pq",
                 "family": "pq",
-                "family_profile": PQ_ORIGIN_512 if direct_origin else PQ_AUXILIARY,
+                "family_profile": f"pq_origin_{self.source_dim}" if direct_origin else PQ_AUXILIARY,
                 "source_profile": self.source_profile,
                 "chained_from": None,
                 "M": self.m,
@@ -822,11 +838,11 @@ class PQCompressor:
 def original_profile(vectors: np.ndarray) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
     return CompressionResult(
-        profile_name=ORIGIN_512,
+        profile_name=origin_profile_name(matrix.shape[1]),
         vectors=matrix.copy(),
         reconstruction_error=np.zeros(len(matrix), dtype=np.float32),
         angular_error=np.zeros(len(matrix), dtype=np.float32),
-        pgvector_searchable=True,
+        pgvector_searchable=matrix.shape[1] in (512, 1024),
         metadata={
             "method": "none",
             "family": "origin",
@@ -855,13 +871,15 @@ def fit_pca_family(
     *,
     dimensions: Iterable[int] = PCA_SWEEP_DIMENSIONS,
     random_state: int | None = None,
+    source_dim: int = ORIGIN_EMBEDDING_DIMENSION,
 ) -> dict[str, PCACompressor]:
-    """Fit independent PCA models on the same original 512D development matrix."""
+    """Fit independent PCA models on an explicitly declared origin space."""
 
     matrix = _as_float_matrix(development_vectors)
-    if matrix.shape[1] != ORIGIN_EMBEDDING_DIMENSION:
+    origin_profile_name(source_dim)
+    if matrix.shape[1] != source_dim:
         raise ValueError(
-            f"PCA family requires original {ORIGIN_EMBEDDING_DIMENSION}D embeddings, "
+            f"PCA family requires original {source_dim}D embeddings, "
             f"got {matrix.shape[1]}"
         )
     requested = tuple(int(value) for value in dimensions)
@@ -885,17 +903,21 @@ def fit_pq_origin_profile(
     *,
     m: int = 16,
     nbits: int = 8,
-    source_profile: str = ORIGIN_512,
+    source_profile: str | None = None,
     random_state: int = 8972,
+    source_dim: int = ORIGIN_EMBEDDING_DIMENSION,
 ) -> CompressionResult:
     matrix = _as_float_matrix(vectors)
-    if str(source_profile) != ORIGIN_512:
+    expected_profile = origin_profile_name(source_dim)
+    if source_profile is None:
+        source_profile = expected_profile
+    if str(source_profile) != expected_profile:
         raise ValueError(
-            "Step-1 PQ must use origin_512 directly; PCA-to-PQ chaining is not supported"
+            f"Step-1 PQ must use {expected_profile} directly; PCA-to-PQ chaining is not supported"
         )
-    if matrix.shape[1] != ORIGIN_EMBEDDING_DIMENSION:
+    if matrix.shape[1] != source_dim:
         raise ValueError(
-            f"Step-1 direct-origin PQ requires {ORIGIN_EMBEDDING_DIMENSION} dimensions, "
+            f"Step-1 direct-origin PQ requires {source_dim} dimensions, "
             f"got {matrix.shape[1]}"
         )
     compressor = PQCompressor(

@@ -7,6 +7,7 @@ from research.embeddings.pytorch.adapter import (
 from research.embeddings.pytorch.models import (
     AdaFacePyTorchAdapter,
     ArcFacePyTorchAdapter,
+    CosFacePyTorchAdapter,
     EdgeFacePyTorchAdapter,
     MagFacePyTorchAdapter,
 )
@@ -15,6 +16,7 @@ from research.embeddings.pytorch.target_layers import resolve_target_layer
 __all__ = [
     "AdaFacePyTorchAdapter",
     "ArcFacePyTorchAdapter",
+    "CosFacePyTorchAdapter",
     "EdgeFacePyTorchAdapter",
     "EmbeddingTensorOutput",
     "MagFacePyTorchAdapter",

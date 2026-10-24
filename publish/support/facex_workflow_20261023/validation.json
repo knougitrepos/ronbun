@@ -1,0 +1,362 @@
+{
+  "created_kst": "2026-10-23T19:20:53.350822+09:00",
+  "status": "code_and_bounded_validation_completed",
+  "repositories": {
+    "ronbun": {
+      "branch": "step14",
+      "head": "e1997a1c78c48627084202d5b691f203fb157266",
+      "staged_files": [],
+      "committed_this_task": false,
+      "pushed_this_task": false
+    },
+    "facex": {
+      "branch": "adjust1",
+      "head": "b7cc6f4772ae09591e0d5b759ca41ec9088ba40b",
+      "staged_files": [],
+      "committed_this_task": false,
+      "pushed_this_task": false
+    }
+  },
+  "tests": {
+    "ronbun": {
+      "tests": 203,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "facex": {
+      "tests": 177,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "data": {
+    "roles": {
+      "scface": {
+        "fr_identities": 50,
+        "fr_images": 800,
+        "role_counts": {
+          "pq_development": {
+            "identities": 50,
+            "images": 800
+          },
+          "test_gallery": {
+            "identities": 80,
+            "images": 80
+          },
+          "test_registered_probe": {
+            "identities": 80,
+            "images": 1200
+          }
+        },
+        "roles_sha256": "95a8c996353f34acb1de029b6f188b7963773216db275d170643020f006a1101"
+      },
+      "survface": {
+        "fr_identities": 4255,
+        "fr_images": 176205,
+        "role_counts": {
+          "calibration_fit": {
+            "identities": 744,
+            "images": 33754
+          },
+          "calibration_gallery": {
+            "identities": 3000,
+            "images": 61433
+          },
+          "calibration_registered_probe": {
+            "identities": 3000,
+            "images": 62545
+          },
+          "calibration_safety": {
+            "identities": 320,
+            "images": 10929
+          },
+          "pq_development": {
+            "identities": 1255,
+            "images": 52227
+          },
+          "test_gallery": {
+            "identities": 3000,
+            "images": 60294
+          },
+          "test_registered_probe": {
+            "identities": 3000,
+            "images": 60423
+          },
+          "test_unknown_probe": {
+            "identities": 2319,
+            "images": 121736
+          }
+        },
+        "roles_sha256": "be171ed212db0c8115230a91d80df9db3a93cd5ea017218626cbc37dcd8dce4c"
+      },
+      "tinyface": {
+        "fr_identities": 2570,
+        "fr_images": 7804,
+        "role_counts": {
+          "pq_development": {
+            "identities": 2570,
+            "images": 7804
+          },
+          "test_gallery": {
+            "identities": 2569,
+            "images": 4443
+          },
+          "test_gallery_distractor": {
+            "identities": 0,
+            "images": 153428
+          },
+          "test_registered_probe": {
+            "identities": 2563,
+            "images": 3728
+          }
+        },
+        "roles_sha256": "4b92e525a7c4171529577f452cbc8bc67992dc2c620997b78ac3335912d5d777"
+      }
+    },
+    "scface_images": {
+      "selected": 2080,
+      "decoded": 2080,
+      "errors": []
+    },
+    "pair_partitions": {
+      "lfw": {
+        "folds": 10,
+        "fit_impostor_min": 1245,
+        "fit_impostor_max": 1288,
+        "safety_impostor_min": 232,
+        "safety_impostor_max": 260,
+        "official_pairs": 6000
+      },
+      "rfw": {
+        "folds": 40,
+        "fit_impostor_min": 612,
+        "fit_impostor_max": 855,
+        "safety_impostor_min": 104,
+        "safety_impostor_max": 184,
+        "official_pairs": 24000
+      }
+    },
+    "codec_budgets": {
+      "scface": [
+        {
+          "profile": "origin_1024",
+          "payload_bytes": 4096
+        },
+        {
+          "profile": "pca_256",
+          "payload_bytes": 1024
+        },
+        {
+          "profile": "pq_1024_m128_b4",
+          "payload_bytes": 64,
+          "fit_count": 800,
+          "points_per_centroid": 50.0,
+          "heuristic_min_points": 39
+        },
+        {
+          "profile": "pq_1024_m64_b4",
+          "payload_bytes": 32,
+          "fit_count": 800,
+          "points_per_centroid": 50.0,
+          "heuristic_min_points": 39
+        },
+        {
+          "profile": "pq_1024_m32_b4",
+          "payload_bytes": 16,
+          "fit_count": 800,
+          "points_per_centroid": 50.0,
+          "heuristic_min_points": 39
+        }
+      ],
+      "survface": [
+        {
+          "profile": "origin_1024",
+          "payload_bytes": 4096
+        },
+        {
+          "profile": "pca_256",
+          "payload_bytes": 1024
+        },
+        {
+          "profile": "pq_1024_m128_b8",
+          "payload_bytes": 128,
+          "fit_count": 52227,
+          "points_per_centroid": 204.01171875,
+          "heuristic_min_points": 39
+        },
+        {
+          "profile": "pq_1024_m64_b8",
+          "payload_bytes": 64,
+          "fit_count": 52227,
+          "points_per_centroid": 204.01171875,
+          "heuristic_min_points": 39
+        },
+        {
+          "profile": "pq_1024_m32_b8",
+          "payload_bytes": 32,
+          "fit_count": 52227,
+          "points_per_centroid": 204.01171875,
+          "heuristic_min_points": 39
+        }
+      ],
+      "tinyface": [
+        {
+          "profile": "origin_1024",
+          "payload_bytes": 4096
+        },
+        {
+          "profile": "pca_256",
+          "payload_bytes": 1024
+        },
+        {
+          "profile": "pq_1024_m128_b7",
+          "payload_bytes": 112,
+          "fit_count": 7804,
+          "points_per_centroid": 60.96875,
+          "heuristic_min_points": 39
+        },
+        {
+          "profile": "pq_1024_m64_b7",
+          "payload_bytes": 56,
+          "fit_count": 7804,
+          "points_per_centroid": 60.96875,
+          "heuristic_min_points": 39
+        },
+        {
+          "profile": "pq_1024_m32_b7",
+          "payload_bytes": 28,
+          "fit_count": 7804,
+          "points_per_centroid": 60.96875,
+          "heuristic_min_points": 39
+        }
+      ]
+    },
+    "seconds": 14.69
+  },
+  "gpu_input": {
+    "scope": "input integration only; synthetic FR weights, not recognition performance",
+    "images": 4,
+    "shape": [
+      4,
+      1024
+    ],
+    "device": "NVIDIA GeForce GTX 1080 Ti",
+    "torch": "2.7.1+cu118",
+    "cuda": "11.8",
+    "quality": {
+      "source": "cr_fiqa",
+      "variant": "L",
+      "checkpoint": "models/fiqa/CR-FIQA(L).pth",
+      "checkpoint_sha256": "5fca24736e4f8df5fbfc0f31ca533fbcca5eb119e2bad8fff751fe72c4c4d0fd"
+    },
+    "model_uid": "arcface-9f3be412e6b131be6da7",
+    "artifact": "F:\\FaceX-Zoo\\fine-tune\\data\\research_v1\\validation_20261023\\inputs\\arcface-9f3be412e6b131be6da7\\scface\\7c4a347c7e29919fe6b9",
+    "all_finite": true,
+    "completed": true
+  },
+  "notebooks": [
+    {
+      "notebook": "C:\\ronbun\\notebooks\\01_data_preparation.ipynb",
+      "seconds": 13.54,
+      "executed": true,
+      "source_sha256": "f7a0405eb34fe17c99e6cd5b603521f60035112e4d844ae0f4a109cd885da726",
+      "executed_sha256": "93cd634a933f1116993017b710597854cda9d5d53dc2d05ea5a0cbe76bc599bb"
+    },
+    {
+      "notebook": "C:\\ronbun\\notebooks\\02_inputs.ipynb",
+      "seconds": 12.5,
+      "executed": true,
+      "source_sha256": "7c9be540a0a4c2069a776d60876035d6203cb6f48368947acccaadb1fa499a40",
+      "executed_sha256": "e2485789ad17c8b39bd0c928c0adfc8a5cfc07b01222c67c8c79179548713a34"
+    },
+    {
+      "notebook": "C:\\ronbun\\notebooks\\03_experiments.ipynb",
+      "seconds": 15.19,
+      "executed": true,
+      "source_sha256": "5067e538a98beafa826e385f68aa79631eca19e30561a6d7307e833270f44358",
+      "executed_sha256": "711154698fab4ff234b9e3a99257b6192ec0b707bd2345720d970eec193c8586"
+    },
+    {
+      "notebook": "C:\\ronbun\\notebooks\\04_results.ipynb",
+      "seconds": 6.46,
+      "executed": true,
+      "source_sha256": "7d78d3a6d10d605adaad0b77df7cd42667b9b331780ec752c027b5f6bf6823cd",
+      "executed_sha256": "8b5b9b6e32c90b727b384cb4ac5a7d55db8feac082044dc4d5cda9e417109c6f"
+    },
+    {
+      "notebook": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\00_environment_and_data.ipynb",
+      "seconds": 6.31,
+      "executed": true,
+      "source_sha256": "96c60c2c7af02c8764a6869cb9da366c09531ca96df82c4b6e01bfdcc9de1c09",
+      "executed_sha256": "0068171d1698af2f3b270f7ca2bfeac37eaaf978a2c4b6b80fb5dcbec759132e"
+    },
+    {
+      "notebook": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\01_prepare_vggface2.ipynb",
+      "seconds": 9.15,
+      "executed": true,
+      "source_sha256": "6b0fd8c81996350e5b5db4ebcbf1e9b5b9a520fbd035b518b1ce4c92979badb4",
+      "executed_sha256": "aa610deada6bd815d2dc78f1a182f8e7e5123e1f48fbbcfe3db440601ec5ae8b"
+    },
+    {
+      "notebook": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\02_pretrain.ipynb",
+      "seconds": 6.13,
+      "executed": true,
+      "source_sha256": "1946507dfdb17b36eedd809554af174caf408907ad81e5f74955e07a48d9a948",
+      "executed_sha256": "d1cb0be37868fe10b96c2c19bf17bfaa55da3c6691d436216b1f7c537be6cea2"
+    },
+    {
+      "notebook": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\03_finetune.ipynb",
+      "seconds": 6.09,
+      "executed": true,
+      "source_sha256": "43be14cd02b8d3157eabee9b31c495feb850a74be24a3b4d89a62c26fdf77880",
+      "executed_sha256": "2fbd1e36271c4d874536ff07b0a3bd053072b6d1b8f5ef9188298fde105b6610"
+    },
+    {
+      "notebook": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\04_export_and_validate.ipynb",
+      "seconds": 6.05,
+      "executed": true,
+      "source_sha256": "f5de0cb3094ad72cd0a4c98cacbf1ef321edd1e54dd140b855ac8a332b0119a0",
+      "executed_sha256": "4f917ce9d46f3a1b959ed5220927d0db0be99da12855357f54847c6415be1f3e"
+    }
+  ],
+  "sources_sha256": {
+    "C:\\ronbun\\configs\\experiments\\facex_workflow.yaml": "ba32d6b176e4dc5fec8f457f54c33629816b110d2d851a671729b34368d2ae1e",
+    "C:\\ronbun\\research\\protocols\\facex_handoff.py": "f15b2880c2f4841f63d19efa07901ac3d038d1a19ec9a1f3a6160bad2cfbc005",
+    "C:\\ronbun\\research\\experiments\\facex_workflow.py": "4f6fd96099a5d55eb5d62d964287f980f0385a6a847d188bbd9b6a7f6e372718",
+    "C:\\ronbun\\research\\experiments\\facex_inputs.py": "1dbf5ec431bedb2905f84a6d38e135eca5bd8dbe4c7404d7acbb86f9f81936d8",
+    "C:\\ronbun\\research\\calibration\\sample_efficiency.py": "2bc2e1382e982c3aaab3284e250f47bc96afbf82cfcc59a6d63ab406a12dcd5d",
+    "C:\\ronbun\\research\\calibration\\continuous.py": "7e4361bf6cd38cf58c89b0bb73cd0cf234cc9f4d6474058aad2fc79fbc4aab1c",
+    "C:\\ronbun\\research\\calibration\\conditional.py": "db33abd2ff89a2ca2c5d2dbbd5fafdd6326cadbc8d422d7cb6aa9974c8e85ff4",
+    "C:\\ronbun\\research\\embeddings\\facex_zoo.py": "fd98943ab6c64ebcce392d44d27f5e39623b487528f9035a8c35cdffe924a945",
+    "C:\\ronbun\\research\\embeddings\\pytorch\\facex_zoo.py": "33bc3b0bfe84e9ac6c91283ad7739a92d5dc8c09e92f4fc0ae9f18136859ba62",
+    "C:\\ronbun\\research\\embeddings\\pytorch\\facex_resnet.py": "f700ac232964941786df8b454e8ad868f9066a79e5275c6e6cc8e67e48b10910",
+    "C:\\ronbun\\research\\database\\models.py": "8bdc1db3f1fe990c088b99a51ed56d3ddbb700ecb1a4876a9ce696596fba19fe",
+    "C:\\ronbun\\research\\database\\repository.py": "b1c694e5c5fbadd68c0aeb2dd0cdaafb344bab55a2a738887c957d2fd088f70b",
+    "C:\\ronbun\\research\\database\\facex.py": "105396ab13b761e108b06d68779958ef65c72aa5f91eaad17048add56e0b6b8c",
+    "C:\\ronbun\\research\\database\\connection.py": "9f90008b2e03566682d0dd7a1e63e25a0c3ed742173b781dda3085d3ba476108",
+    "C:\\ronbun\\research\\evaluation\\lfw_verification.py": "2182f2db5bee4f6dc0ae245c782227470a65151a3a7fb726bdce10346e415934",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\research_protocol.py": "b949a8bfc7e76f0487b6b625e8336600c303a0ced230a48a9a04c7928d984c2b",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\backbone_factory.py": "08f073f2c651a9eed179c9a02833e477b49574bec910988ccedb0f9f6ac8f88f",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\finetune_protocol.py": "9884fcc7d8d0733b4bd30daecdf5e4ffb2982d890c367766ee2a70554176a0a4",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\model_builder.py": "5358155c30e055d58203c0f16a09948fe9903e3f886e62abd57a52bed1106728",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\checkpoint_manager.py": "4bf566f2f3a6f6baa5d432e6e669ee7a67e5c11cc9cec5a25ca5b4aa7a4bbf60",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\notebook_workflow.py": "e3ddc69fc886fd58debfae5682f4c14a8841fdc5ab95b83d61247778893475de",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\baseline_policy.py": "f0b43277dd40b15ce9d662cb0732f067befdb7ab4db766637dbbbec887dd8700"
+  },
+  "evidence": {
+    "ronbun_junit_sha256": "3ad41c3fd13466f31380b413b7abd39b24d47e4e10b16b8c528f0ae086c76fea",
+    "facex_junit_sha256": "e952ac3971d17305f4f586834c91da54e4ae7e1fe0eb70899a8203c3245082d0"
+  },
+  "scope": {
+    "formal_training_executed": false,
+    "trained_model_recognition_benchmark_executed": false,
+    "full_population_extraction_executed": false,
+    "split_optimized": false,
+    "survface_split": "fixed 4255/1064 candidate",
+    "public_db_migration_committed": false,
+    "db_test": "isolated schema, 1024D vector/template round trip; rolled back",
+    "synthetic_fr_weights_in_gpu_validation": true
+  }
+}

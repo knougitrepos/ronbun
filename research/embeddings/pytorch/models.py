@@ -15,5 +15,9 @@ class MagFacePyTorchAdapter(PyTorchFaceEmbeddingAdapter):
     family = "magface"
 
 
+class CosFacePyTorchAdapter(PyTorchFaceEmbeddingAdapter):
+    family = "cosface"
+
+
 class EdgeFacePyTorchAdapter(PyTorchFaceEmbeddingAdapter):
     family = "edgeface"

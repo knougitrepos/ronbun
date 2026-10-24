@@ -10,7 +10,7 @@ from research.runtime.hashing import canonical_sha256
 
 NOTEBOOK_PATH = (
     Path(__file__).resolve().parents[2]
-    / "notebooks"
+    / "notebooks" / "legacy"
     / "_archive"
     / "calibration"
     / "00_fiqa_conditioned_threshold_calibration.ipynb"

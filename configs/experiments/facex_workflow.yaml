@@ -1,0 +1,43 @@
+# New 1024D workflow. Configure exact completed registered specs, never "latest".
+project_root: C:/ronbun
+# Pin the exact file supplied by FaceX-Zoo; keep repositories independently operated.
+# After adding datasets, use its reported campaign.handoff_path (handoffs/<hash>.json).
+handoff: F:/FaceX-Zoo/fine-tune/data/protocols/research_v1/handoff.json
+output_root: F:/ronbun_results/facex_workflow
+models: {}
+# Example after FaceX 04 export and research.embeddings.facex_zoo registration:
+# models:
+#   surv_arc_s8972:
+#     spec: runs/facex_model_registry/EXACT_REGISTERED_SPEC.json
+#     training_dataset: survface
+datasets: [survface, tinyface, scface, lfw, rfw]
+embedding_dim: 1024
+batch_size: 16
+quality:
+  source: cr_fiqa
+  variant: L
+  checkpoint: models/fiqa/CR-FIQA(L).pth
+codec_seed: 8972
+partition_seed: 8972
+target_rates: [0.01, 0.05, 0.10, 0.20]
+fold_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+bootstrap_resamples: 500
+keep_raw_results: true
+# Explicit research choices. Tiny/SC use smaller codebooks to avoid undersampling.
+# Payload bytes = ceil(m * nbits / 8); equal m does NOT mean equal byte budget.
+compression:
+  survface: [{family: origin}, {family: pca, dimensions: 256}, {family: pq, m: 128, nbits: 8}, {family: pq, m: 64, nbits: 8}, {family: pq, m: 32, nbits: 8}]
+  tinyface: [{family: origin}, {family: pca, dimensions: 256}, {family: pq, m: 128, nbits: 7}, {family: pq, m: 64, nbits: 7}, {family: pq, m: 32, nbits: 7}]
+  scface: [{family: origin}, {family: pca, dimensions: 256}, {family: pq, m: 128, nbits: 4}, {family: pq, m: 64, nbits: 4}, {family: pq, m: 32, nbits: 4}]
+pq_min_points_per_centroid: 39
+pairs:
+  lfw:
+    image_manifest: data/interim/lfw/face_manifest.csv
+    pairs_file: data/external/lfw/pairs.txt
+  rfw:
+    image_manifest: data/interim/rfw/image_manifest.csv
+    pairs_file: data/interim/rfw/pair_protocol.csv
+sample_efficiency:
+  enabled: false
+  fractions: [0.25, 0.5, 0.75, 1.0]
+  folds: 5

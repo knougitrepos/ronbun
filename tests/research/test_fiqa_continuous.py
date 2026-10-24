@@ -203,7 +203,7 @@ def test_continuous_notebook_settings_and_execution_contract():
     import ast
     from pathlib import Path
     import nbformat
-    path = Path(__file__).parents[2] / 'notebooks/calibration/01_fiqa_continuous_retrieval_conditioned_calibration.ipynb'
+    path = Path(__file__).parents[2] / 'notebooks/legacy/calibration/01_fiqa_continuous_retrieval_conditioned_calibration.ipynb'
     notebook = nbformat.read(path, as_version=4)
     nbformat.validate(notebook)
     code = [c for c in notebook.cells if c.cell_type == 'code']

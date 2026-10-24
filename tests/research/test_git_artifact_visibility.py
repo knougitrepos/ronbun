@@ -104,11 +104,19 @@ def test_calibration_matrix_archive_reports_and_lineage_visibility() -> None:
 
 def test_calibration_raw_scores_remain_local_but_compact_results_are_visible() -> None:
     raw = (
+        "results/lfw_pair_inputs_v1/fiqa_scores/lfw/fiqa-id/fiqa_scores.csv",
+        "results/lfw_pair_inputs_v1/sources/model-id/normalized_embeddings.npy",
+        "results/lfw_pair_inputs_v1/sources/model-id/raw_norms.npy",
+        "results/lfw_pair_inputs_v1/sources/model-id/population.csv",
         "results/calibration/fiqa_scores/survface/fiqa-id/fiqa_scores.csv",
         "results/calibration/condition_scores/run-id/profile/calibration_scores.parquet",
         "results/calibration/condition_scores/run-id/profile/test_scores.parquet",
     )
     compact = (
+        "results/lfw_pair_inputs_v1/fiqa_scores/lfw/fiqa-id/manifest.json",
+        "results/lfw_pair_inputs_v1/sources/model-id/run_manifest.json",
+        "results/lfw_pair_inputs_v1/ANALYSIS_GUIDE.md",
+        "results/lfw_pair_inputs_v1/summary.csv",
         "results/calibration/fiqa_scores/survface/fiqa-id/manifest.json",
         "results/calibration/condition_scores/run-id/profile/manifest.json",
         "results/calibration/global_vs_fiqa/run-id/fiqa-id/profile/manifest.json",

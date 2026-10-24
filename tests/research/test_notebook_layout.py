@@ -7,21 +7,26 @@ import nbformat
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
+NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks" / "legacy"
 ARCHIVE_ROOT = NOTEBOOK_ROOT / "_archive"
 
 EXPECTED_NOTEBOOKS = {
-    "lfw/00_data_preparation": {"00_data_preparation.ipynb"},
+    "lfw_sequential_v2": {
+        "01_data_preparation.ipynb", "02_inputs.ipynb", "03_calibration.ipynb", "04_results.ipynb",
+    },
+    "pipeline": {
+        "01_data_preparation.ipynb",
+        "02_input_preflight.ipynb",
+        "03_calibration.ipynb",
+        "04_results.ipynb",
+    },
     "survface/00_data_preparation": {"00_data_preparation.ipynb"},
     "rfw": {"00_rfw_all_in_one.ipynb"},
     "calibration": {
         "01_fiqa_continuous_retrieval_conditioned_calibration.ipynb",
-        "03_origin_vs_pq_fiqa_calibration.ipynb",
     },
-    "common/reports": {"00_cross_dataset_results.ipynb"},
     "common/maintenance": {"00_selective_cleanup.ipynb"},
     "common/orchestration": {
-        "00_batch_experiment_runner.ipynb",
         "01_batch_fiqa_saliency_calibration.ipynb",
         "01_batch_fiqa_saliency_calibration_compact.ipynb",
         "cross_dataset_calibration_transfer.ipynb",
@@ -130,7 +135,7 @@ def test_active_and_archived_notebooks_have_explicit_layouts() -> None:
     }
     assert active == expected_active
     assert archived == expected_archived
-    assert len(active) == 12
+    assert len(active) == 16
     assert len(archived) == 40
     assert not active & archived
 
@@ -184,9 +189,7 @@ def test_step4_notebooks_are_dataset_specific_single_stage_runbooks() -> None:
 def test_common_orchestration_notebook_preserves_quick_full_contract() -> None:
     path = (
         NOTEBOOK_ROOT
-        / "common"
-        / "orchestration"
-        / "00_batch_experiment_runner.ipynb"
+        / "pipeline/02_input_preflight.ipynb"
     )
     source = _source(path)
 
@@ -307,7 +310,10 @@ def test_all_notebooks_are_valid_python_and_preserve_execution_records() -> None
 
 def test_initial_manifest_preparation_keeps_full_scope_and_optional_writing() -> None:
     for dataset in ("lfw", "survface"):
-        path = NOTEBOOK_ROOT / dataset / "00_data_preparation/00_data_preparation.ipynb"
+        path = NOTEBOOK_ROOT / (
+            "pipeline/01_data_preparation.ipynb" if dataset == "lfw"
+            else "survface/00_data_preparation/00_data_preparation.ipynb"
+        )
         source = _source(path)
         assert "DATA_FRACTION = 1.0" in source
         assert "if WRITE_OUTPUTS:" in source
@@ -317,12 +323,12 @@ def test_initial_manifest_preparation_keeps_full_scope_and_optional_writing() ->
 def test_runtime_report_dependency_and_optional_notebook_config_paths_exist() -> None:
     import yaml
 
-    report = NOTEBOOK_ROOT / "common/reports/00_cross_dataset_results.ipynb"
+    report = NOTEBOOK_ROOT / "pipeline/04_results.ipynb"
     assert report.is_file()
     caller = (PROJECT_ROOT / "scripts/run_integrated_postprocessing.py").read_text(
         encoding="utf-8"
     )
-    assert 'root / "notebooks/common/reports/00_cross_dataset_results.ipynb"' in caller
+    assert 'root / "notebooks/legacy/pipeline/04_results.ipynb"' in caller
     config = yaml.safe_load(
         (PROJECT_ROOT / "configs/experiments/rfw_balancedface_quantization.yaml").read_text(
             encoding="utf-8"
@@ -438,7 +444,7 @@ def test_step1_characterization_and_report_remain_fallback_free() -> None:
     assert "origin_fallback_used" in lfw_visualization
 
     report = _source(
-        NOTEBOOK_ROOT / "common" / "reports" / "00_cross_dataset_results.ipynb"
+        NOTEBOOK_ROOT / "pipeline/04_results.ipynb"
     )
     for phrase in (
         "import numpy as np",

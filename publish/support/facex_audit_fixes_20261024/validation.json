@@ -1,0 +1,331 @@
+{
+  "created_kst": "2026-10-24T03:35:21.793881+09:00",
+  "repositories": {
+    "ronbun": {
+      "root": "C:\\ronbun",
+      "branch": "step14",
+      "head": "e1997a1c78c48627084202d5b691f203fb157266",
+      "git_directory": "C:/ronbun/.git",
+      "staged_files": [],
+      "source_sha256": {
+        "research/experiments/facex_inputs.py": "c0cedd890f79036ac4d5f09988d81620cee3e0db2df434b29fd46899b983bf25",
+        "research/experiments/facex_workflow.py": "a7060cab234adeab23a06bc1e7511a94a35d07af885eb610af8e7a81bad41f60",
+        "research/runtime/source_fingerprints.py": "196e76423139df571565dae262b037f66174c60366ebcfd5d21463e6e2ee7b6e",
+        "tests/research/test_facex_audit_fixes.py": "db18b129dab567b154b52ceb4141d780c6e631d2df370757072dcdff40f32428",
+        "configs/experiments/facex_workflow.yaml": "30c2bbc64eafeb2d1046faafd79fea56d043fb9dd91defbfe3274f6cb3014caf",
+        "notebooks/legacy/README.md": "c77248ab8e09149e9169f718a861232e07a2fde1126e66bbdb41e355a2175af2",
+        "notebooks/WORKFLOW_GUIDE.md": "68702786522e1a1ea70904d2b61d7cccb7b5078e6b62dc7dfd581f802928c604",
+        "notebooks/README.md": "d658b19f53b5c78c2aab0c22790aa683ca3bc7cb26a09184d35289a2c1fa39e4",
+        "architect/20261024.md": "336fb0373b718b25961e91c6f61ef9ca76e622495e2cff310a9bd3eac49dd20b",
+        "publish/FaceXZoo_ronbun_교차검토_수정검증_20261024_v1.md": "53ecfbd4bce949c8e4a615a0fbbbda24bffdb68b4f2692fb702242669b372dbe"
+      }
+    },
+    "facex_zoo": {
+      "root": "F:\\FaceX-Zoo",
+      "branch": "adjust1",
+      "head": "b7cc6f4772ae09591e0d5b759ca41ec9088ba40b",
+      "git_directory": "F:/FaceX-Zoo/.git",
+      "staged_files": [],
+      "source_sha256": {
+        "fine-tune/README.md": "a96ca8dc55e48ebef0aaafcff602f3634397d27eaf8c084fc3bd93c287f1898b",
+        "fine-tune/RESEARCH_HANDOFF.md": "b25bd7d239c712cc6c94bd36769a7f20abecaa4a02ab2d57999e0fb1c85e3b89",
+        "fine-tune/tests/test_cosface_integration.py": "fe61dd21d3965c3cfec1e53d55fb0398a7fbd741a69fc49e5e62048c3fae0423"
+      }
+    }
+  },
+  "independent_repositories": true,
+  "training_performed": false,
+  "full_experiment_performed": false,
+  "tests": {
+    "ronbun": {
+      "tests": 251,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 251,
+      "path": "C:\\ronbun\\tmp\\facex_fixes_20261024\\final_tests.xml",
+      "sha256": "4f64a6600c81929421119ad225a2f8461fa532130a1ce9c4a6a19bfcec57cfd0",
+      "seconds": 104.911
+    },
+    "facex_zoo": {
+      "tests": 185,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 185,
+      "path": "F:\\FaceX-Zoo\\fine-tune\\data\\repo_independent_review_20261024\\final_tests.xml",
+      "sha256": "4970fb06f5d31415ec7b72a26889e5584c669b2d032dbf00fc4bb70657d4f138",
+      "seconds": 106.644
+    }
+  },
+  "notebooks": [
+    {
+      "path": "C:\\ronbun\\notebooks\\01_data_preparation.ipynb",
+      "code_cells": 2,
+      "sha256": "f7a0405eb34fe17c99e6cd5b603521f60035112e4d844ae0f4a109cd885da726",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "C:\\ronbun\\notebooks\\02_inputs.ipynb",
+      "code_cells": 2,
+      "sha256": "7c9be540a0a4c2069a776d60876035d6203cb6f48368947acccaadb1fa499a40",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "C:\\ronbun\\notebooks\\03_experiments.ipynb",
+      "code_cells": 2,
+      "sha256": "5067e538a98beafa826e385f68aa79631eca19e30561a6d7307e833270f44358",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "C:\\ronbun\\notebooks\\04_results.ipynb",
+      "code_cells": 2,
+      "sha256": "7d78d3a6d10d605adaad0b77df7cd42667b9b331780ec752c027b5f6bf6823cd",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\00_environment_and_data.ipynb",
+      "code_cells": 5,
+      "sha256": "aef9c0d66c0c4a0f8f802f1400a263db88280398fdec310cb2b1fab6a6bda11c",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\01_prepare_vggface2.ipynb",
+      "code_cells": 5,
+      "sha256": "6b0fd8c81996350e5b5db4ebcbf1e9b5b9a520fbd035b518b1ce4c92979badb4",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\02_pretrain.ipynb",
+      "code_cells": 5,
+      "sha256": "1946507dfdb17b36eedd809554af174caf408907ad81e5f74955e07a48d9a948",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\03_finetune.ipynb",
+      "code_cells": 5,
+      "sha256": "2fe78d4d3aecaf91bd26bc1c4745626d6924a5f2f321113b9aebabd56911144f",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\04_export_and_validate.ipynb",
+      "code_cells": 5,
+      "sha256": "edf209f7d7988d59008f7ff110e3a6edb4a55c663f87f59d84c192de73914a56",
+      "saved_outputs": 0,
+      "format_ast_valid": true
+    }
+  ],
+  "legacy_notebooks": 56,
+  "head_notebooks": 52,
+  "head_notebooks_preserved_as_json": 47,
+  "notebook_visual_inspection": false,
+  "notebook_execution": "active ronbun safe defaults; FaceX 03/04 all cells with copied 1/3 head settings in regression tests",
+  "handoff": {
+    "path": "F:/FaceX-Zoo/fine-tune/data/protocols/research_v1/handoff.json",
+    "sha256": "dcfaf39cd55298a35f67b9e782b8bbfd9258d37113017bf38c16d246f86ae592",
+    "protocols": {
+      "scface": {
+        "roles_sha256": "95a8c996353f34acb1de029b6f188b7963773216db275d170643020f006a1101",
+        "training_identities": 50,
+        "training_images": 800
+      },
+      "survface": {
+        "roles_sha256": "be171ed212db0c8115230a91d80df9db3a93cd5ea017218626cbc37dcd8dce4c",
+        "training_identities": 4255,
+        "training_images": 176205
+      },
+      "tinyface": {
+        "roles_sha256": "4b92e525a7c4171529577f452cbc8bc67992dc2c620997b78ac3335912d5d777",
+        "training_identities": 2570,
+        "training_images": 7804
+      }
+    }
+  },
+  "partition_seed": 8972,
+  "pair_ranges": [
+    {
+      "dataset": "lfw",
+      "group": "all",
+      "fit_impostor": [
+        1245,
+        1288
+      ],
+      "safety_impostor": [
+        232,
+        260
+      ],
+      "test_impostor": [
+        300,
+        300
+      ]
+    },
+    {
+      "dataset": "rfw",
+      "group": "African",
+      "fit_impostor": [
+        773,
+        855
+      ],
+      "safety_impostor": [
+        124,
+        154
+      ],
+      "test_impostor": [
+        300,
+        300
+      ]
+    },
+    {
+      "dataset": "rfw",
+      "group": "Asian",
+      "fit_impostor": [
+        612,
+        685
+      ],
+      "safety_impostor": [
+        104,
+        140
+      ],
+      "test_impostor": [
+        300,
+        300
+      ]
+    },
+    {
+      "dataset": "rfw",
+      "group": "Caucasian",
+      "fit_impostor": [
+        722,
+        791
+      ],
+      "safety_impostor": [
+        160,
+        184
+      ],
+      "test_impostor": [
+        300,
+        300
+      ]
+    },
+    {
+      "dataset": "rfw",
+      "group": "Indian",
+      "fit_impostor": [
+        752,
+        804
+      ],
+      "safety_impostor": [
+        132,
+        163
+      ],
+      "test_impostor": [
+        300,
+        300
+      ]
+    }
+  ],
+  "current_ronbun_readiness": [
+    {
+      "dataset": "survface",
+      "protocol_ready": true,
+      "selected_models": 0,
+      "model_aliases": [],
+      "task": "TPIR@20/FPIR",
+      "status": "model_specs_required",
+      "fr_identities": 4255.0,
+      "fr_images": 176205.0
+    },
+    {
+      "dataset": "tinyface",
+      "protocol_ready": true,
+      "selected_models": 0,
+      "model_aliases": [],
+      "task": "rank",
+      "status": "model_specs_required",
+      "fr_identities": 2570.0,
+      "fr_images": 7804.0
+    },
+    {
+      "dataset": "scface",
+      "protocol_ready": true,
+      "selected_models": 0,
+      "model_aliases": [],
+      "task": "rank",
+      "status": "model_specs_required",
+      "fr_identities": 50.0,
+      "fr_images": 800.0
+    },
+    {
+      "dataset": "lfw",
+      "protocol_ready": true,
+      "selected_models": 0,
+      "model_aliases": [],
+      "task": "pair TAR/FMR",
+      "status": "model_specs_required",
+      "fr_identities": NaN,
+      "fr_images": NaN
+    },
+    {
+      "dataset": "rfw",
+      "protocol_ready": true,
+      "selected_models": 0,
+      "model_aliases": [],
+      "task": "pair TAR/FMR",
+      "status": "model_specs_required",
+      "fr_identities": NaN,
+      "fr_images": NaN
+    }
+  ],
+  "current_facex_readiness": {
+    "settings_sha256": "5f799da3f3c6607dd04b8834372c76267cad9bae55e39d043c65db134a73ee1b",
+    "checkpoint_namespace_exists": false,
+    "parent_preprocessing_report_exists": false,
+    "downstream": {
+      "survface": {
+        "protocol_record": "F:\\FaceX-Zoo\\fine-tune\\data\\protocols\\research_v1\\survface\\UNPREPARED\\protocol.json",
+        "protocol_exists": false,
+        "preprocessing_exists": false
+      },
+      "tinyface": {
+        "protocol_record": "F:\\FaceX-Zoo\\fine-tune\\data\\protocols\\research_v1\\tinyface\\UNPREPARED\\protocol.json",
+        "protocol_exists": false,
+        "preprocessing_exists": false
+      },
+      "scface": {
+        "protocol_record": "F:\\FaceX-Zoo\\fine-tune\\data\\protocols\\research_v1\\scface\\UNPREPARED\\protocol.json",
+        "protocol_exists": false,
+        "preprocessing_exists": false
+      }
+    }
+  },
+  "deferred_decision": {
+    "topic": "FaceX pre-job full byte and decode verification",
+    "current": "strict verification before every train/export",
+    "alternatives": [
+      "keep strict verification",
+      "design explicitly immutable dataset snapshot with separate verification policy"
+    ]
+  },
+  "interpretation": "Tests include synthetic fixtures; no claim of recognition/FIQA improvement or optimal split",
+  "files": {
+    "dataset_roles.csv": "8af673a89309c3a5319d9c0bd5ef10e4a70013aaa67768d02309a282a1cfce2d",
+    "pair_partitions.csv": "d98699b3817a3b48e81e59872335812b4dd48f8c78343d58986ad286da53386a"
+  },
+  "head_notebooks_preserved_with_prior_guide_edits": {
+    "calibration/03_origin_vs_pq_fiqa_calibration.ipynb": "pipeline/03_calibration.ipynb",
+    "common/orchestration/00_batch_experiment_runner.ipynb": "pipeline/02_input_preflight.ipynb",
+    "common/orchestration/01_batch_fiqa_saliency_calibration.ipynb": "common/orchestration/01_batch_fiqa_saliency_calibration.ipynb",
+    "common/reports/00_cross_dataset_results.ipynb": "pipeline/04_results.ipynb",
+    "lfw/00_data_preparation/00_data_preparation.ipynb": "pipeline/01_data_preparation.ipynb"
+  },
+  "completed_kst": "2026-10-24T03:43:17.865978+09:00",
+  "python_executable": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe"
+}

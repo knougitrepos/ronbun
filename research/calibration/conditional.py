@@ -249,6 +249,20 @@ def deterministic_calibration_partition(
     return labels
 
 
+def explicit_calibration_partition(rows, labels):
+    """Consume a frozen producer partition without silently hashing it again."""
+    values = pd.Series(np.asarray(labels), index=rows.index, dtype="string")
+    if set(values) != {"fit", "safety"} or values.isna().any():
+        raise ValueError("Explicit partition requires fit/safety labels for every row")
+    if "identity_id" not in rows or rows.identity_id.astype(str).str.strip().eq("").any():
+        raise ValueError("Explicit calibration requires canonical identity IDs")
+    check = pd.DataFrame({"identity": rows.identity_id, "role": values})
+    if check.groupby("identity").role.nunique().max() != 1:
+        raise ValueError("Identity overlaps explicit fit/safety partitions")
+    values.attrs["partition_column"] = "identity_id"
+    return values
+
+
 def _group_labels(bin_count: int) -> tuple[str, ...]:
     count = int(bin_count)
     if count == 2:
@@ -511,6 +525,7 @@ def fit_global_threshold(
     partition_seed: int = 8972,
     partition_column: str | None = None,
     score_space: str,
+    partition_labels=None,
 ) -> ConditionalThresholdModel:
     """Fit a global comparator with the same fit/safety partition contract."""
 
@@ -520,12 +535,9 @@ def fit_global_threshold(
         score_column=score_column,
         quality_column=None,
     )
-    partition = deterministic_calibration_partition(
-        rows,
-        safety_fraction=safety_fraction,
-        seed=partition_seed,
-        partition_column=partition_column,
-    )
+    partition = (deterministic_calibration_partition(
+        rows, safety_fraction=safety_fraction, seed=partition_seed, partition_column=partition_column)
+        if partition_labels is None else explicit_calibration_partition(rows, partition_labels))
     fit = rows.loc[partition.eq("fit")]
     safety = rows.loc[partition.eq("safety")]
     fit_threshold = _threshold(fit, score_column=score_column, target_fpir=target)
@@ -590,6 +602,9 @@ def fit_global_threshold(
             "safety_rows": int(partition.eq("safety").sum()),
             "thresholds_fit_on": "fit_only",
             "safety_rule": "max(fit_threshold, heldout_threshold)",
+            **({"method": "explicit_manifest_labels", "assignment_sha256": canonical_sha256(
+                rows[["sample_id", "identity_id"]].assign(role=partition.to_numpy()).to_dict("records"))}
+               if partition_labels is not None else {}),
         },
         score_space=str(score_space),
     )

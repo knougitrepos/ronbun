@@ -75,9 +75,21 @@ def test_tinyface_native_audit_columns_reject_non_boolean_values() -> None:
         normalize_tinyface_per_query_audit_dtypes(frame)
 
 
+def test_tinyface_resize_emits_the_registered_source_color_order(tmp_path: Path) -> None:
+    path = tmp_path / "color.png"
+    pixel = np.asarray([[[10, 30, 200]]], dtype=np.uint8)
+    Image.fromarray(pixel).save(path)
+    rgb = tinyface_pipeline._resize_batch([path], height=2, width=2, source_color_order="rgb")
+    bgr = tinyface_pipeline._resize_batch([path], height=2, width=2, source_color_order="bgr")
+    np.testing.assert_array_equal(rgb[0, 0, 0], [10, 30, 200])
+    np.testing.assert_array_equal(bgr[0, 0, 0], [200, 30, 10])
+
+
+@pytest.mark.parametrize("embedding_dim", [512, 1024])
 def test_tinyface_plan_hash_and_config_include_sdc_selection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    embedding_dim: int,
 ) -> None:
     bundle = build_tinyface_official_bundle(
         _tinyface_fixture(tmp_path), strict_official=False
@@ -90,7 +102,7 @@ def test_tinyface_plan_hash_and_config_include_sdc_selection(
     monkeypatch.setattr(
         tinyface_pipeline,
         "read_model_spec",
-        lambda *args, **kwargs: SimpleNamespace(model_uid="tinyface-model"),
+        lambda *args, **kwargs: SimpleNamespace(model_uid="tinyface-model", embedding_dim=embedding_dim),
     )
     model_spec_path = tmp_path / "model_spec.json"
     model_spec_path.write_text("{}\n", encoding="utf-8")
@@ -115,6 +127,8 @@ def test_tinyface_plan_hash_and_config_include_sdc_selection(
     )
 
     assert selected.plan_id != disabled.plan_id
+    assert selected.embedding_dimension == embedding_dim
+    assert selected.config()["embedding_dimension"] == embedding_dim
     assert selected.config()["pq_sdc_settings"] == [{"m": 128, "nbits": 8}]
     assert selected.config()["expected_condition_count"] == 27
     assert disabled.config()["expected_condition_count"] == 26
@@ -122,9 +136,12 @@ def test_tinyface_plan_hash_and_config_include_sdc_selection(
         pca_dimensions=disabled.pca_dimensions,
         pq_settings=disabled.pq_settings,
         pq_sdc_settings=disabled.pq_sdc_settings,
+        source_dim=embedding_dim,
     )
     assert len(disabled_keys) == 26
     assert not any(mode == "pq_sdc_exhaustive" for _, mode in disabled_keys)
+    assert (f"origin_{embedding_dim}", "origin_cosine") in disabled_keys
+    assert (f"pq_{embedding_dim}_m128_b8", "pq_adc_exhaustive") in disabled_keys
 
 
 def _tinyface_fixture(root: Path) -> Path:
@@ -363,8 +380,9 @@ def test_tinyface_embedding_extraction_uses_common_progress_contract(
         }
     )
     spec = SimpleNamespace(
+        model_uid="tinyface-test-model",
         embedding_dim=2,
-        preprocessing=SimpleNamespace(input_height=8, input_width=8),
+        preprocessing=SimpleNamespace(input_height=8, input_width=8, source_color_order="rgb"),
     )
 
     class Adapter:
@@ -389,6 +407,7 @@ def test_tinyface_embedding_extraction_uses_common_progress_contract(
     )
     plan = SimpleNamespace(
         model_spec_path=model_spec_path,
+        embedding_dimension=2,
         device="cpu",
         embedding_batch_size=1,
         model_uid="tinyface-test-model",

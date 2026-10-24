@@ -135,7 +135,7 @@ class PyTorchFaceEmbeddingAdapter:
             ]
             if len(candidates) != 1:
                 raise TypeError(
-                    "sequence model output must contain exactly one (N, 512) "
+                    f"sequence model output must contain exactly one (N, {self.spec.embedding_dim}) "
                     "tensor or use output_selector"
                 )
             selected = candidates[0]
@@ -182,7 +182,7 @@ class PyTorchFaceEmbeddingAdapter:
 
         Grad-CAM and ordinary embedding extraction use this shared
         normalization contract so they cannot silently analyze a different
-        tensor than the one stored as the origin 512D representation.
+        tensor than the one stored as the original representation.
         """
 
         torch = require_torch()

@@ -8,7 +8,7 @@ import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks"
+NOTEBOOK_ROOT = PROJECT_ROOT / "notebooks" / "legacy"
 ARCHIVE_ROOT = NOTEBOOK_ROOT / "_archive"
 CONFIG_PATH = (
     PROJECT_ROOT / "configs" / "experiments" / "step1_embedding_compression.yaml"
@@ -44,9 +44,8 @@ def test_data_preparation_applies_one_scope_without_breaking_split_boundaries():
     for dataset in ("lfw", "survface"):
         source = _code_source(
             NOTEBOOK_ROOT
-            / dataset
-            / "00_data_preparation"
-            / "00_data_preparation.ipynb"
+            / ("pipeline/01_data_preparation.ipynb" if dataset == "lfw"
+               else "survface/00_data_preparation/00_data_preparation.ipynb")
         )
 
         expected_mode = expected_modes[dataset]

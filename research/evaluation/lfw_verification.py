@@ -22,7 +22,15 @@ def pair_scores(vectors, pairs, image_ids, *, codec=None, batch_size=128):
     if codec is None:
         return np.einsum("ij,ij->i", vectors[left], vectors[right]).astype(float)
     if codec.nbits != 8:
-        raise ValueError("pair ADC currently requires 8-bit subquantizers")
+        # Packed low-bit codes: distance to the stored centroid reconstruction
+        # is mathematically the same asymmetric squared-L2 score. Queries stay
+        # in full precision; no query quantization or cosine reuse is involved.
+        result = []
+        for start in range(0, len(pairs), batch_size):
+            a = np.asarray(vectors[left[start:start + batch_size]], dtype=np.float32)
+            b = codec.decode(codec.encode(vectors[right[start:start + batch_size]]))
+            result.extend(-np.square(a.astype(np.float64) - b).sum(axis=1))
+        return np.asarray(result)
     import faiss
 
     result = []
@@ -97,7 +105,7 @@ def _frame(pairs, scores, quality):
     return frame
 
 
-def evaluate_fold(scored, quality, calibration, test, *, seed, settings, keep_decisions=False):
+def evaluate_fold(scored, quality, calibration, test, *, seed, settings, keep_decisions=False, origin_profile="origin"):
     """Fit all methods on the same calibration pairs, then freeze before test."""
     labels = test.is_genuine.to_numpy(dtype=bool)
     npos, nneg = int(labels.sum()), int((~labels).sum())
@@ -174,10 +182,10 @@ def evaluate_fold(scored, quality, calibration, test, *, seed, settings, keep_de
                     comparison="method_minus_global", tar_difference=operational[candidate][1]-operational[reference][1],
                     reference_fmr=operational[reference][0], candidate_fmr=operational[candidate][0],
                     paired_identity_bootstrap95_low=float(low), paired_identity_bootstrap95_high=float(high)))
-            if profile == "origin":
+            if profile == origin_profile:
                 continue
             for method in METHODS:
-                a, b = ("origin", method, target), (profile, method, target)
+                a, b = (origin_profile, method, target), (profile, method, target)
                 low, high = np.quantile(bootstrap[b]-bootstrap[a], [.025, .975])
                 tables["paired"].append(dict(compression_profile=profile, method=method, target_fmr=target,
                     comparison="compressed_minus_origin", tar_difference=operational[b][1]-operational[a][1],

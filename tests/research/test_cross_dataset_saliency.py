@@ -696,10 +696,8 @@ def test_load_cross_dataset_saliency_associations_rejects_selector_key_mismatch(
 def test_cross_dataset_report_exports_full_saliency_association_contract() -> None:
     notebook_path = (
         Path(__file__).resolve().parents[2]
-        / "notebooks"
-        / "common"
-        / "reports"
-        / "00_cross_dataset_results.ipynb"
+        / "notebooks" / "legacy"
+        / "pipeline/04_results.ipynb"
     )
     notebook = nbformat.read(notebook_path, as_version=4)
     nbformat.validate(notebook)

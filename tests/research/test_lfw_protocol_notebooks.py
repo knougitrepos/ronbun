@@ -9,11 +9,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 PATHS = {
-    "prepare": "notebooks/lfw/00_data_preparation/00_data_preparation.ipynb",
-    "benchmark": "notebooks/common/orchestration/00_batch_experiment_runner.ipynb",
-    "inputs": "notebooks/common/orchestration/01_batch_fiqa_saliency_calibration.ipynb",
-    "calibrate": "notebooks/calibration/03_origin_vs_pq_fiqa_calibration.ipynb",
-    "report": "notebooks/common/reports/00_cross_dataset_results.ipynb",
+    "prepare": "notebooks/legacy/pipeline/01_data_preparation.ipynb",
+    "benchmark": "notebooks/legacy/pipeline/02_input_preflight.ipynb",
+    "inputs": "notebooks/legacy/common/orchestration/01_batch_fiqa_saliency_calibration.ipynb",
+    "calibrate": "notebooks/legacy/pipeline/03_calibration.ipynb",
+    "report": "notebooks/legacy/pipeline/04_results.ipynb",
 }
 
 

@@ -18,7 +18,7 @@ from research.calibration.rejection import (
     choose_threshold,
 )
 from research.compression import (
-    ORIGIN_512,
+    origin_profile_name,
     PQCompressor,
     fit_pca_family,
     pq_profile_name,
@@ -180,9 +180,10 @@ def _population_frame(
             "selected_manifest row order must match the prepared population"
         )
     embeddings = np.asarray(prepared.normalized_embeddings, dtype=np.float32)
-    if embeddings.shape != (len(selected), 512):
+    if embeddings.shape != (len(selected), prepared.embedding_dim):
         raise ValueError(
-            f"Step 2 compression requires [N, 512] embeddings, got {embeddings.shape}"
+            "Step 2 compression requires embeddings matching the prepared "
+            f"population dimension {prepared.embedding_dim}, got {embeddings.shape}"
         )
     raw_norms = np.asarray(prepared.raw_norms, dtype=np.float32)
     if raw_norms.shape != (len(selected),):
@@ -1150,6 +1151,14 @@ def _summarize_retrieval(retrieval: pd.DataFrame) -> pd.DataFrame:
     ):
         family, profile, search_mode, policy = keys[:4]
         operating_target = float(keys[4]) if len(keys) == 5 else np.nan
+        source_dimensions = (
+            group["origin_embedding_dimension"].unique()
+            if "origin_embedding_dimension" in group
+            else np.asarray([512])  # Existing completed 512D ledgers predate this field.
+        )
+        if len(source_dimensions) != 1 or int(source_dimensions[0]) < 1:
+            raise ValueError("retrieval group must have one positive origin embedding dimension")
+        source_dim = int(source_dimensions[0])
         mated = group["is_mated"].astype(bool).to_numpy()
         non_mated = ~mated
         origin_accepted = group["origin_accepted"].astype(bool).to_numpy()
@@ -1395,11 +1404,12 @@ def _summarize_retrieval(retrieval: pd.DataFrame) -> pd.DataFrame:
                 "gallery_template_count": int(
                     group["gallery_template_count"].iloc[0]
                 ),
-                "origin_storage_bytes_per_embedding": 512 * 4,
+                "origin_embedding_dimension": source_dim,
+                "origin_storage_bytes_per_embedding": source_dim * 4,
                 "origin_gallery_storage_bytes": int(
                     group["gallery_template_count"].iloc[0]
                 )
-                * 512
+                * source_dim
                 * 4,
                 "compressed_gallery_storage_bytes": int(
                     group["gallery_template_count"].iloc[0]
@@ -1526,26 +1536,28 @@ def _characterize_population_with_protocols(
     collect_retrieval_metrics: bool = True,
     progress: ProgressCallback | None = None,
 ) -> Step2CompressionResult:
+    source_dim = prepared.embedding_dim
     operating_targets = _normalize_target_fpirs(target_fpir, target_fpirs)
     requested_pca = tuple(int(value) for value in pca_dimensions)
     requested_pq = tuple((int(m), int(bits)) for m, bits in pq_settings)
     requested_pq_sdc = validate_pq_sdc_settings(
         requested_pq,
         pq_sdc_settings,
-        source_dim=512,
+        source_dim=source_dim,
     )
     requested_pq_sdc_set = set(requested_pq_sdc)
     if not requested_pca and not requested_pq:
         raise ValueError("at least one PCA or PQ profile is required")
     development_values = np.asarray(development_matrix, dtype=np.float32)
-    if development_values.ndim != 2 or development_values.shape[1] != 512:
-        raise ValueError("development_matrix must have shape [N, 512]")
+    if development_values.ndim != 2 or development_values.shape[1] != source_dim:
+        raise ValueError(f"development_matrix must have shape [N, {source_dim}]")
 
     pca_models = (
         fit_pca_family(
             development_values,
             dimensions=requested_pca,
             random_state=seed,
+            source_dim=source_dim,
         )
         if requested_pca
         else {}
@@ -1565,20 +1577,20 @@ def _characterize_population_with_protocols(
         )
     for m, nbits in requested_pq:
         compressor = PQCompressor(
-            source_dim=512,
+            source_dim=source_dim,
             m=m,
             nbits=nbits,
-            source_profile=ORIGIN_512,
+            source_profile=origin_profile_name(source_dim),
             random_state=int(seed),
         ).fit(development_values)
-        compressors.append(("pq", pq_profile_name(m, nbits), compressor))
+        compressors.append(("pq", pq_profile_name(m, nbits, source_dim=source_dim), compressor))
         _emit(
             progress,
             f"{prepared.dataset_id} compressor fit",
             processed=len(compressors),
             total=compressor_total,
             family="pq",
-            profile=pq_profile_name(m, nbits),
+            profile=pq_profile_name(m, nbits, source_dim=source_dim),
         )
 
     calibration = _protocol_arrays(calibration_protocol, population)
@@ -1633,6 +1645,7 @@ def _characterize_population_with_protocols(
         )
         full_result = compressor.transform_profile(full_matrix)
         storage = _storage_metadata(family, full_result)
+        storage["origin_embedding_dimension"] = source_dim
         paired = paired_embedding_metrics(
             full_matrix,
             full_result.vectors,

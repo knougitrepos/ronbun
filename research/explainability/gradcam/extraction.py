@@ -110,6 +110,10 @@ class PreparedPopulationInputs:
             raise ValueError("raw and normalized embedding matrices must align")
         if self.raw_embeddings.ndim != 2 or len(self.raw_embeddings) != row_count:
             raise ValueError("embedding matrices must have one row per sample")
+        if self.raw_embeddings.shape[1] < 1:
+            raise ValueError("embedding dimension must be positive")
+        if self.loo_templates.templates.shape != self.raw_embeddings.shape:
+            raise ValueError("template and embedding dimensions must match")
         if not np.all(np.isfinite(self.raw_embeddings)):
             raise ValueError("raw_embeddings must contain only finite values")
         if not np.all(np.isfinite(self.normalized_embeddings)):
@@ -151,6 +155,10 @@ class PreparedPopulationInputs:
             "origin_embedding_artifact_uid",
         ):
             _text(getattr(self, name), name=name)
+
+    @property
+    def embedding_dim(self) -> int:
+        return int(self.raw_embeddings.shape[1])
 
     def sample_frame(self) -> pd.DataFrame:
         frame = self.loo_templates.metadata_frame()

@@ -600,7 +600,7 @@ def test_relative_run_paths_resolve_from_project_root(
         }
         for model, datasets in absolute.items()
     }
-    notebook_dir = tmp_path / "notebooks/common/reports"
+    notebook_dir = tmp_path / "notebooks/legacy/common/reports"
     notebook_dir.mkdir(parents=True)
     monkeypatch.chdir(notebook_dir)
 

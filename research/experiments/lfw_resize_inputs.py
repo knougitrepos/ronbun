@@ -21,7 +21,7 @@ from threadpoolctl import threadpool_limits
 from research.datasets.lfw_blufr import bind_image_manifest, load_blufr_lists
 from research.embeddings.manifests import read_model_spec
 from research.embeddings.registry import create_pytorch_adapter_from_spec
-from research.experiments.calibration_matrix import MODEL_UIDS
+from research.experiments.model_bindings import model_bindings
 from research.experiments.origin_pq_resources import check_resources
 from research.experiments.origin_pq_storage import SplitStore
 from research.fiqa import (
@@ -55,6 +55,11 @@ def _implementation():
             "embeddings/pytorch/adapter.py",
             "embeddings/pytorch/official_loaders.py",
             "embeddings/pytorch/official_backbones.py",
+            "embeddings/pytorch/facex_backbone.py",
+            "embeddings/pytorch/facex_zoo.py",
+            "embeddings/facex_zoo.py",
+            "embeddings/base.py",
+            "experiments/model_bindings.py",
             "fiqa/artifacts.py",
             "fiqa/cr_fiqa.py",
         )
@@ -135,10 +140,14 @@ def load_resize_source(project, directory):
         root / "normalized_embeddings.npy", mmap_mode="r", allow_pickle=False
     )
     norms = np.load(root / "raw_norms.npy", mmap_mode="r", allow_pickle=False)
+    declared = meta.get("contract", {}).get("model_spec", {}).get("embedding_dim", 512)
+    dimension = meta.get("embedding_dimension", declared)
     if (
         index.image_id.duplicated().any()
         or len(index) != meta["row_count"]
-        or vectors.shape != (len(index), 512)
+        or dimension not in (512, 1024)
+        or dimension != declared
+        or vectors.shape != (len(index), dimension)
         or not np.isfinite(vectors).all()
         or not np.allclose(np.linalg.norm(vectors, axis=1), 1.0, atol=1e-4)
         or norms.shape != (len(index),)
@@ -151,6 +160,7 @@ def load_resize_source(project, directory):
         sample_ids=index.image_id.to_numpy(),
         identity_ids=index.identity_id.to_numpy(),
         normalized_embeddings=vectors,
+        embedding_dim=dimension,
         raw_norms=norms,
         model_uid=meta["model_uid"],
         extraction_uid=meta["source_uid"],
@@ -172,6 +182,9 @@ def load_resize_source(project, directory):
 
 
 def _write_source(destination, index, vectors, norms, contract, lineage):
+    dimension = contract.get("model_spec", {}).get("embedding_dim", 512)
+    if vectors.shape != (len(index), dimension) or dimension not in (512, 1024):
+        raise ValueError("source vectors do not match the registered embedding dimension")
     staging = destination.with_name("." + destination.name + "-" + uuid4().hex)
     staging.mkdir(parents=True)
     try:
@@ -190,6 +203,7 @@ def _write_source(destination, index, vectors, norms, contract, lineage):
             checkpoint_sha256=contract["checkpoint_sha256"],
             preprocess_hash=contract["preprocess_hash"],
             row_count=len(index),
+            embedding_dimension=dimension,
             lineage=lineage,
             files={
                 name: dict(sha256=sha256_file(staging / name))
@@ -355,9 +369,12 @@ def prepare_resize_inputs(
         model: read_model_spec(root / config["resize_inputs"]["model_specs"][model])
         for model in selected
     }
+    dimension, bindings = model_bindings(config)
     for model, spec in specs.items():
-        if spec.model_uid != MODEL_UIDS[model]:
+        if spec.model_uid != bindings[model] or spec.embedding_dim != dimension:
             raise ValueError("model checkpoint UID mismatch")
+        if spec.preprocessing.source_color_order != "rgb":
+            raise ValueError("LFW PIL resize producer supplies RGB; register an RGB-source ModelSpec")
     variant = CRFIQA_VARIANTS[config["fiqa_variant"]]
     fiqa_checkpoint = root / config["resize_inputs"]["fiqa_checkpoint"]
     if (

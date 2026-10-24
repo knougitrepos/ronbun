@@ -126,7 +126,15 @@ temp/
 dbdata/
 *.log
 
-publish/
+# Keep local reports private by default; expose this reviewed integration handoff only.
+/publish/*
+!/publish/FaceXZoo_학습분할_권고_20261022_v1.md
+!/publish/FaceXZoo_1024D_코드교정_20261023_v1.md
+!/publish/support/
+/publish/support/*
+!/publish/support/facex_integration_20261023/
+/publish/support/facex_integration_20261023/*
+!/publish/support/facex_integration_20261023/validation.json
 
 # Downloaded BLUFR toolkit cache; URL and expected digest live in the config.
 data/external/blufr/
@@ -148,3 +156,28 @@ results/calibration/lfw_blufr_based/*.sqlite3*
 data/external/lfw/
 results/calibration/lfw_pair_verification/campaign-*/raw/
 results/calibration/lfw_pair_verification/**/.staging-*/
+# Local pair-input payloads; keep provenance and compact summaries visible.
+results/lfw_pair_inputs_v1/sources/**/*.npy
+results/lfw_pair_inputs_v1/sources/**/population.csv
+results/lfw_pair_inputs_v1/fiqa_scores/**/fiqa_scores.csv
+results/lfw_pair_inputs_v1/**/.staging-*/
+results/lfw_pair_inputs_v1/**/.inprogress/
+
+# Compact cross-repository implementation evidence; raw payloads remain local.
+!/publish/FaceXZoo_다중데이터셋_연계구현_20261023_v1.md
+!/publish/support/facex_workflow_20261023/
+!/publish/support/facex_workflow_20261023/validation.json
+
+# Compact evidence for the five execution fixes; diagnostics and raw fixtures stay local.
+!/publish/FaceXZoo_ronbun_실행오류5건_수정검증_20261023_v1.md
+!/publish/support/facex_review_fixes_20261023/
+/publish/support/facex_review_fixes_20261023/*
+!/publish/support/facex_review_fixes_20261023/validation.json
+
+# Reviewed compact audit evidence; raw fixtures and caches remain local.
+!/publish/FaceXZoo_ronbun_교차검토_수정검증_20261024_v1.md
+!/publish/support/facex_audit_fixes_20261024/
+/publish/support/facex_audit_fixes_20261024/*
+!/publish/support/facex_audit_fixes_20261024/validation.json
+!/publish/support/facex_audit_fixes_20261024/dataset_roles.csv
+!/publish/support/facex_audit_fixes_20261024/pair_partitions.csv

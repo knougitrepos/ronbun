@@ -16,9 +16,10 @@ import yaml
 from threadpoolctl import threadpool_limits
 
 from research.compression import PQCompressor
-from research.datasets.lfw_pairs import load_pairs, calibration_partition, PROTOCOL_UID, PAIRS_SHA256, PAIRS_URL
+from research.datasets.lfw_pairs import (load_pairs, calibration_partition, outer_fold_development,
+    PROTOCOL_UID, OUTER_FOLD_PROTOCOL_UID, PAIRS_SHA256, PAIRS_URL)
 from research.evaluation.lfw_verification import pair_scores, evaluate_fold
-from research.experiments.calibration_matrix import MODEL_UIDS
+from research.experiments.model_bindings import model_bindings
 from research.experiments.lfw_blufr_calibration import _quality
 from research.experiments.lfw_resize_inputs import load_resize_source
 from research.experiments.lfw_protocol_experiments import runtime_versions
@@ -28,7 +29,7 @@ from research.experiments.lfw_pair_storage import PairStore, publish, read_repor
 from research.runtime.hashing import canonical_sha256, sha256_file
 
 CONFIG_PATH = "configs/experiments/lfw_pair_verification.yaml"
-GUIDE = "notebooks/calibration/LFW_PAIR_VERIFICATION.md"
+GUIDE = "notebooks/legacy/lfw_sequential_v2/LFW_PAIR_VERIFICATION.md"
 
 
 def settings_from_config(config):
@@ -45,22 +46,35 @@ def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, 
                          partition_seeds=None, download_pairs=False):
     project = Path(project_root).resolve()
     config = yaml.safe_load((project / config_path).read_text(encoding="utf8"))
+    dimension, bindings = model_bindings(config)
     selected = tuple(models if models is not None else config["source_runs"])
     folds = tuple(fold_ids if fold_ids is not None else config["fold_ids"])
     seeds = tuple(partition_seeds if partition_seeds is not None else config["partition_seeds"])
     if (not selected or len(set(selected)) != len(selected) or not set(selected) <= set(config["source_runs"])
-            or not set(selected) <= set(MODEL_UIDS) or not folds or len(set(folds)) != len(folds)
+            or not folds or len(set(folds)) != len(folds)
             or not set(folds) <= set(range(1, 11)) or not seeds or len(set(seeds)) != len(seeds)
             or any(isinstance(s, bool) or not isinstance(s, int) or s < 0 for s in seeds)):
         raise ValueError("invalid explicit model/fold/seed matrix")
-    if config["pq_profiles"] != ["pq_512_m128_b8", "pq_512_m64_b8", "pq_512_m32_b8"]:
+    if config["pq_profiles"] != [f"pq_{dimension}_m{m}_b8" for m in (128, 64, 32)]:
         raise ValueError("preserve the predeclared three-PQ matrix")
     settings = settings_from_config(config)
     population = pd.read_csv(project / config["image_manifest"])
     pairs, development = load_pairs(project / config["pairs_file"], population, download=download_pairs)
+    policy = config.get("pq_training_policy", "all_unused_identities_legacy")
+    development_by_fold, people_hash = {}, None
+    if policy == "outer_fold_unused_identities":
+        people_file = project / config["people_file"]
+        development_by_fold = outer_fold_development(people_file, population, pairs, development)
+        people_hash = sha256_file(people_file)
+    elif policy != "all_unused_identities_legacy":
+        raise ValueError("unknown PQ training policy")
     required_ids = set(pairs.left_image_id) | set(pairs.right_image_id) | set(development.image_id)
     inventory = pd.DataFrame([calibration_partition(pairs, f, s, settings.safety_fraction)[2]
                               for f in folds for s in seeds])
+    inventory["pq_development_images"] = inventory.fold.map(
+        lambda f: len(development_by_fold.get(f, development)))
+    inventory["pq_development_identities"] = inventory.fold.map(
+        lambda f: development_by_fold.get(f, development).identity_id.nunique())
     quality, _ = _quality(project, config)
     if quality.scores.sample_id.duplicated().any():
         raise ValueError("duplicate FIQA image IDs")
@@ -69,8 +83,10 @@ def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, 
     sources, coverage = {}, []
     for model in selected:
         _, _, _, prepared, frame, lineage = load_resize_source(project, config["source_runs"][model])
-        if prepared.model_uid != MODEL_UIDS[model]:
+        if prepared.model_uid != bindings[model]:
             raise ValueError("model/source label mismatch")
+        if prepared.normalized_embeddings.shape[1] != dimension:
+            raise ValueError("configured/source embedding dimension mismatch")
         if quality.manifest["aligned_bundle_manifest_sha256"] != lineage["aligned_bundle_manifest_sha256"]:
             raise ValueError("FIQA and recognition preprocessing differ")
         available = frame.image_id.isin(quality_rows.index)
@@ -86,36 +102,49 @@ def inspect_verification(project_root, *, config_path=CONFIG_PATH, models=None, 
                              missing_fiqa=missing_quality, ready=not missing and not missing_quality))
         sources[model] = dict(**lineage, fiqa_manifest_sha256=canonical_sha256(quality.manifest))
     return dict(config=config, settings=settings, models=selected, folds=folds, seeds=seeds,
+        development_by_fold=development_by_fold, people_sha256=people_hash,
         pairs=pairs, development=development, inventory=inventory, coverage=pd.DataFrame(coverage),
         quality=quality_rows.fiqa_score, sources=sources, ready=all(x["ready"] for x in coverage),
         expected_jobs=len(selected)*len(folds)*len(seeds), development_images=len(development),
-        development_identities=development.identity_id.nunique(), protocol_uid=PROTOCOL_UID)
+        development_identities=development.identity_id.nunique(),
+        protocol_uid=OUTER_FOLD_PROTOCOL_UID if development_by_fold else PROTOCOL_UID)
 
 
 def _implementation(project):
     paths = ("datasets/lfw_pairs.py", "evaluation/lfw_verification.py",
              "experiments/lfw_pair_verification.py", "experiments/lfw_pair_storage.py",
-             "experiments/lfw_resize_inputs.py", "compression/profiles.py")
+             "experiments/lfw_resize_inputs.py", "experiments/model_bindings.py", "compression/profiles.py")
     return {**science_hashes(), **{p: sha256_file(project / "research" / p) for p in paths},
             "interpretation_guide": sha256_file(project / GUIDE)}
 
 
-def prepare_model(project, plan, model, resource_check):
+def prepare_model(project, plan, model, resource_check, *, fold=None):
     import faiss
     _, _, _, prepared, _, _ = load_resize_source(project, plan["config"]["source_runs"][model])
     ids = pd.Index(prepared.sample_ids)
     vectors = prepared.normalized_embeddings
-    development = vectors[ids.get_indexer(plan["development"].image_id)]
+    dimension = vectors.shape[1]
+    if dimension != plan["config"].get("embedding_dim", 512):
+        raise ValueError("configured/source embedding dimension mismatch")
+    if plan.get("development_by_fold") and fold not in plan["development_by_fold"]:
+        raise ValueError("outer fold is required for PQ fitting")
+    development_frame = plan.get("development_by_fold", {}).get(fold, plan["development"])
+    positions = ids.get_indexer(development_frame.image_id)
+    if (positions < 0).any():
+        raise ValueError("PQ development image missing from source")
+    development = vectors[positions]
     scores, codecs = [], []
     for profile in ("origin", *plan["config"]["pq_profiles"]):
         resource_check()
         codec = None
         if profile != "origin":
-            codec = PQCompressor(source_dim=512, m=int(profile.split("_m")[1].split("_")[0]),
-                                 nbits=8, random_state=plan["config"]["codec_seed"]).fit(development)
+            codec = PQCompressor(source_dim=dimension, m=int(profile.split("_m")[1].split("_")[0]),
+                                 nbits=8, source_profile=f"origin_{dimension}",
+                                 random_state=plan["config"]["codec_seed"]).fit(development)
             codecs.append(dict(compression_profile=profile, serialized_faiss=bytes(faiss.serialize_index(codec.index)),
-                development_images=len(development), development_assignment_sha256=canonical_sha256(plan["development"].image_id.tolist()),
-                codebook_bytes=512*256*4, code_payload_bytes=codec.m,
+                development_images=len(development), development_assignment_sha256=canonical_sha256(development_frame.image_id.tolist()),
+                embedding_dimension=dimension, outer_fold=fold,
+                codebook_bytes=dimension*256*4, code_payload_bytes=codec.m,
                 faiss_recommended_training_images=39*256, below_recommended_training_count=len(development)<39*256))
         frame = plan["pairs"].copy()
         frame["pair_score"] = pair_scores(vectors, frame, ids, codec=codec, batch_size=128)
@@ -163,13 +192,17 @@ def run_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold
     keep = plan["config"]["keep_raw_results"] if keep_raw_results is None else keep_raw_results
     if not isinstance(keep, bool) or not isinstance(blas_threads, int) or blas_threads < 1:
         raise ValueError("invalid retention/thread setting")
-    spec = dict(protocol_uid=PROTOCOL_UID, protocol_kind="pair_verification_1to1",
+    spec = dict(protocol_uid=plan["protocol_uid"], protocol_kind="pair_verification_1to1",
         config=plan["config"], config_sha256=sha256_file(project / config_path),
         models=plan["models"], folds=plan["folds"], seeds=plan["seeds"],
         sources=plan["sources"], implementation=_implementation(project), runtime=runtime_versions(),
         keep_raw_results=keep, blas_threads=blas_threads, pairs_sha256=PAIRS_SHA256, pairs_url=PAIRS_URL,
         pair_orientation="left_original_query_right_compressed_reference", quality_policy="left_query_only",
         development_assignment_sha256=canonical_sha256(plan["development"].image_id.tolist()),
+        people_sha256=plan.get("people_sha256"),
+        development_by_fold={str(f): dict(images=len(d), identities=int(d.identity_id.nunique()),
+            assignment_sha256=canonical_sha256(d.image_id.tolist()))
+            for f, d in plan.get("development_by_fold", {}).items()},
         development_images=plan["development_images"], development_identities=int(plan["development_identities"]),
         image_manifest_sha256=sha256_file(project / plan["config"]["image_manifest"]))
     root = (project / (output_root or plan["config"]["output_root"])).resolve()
@@ -188,7 +221,8 @@ def run_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold
     while not ancestor.exists():
         ancestor = ancestor.parent
     # Conservative planning bound; actual filesystem size is recorded after each run.
-    estimate = expected * (3_000_000 if keep else 300_000) + len(plan["models"])*30_000_000
+    codec_folds = len(plan["folds"]) if plan.get("development_by_fold") else 1
+    estimate = expected * (3_000_000 if keep else 300_000) + len(plan["models"])*codec_folds*30_000_000
     available = shutil.disk_usage(ancestor).free
     if available < estimate + 512*2**20:
         raise ResourceBudgetExceeded(f"insufficient disk: free={available}, planned={estimate} bytes; choose another output_root")
@@ -209,6 +243,9 @@ def run_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold
                 input_spec = dict(campaign=spec, kind="pair_scores_and_codecs", model=model)
                 inputs = None
                 for fold in plan["folds"]:
+                    if plan.get("development_by_fold"):
+                        input_spec = dict(campaign=spec, kind="pair_scores_and_codecs", model=model, fold=fold)
+                        inputs = None
                     for seed in plan["seeds"]:
                         job_spec = dict(campaign=spec, kind="calibration", model=model, fold=fold, seed=seed)
                         saved = store.get(job_spec)
@@ -222,11 +259,15 @@ def run_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold
                                 if inputs is None:
                                     if progress:
                                         progress(dict(stage="PQ_fit_and_pair_scores", model=model))
-                                    inputs = prepare_model(project, plan, model, resource_check)
+                                    inputs = prepare_model(project, plan, model, resource_check, fold=fold)
                                     store.put(input_spec, inputs)
                             if prepare_only:
                                 break
                             cal, test, inventory = calibration_partition(plan["pairs"], fold, seed, plan["settings"].safety_fraction)
+                            development_frame = plan.get("development_by_fold", {}).get(fold, plan["development"])
+                            inventory["pq_development_images"] = len(development_frame)
+                            inventory["pq_development_assignment_sha256"] = canonical_sha256(development_frame.image_id.tolist())
+                            inventory["origin_embedding_dimension"] = plan["config"].get("embedding_dim", 512)
                             if progress:
                                 progress(dict(stage="calibration", model=model, fold=fold, seed=seed,
                                               completed=completed, expected=expected))
@@ -245,7 +286,7 @@ def run_verification(project_root, *, config_path=CONFIG_PATH, models=None, fold
                         completed += 1
                         for name in aggregate:
                             aggregate[name].append(saved[name])
-                    if prepare_only:
+                    if prepare_only and not plan.get("development_by_fold"):
                         break
     except ResourceBudgetExceeded as error:
         stop_reason = str(error)

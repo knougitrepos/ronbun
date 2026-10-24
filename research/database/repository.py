@@ -6,6 +6,7 @@ import math
 import os
 from time import perf_counter
 
+import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -14,10 +15,12 @@ from research.database.models import (
     PCA_TEMPLATE_MODELS,
     Embedding256,
     Embedding512,
+    Embedding1024,
     EmbeddingPQ,
     Image,
     TemplateEmbedding256,
     TemplateEmbedding512,
+    TemplateEmbedding1024,
 )
 
 
@@ -141,11 +144,39 @@ class VectorRepository:
         *,
         run_uid: str | None = None,
     ):
+        self._require_512d_payload(embedding)
         existing = self._embedding_for_run(Embedding512, image_id, vector_type, run_uid)
         if existing is not None:
             return existing
         return self._persist(
             Embedding512(
+                image_id=image_id,
+                run_uid=run_uid,
+                vector_type=vector_type,
+                parameters=parameters,
+                embedding=embedding,
+                created_at=created_at or datetime.now(timezone.utc),
+                log=log,
+            )
+        )
+
+    def add_embedding_1024(
+        self,
+        image_id,
+        vector_type,
+        parameters,
+        embedding,
+        created_at=None,
+        log=None,
+        *,
+        run_uid: str | None = None,
+    ):
+        self._require_1024d_payload(embedding)
+        existing = self._embedding_for_run(Embedding1024, image_id, vector_type, run_uid)
+        if existing is not None:
+            return existing
+        return self._persist(
+            Embedding1024(
                 image_id=image_id,
                 run_uid=run_uid,
                 vector_type=vector_type,
@@ -283,8 +314,39 @@ class VectorRepository:
             .first()
         )
 
+    @staticmethod
+    def _require_512d_payload(embedding) -> None:
+        """Fail before any database work when using the legacy origin schema."""
+
+        vector = np.asarray(embedding, dtype=np.float32)
+        if vector.shape != (512,):
+            raise ValueError(
+                "the existing PostgreSQL origin tables require a 512D vector; "
+                "1024D FaceX-Zoo embeddings use the separate 1024D table methods"
+            )
+        if not np.isfinite(vector).all():
+            raise ValueError("the PostgreSQL 512D vector must contain only finite values")
+
+    @staticmethod
+    def _require_1024d_payload(embedding) -> None:
+        """Fail before any database work when using the legacy origin schema."""
+
+        vector = np.asarray(embedding, dtype=np.float32)
+        if vector.shape != (1024,):
+            raise ValueError(
+                "the existing PostgreSQL origin tables require a 1024D vector; "
+                "use the separate 1024D table methods for FaceX-Zoo embeddings"
+            )
+        if not np.isfinite(vector).all():
+            raise ValueError("the PostgreSQL 1024D vector must contain only finite values")
+
     def upsert_template_512(self, **values):
+        self._require_512d_payload(values["embedding"])
         return self._upsert_template(TemplateEmbedding512, **values)
+
+    def upsert_template_1024(self, **values):
+        self._require_1024d_payload(values["embedding"])
+        return self._upsert_template(TemplateEmbedding1024, **values)
 
     def upsert_template_256(self, **values):
         return self._upsert_template(TemplateEmbedding256, **values)
@@ -402,6 +464,11 @@ class VectorRepository:
     def find_similar_templates_512(self, query_vec, **kwargs):
         return self._find_similar_templates(
             TemplateEmbedding512, query_vec, expected_dim=512, **kwargs
+        )
+
+    def find_similar_templates_1024(self, query_vec, **kwargs):
+        return self._find_similar_templates(
+            TemplateEmbedding1024, query_vec, expected_dim=1024, **kwargs
         )
 
     def find_similar_templates_256(self, query_vec, **kwargs):
@@ -551,6 +618,11 @@ class VectorRepository:
     ):
         return self._get_embeddings(Embedding512, image_id, vector_type, param_filter, run_uid)
 
+    def get_embeddings_1024(
+        self, image_id=None, vector_type=None, param_filter=None, *, run_uid=None
+    ):
+        return self._get_embeddings(Embedding1024, image_id, vector_type, param_filter, run_uid)
+
     def _get_embeddings(self, model, image_id, vector_type, param_filter, run_uid):
         query = self.db.query(model)
         if image_id is not None:
@@ -584,6 +656,19 @@ class VectorRepository:
             Embedding512,
             query_vec,
             expected_dim=512,
+            top_k=top_k,
+            vector_type=vector_type,
+            param_filter=param_filter,
+            run_uid=run_uid,
+        )
+
+    def find_similar_1024(
+        self, query_vec, top_k=5, vector_type=None, param_filter=None, *, run_uid=None
+    ):
+        return self._find_similar(
+            Embedding1024,
+            query_vec,
+            expected_dim=1024,
             top_k=top_k,
             vector_type=vector_type,
             param_filter=param_filter,

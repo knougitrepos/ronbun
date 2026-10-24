@@ -1,0 +1,188 @@
+{
+  "recorded_at_kst": "2026-10-23T02:15:55.806063+09:00",
+  "branch": "step14",
+  "base_commit": "e1997a1c78c48627084202d5b691f203fb157266",
+  "tests": {
+    "tests": "196",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "42.112"
+  },
+  "test_scope": "16 focused test modules; unit/regression and bounded synthetic workflows, not full dataset evaluation",
+  "test_xml_sha256": "7f3cc4ee737a745484a9e53845eb907b6b4ce6615f91309d03ae5424878b0f02",
+  "gpu_smoke": {
+    "checked_at_utc": "2026-10-22T12:50:24.832086+00:00",
+    "status": "passed",
+    "validation_scope": "synthetic state through actual FaceX export implementation and ronbun CUDA importer",
+    "trained_checkpoint_loaded": false,
+    "training_executed": false,
+    "torch_version": "2.7.1+cu118",
+    "cuda_runtime": "11.8",
+    "cuda_available": true,
+    "device_name": "NVIDIA GeForce GTX 1080 Ti",
+    "device_capability": [
+      6,
+      1
+    ],
+    "upstream_backbone_sha256": "3691d5c90f8f23c1f02d0e8e5d8add37b88f21b1a2558b3d7d6b9ea382a74593",
+    "fixture_export_sha256": "21d66751fc093be053ea7bbeaca1e0fff21231bb83cad43872a43f5544a3dc9c",
+    "fixture_removed_after_check": true,
+    "input_shape": [
+      2,
+      112,
+      112,
+      3
+    ],
+    "source_color": "RGB",
+    "model_color": "BGR",
+    "pixel_mean": 127.5,
+    "pixel_std": 128.0,
+    "output_shape": [
+      2,
+      1024
+    ],
+    "max_abs_native_vs_portable": 0.0,
+    "max_abs_norm_error": 0.0,
+    "current_config_export_root": "F:/FaceX-Zoo/fine-tune/checkpoints/exported/adjust1",
+    "current_config_export_root_exists": false
+  },
+  "notebook_preflight": {
+    "at_kst": "2026-10-23T02:11:39.188318+09:00",
+    "formal_experiment": false,
+    "protocol_uid": "lfw-view2-pairs-outer-fold-unused-identities-v2",
+    "people_sha256": "4701ef62b5aaab105c93412e3f49dc61567018a119963ae178c8747336e0e2a8",
+    "coverage": [
+      {
+        "model": "arcface",
+        "required_images": 9250,
+        "missing_embeddings": 0,
+        "missing_fiqa": 0,
+        "ready": true
+      },
+      {
+        "model": "adaface",
+        "required_images": 9250,
+        "missing_embeddings": 0,
+        "missing_fiqa": 0,
+        "ready": true
+      },
+      {
+        "model": "magface",
+        "required_images": 9250,
+        "missing_embeddings": 0,
+        "missing_fiqa": 0,
+        "ready": true
+      },
+      {
+        "model": "edgeface",
+        "required_images": 9250,
+        "missing_embeddings": 0,
+        "missing_fiqa": 0,
+        "ready": true
+      }
+    ],
+    "pq_development": [
+      {
+        "fold": 1,
+        "pq_development_images": 1361,
+        "pq_development_identities": 1302
+      },
+      {
+        "fold": 2,
+        "pq_development_images": 1389,
+        "pq_development_identities": 1322
+      },
+      {
+        "fold": 3,
+        "pq_development_images": 1393,
+        "pq_development_identities": 1313
+      },
+      {
+        "fold": 4,
+        "pq_development_images": 1406,
+        "pq_development_identities": 1331
+      },
+      {
+        "fold": 5,
+        "pq_development_images": 1404,
+        "pq_development_identities": 1323
+      },
+      {
+        "fold": 6,
+        "pq_development_images": 1438,
+        "pq_development_identities": 1360
+      },
+      {
+        "fold": 7,
+        "pq_development_images": 1384,
+        "pq_development_identities": 1314
+      },
+      {
+        "fold": 8,
+        "pq_development_images": 1387,
+        "pq_development_identities": 1310
+      },
+      {
+        "fold": 9,
+        "pq_development_images": 1402,
+        "pq_development_identities": 1327
+      },
+      {
+        "fold": 10,
+        "pq_development_images": 1377,
+        "pq_development_identities": 1310
+      }
+    ],
+    "notebooks": [
+      {
+        "path": "C:\\ronbun\\notebooks\\01_data_preparation.ipynb",
+        "status": "passed",
+        "mode": "shipped_safe_defaults"
+      },
+      {
+        "path": "C:\\ronbun\\notebooks\\02_inputs.ipynb",
+        "status": "passed",
+        "mode": "shipped_safe_defaults"
+      },
+      {
+        "path": "C:\\ronbun\\notebooks\\03_calibration.ipynb",
+        "status": "passed",
+        "mode": "shipped_safe_defaults"
+      },
+      {
+        "path": "C:\\ronbun\\notebooks\\04_results.ipynb",
+        "status": "passed",
+        "mode": "shipped_safe_defaults"
+      }
+    ]
+  },
+  "source_sha256": {
+    "research/embeddings/base.py": "894ded574aba25acdcf1f6cd02f837061cb6da6cd9c7591fc643934f6f67b724",
+    "research/embeddings/facex_zoo.py": "6c6c1075676d0fb4f18014cd8b9ed619b0b0917e3c55f4aafb4b50d9ccae073f",
+    "research/embeddings/pytorch/facex_zoo.py": "405aa6188e2dc910d185671ce0b73b2b10c32def5c14cc041599258d83811163",
+    "research/embeddings/pytorch/facex_backbone.py": "cb271fdb4cda30caf0b2111493a2cb9274784b5ec9e11a21fe35a5b42135f5fe",
+    "research/embeddings/pytorch/adapter.py": "79bfff384c46070e04f827a684c4252f0477910d89d88c02b1653fb9a8366cdb",
+    "research/embeddings/pytorch/models.py": "d839e334eb1af069f3f6768a672bc45d086a420bcf75255e58853f96a9ffb3bd",
+    "research/embeddings/registry.py": "792cee79b2f9666da871f9d4fe06e97eb9737f8de071a6429e12400e5619b537",
+    "research/compression/profiles.py": "09858f51618d251ab8a43a0fec35186dd6a1fcad7f197aae55259667bdd4c253",
+    "research/database/repository.py": "735597487a6f9be8b12391daa2dce4aa1f92c8711ec9f2a840784c0ed1769d5a",
+    "research/datasets/lfw_pairs.py": "6a5dc569fc0dcd096d6ee9b808ef041f0864c54b81dc4e9384f565aa5b53bae8",
+    "research/experiments/model_bindings.py": "9df2d79f722db9acc526ca61475da5b2e082301ee3cb3342bc4f2a5518c725ea",
+    "research/experiments/facex_lfw_config.py": "109814fd5e85961d2e57a146977d0dc443619b26d35b8a750869b68e542c1026",
+    "research/experiments/lfw_pair_verification.py": "43609e57b97b1df7ad277010c5e7c873834e5e987223239524faafd5368bb7e5",
+    "research/experiments/lfw_resize_inputs.py": "7ae37718ac177eb0ab56bdb08b3d4b60452f5df85485b9eaf23a9da5c915560e",
+    "research/experiments/step2_compression.py": "9f8a78cf2c164db6499e002d5d2b475ab47a178e71df3a321ee7366cd83bcb65",
+    "research/experiments/tinyface_pipeline.py": "cd0b681a01fe0d05e68c63355d7af2c707966b29b87966d5d2cc9e819ba54f9d",
+    "research/experiments/fiqa_threshold_calibration.py": "bdfe35d639071353d1e62c772c52420c836637317d040ae725cdeac46ea074fb",
+    "research/explainability/gradcam/artifacts.py": "d82a32453edf65f7ac23dda54c10698b955a9d93062be707377a6117f446bb96",
+    "research/explainability/gradcam/extraction.py": "9a7df37668c4528cb92d5623825551ff46dca84e60a4f053a526f9bd20be506e",
+    "configs/experiments/lfw_pair_verification.yaml": "d2ed8f753c093c59dbea93860e0d6f05aafa29466e7eb4148cc74d758a287128"
+  },
+  "full_training_executed": false,
+  "trained_facex_checkpoint_evaluated": false,
+  "proposed_training_split_applied": false,
+  "db_schema_migrated": false,
+  "committed": false,
+  "pushed": false
+}

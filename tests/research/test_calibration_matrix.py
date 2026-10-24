@@ -151,7 +151,7 @@ def test_notebook_configuration_and_all_conditions():
     import ast
     import nbformat
     from pathlib import Path
-    nb = nbformat.read(Path(__file__).parents[2] / "notebooks/common/orchestration/01_batch_fiqa_saliency_calibration.ipynb", as_version=4)
+    nb = nbformat.read(Path(__file__).parents[2] / "notebooks/legacy/common/orchestration/01_batch_fiqa_saliency_calibration.ipynb", as_version=4)
     nbformat.validate(nb)
     config = next(c.source for c in nb.cells if c.id == "user-configuration")
     # EXECUTE is intentionally user-editable for production runs.

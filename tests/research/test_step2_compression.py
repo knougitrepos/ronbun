@@ -122,7 +122,7 @@ class _FakePCA:
         )
 
 
-def _prepared() -> tuple[PreparedPopulationInputs, pd.DataFrame]:
+def _prepared(dimension: int = 512) -> tuple[PreparedPopulationInputs, pd.DataFrame]:
     rows = [
         ("d1", "dev-1", "development", 0.0),
         ("d2", "dev-2", "development", 0.5),
@@ -136,7 +136,7 @@ def _prepared() -> tuple[PreparedPopulationInputs, pd.DataFrame]:
         ("tk1", "test-known-unknown", "test", 1.8),
         ("tu1", "test-unknown-unknown", "test", 2.6),
     ]
-    vectors = np.zeros((len(rows), 512), dtype=np.float32)
+    vectors = np.zeros((len(rows), dimension), dtype=np.float32)
     for index, (_, _, _, angle) in enumerate(rows):
         vectors[index, 0] = np.cos(angle)
         vectors[index, 1] = np.sin(angle)
@@ -177,6 +177,34 @@ def _prepared() -> tuple[PreparedPopulationInputs, pd.DataFrame]:
     return prepared, selected
 
 
+def test_step2_1024d_runs_real_pq_adc_and_reports_actual_storage():
+    faiss = pytest.importorskip("faiss")
+    old_threads = faiss.omp_get_max_threads()
+    faiss.omp_set_num_threads(1)
+    try:
+        prepared, selected = _prepared(1024)
+        result = module.characterize_step2_compression(
+            prepared, selected,
+            gallery_identities=["test-gallery"],
+            unknown_unknown_identities=["test-unknown-unknown"],
+            pca_dimensions=[], pq_settings=[(32, 1)], pq_sdc_settings=[],
+            seed=8972, target_fpir=1.0, enrollment_count=1,
+            calibration_gallery_identities=1, top_k=1,
+        )
+        assert {profile for _, profile, _ in result.fitted_codecs} == {"pq_1024_m32_b1"}
+        codec = result.fitted_codecs[0][2]
+        assert codec.source_dim == 1024
+        assert codec.source_profile == "origin_1024"
+        assert set(result.summary["origin_embedding_dimension"]) == {1024}
+        assert set(result.summary["origin_storage_bytes_per_embedding"]) == {4096}
+        assert set(result.summary["origin_gallery_storage_bytes"]) == {4096}
+        assert "pq_adc_exhaustive" in set(result.retrieval_metrics["search_mode"])
+        assert set(result.paired_metrics["origin_embedding_dimension"]) == {1024}
+        assert set(result.retrieval_metrics["query_id"]) == {"tg2", "tk1", "tu1"} or set(result.retrieval_metrics["query_id"]) == {"tg1", "tk1", "tu1"}
+    finally:
+        faiss.omp_set_num_threads(old_threads)
+
+
 def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
     monkeypatch,
 ) -> None:
@@ -184,7 +212,7 @@ def test_step2_runner_fits_calibrates_and_evaluates_one_lineage(
     monkeypatch.setattr(
         module,
         "fit_pca_family",
-        lambda development_vectors, dimensions, random_state: {
+        lambda development_vectors, dimensions, random_state, source_dim=512: {
             "pca_2": _FakePCA()
         },
     )
@@ -322,7 +350,7 @@ def test_step2_runner_streams_retrieval_without_full_concat(monkeypatch) -> None
     monkeypatch.setattr(
         module,
         "fit_pca_family",
-        lambda development_vectors, dimensions, random_state: {
+        lambda development_vectors, dimensions, random_state, source_dim=512: {
             "pca_2": _FakePCA()
         },
     )
@@ -379,7 +407,7 @@ def test_step2_runner_reuses_search_scores_for_multiple_fpir_targets(
     monkeypatch.setattr(
         module,
         "fit_pca_family",
-        lambda development_vectors, dimensions, random_state: {
+        lambda development_vectors, dimensions, random_state, source_dim=512: {
             "pca_2": _FakePCA()
         },
     )
@@ -463,7 +491,7 @@ def test_step2_runner_supports_one_compression_family_for_bounded_refresh(
     monkeypatch.setattr(
         module,
         "fit_pca_family",
-        lambda development_vectors, dimensions, random_state: {
+        lambda development_vectors, dimensions, random_state, source_dim=512: {
             "pca_2": _FakePCA()
         },
     )
@@ -574,14 +602,15 @@ def test_independent_threshold_audit_preserves_greater_equal_ties() -> None:
     assert audited == pytest.approx(selected)
 
 
+@pytest.mark.parametrize("dimension", [512, 1024])
 def test_survface_runner_preserves_official_protocol_and_training_boundary(
-    monkeypatch,
+    monkeypatch, dimension,
 ) -> None:
     monkeypatch.setattr(module, "PQCompressor", _FakePQ)
     monkeypatch.setattr(
         module,
         "fit_pca_family",
-        lambda development_vectors, dimensions, random_state: {
+        lambda development_vectors, dimensions, random_state, source_dim=512: {
             "pca_2": _FakePCA()
         },
     )
@@ -606,7 +635,7 @@ def test_survface_runner_preserves_official_protocol_and_training_boundary(
             11,
         ),
     ]
-    vectors = np.zeros((len(rows), 512), dtype=np.float32)
+    vectors = np.zeros((len(rows), dimension), dtype=np.float32)
     for index, row in enumerate(rows):
         vectors[index, 0] = np.cos(row[3])
         vectors[index, 1] = np.sin(row[3])
@@ -741,7 +770,7 @@ def test_rfw_custom_runner_uses_persisted_open_set_roles_and_multi_fpir(
     monkeypatch.setattr(
         module,
         "fit_pca_family",
-        lambda development_vectors, dimensions, random_state: {
+        lambda development_vectors, dimensions, random_state, source_dim=512: {
             "pca_2": _FakePCA()
         },
     )
