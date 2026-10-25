@@ -3,6 +3,50 @@
 2026-10-23 KST. 현재 진입점은 01 → 02 → 03 → 04이다. 첫 설정 셀의
 CONFIG_PATH, DATASETS, OUTPUT_ROOT, EXECUTE, KEEP_RAW_RESULTS를 확인하고 커널을 재시작한다.
 
+## 합의한 실행 단계 — 2026-10-25
+
+03의 `STUDY_STAGE="baseline"`으로 현재 고정 분할을 먼저 평가한다. 기준 실행이 완료된 후
+`STUDY_STAGE="calibration_size"`, `BASELINE_REPORT=<정확한 완료 report_dir>`로 별도 분석한다.
+YAML/직접 Python 호출도 같은 `study.stage`, `study.baseline_report` 또는 함수 인자를 사용한다.
+두 번째 단계는 기준 보고서의 완료/hash, 모델 UID, protocol, quality, 입력 lineage를 검사하고
+그 보고서에 저장된 PCA/PQ codec을 로드한다. codec을 다시 fit하거나 FR 모델을 재학습하지 않는다.
+기준 보고서와 다른 조건이면 새 기준 실험이 필요하다. 이전 보고서를 덮어쓰지 않는다.
+
+표본 수 분석은 SurvFace/LFW/RFW만 선택한다. TinyFace/SCFace는 기존 rank 평가를 유지하며
+임의 threshold 프로토콜을 추가하지 않는다. LFW/RFW는 여전히 FR 학습에 사용하지 않는다.
+SurvFace는 원래 calibration-fit 인물, pair 데이터는 outer-test 인물 제거 후 원래 fit 인물만 사용한다.
+그 내부를 inner fit/safety/validation으로 identity-disjoint 분리하며 pair는 양쪽 인물이 같은 역할일
+때만 남긴다. 최종 safety와 최종 test 점수는 이 진단에 사용하지 않는다.
+
+`sample_efficiency.fit_fractions`, `safety_fractions`는 서로 독립적으로 변화시키는 **내부 pool의 인물 비율**이다.
+전체 FR/calibration 배분 비율이 아니며 실제 이미지/쌍·인물 수를 metrics.csv에 함께 기록한다.
+기본 5 folds, inner safety 0.3, 비율 0.25/0.5/0.75/1.0은 분석용 후보이며 최적값이 아니다.
+각 fold에서 validation은 고정되고 비율별 subset은 중첩된다. 이를 독립 반복 표본으로 합산하지 않는다.
+
+Stage 2 읽기 순서: HOW_TO_READ.md → chatgpt_summary.json → overview.csv → 관심 조건의 summary_parts.
+각 part는 모델·데이터셋·group·outer fold·압축·목표 비율 단위이며, 그 조건의 모든 inner fold와 fit/safety 비율을 남긴다.
+조건·파일 수·바이트·추정 토큰량은 summary index에 기록한다. 전체 metrics.csv 업로드는 선택 사항이다.
+`fit_samples/safety_samples/validation_samples`는 `sample_unit=query`이면 probe 수, `pair`이면 쌍 수다.
+`metric`은 FPIR 또는 FMR이며 `validation_false_accepts / validation_samples`가 관측 비율이다.
+`validation_target_met`는 반올림 전 관측 비율 판정이다. `*_expected_tail_count=N*target`은 tail 표본
+규모 진단이고 보장이나 충분 표본의 인증이 아니다. Wilson 구간은 행 단위 설명용으로, 인물 의존성이나
+중첩 subset 간 독립성을 가정한 확정적 보장으로 읽지 않는다.
+`insufficient_rows`도 표에 보존한다. inner fit/safety 각 20개 미만 또는 validation 부재 조건은
+모델을 fit하지 않았다는 뜻이며, 완료 artifact가 모든 조건의 유효한 추정을 의미하지 않는다.
+이 단계는 Global-safe와 Continuous-FIQA의 FPIR/FMR·pinball 안정성 진단이며 test TPIR/TAR 개선을
+선택하거나 입증하지 않는다. 최종 기준 실험의 TPIR@20/TAR와 구분한다.
+
+Stage 2는 집계표만 생성한다. KEEP_RAW_RESULTS와 무관하게 상세 scores/identities를 새로 저장하지 않으며
+기준 run의 입력·codec·모델은 보존한다. manifest에 기준 run ID/hash와 보존 정책을 기록한다.
+중단된 `.partial`은 보존하며 같은 명시적 조건으로 재실행하면 진단을 재계산한다. 완료 run은 재사용한다.
+FR/calibration 배분 비교는 이 진단에서 필요성을 검토한 다음 별도 protocol·namespace와 새 FR 모델로
+계획한다. 자동 비율 sweep이나 test 결과에 따른 자동 조건 선택은 구현하지 않는다.
+
+FaceX-Zoo의 새 parent 및 ArcFace/MagFace run은 `target_only_fp32_zero_radicand_eps_v1` 정책이다.
+정답 클래스에서 FP32의 `1-c*c == 0`일 때만 epsilon으로 대체하고 MagFace norm 경로를 유지한다.
+이는 저자 공식 수정이 아닌 로컬 수치 정책이다. 모델 sidecar/source_config의 정책·hash가 전달 경계이며,
+ronbun은 FaceX-Zoo 학습 코드를 import하거나 loss를 재구현하지 않는다.
+
 FaceX-Zoo의 모델 생성 연구와 ronbun의 모델 활용 실험은 별개다.
 두 저장소를 합치거나 상대 저장소의 학습 모듈을 import하지 않는다.
 전달 경계는 export(.pt), sidecar(_meta.json), 명시적으로 선택한 데이터 역할 기록이다.
@@ -112,6 +156,5 @@ CR-FIQA 품질 점수는 이미지 순서·변환·품질 checkpoint·코드가 
 기존 images와pgvector 초기화가 필요하며 512D테이블을 변경하지 않는다. 기본 평가는 파일/Faiss 경로다.
 DB 저장·검색 API의 검증과 PostgreSQL 검색 성능 벤치마크 완료는 구분한다.
 
-YAML의 sample_efficiency.enabled=True는 최종safety를 제외한 fit 내부 인물별 quantile 학습곡선을 생성한다.
-이 결과는 fit 표본 효율 진단이며 fit/safety 비율·FR/calibration 전체배분·최종TPIR의 최적화가 아니다.
-활성화한 경우 sample_efficiency.csv를 추가 확인한다.
+과거 sample_efficiency.enabled=True의 inline fit-only 진단은 새 workflow에서 사용하지 않는다.
+상단의 별도 calibration_size 단계와 그 metrics.csv를 사용한다.

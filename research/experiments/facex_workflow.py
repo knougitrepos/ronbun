@@ -33,6 +33,17 @@ def _config(path):
     return config
 
 
+def validate_study(config):
+    stage = config.get("study", {}).get("stage", "baseline")
+    if stage not in ("baseline", "calibration_size"):
+        raise ValueError("Use baseline then calibration_size; FR allocation changes need a separately justified new protocol/campaign")
+    if config.get("sample_efficiency", {}).get("enabled"):
+        raise ValueError("Inline sample_efficiency is retired; use a separate calibration_size stage after a completed baseline")
+    if stage == "calibration_size" and not config["study"].get("baseline_report"):
+        raise ValueError("calibration_size requires an explicit baseline_report")
+    return stage
+
+
 def _models(config, handoff):
     from research.embeddings.manifests import read_model_spec
     result = {}
@@ -198,6 +209,7 @@ def fit_codecs(vectors, settings, root, *, seed=8972, min_points=39):
     for setting in settings:
         info = validate_codec_budget(len(vectors), vectors.shape[1], setting, min_points=min_points)
         family, profile = setting["family"], info["profile"]
+        info["family"] = family
         if profile in codecs:
             raise ValueError("Duplicate compression profile")
         codec = None
@@ -292,20 +304,13 @@ def evaluate_survface(population, vectors, quality, codecs, config, *, details=N
     labels = cal_rows.role.map({"calibration_fit": "fit", "calibration_safety": "safety", "calibration_registered_probe": "fit"})
     cg, cids = _gallery(population, vectors, "calibration_gallery", templates=True)
     tg, tids = _gallery(population, vectors, "test_gallery", templates=True)
-    metrics, paired, models, curves = [], [], [], []
+    metrics, paired, models = [], [], []
     for profile, (family, codec, info) in codecs.items():
         cal, space = rank_scores(vectors[cal_mask], cg, cal_rows.identity_id, cids, family=family, codec=codec)
         test, _ = rank_scores(vectors[test_mask], tg, test_rows.identity_id, tids, family=family, codec=codec)
         for frame, source, q in ((cal, cal_rows, quality[cal_mask]), (test, test_rows, quality[test_mask])):
             frame["sample_id"], frame["identity_id"], frame["fiqa_score"] = source.image_id, source.identity_id, q
         for target in config["target_rates"]:
-            curve_config = config.get("sample_efficiency", {})
-            if curve_config.get("enabled"):
-                from research.calibration.sample_efficiency import quantile_learning_curve
-                curve = quantile_learning_curve(cal, labels, target=target, score_space=space,
-                    fractions=curve_config.get("fractions", [.25, .5, .75, 1.]),
-                    folds=curve_config.get("folds", 5), seed=config.get("partition_seed", 8972))
-                curves.extend(curve.assign(compression_profile=profile).to_dict("records"))
             common = dict(target_fpir=target, score_space=space, partition_labels=labels.to_numpy())
             fitted = {"global_safe": fit_global_threshold(cal, **common),
                       "continuous_fiqa": fit_continuous_threshold(cal, **common)}
@@ -336,7 +341,7 @@ def evaluate_survface(population, vectors, quality, codecs, config, *, details=N
                                both_target_met=all(r["target_met_on_test"] for r in rows),
                                ci_scope="paired genuine-identity bootstrap, fixed gallery/threshold; not an FPIR guarantee"))
             metrics.extend(rows)
-    return pd.DataFrame(metrics), pd.DataFrame(paired), dict(models=models, sample_efficiency=curves)
+    return pd.DataFrame(metrics), pd.DataFrame(paired), dict(models=models)
 
 
 def evaluate_rank(population, vectors, codecs, dataset, *, details=None):
@@ -432,9 +437,20 @@ def write_analysis_summary(root, metrics):
     pd.DataFrame(records).to_csv(Path(root) / "overview.csv", index=False)
 
 
-def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_results=None):
+def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_results=None,
+                 study_stage=None, baseline_report=None):
     config = _config(config_path)
+    config["study"] = dict(config.get("study", {"stage": "baseline", "baseline_report": None}))
+    if study_stage is not None:
+        config["study"]["stage"] = study_stage
+    if baseline_report is not None:
+        config["study"]["baseline_report"] = str(baseline_report)
+    stage = validate_study(config)
     selected = list(datasets or config["datasets"])
+    if stage == "calibration_size":
+        from research.experiments.facex_calibration_study import run_study
+        keep = config.get("keep_raw_results", True) if keep_raw_results is None else bool(keep_raw_results)
+        return run_study(config, selected, _root(config, output_root), keep_raw_results=keep)
     handoff, models, populations, jobs, identity = _workload(config, selected)
     root = _root(config, output_root)
     index_path = root / "input_indexes" / (canonical_sha256(identity) + ".json")
@@ -514,13 +530,6 @@ def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_resul
         metrics.to_csv(work / "metrics.csv", index=False)
         paired.to_csv(work / "paired.csv", index=False)
         write_analysis_summary(work, metrics)
-        curves = []
-        for path in work.glob("*_models.json"):
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(payload, dict) and payload.get("sample_efficiency"):
-                curves.append(pd.DataFrame(payload["sample_efficiency"]).assign(source_job=path.stem.removesuffix("_models")))
-        if curves:
-            pd.concat(curves, ignore_index=True).to_csv(work / "sample_efficiency.csv", index=False)
         guide = Path(__file__).resolve().parents[2] / "notebooks/WORKFLOW_GUIDE.md"
         shutil.copyfile(guide, work / "HOW_TO_READ.md")
         if len(pd.read_csv(work / "metrics.csv")) != len(metrics):

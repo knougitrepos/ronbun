@@ -38,6 +38,12 @@ pairs:
     image_manifest: data/interim/rfw/image_manifest.csv
     pairs_file: data/interim/rfw/pair_protocol.csv
 sample_efficiency:
-  enabled: false
-  fractions: [0.25, 0.5, 0.75, 1.0]
+  fit_fractions: [0.25, 0.5, 0.75, 1.0]
+  safety_fractions: [0.25, 0.5, 0.75, 1.0]
+  inner_safety_fraction: 0.3
   folds: 5
+# Baseline first. Stage 2 pins its completed report and reuses the same models/codecs.
+# calibration_size selects SurvFace/LFW/RFW only; TinyFace/SCFace remain rank tasks.
+study:
+  stage: baseline
+  baseline_report: null

@@ -181,3 +181,9 @@ results/lfw_pair_inputs_v1/**/.inprogress/
 !/publish/support/facex_audit_fixes_20261024/validation.json
 !/publish/support/facex_audit_fixes_20261024/dataset_roles.csv
 !/publish/support/facex_audit_fixes_20261024/pair_partitions.csv
+
+# Compact evidence for conditional verification, staged calibration and FP32 policy.
+!/publish/합의정책_구현검증_20261025_v1.md
+!/publish/support/agreed_policy_20261025/
+/publish/support/agreed_policy_20261025/*
+!/publish/support/agreed_policy_20261025/validation.json

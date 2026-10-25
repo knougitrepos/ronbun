@@ -15,6 +15,11 @@ ronbun의 모델 추론은 FaceX-Zoo Python 소스를 import하거나 학습 코
 | 03 | [실험](03_experiments.ipynb) | Origin/PCA/PQ·Global-safe/Continuous 또는 데이터셋별 rank 평가 |
 | 04 | [결과](04_results.ipynb) | 정확한 REPORT_DIR의 완료·무결성·지표·paired 비교 확인 |
 
+03은 `STUDY_STAGE="baseline"`부터 실행한다. 완료 후 `calibration_size`와 정확한
+`BASELINE_REPORT`를 지정하면 같은 모델·codec으로 fit/safety 크기를 분석한다.
+이 단계는 DATASETS에서 SurvFace/LFW/RFW만 선택하며, 최종 safety/test를 제외한 내부 validation을 쓴다.
+TinyFace/SCFace는 rank 평가를 유지한다. FR/calibration 비율 재학습은 자동 실행하지 않는다.
+
 FaceX-Zoo에서는 `fine-tune/notebooks/00 → 01 → 02 → 03 → 04`로 진행한다.
 00은3개 파인튜닝 데이터셋과 backbone별 새 namespace를 설정한다.
 03이 공유 역할 목록을 생성하고 해당 FR 인물만 학습한다. 04는 완료 모델을 export한다.
