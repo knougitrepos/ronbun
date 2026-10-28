@@ -27,7 +27,12 @@ def test_active_notebooks_safe_and_five_dataset_configuration(name, monkeypatch)
             assert not cell.outputs and cell.execution_count is None
             exec(compile(cell.source, name, "exec"), scope)
     assert scope["DATASETS"] == ["survface", "tinyface", "scface", "lfw", "rfw"]
-    assert scope["EXECUTE"] is False
+    if name.startswith(("02", "03")):
+        assert scope["EXECUTE"] is False
+    else:
+        assert "EXECUTE" not in scope  # inspection/result reading has no execution toggle
+    if name.startswith(("01", "02")):
+        assert "REPORT_DIR" not in scope
     assert not calls
 
 

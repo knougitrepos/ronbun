@@ -409,6 +409,12 @@ def safe_extract_tar_archive(
     *,
     expected_prefixes: Iterable[str] | None = None,
 ) -> Path:
+    from research.runtime.storage import artifact_lock
+    with artifact_lock(output_dir):
+        return _safe_extract_tar_archive(archive_path, output_dir, expected_prefixes=expected_prefixes)
+
+
+def _safe_extract_tar_archive(archive_path, output_dir, *, expected_prefixes=None) -> Path:
     """Extract a validated tar into a new directory without overwriting files."""
 
     archive = Path(archive_path).expanduser().resolve()
@@ -417,6 +423,8 @@ def safe_extract_tar_archive(
         raise FileExistsError(f"refusing to overwrite extraction target: {target}")
     report = inspect_tar_archive(archive, expected_prefixes=expected_prefixes)
     require_valid_tar(report)
+    from research.runtime.hashing import sha256_file
+    source_hash = sha256_file(archive)
 
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.extracting")
@@ -468,6 +476,13 @@ def safe_extract_tar_archive(
                 with source, destination.open("xb") as output:
                     shutil.copyfileobj(source, output, length=8 * 1024 * 1024)
                 handle.members.clear()
+        if sha256_file(archive) != source_hash:
+            raise DatasetIntegrityError("Archive changed during extraction")
+        from research.runtime.storage import write_provenance
+        write_provenance(temporary, operation="archive_extraction", sources={"archive": {"path": str(archive), "sha256": source_hash}},
+                         parameters={"expected_prefixes": list(expected_prefixes or ()), "processing": "byte-preserving; no resize/alignment"},
+                         counts={"members": len(seen), "decode": "not_checked"})
+        (temporary / "COMPLETED").touch()
         os.replace(temporary, target)
     except Exception:
         shutil.rmtree(temporary, ignore_errors=True)

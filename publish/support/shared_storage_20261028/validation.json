@@ -1,0 +1,222 @@
+{
+  "created_at": "2026-10-28T10:46:43.033022+09:00",
+  "status": "code_and_bounded_validation_completed",
+  "repositories": {
+    "ronbun": {
+      "path": "C:\\ronbun",
+      "branch": "refacto1",
+      "base_commit": "013765e9a5b5e460d6b46f0302efac48d2aaedf8",
+      "source_hashes": {
+        "configs/experiments/facex_workflow.yaml": "959b9f3e5bd966d4dc34bf7e913146945aa31ad944d0637497958249f2f736cf",
+        "notebooks/01_data_preparation.ipynb": "b54a236fd59a98a96a9e2f68cec7468dca1e38580f1851571a714b18cabd8e6a",
+        "notebooks/02_inputs.ipynb": "379c0a36eb7d7c73387959fb6be1c14d3d3635ba17882a94ee85453e1eb9c545",
+        "notebooks/03_experiments.ipynb": "049eed6e8831ed21759cff09044253808a885558e26af9e7aad3c1ec2ac0e70a",
+        "notebooks/04_results.ipynb": "3c48c5eec692e4e6202ed33339d65ff700a392fab39d3a750b589026a5cf7150",
+        "research/datasets/manifests.py": "0bb01a468738d3299a045a95f1f71a8ad28c890267b3a5b7acae779bffba2b3c",
+        "research/datasets/rfw.py": "233196570ea135887a6702992e1208437beeb5426e83cdf4070d3f49f697c708",
+        "research/datasets/sources.py": "185cfbc77dc495914edd92b24659a5bb0c27532a75807d49b29c94fb233e0b8c",
+        "research/experiments/facex_inputs.py": "17a05c3dbe53404311411c141f8728969219c15aafcadc8a227412fc14f888cd",
+        "research/experiments/facex_workflow.py": "103ee61ce8705a935976f1fb736f906c15cdb2ecd4b5492b4f9c4b36fc2c51b5",
+        "research/protocols/facex_handoff.py": "1450c96ee40a5921bd7266cdf8092a8768f4c8b0474d4745c670abe233adabae",
+        "tests/research/test_facex_notebooks.py": "4d7be44a3ea4e90df9e622ce1dd5fcae33ff82c7b126a9363e391a6b82182e71",
+        "research/runtime/storage.py": "8ed274e52543f10d98ccd7552c8771cb849e464c92cfefd4dd4c67166ff834c8",
+        "research/datasets/shared_storage.py": "57ff61ba6c40c05d470c7e705a2a63b8bacf5f8e86bab9860b1e5055171885e7",
+        "tests/research/test_shared_storage.py": "ba13509ad17f0c052033bb2b8ceccad02ef8211b8b29db4e31fbc17ac006ae99"
+      }
+    },
+    "FaceX-Zoo": {
+      "path": "F:\\FaceX-Zoo",
+      "branch": "refacto1",
+      "base_commit": "c42f59384cd2452baf9bfab8676b89a393a7d944",
+      "source_hashes": {
+        "fine-tune/modules/alignment.py": "73e9fa03d453a5c32dec82ceaf80d204e20e28e5aaf08462c063d6aabfaa93de",
+        "fine-tune/modules/archive_preparation.py": "33b86e3af486266fc61729f2eb9d9a26b0eff7046da00e4a963f0b997af9380e",
+        "fine-tune/modules/finetune_protocol.py": "86ea19fd46148b5befaf5c115dcbf889c41fd8ba58c1c05d6b3aedf2e5832ff4",
+        "fine-tune/modules/notebook_workflow.py": "c294bfc1906ca9fc5bc3da30c32a95b306f17488ca0421daac19619e08c8d3d2",
+        "fine-tune/modules/process_runner.py": "4d461eed5ed518ba7ab46d9bc2b967c6acdb715d6ef760b2a699acbc6e924a0d",
+        "fine-tune/modules/research_protocol.py": "cbf9607a59a07301756030b1887869a0c03183ef9cfed1733bfca18894a8d3e9",
+        "fine-tune/notebooks/00_environment_and_data.ipynb": "ee5cc8bfbbd057636ff4a1388661da3f73f8b103ab281cb277f152887f670101",
+        "fine-tune/notebooks/01_prepare_vggface2.ipynb": "6bdb01d5913358f3f42470c00b351d815ed3181724abf67a50254f204656ced0",
+        "fine-tune/notebooks/02_pretrain.ipynb": "872a7467ba531b566c0d4aa1cb42e32ccfb88ca9949728a815ce2a24745ad6e2",
+        "fine-tune/notebooks/03_finetune.ipynb": "03f3d5303dde204f53c37936c108d1ccad758b7a37617ceca064b2fbd32b7d2c",
+        "fine-tune/notebooks/04_export_and_validate.ipynb": "13ab4a8c2171e63bde59dadb8493dbfbf7a16099413d515ecff2a8a4eb99ad7e",
+        "fine-tune/tests/test_cosface_integration.py": "2c047cf88c41b4b09312fb035ccf7a4869c5bd55c147689b95beeaf75d90c891",
+        "fine-tune/modules/shared_storage.py": "c91ae1098935de30213301a9b2f7185dc31dcca1e48637e738220c5f9938ac00",
+        "fine-tune/tests/conftest.py": "b48a2ecb16066496139455c62dcd5551062a36207c80a9706d9792e5e098016e",
+        "fine-tune/tests/test_shared_storage.py": "c52622c1a2774aa0306945aff372c5e70a57ef21246abf1a933401cbcf777974"
+      }
+    }
+  },
+  "roots": {
+    "datasets": "F:/face_datasets",
+    "models": "F:/models",
+    "handoff": "F:/face_datasets/protocols/shared_v1/handoff.json"
+  },
+  "tests": {
+    "ronbun": {
+      "path": "tmp/shared_storage_migration/ronbun_tests_final.xml",
+      "sha256": "e3d0f19e370be44bbb7971b75d96208bc973f051030a63374460b6090cda5a1e",
+      "tests": 106,
+      "failures": 0,
+      "errors": 0
+    },
+    "facex_full": {
+      "path": "F:/FaceX-Zoo/fine-tune/data/shared_storage_tests_final.xml",
+      "sha256": "5cda9a1c369e4334e228e890eccd83e4862d14f62e7ccf1a148cc6e40f013ad9",
+      "tests": 190,
+      "failures": 0,
+      "errors": 0
+    },
+    "facex_followup": {
+      "path": "F:/FaceX-Zoo/fine-tune/data/shared_storage_followup_tests.xml",
+      "sha256": "6877fea729e73f71539f5d8f296875c0c572310292af7cf0ee87bbd4d0f36112",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0
+    }
+  },
+  "notebooks": [
+    {
+      "repository": "FaceX-Zoo",
+      "notebook": "00_environment_and_data.ipynb",
+      "status": "passed",
+      "code_cells": 5
+    },
+    {
+      "repository": "FaceX-Zoo",
+      "notebook": "01_prepare_vggface2.ipynb",
+      "status": "passed",
+      "code_cells": 5
+    },
+    {
+      "repository": "FaceX-Zoo",
+      "notebook": "02_pretrain.ipynb",
+      "status": "passed",
+      "code_cells": 5
+    },
+    {
+      "repository": "FaceX-Zoo",
+      "notebook": "03_finetune.ipynb",
+      "status": "passed",
+      "code_cells": 5
+    },
+    {
+      "repository": "FaceX-Zoo",
+      "notebook": "04_export_and_validate.ipynb",
+      "status": "passed",
+      "code_cells": 5
+    },
+    {
+      "repository": "ronbun",
+      "notebook": "01_data_preparation.ipynb",
+      "status": "passed",
+      "code_cells": 2
+    },
+    {
+      "repository": "ronbun",
+      "notebook": "02_inputs.ipynb",
+      "status": "passed",
+      "code_cells": 2
+    },
+    {
+      "repository": "ronbun",
+      "notebook": "03_experiments.ipynb",
+      "status": "passed",
+      "code_cells": 2
+    },
+    {
+      "repository": "ronbun",
+      "notebook": "04_results.ipynb",
+      "status": "passed",
+      "code_cells": 2
+    }
+  ],
+  "notebook_note": "00 re-executed after final namespace/legacy-field cleanup; documentation edits validated structurally.",
+  "datasets": {
+    "scface": {
+      "rows": 2080,
+      "roles_sha256": "95a8c996353f34acb1de029b6f188b7963773216db275d170643020f006a1101",
+      "training_identity_sha256": "a783f6765d761abf458d5966f53cb5120bc49a5975686f32ce624df7b1e0b60d",
+      "raw_root": "F:\\face_datasets\\SCface_database",
+      "sample_shape": [
+        112,
+        112,
+        3
+      ],
+      "sample_pixels_equal": true,
+      "roles_unchanged": true
+    },
+    "survface": {
+      "rows": 463341,
+      "roles_sha256": "be171ed212db0c8115230a91d80df9db3a93cd5ea017218626cbc37dcd8dce4c",
+      "training_identity_sha256": "3d30f31df677e6d8fac37475a35ffccba87a2d738ffed0aeaf853dbdef92d44b",
+      "raw_root": "F:\\face_datasets\\QMUL-SurvFace",
+      "sample_shape": [
+        112,
+        112,
+        3
+      ],
+      "sample_pixels_equal": true,
+      "roles_unchanged": true
+    },
+    "tinyface": {
+      "rows": 169403,
+      "roles_sha256": "4b92e525a7c4171529577f452cbc8bc67992dc2c620997b78ac3335912d5d777",
+      "training_identity_sha256": "b0bc846296acde0975296df0c4f75e0e1e3b15eae628684fedc1834b9cd04c81",
+      "raw_root": "F:\\face_datasets\\tinyface",
+      "sample_shape": [
+        112,
+        112,
+        3
+      ],
+      "sample_pixels_equal": true,
+      "roles_unchanged": true
+    },
+    "lfw": {
+      "images": 13233,
+      "pairs": 6000,
+      "pairs_unchanged": true,
+      "identity_metadata_unchanged": true,
+      "sample_shape": [
+        112,
+        112,
+        3
+      ],
+      "sample_pixels_equal": true
+    },
+    "rfw": {
+      "images": 40607,
+      "pairs": 24000,
+      "pairs_unchanged": true,
+      "identity_metadata_unchanged": true,
+      "sample_shape": [
+        112,
+        112,
+        3
+      ],
+      "sample_pixels_equal": true
+    }
+  },
+  "preservation": {
+    "raw_images_not_moved_or_deleted": true,
+    "failed_condition_checkpoints_preserved": true,
+    "old_completed_reports_preserved": true,
+    "user_notebook_snapshot": "tmp/shared_storage_migration/original_01_data_preparation.ipynb"
+  },
+  "limitations": [
+    "No full new image decode audit",
+    "No formal training or full embedding/calibration run",
+    "No A100/Linux runtime or database integration run",
+    "models remains empty until a valid new 1024D export is registered",
+    "Prepared image reports retain host-specific provenance; validate or prepare a new explicit namespace when moving hosts"
+  ],
+  "completion_evidence": {
+    "external_configuration": true,
+    "portable_protocols_with_unchanged_roles": true,
+    "external_quality_models_hash_checked": true,
+    "derived_output_provenance": true,
+    "artifact_locks": true,
+    "stage_specific_notebook_settings": true,
+    "regression_and_fresh_kernel_checks": true
+  }
+}

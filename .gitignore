@@ -187,3 +187,9 @@ results/lfw_pair_inputs_v1/**/.inprogress/
 !/publish/support/agreed_policy_20261025/
 /publish/support/agreed_policy_20261025/*
 !/publish/support/agreed_policy_20261025/validation.json
+
+# Reviewed external-storage transition evidence; images, caches and test logs stay external/local.
+!/publish/외부저장소_전환검증_20261028_v1.md
+!/publish/support/shared_storage_20261028/
+/publish/support/shared_storage_20261028/*
+!/publish/support/shared_storage_20261028/validation.json

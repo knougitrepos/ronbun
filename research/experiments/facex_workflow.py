@@ -23,6 +23,10 @@ from research.runtime.source_fingerprints import source_fingerprints
 
 def _config(path):
     config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    from research.runtime.storage import roots, expand_paths
+    variables = roots()
+    variables["PROJECT_ROOT"] = str(Path(__file__).resolve().parents[2])
+    config = expand_paths(config, variables)
     if config.get("embedding_dim") != 1024:
         raise ValueError("The active FaceX workflow requires 1024D")
     if not config.get("datasets") or not set(config["datasets"]) <= set(EVALUATION_DATASETS):
@@ -89,7 +93,7 @@ def inspect_workflow(config_path, *, datasets=None):
     rows = []
     for dataset in selected:
         is_pair = dataset in ("lfw", "rfw")
-        ready = (all((Path(config["project_root"]) / v).is_file() for v in config["pairs"][dataset].values())
+        ready = (all((Path(config["project_root"]) / config["pairs"][dataset][k]).is_file() for k in ("image_manifest", "pairs_file"))
                  if is_pair else dataset in handoff)
         matched = [alias for alias, (_, trained_on) in models.items() if is_pair or trained_on == dataset]
         row = dict(dataset=dataset, protocol_ready=ready, selected_models=len(matched), model_aliases=matched,

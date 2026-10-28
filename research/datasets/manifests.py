@@ -122,6 +122,7 @@ def build_lfw_manifest(
     lfw_root: str | Path,
     project_root: str | Path,
     *,
+    data_root: str | Path | None = None,
     seed: int = 8972,
     development_fraction: float = 0.60,
     calibration_fraction: float = 0.20,
@@ -138,7 +139,7 @@ def build_lfw_manifest(
     """
 
     root = _resolved_directory(lfw_root, "LFW root")
-    project = _resolved_directory(project_root, "project root")
+    project = _resolved_directory(data_root or project_root, "data root")
     if gallery_size < 1:
         raise ValueError("gallery_size must be positive")
     if min_gallery_images < 2:
@@ -321,6 +322,7 @@ def build_survface_training_manifest(
     survface_root: str | Path,
     project_root: str | Path,
     *,
+    data_root: str | Path | None = None,
     seed: int = 8972,
     development_fraction: float = 0.80,
 ) -> SurvFaceTrainingBundle:
@@ -333,7 +335,7 @@ def build_survface_training_manifest(
     """
 
     root = _resolved_directory(survface_root, "QMUL-SurvFace root")
-    project = _resolved_directory(project_root, "project root")
+    project = _resolved_directory(data_root or project_root, "data root")
     training_dir = _resolved_directory(
         root / "training_set", "SurvFace training set"
     )
@@ -409,6 +411,7 @@ def build_survface_training_manifest(
 def build_survface_official_manifest(
     survface_root: str | Path,
     project_root: str | Path,
+    *, data_root: str | Path | None = None,
 ) -> SurvFaceOfficialBundle:
     """Build the official QMUL-SurvFace open-set identification manifest.
 
@@ -418,7 +421,7 @@ def build_survface_official_manifest(
     """
 
     root = _resolved_directory(survface_root, "QMUL-SurvFace root")
-    project = _resolved_directory(project_root, "project root")
+    project = _resolved_directory(data_root or project_root, "data root")
     evaluation_dir = _resolved_directory(
         root / "Face_Identification_Evaluation", "SurvFace identification evaluation"
     )

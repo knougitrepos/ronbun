@@ -240,108 +240,110 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
     elif source != "raw_norm" and quality_required:
         raise ValueError("Choose cr_fiqa or an explicitly declared raw_norm experiment")
     destination = input_path(root, spec.model_uid, dataset, population_digest, quality_config, transform)
-    if destination.exists():
+    from research.runtime.storage import artifact_lock
+    with artifact_lock(destination):
+        if destination.exists():
+            read_inputs(destination, expected_uid=spec.model_uid)
+            verify_raw_inputs(project, population, destination / "image_hashes.jsonl")
+            return destination
+        shared_quality = shared_hashes = quality_path = quality_contract = None
+        if source == "cr_fiqa":
+            quality_path, quality_contract = quality_cache_path(root, dataset, population_digest, quality_config, transform)
+            if quality_path.exists():
+                shared_quality, shared_hashes = read_quality_cache(quality_path, quality_contract, len(population))
+        work = destination.with_name(destination.name + ".partial")
+        work.mkdir(parents=True, exist_ok=True)
+        progress_path = work / "progress.json"
+        if progress_path.exists():
+            progress = json.loads(progress_path.read_text(encoding="utf-8"))
+            if (progress["population_hash"] != population_digest or progress["model_uid"] != spec.model_uid
+                    or progress.get("transform") != transform):
+                raise ValueError("Interrupted input lineage changed")
+            start, mode = progress["completed_images"], "r+"
+        else:
+            start, mode = 0, "w+"
+            population.to_csv(work / "population.csv", index=False)
+        arrays = {
+            "embeddings.npy": np.lib.format.open_memmap(work / "embeddings.npy", mode=mode, dtype=np.float32, shape=(len(population), 1024)),
+            "raw_norm.npy": np.lib.format.open_memmap(work / "raw_norm.npy", mode=mode, dtype=np.float32, shape=(len(population),)),
+        }
+        if quality_required:
+            arrays["quality.npy"] = np.lib.format.open_memmap(work / "quality.npy", mode=mode, dtype=np.float32, shape=(len(population),))
+        reader = ImageReader(project, interpolation=transform["interpolation"])
+        try:
+            if start:
+                # Verify the raw bytes of previously checkpointed images before resume.
+                lines = (work / "image_hashes.jsonl").read_text(encoding="utf-8").splitlines()
+                if len(lines) < start:
+                    raise ValueError("Interrupted input hash ledger is incomplete")
+                for i, line in enumerate(lines[:start]):
+                    record = json.loads(line)
+                    if (str(record["image_id"]) != str(population.iloc[i].image_id)
+                            or hashlib.sha256(reader.read_bytes(population.iloc[i].image_path)).hexdigest() != record["sha256"]):
+                        raise ValueError("Raw input changed during resume")
+                    if shared_hashes is not None and record != shared_hashes[i]:
+                        raise ValueError("Interrupted input differs from shared quality")
+                if shared_quality is not None:
+                    arrays["quality.npy"][:start] = shared_quality[:start]
+                (work / "image_hashes.jsonl").write_text("\n".join(lines[:start]) + "\n", encoding="utf-8")
+            adapter = create_pytorch_adapter_from_spec(spec, device="cuda")
+            if source == "cr_fiqa" and shared_quality is None:
+                from research.fiqa.cr_fiqa import load_cr_fiqa, infer_cr_fiqa_scores
+                fiqa_model, _ = load_cr_fiqa(Path(project) / quality_config["checkpoint"],
+                                          variant=quality_config.get("variant", "L"), device="cuda")
+            with (work / "image_hashes.jsonl").open("a" if start else "w", encoding="utf-8") as ledger:
+                for offset in range(start, len(population), batch_size):
+                    batch = population.iloc[offset:offset + batch_size]
+                    decoded = [reader.read(path) for path in batch.image_path]
+                    stop = offset + len(batch)
+                    if shared_hashes is not None:
+                        for image_id, (_, digest), record in zip(batch.image_id, decoded, shared_hashes[offset:stop]):
+                            if str(image_id) != str(record["image_id"]) or digest != record["sha256"]:
+                                raise ValueError("Raw input changed relative to shared quality; use a new output root")
+                    images = np.stack([item[0] for item in decoded])
+                    result = adapter.embed(images)
+                    stop = offset + len(batch)
+                    arrays["embeddings.npy"][offset:stop] = result.normalized_embedding
+                    arrays["raw_norm.npy"][offset:stop] = result.raw_norm.reshape(-1)
+                    if quality_required:
+                        q = (shared_quality[offset:stop] if shared_quality is not None else
+                             infer_cr_fiqa_scores(fiqa_model, images, batch_size=batch_size, device="cuda")
+                             if source == "cr_fiqa" else result.raw_norm.reshape(-1))
+                        if not np.isfinite(q).all():
+                            raise ValueError("Nonfinite quality scores")
+                        arrays["quality.npy"][offset:stop] = q
+                    for image_id, (_, digest) in zip(batch.image_id, decoded):
+                        ledger.write(json.dumps(dict(image_id=image_id, sha256=digest)) + "\n")
+                    ledger.flush()
+                    for array in arrays.values():
+                        array.flush()
+                    write_json(progress_path, dict(completed_images=stop, model_uid=spec.model_uid,
+                                                  population_hash=population_digest, transform=transform))
+            del adapter, fiqa_model
+            files = [*arrays, "population.csv", "image_hashes.jsonl"]
+            for array in arrays.values():
+                array.flush()
+                array._mmap.close()
+            arrays.clear()
+            manifest = dict(status="completed", model_uid=spec.model_uid, embedding_dim=1024,
+                            dataset=dataset, quality=quality_config, population_hash=population_digest,
+                            transform=transform,
+                            input_code=input_code_hashes(),
+                            quality_cache=str(quality_path) if quality_path else None,
+                            quality_cache_reused=shared_quality is not None,
+                            torch_version=torch.__version__, cuda_runtime=torch.version.cuda,
+                            device=torch.cuda.get_device_name(0), batch_size=batch_size,
+                            files={name: sha256_file(work / name) for name in files})
+            write_json(work / "manifest.json", manifest)
+            (work / "COMPLETED").write_text("completed\n", encoding="utf-8")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(work), str(destination))
+        finally:
+            for array in arrays.values():
+                array.flush()
+                array._mmap.close()
+            reader.close()
         read_inputs(destination, expected_uid=spec.model_uid)
-        verify_raw_inputs(project, population, destination / "image_hashes.jsonl")
+        if quality_path is not None:
+            publish_quality_cache(quality_path, quality_contract, destination, len(population))
         return destination
-    shared_quality = shared_hashes = quality_path = quality_contract = None
-    if source == "cr_fiqa":
-        quality_path, quality_contract = quality_cache_path(root, dataset, population_digest, quality_config, transform)
-        if quality_path.exists():
-            shared_quality, shared_hashes = read_quality_cache(quality_path, quality_contract, len(population))
-    work = destination.with_name(destination.name + ".partial")
-    work.mkdir(parents=True, exist_ok=True)
-    progress_path = work / "progress.json"
-    if progress_path.exists():
-        progress = json.loads(progress_path.read_text(encoding="utf-8"))
-        if (progress["population_hash"] != population_digest or progress["model_uid"] != spec.model_uid
-                or progress.get("transform") != transform):
-            raise ValueError("Interrupted input lineage changed")
-        start, mode = progress["completed_images"], "r+"
-    else:
-        start, mode = 0, "w+"
-        population.to_csv(work / "population.csv", index=False)
-    arrays = {
-        "embeddings.npy": np.lib.format.open_memmap(work / "embeddings.npy", mode=mode, dtype=np.float32, shape=(len(population), 1024)),
-        "raw_norm.npy": np.lib.format.open_memmap(work / "raw_norm.npy", mode=mode, dtype=np.float32, shape=(len(population),)),
-    }
-    if quality_required:
-        arrays["quality.npy"] = np.lib.format.open_memmap(work / "quality.npy", mode=mode, dtype=np.float32, shape=(len(population),))
-    reader = ImageReader(project, interpolation=transform["interpolation"])
-    try:
-        if start:
-            # Verify the raw bytes of previously checkpointed images before resume.
-            lines = (work / "image_hashes.jsonl").read_text(encoding="utf-8").splitlines()
-            if len(lines) < start:
-                raise ValueError("Interrupted input hash ledger is incomplete")
-            for i, line in enumerate(lines[:start]):
-                record = json.loads(line)
-                if (str(record["image_id"]) != str(population.iloc[i].image_id)
-                        or hashlib.sha256(reader.read_bytes(population.iloc[i].image_path)).hexdigest() != record["sha256"]):
-                    raise ValueError("Raw input changed during resume")
-                if shared_hashes is not None and record != shared_hashes[i]:
-                    raise ValueError("Interrupted input differs from shared quality")
-            if shared_quality is not None:
-                arrays["quality.npy"][:start] = shared_quality[:start]
-            (work / "image_hashes.jsonl").write_text("\n".join(lines[:start]) + "\n", encoding="utf-8")
-        adapter = create_pytorch_adapter_from_spec(spec, device="cuda")
-        if source == "cr_fiqa" and shared_quality is None:
-            from research.fiqa.cr_fiqa import load_cr_fiqa, infer_cr_fiqa_scores
-            fiqa_model, _ = load_cr_fiqa(Path(project) / quality_config["checkpoint"],
-                                      variant=quality_config.get("variant", "L"), device="cuda")
-        with (work / "image_hashes.jsonl").open("a" if start else "w", encoding="utf-8") as ledger:
-            for offset in range(start, len(population), batch_size):
-                batch = population.iloc[offset:offset + batch_size]
-                decoded = [reader.read(path) for path in batch.image_path]
-                stop = offset + len(batch)
-                if shared_hashes is not None:
-                    for image_id, (_, digest), record in zip(batch.image_id, decoded, shared_hashes[offset:stop]):
-                        if str(image_id) != str(record["image_id"]) or digest != record["sha256"]:
-                            raise ValueError("Raw input changed relative to shared quality; use a new output root")
-                images = np.stack([item[0] for item in decoded])
-                result = adapter.embed(images)
-                stop = offset + len(batch)
-                arrays["embeddings.npy"][offset:stop] = result.normalized_embedding
-                arrays["raw_norm.npy"][offset:stop] = result.raw_norm.reshape(-1)
-                if quality_required:
-                    q = (shared_quality[offset:stop] if shared_quality is not None else
-                         infer_cr_fiqa_scores(fiqa_model, images, batch_size=batch_size, device="cuda")
-                         if source == "cr_fiqa" else result.raw_norm.reshape(-1))
-                    if not np.isfinite(q).all():
-                        raise ValueError("Nonfinite quality scores")
-                    arrays["quality.npy"][offset:stop] = q
-                for image_id, (_, digest) in zip(batch.image_id, decoded):
-                    ledger.write(json.dumps(dict(image_id=image_id, sha256=digest)) + "\n")
-                ledger.flush()
-                for array in arrays.values():
-                    array.flush()
-                write_json(progress_path, dict(completed_images=stop, model_uid=spec.model_uid,
-                                              population_hash=population_digest, transform=transform))
-        del adapter, fiqa_model
-        files = [*arrays, "population.csv", "image_hashes.jsonl"]
-        for array in arrays.values():
-            array.flush()
-            array._mmap.close()
-        arrays.clear()
-        manifest = dict(status="completed", model_uid=spec.model_uid, embedding_dim=1024,
-                        dataset=dataset, quality=quality_config, population_hash=population_digest,
-                        transform=transform,
-                        input_code=input_code_hashes(),
-                        quality_cache=str(quality_path) if quality_path else None,
-                        quality_cache_reused=shared_quality is not None,
-                        torch_version=torch.__version__, cuda_runtime=torch.version.cuda,
-                        device=torch.cuda.get_device_name(0), batch_size=batch_size,
-                        files={name: sha256_file(work / name) for name in files})
-        write_json(work / "manifest.json", manifest)
-        (work / "COMPLETED").write_text("completed\n", encoding="utf-8")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(work), str(destination))
-    finally:
-        for array in arrays.values():
-            array.flush()
-            array._mmap.close()
-        reader.close()
-    read_inputs(destination, expected_uid=spec.model_uid)
-    if quality_path is not None:
-        publish_quality_cache(quality_path, quality_contract, destination, len(population))
-    return destination

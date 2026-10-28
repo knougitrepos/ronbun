@@ -15,8 +15,13 @@ def load_protocol(path, expected_sha256=None):
     if expected_sha256 and sha256_file(path) != expected_sha256:
         raise ValueError("FaceX handoff protocol hash mismatch")
     record = json.loads(path.read_text(encoding="utf-8"))
-    if record.get("schema") != "facex-ronbun-roles-v1" or record.get("name") not in TRAINING_DATASETS:
+    if record.get("schema") not in ("facex-ronbun-roles-v1", "facex-ronbun-roles-v2") or record.get("name") not in TRAINING_DATASETS:
         raise ValueError("Unsupported training handoff; LFW/RFW cannot train FR")
+    if record["schema"].endswith("v2"):
+        for key in ("raw_root", "roles_path", "train_list"):
+            record[key] = str((path.parent / record[key]).resolve())
+        record["sources"] = {k: {**v, "path": str((path.parent / v["path"]).resolve())}
+                             for k, v in record["sources"].items()}
     for key, hash_key in (("roles_path", "roles_sha256"), ("train_list", "train_sha256")):
         if sha256_file(record[key]) != record[hash_key]:
             raise ValueError(f"Changed FaceX handoff: {key}")
@@ -57,10 +62,11 @@ def load_protocol(path, expected_sha256=None):
 
 
 def load_handoff(path):
-    index = json.loads(Path(path).read_text(encoding="utf-8"))
-    if index.get("schema") != "facex-ronbun-handoff-v1":
+    path = Path(path).resolve()
+    index = json.loads(path.read_text(encoding="utf-8"))
+    if index.get("schema") not in ("facex-ronbun-handoff-v1", "facex-ronbun-handoff-v2"):
         raise ValueError("Unsupported handoff schema")
-    return {name: load_protocol(item["path"], item["sha256"])
+    return {name: load_protocol(path.parent / item["path"], item["sha256"])
             for name, item in index["protocols"].items()}
 
 
@@ -69,6 +75,19 @@ def load_pair_dataset(project_root, config, name):
     from research.datasets.lfw_pairs import load_pairs
     root = Path(project_root)
     population = pd.read_csv(root / config["image_manifest"], keep_default_na=False)
+    if config.get("image_root"):
+        image_root = Path(config["image_root"]).resolve()
+        def located(value):
+            path = (image_root / value).resolve()
+            if not path.is_relative_to(image_root):
+                raise ValueError("Pair image/archive escapes the configured data root")
+            return path
+        def image_location(value):
+            if value.startswith("tar://"):
+                archive, member = value[6:].split("#", 1)
+                return f"tar://{located(archive).as_posix()}#{member}"
+            return str(located(value))
+        population["image_path"] = population.image_path.map(image_location)
     if name == "lfw":
         pairs, _ = load_pairs(root / config["pairs_file"], population)
         pairs["group"] = "all"

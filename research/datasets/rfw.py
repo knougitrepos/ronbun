@@ -362,6 +362,7 @@ def build_rfw_verification_bundle(
     jpg_archive_path: str | Path,
     project_root: str | Path,
     *,
+    data_root: str | Path | None = None,
     strict_official: bool = True,
 ) -> RFWVerificationBundle:
     """Parse RFW's JPG archive and preserve its official 1:1 protocol.
@@ -371,7 +372,7 @@ def build_rfw_verification_bundle(
     """
 
     archive = Path(jpg_archive_path).expanduser().resolve()
-    project = Path(project_root).expanduser().resolve()
+    project = Path(data_root or project_root).expanduser().resolve()
     if not project.is_dir():
         raise FileNotFoundError(f"project root not found: {project}")
     archive_relative_path = _relative_posix(archive, project)

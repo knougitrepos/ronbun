@@ -1,9 +1,9 @@
 # New 1024D workflow. Configure exact completed registered specs, never "latest".
-project_root: C:/ronbun
+project_root: ${PROJECT_ROOT}
 # Pin the exact file supplied by FaceX-Zoo; keep repositories independently operated.
 # After adding datasets, use its reported campaign.handoff_path (handoffs/<hash>.json).
-handoff: F:/FaceX-Zoo/fine-tune/data/protocols/research_v1/handoff.json
-output_root: F:/ronbun_results/facex_workflow
+handoff: ${DATASET_ROOT}/protocols/shared_v1/handoff.json
+output_root: ${DATASET_ROOT}/../ronbun_results/facex_workflow
 models: {}
 # Example after FaceX 04 export and research.embeddings.facex_zoo registration:
 # models:
@@ -16,7 +16,7 @@ batch_size: 16
 quality:
   source: cr_fiqa
   variant: L
-  checkpoint: models/fiqa/CR-FIQA(L).pth
+  checkpoint: ${MODEL_ROOT}/fiqa/CR-FIQA(L).pth
 codec_seed: 8972
 partition_seed: 8972
 target_rates: [0.01, 0.05, 0.10, 0.20]
@@ -32,11 +32,13 @@ compression:
 pq_min_points_per_centroid: 39
 pairs:
   lfw:
-    image_manifest: data/interim/lfw/face_manifest.csv
-    pairs_file: data/external/lfw/pairs.txt
+    image_root: ${DATASET_ROOT}
+    image_manifest: ${DATASET_ROOT}/LFW/protocols/shared_v1/image_manifest.csv
+    pairs_file: ${DATASET_ROOT}/LFW/protocols/shared_v1/pairs.txt
   rfw:
-    image_manifest: data/interim/rfw/image_manifest.csv
-    pairs_file: data/interim/rfw/pair_protocol.csv
+    image_root: ${DATASET_ROOT}
+    image_manifest: ${DATASET_ROOT}/RFW/protocols/shared_v1/image_manifest.csv
+    pairs_file: ${DATASET_ROOT}/RFW/protocols/shared_v1/pair_protocol.csv
 sample_efficiency:
   fit_fractions: [0.25, 0.5, 0.75, 1.0]
   safety_fractions: [0.25, 0.5, 0.75, 1.0]
