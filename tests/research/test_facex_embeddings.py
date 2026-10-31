@@ -60,6 +60,33 @@ def _hash_config(config):
     return hashlib.sha256(json.dumps(config, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+@pytest.mark.parametrize("name", ["mobilefacenet", "MOBILEFACENET", " mObIlEfAcEnEt "])
+def test_case_insensitive_export_preserves_hashed_metadata(tmp_path, weights, name):
+    metadata = _metadata()
+    metadata["source_config"]["backbone"]["type"] = name
+    metadata["source_config_hash"] = _hash_config(metadata["source_config"])
+    path, sidecar = _export(tmp_path, weights, metadata=metadata)
+    original = (path.read_bytes(), sidecar.read_bytes())
+    spec = model_spec_from_facex_export(path)
+    model = load_facex_mobilefacenet_checkpoint(spec)
+    assert isinstance(model, FaceXMobileFaceNet)
+    assert (path.read_bytes(), sidecar.read_bytes()) == original
+
+
+@pytest.mark.parametrize("name", ["Resnet", "ResNet", "resnet", "RESNET", " rEsNeT "])
+def test_resnet_alias_dispatch_does_not_modify_metadata(monkeypatch, name):
+    from research.embeddings.pytorch import facex_resnet
+    from research.embeddings.pytorch.facex_zoo import build_export_backbone
+    from research.embeddings.facex_zoo import canonical_backbone_type
+    metadata = {"source_config": {"backbone": {"type": name, "num_layers": 100}}, "feat_dim": 1024}
+    before = copy.deepcopy(metadata)
+    monkeypatch.setattr(facex_resnet, "Resnet", lambda *args, **kwargs: (args, kwargs))
+    assert canonical_backbone_type(name) == "Resnet"
+    args, kwargs = build_export_backbone(metadata)
+    assert args[0] == 100 and kwargs["feat_dim"] == 1024
+    assert metadata == before
+
+
 def _export(directory, weights, *, dimension=1024, family="arcface", metadata=None):
     path = directory / f"exported_mobilefacenet_{dimension}d_{family}.pt"
     metadata = _metadata(dimension, family) if metadata is None else metadata

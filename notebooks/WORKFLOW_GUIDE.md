@@ -56,7 +56,7 @@ FaceX-Zoo의 모델 생성 연구와 ronbun의 모델 활용 실험은 별개다
 
 FaceX-Zoo 00에서 연구 프로필과 backbone을 선택하고 03에서 학습하며 04에서 export한다.
 SurvFace·TinyFace·SCFace만 FR을 학습한다. LFW·RFW는 FR 학습에 쓰지 않는다.
-FaceX-Zoo가 생성하는 `fine-tune/data/protocols/research_v1/handoff.json`은 정확한
+FaceX-Zoo가 생성하는 `<DATASET_ROOT>/protocols/shared_v1/handoff.json`은 정확한
 프로토콜 경로·hash를 고정한다. ronbun이 독립적으로 인물을 다시 나누지 않는다.
 새로 준비한 데이터셋을 추가하면 FaceX-Zoo는 handoffs/<hash>.json에 새 불변 index를 생성하고
 03/04의 출력과 저장 설정 campaign.handoff_path에 정확한 경로를 남긴다.
@@ -94,8 +94,17 @@ LFW/RFW는 공식test쌍·fold를 유지하고 추가 calibration 절차를 적�
 Outer test 인물과 겹치는 후보 쌍은 제거하고 두 endpoint가 같은fit/safety역할일 때만 유지한다.
 9fold5400쌍은 후보 수이며 실제fit/safety수와 다르다. 특히RFW의 safety가 매우 작을 수 있다.
 Fold test impostor300쌍의 FMR 한 건은0.333%p이다. 반복seed는 독립 표본 수를 늘리지 않는다.
+RFW 입력은 네 그룹 각각 10 folds와 fold당 genuine/impostor 300/300을 모두 검사한다.
+정답 표기는 양 끝 인물 ID의 일치 여부와 같아야 하며, 빈 ID·self-pair·image/identity 불일치는
+입력 단계에서 거절한다. 이 구조 검증이 공식 배포 파일 자체의 출처 인증을 대신하지는 않는다.
 PCA/PQ는 해당 checkpoint의 외부development에서 학습·고정하며 LFW/RFW로 전이한다.
 다른 checkpoint 사이에1024D가 같다는 이유로 codec을 공유하지 않는다.
+
+작은 calibration subset에서 1% 목표를 해석할 때는 `validation_samples`와
+`validation_false_accepts`를 먼저 확인한다. 오류 한 건의 변화는 `100/N` %p이고,
+예를 들어 20쌍이면 5%p이다. 0건 관측을 오류율 0 또는 1% 이하 보장으로 해석하지 않는다.
+Stage 2의 최소 fit/safety 20개 기준은 계산 가능 여부만 검사한다. 안정적인 tail 추정이나
+최적 FR/calibration 배분을 인증하지 않으며, 불충분 조건을 제거해 좋은 결과만 보고하지 않는다.
 
 PQ 기본 연구설정은 SurvFace8bit/TinyFace7bit/SCFace4bit이다. Faiss 경험적 최소39개/centroid를
 사전 검사한다. 이 검사는 충분성 증명이 아니다. bit수가 다르므로 동일m도 payload bytes가 다르다.

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from research.embeddings.base import ModelSpec
-from research.embeddings.facex_zoo import _read_validated_export, _spec_from_metadata
+from research.embeddings.facex_zoo import _read_validated_export, _spec_from_metadata, canonical_backbone_type
 from research.embeddings.pytorch.facex_backbone import FaceXMobileFaceNet
 
 
 def build_export_backbone(metadata):
     config = metadata["source_config"]["backbone"]
-    if config["type"] == "MobileFaceNet":
+    if canonical_backbone_type(config["type"]) == "MobileFaceNet":
         return FaceXMobileFaceNet(metadata["feat_dim"])
     from research.embeddings.pytorch.facex_resnet import Resnet
     depth, mode = int(config.get("num_layers", 50)), config.get("mode", "ir")

@@ -25,6 +25,14 @@ FACEX_FACTORY = "research.embeddings.pytorch.facex_zoo:load_facex_mobilefacenet_
 FACEX_HEADS = frozenset({"arcface", "cosface", "magface", "adaface"})
 
 
+def canonical_backbone_type(value: str) -> str:
+    """Interpret names without mutating the hashed source metadata."""
+    names = {"mobilefacenet": "MobileFaceNet", "resnet": "Resnet"}
+    if not isinstance(value, str) or value.strip().lower() not in names:
+        raise ValueError(f"Unsupported FaceX backbone type: {value!r}")
+    return names[value.strip().lower()]
+
+
 def _sha256(value: Any, field: str) -> str:
     if not isinstance(value, str) or len(value) != 64:
         raise ValueError(f"FaceX export {field} must be a SHA-256 digest")
@@ -85,7 +93,7 @@ def _read_validated_export(export_path: str | Path) -> tuple[Path, dict, dict]:
     dimension = metadata.get("feat_dim")
     if not isinstance(dimension, int) or isinstance(dimension, bool) or dimension not in (512, 1024):
         raise ValueError("FaceX export feat_dim must be 512 or 1024")
-    if backbone.get("type") not in ("MobileFaceNet", "Resnet", "ResNet") or backbone.get("feat_dim") != dimension:
+    if canonical_backbone_type(backbone.get("type")) not in ("MobileFaceNet", "Resnet") or backbone.get("feat_dim") != dimension:
         raise ValueError("FaceX source backbone must be MobileFaceNet/Resnet with matching feat_dim")
     if any(backbone.get(k, 7) != 7 for k in ("out_h", "out_w")):
         raise ValueError("FaceX MobileFaceNet importer requires a 7x7 output kernel")
@@ -108,8 +116,8 @@ def _read_validated_export(export_path: str | Path) -> tuple[Path, dict, dict]:
     weights = payload["state_dict"]
     if not isinstance(weights, Mapping) or not weights or not all(isinstance(k, str) and torch.is_tensor(v) for k, v in weights.items()):
         raise ValueError("FaceX state_dict must contain named tensors only")
-    linear_key = "linear.weight" if backbone["type"] == "MobileFaceNet" else "output_layer.3.weight"
-    linear_width = 512 if backbone["type"] == "MobileFaceNet" else 512 * 7 * 7
+    linear_key = "linear.weight" if canonical_backbone_type(backbone["type"]) == "MobileFaceNet" else "output_layer.3.weight"
+    linear_width = 512 if canonical_backbone_type(backbone["type"]) == "MobileFaceNet" else 512 * 7 * 7
     if linear_key not in weights or tuple(weights[linear_key].shape) != (dimension, linear_width):
         raise ValueError("FaceX state_dict output layer does not match declared feat_dim")
     if not all(bool(torch.isfinite(v).all()) for v in weights.values() if v.is_floating_point()):
@@ -120,7 +128,7 @@ def _read_validated_export(export_path: str | Path) -> tuple[Path, dict, dict]:
 def _spec_from_metadata(path: Path, metadata: dict, source_color_order: str) -> ModelSpec:
     return ModelSpec(
         family=str(metadata["head"]).lower(),
-        architecture=("MobileFaceNet" if metadata["source_config"]["backbone"]["type"] == "MobileFaceNet"
+        architecture=("MobileFaceNet" if canonical_backbone_type(metadata["source_config"]["backbone"]["type"]) == "MobileFaceNet"
                       else f"FaceX-Resnet-{metadata['source_config']['backbone'].get('num_layers', 50)}-{metadata['source_config']['backbone'].get('mode', 'ir')}"),
         training_dataset=f"FaceX-Zoo fine-tune:{metadata['dataset']}; parent_sha256:{metadata['parent_hash']}",
         implementation_repository=FACEX_REPOSITORY,
@@ -130,7 +138,7 @@ def _spec_from_metadata(path: Path, metadata: dict, source_color_order: str) -> 
             source_color_order=source_color_order, model_color_order="bgr",
             channel_mean=(127.5, 127.5, 127.5), channel_std=(128.0, 128.0, 128.0),
         ),
-        target_layer=("conv_6_sep" if metadata["source_config"]["backbone"]["type"] == "MobileFaceNet" else "body"),
+        target_layer=("conv_6_sep" if canonical_backbone_type(metadata["source_config"]["backbone"]["type"]) == "MobileFaceNet" else "body"),
         embedding_dim=int(metadata["feat_dim"]), module_factory=FACEX_FACTORY,
     )
 

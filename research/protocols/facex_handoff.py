@@ -74,7 +74,13 @@ def load_pair_dataset(project_root, config, name):
     """Keep official test pairs; calibration is an additional research protocol."""
     from research.datasets.lfw_pairs import load_pairs
     root = Path(project_root)
-    population = pd.read_csv(root / config["image_manifest"], keep_default_na=False)
+    population = pd.read_csv(root / config["image_manifest"], keep_default_na=False,
+                             dtype={"image_id": str, "identity_id": str, "image_path": str})
+    required_population = {"image_id", "identity_id", "image_path"}
+    if not required_population <= set(population.columns):
+        raise ValueError("Pair image manifest requires image_id/identity_id/image_path")
+    if population[list(required_population)].apply(lambda col: col.str.strip().eq("").any()).any():
+        raise ValueError("Empty pair image/identity/path in manifest")
     if config.get("image_root"):
         image_root = Path(config["image_root"]).resolve()
         def located(value):
@@ -92,20 +98,38 @@ def load_pair_dataset(project_root, config, name):
         pairs, _ = load_pairs(root / config["pairs_file"], population)
         pairs["group"] = "all"
     elif name == "rfw":
-        pairs = pd.read_csv(root / config["pairs_file"])
+        pairs = pd.read_csv(root / config["pairs_file"], keep_default_na=False, dtype=str)
+        required = {"pair_id", "fold_index", "rfw_group", "left_image_id", "right_image_id",
+                    "left_identity_id", "right_identity_id", "is_genuine"}
+        if not required <= set(pairs.columns):
+            raise ValueError("RFW pair protocol is missing required columns")
         pairs = pairs.rename(columns={"left_identity_id": "left_identity", "right_identity_id": "right_identity", "rfw_group": "group"})
+        if not pairs.fold_index.str.fullmatch(r"[0-9]").all():
+            raise ValueError("RFW fold_index must be an integer from 0 through 9")
+        pairs["fold_index"] = pairs.fold_index.astype(int)
         pairs["fold"] = pairs.fold_index + 1
         groups = set(pairs.group)
         if groups != {"African", "Asian", "Caucasian", "Indian"}:
             raise ValueError("RFW must preserve all four official groups")
     else:
         raise ValueError(name)
+    identifiers = ["pair_id", "left_image_id", "right_image_id", "left_identity", "right_identity"]
+    if pairs[identifiers].apply(lambda col: col.str.strip().eq("").any()).any():
+        raise ValueError("Empty pair/image/identity identifier")
     if pairs.pair_id.duplicated().any() or population.image_id.duplicated().any():
         raise ValueError("Duplicate official pair/image ID")
     lookup = population.set_index("image_id").identity_id
     pairs["is_genuine"] = pairs.is_genuine.astype(str).str.lower().map({"true": True, "false": False})
     if pairs.is_genuine.isna().any():
         raise ValueError("Invalid pair labels")
+    if not pairs.is_genuine.eq(pairs.left_identity.eq(pairs.right_identity)).all():
+        raise ValueError("Pair label contradicts endpoint identity equality")
+    if pairs.left_image_id.eq(pairs.right_image_id).any():
+        raise ValueError("Self-pair is not a verification trial")
+    expected_groups = {"all"} if name == "lfw" else {"African", "Asian", "Caucasian", "Indian"}
+    expected_grid = {(group, fold) for group in expected_groups for fold in range(1, 11)}
+    if set(zip(pairs.group, pairs.fold)) != expected_grid:
+        raise ValueError("Every official group must contain all ten pair folds")
     for (_, _), group in pairs.groupby(["group", "fold"]):
         if len(group) != 600 or group.is_genuine.sum() != 300:
             raise ValueError("Official pair fold requires 300 genuine/300 impostor")
