@@ -4,12 +4,71 @@ project_root: ${PROJECT_ROOT}
 # After adding datasets, use its reported campaign.handoff_path (handoffs/<hash>.json).
 handoff: ${DATASET_ROOT}/protocols/shared_v1/handoff.json
 output_root: ${DATASET_ROOT}/../ronbun_results/facex_workflow
-models: {}
+# models: {}
+
+
+
 # Example after FaceX 04 export and research.embeddings.facex_zoo registration:
 # models:
 #   surv_arc_s8972:
 #     spec: runs/facex_model_registry/EXACT_REGISTERED_SPEC.json
 #     training_dataset: survface
+
+
+
+models:
+  survface_arcface_s8972:
+    training_dataset: survface
+    spec: F:/models/facex/ronbun_registry/arcface-e124da765b372f0e8177--spec-465aed1b838263c3.json
+  survface_adaface_s8972:
+    training_dataset: survface
+    spec: F:/models/facex/ronbun_registry/adaface-17233feba527e5dda141--spec-e9119ff2e570ef56.json
+  survface_magface_s8972:
+    training_dataset: survface
+    spec: F:/models/facex/ronbun_registry/magface-5def846058dfd0b3a641--spec-522f5a223231e022.json
+  survface_cosface_s8972:
+    training_dataset: survface
+    spec: F:/models/facex/ronbun_registry/cosface-3aab1da2302f44d9d78e--spec-6185053c4e5084a2.json
+
+  tinyface_arcface_s8972:
+    training_dataset: tinyface
+    spec: F:/models/facex/ronbun_registry/arcface-0ec9470d53fd8f0cd9f9--spec-a135d43557dfed74.json
+  tinyface_adaface_s8972:
+    training_dataset: tinyface
+    spec: F:/models/facex/ronbun_registry/adaface-9fcda639f395a31aa64c--spec-1e19c361c13c2667.json
+  tinyface_magface_s8972:
+    training_dataset: tinyface
+    spec: F:/models/facex/ronbun_registry/magface-dd2ea5e268832e6f1de6--spec-ff790c5aff50c5f7.json
+  tinyface_cosface_s8972:
+    training_dataset: tinyface
+    spec: F:/models/facex/ronbun_registry/cosface-d7e3438b5b0e9a258445--spec-226692abdc2441d0.json
+
+  scface_arcface_s8972:
+    training_dataset: scface
+    spec: F:/models/facex/ronbun_registry/arcface-840807cdf505ae67fae9--spec-4f3d9edd87633697.json
+  scface_adaface_s8972:
+    training_dataset: scface
+    spec: F:/models/facex/ronbun_registry/adaface-798a25501be547a9d46c--spec-101c6a8b025172d8.json
+  scface_magface_s8972:
+    training_dataset: scface
+    spec: F:/models/facex/ronbun_registry/magface-a746a0e6a85af772a7b7--spec-ef39832303460741.json
+  scface_cosface_s8972:
+    training_dataset: scface
+    spec: F:/models/facex/ronbun_registry/cosface-04396224722947861633--spec-c7c559d789076f7d.json
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 datasets: [survface, tinyface, scface, lfw, rfw]
 embedding_dim: 1024
 batch_size: 16
