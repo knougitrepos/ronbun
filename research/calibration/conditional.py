@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from research.calibration.rejection import choose_non_mated_fpir_threshold
+from research.calibration.rejection import EMPIRICAL_THRESHOLD_RULE, choose_non_mated_fpir_threshold
 from research.evaluation.metrics import (
     PAIRED_BOOTSTRAP_RANDOM_SEED,
     PAIRED_BOOTSTRAP_RESAMPLES,
@@ -506,6 +506,7 @@ def fit_conditional_threshold(
             "safety_rows": int(partition.eq("safety").sum()),
             "cutpoints_fit_on": "fit_only",
             "thresholds_fit_on": "fit_only",
+            "empirical_threshold_rule": EMPIRICAL_THRESHOLD_RULE,
             "safety_rule": "max(base_threshold, heldout_group_threshold)",
             "one_sided_shrinkage_rule": (
                 "threshold_before_safety=max(raw_group_threshold, "
@@ -601,6 +602,7 @@ def fit_global_threshold(
             "fit_rows": int(partition.eq("fit").sum()),
             "safety_rows": int(partition.eq("safety").sum()),
             "thresholds_fit_on": "fit_only",
+            "empirical_threshold_rule": EMPIRICAL_THRESHOLD_RULE,
             "safety_rule": "max(fit_threshold, heldout_threshold)",
             **({"method": "explicit_manifest_labels", "assignment_sha256": canonical_sha256(
                 rows[["sample_id", "identity_id"]].assign(role=partition.to_numpy()).to_dict("records"))}

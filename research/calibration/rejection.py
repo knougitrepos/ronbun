@@ -11,6 +11,9 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from research.search.open_set import CALIBRATION_FEATURE_COLUMNS
 
 
+EMPIRICAL_THRESHOLD_RULE = "float64-nextafter-first-rejected-v2"
+
+
 def _target(frame: pd.DataFrame) -> np.ndarray:
     if "y_true_accept" not in frame.columns:
         raise ValueError("y_true_accept column is required")
@@ -55,7 +58,13 @@ def choose_non_mated_fpir_threshold(
     is_mated: np.ndarray,
     target_fpir: float,
 ) -> float:
-    """Choose the most permissive tie-preserving non-mated-only threshold."""
+    """Choose the most permissive float64 ``score >= threshold`` boundary.
+
+    Only non-mated calibration scores determine the acceptance budget. Keep
+    ties intact and place the boundary immediately above the first rejected
+    score, so genuine scores in the adjacent gap are not needlessly rejected.
+    Callers must compare scores in float64 to retain this nextafter boundary.
+    """
 
     if not 0.0 <= target_fpir <= 1.0:
         raise ValueError("target_fpir must be between 0 and 1")
@@ -74,10 +83,12 @@ def choose_non_mated_fpir_threshold(
     unique_scores, counts = np.unique(non_mated_scores, return_counts=True)
     descending_scores = unique_scores[::-1]
     accepted_counts = np.cumsum(counts[::-1])
-    feasible = accepted_counts / len(non_mated_scores) <= float(target_fpir) + 1e-15
-    if not feasible.any():
-        return float(np.nextafter(descending_scores[0], np.inf))
-    return float(descending_scores[np.flatnonzero(feasible)[-1]])
+    feasible = np.flatnonzero(accepted_counts / len(non_mated_scores) <= float(target_fpir))
+    first_rejected = 0 if not len(feasible) else int(feasible[-1]) + 1
+    if first_rejected == len(descending_scores):
+        return float(-np.inf)  # target == 1: every finite score may be accepted.
+    with np.errstate(over="ignore"):
+        return float(np.nextafter(descending_scores[first_rejected], np.inf))
 
 
 def _decision_labels(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:

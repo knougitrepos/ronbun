@@ -95,7 +95,8 @@ def test_baseline_then_frozen_study_publication_and_lineage(tmp_path, monkeypatc
     pop.to_csv(source / "population.csv", index=False)
     for name, values in (("embeddings.npy", vectors), ("raw_norm.npy", np.ones(len(pop))), ("quality.npy", q)):
         np.save(source / name, values)
-    write_json(source / "manifest.json", dict(status="completed", model_uid="fixture",
+    from research.experiments.facex_inputs import population_hash
+    write_json(source / "manifest.json", dict(status="completed", model_uid="fixture", population_hash=population_hash(pop),
         files={p.name: sha256_file(p) for p in source.iterdir()}))
     (source / "COMPLETED").write_text("done")
     config = dict(project_root=str(Path(__file__).resolve().parents[2]), embedding_dim=1024,

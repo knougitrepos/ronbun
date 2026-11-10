@@ -1,0 +1,306 @@
+{
+  "schema": "additional-fixes-validation-v1",
+  "verified_kst": "2026-11-07T00:21:42.926549+09:00",
+  "status": "implemented_and_focused_validation_passed",
+  "requirements": [
+    {
+      "id": "F1",
+      "change": "Strict required resume state and explicitly pinned source compatibility",
+      "primary_source": "F:/FaceX-Zoo/fine-tune/modules/checkpoint_manager.py",
+      "evidence": [
+        "resume_final.xml",
+        "checkpoint_restore.json",
+        "checkpoint_restore_gpu.json"
+      ],
+      "status": "implemented_and_verified"
+    },
+    {
+      "id": "F2",
+      "change": "Committed batch integrity chain and canonical population validation",
+      "primary_source": "C:/ronbun/research/experiments/facex_inputs.py",
+      "evidence": [
+        "workflow_final.xml"
+      ],
+      "status": "implemented_and_verified"
+    },
+    {
+      "id": "F3",
+      "change": "float64 nextafter threshold boundary without tolerance overshoot",
+      "primary_source": "C:/ronbun/research/calibration/rejection.py",
+      "evidence": [
+        "threshold_final.xml"
+      ],
+      "status": "implemented_and_verified"
+    },
+    {
+      "id": "F4",
+      "change": "Reject invalid, empty or duplicate dataset selection",
+      "primary_source": "C:/ronbun/research/experiments/facex_workflow.py",
+      "evidence": [
+        "workflow_final.xml",
+        "workflow_integrity_final.xml"
+      ],
+      "status": "implemented_and_verified"
+    },
+    {
+      "id": "F5",
+      "change": "Completed-cache reuse and incremental space check under lock",
+      "primary_source": "C:/ronbun/research/experiments/facex_inputs.py",
+      "evidence": [
+        "workflow_final.xml",
+        "workflow_integrity_final.xml"
+      ],
+      "status": "implemented_and_verified"
+    },
+    {
+      "id": "F6",
+      "change": "Bind result contract, manifest UID, directory and reuse request",
+      "primary_source": "C:/ronbun/research/experiments/facex_workflow.py",
+      "evidence": [
+        "workflow_final.xml",
+        "workflow_integrity_final.xml"
+      ],
+      "status": "implemented_and_verified"
+    },
+    {
+      "id": "F7",
+      "change": "Owned-lock cleanup protects initial manifest writes",
+      "primary_source": "C:/ronbun/research/experiments/facex_workflow.py",
+      "evidence": [
+        "workflow_final.xml",
+        "workflow_integrity_final.xml"
+      ],
+      "status": "implemented_and_verified"
+    }
+  ],
+  "tests": {
+    "unique_passed": 264,
+    "failures": 0,
+    "skipped": 0,
+    "suites": [
+      {
+        "repository": "ronbun",
+        "path": "C:\\ronbun\\tmp\\additional_fixes_20261106\\workflow_final.xml",
+        "sha256": "626d64adfab20eed09bfb358e59f9c2b2ac392379759801fb6cce30dd4ae1eff",
+        "cases": 145,
+        "additional_unique_cases": 145,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "repository": "ronbun",
+        "path": "C:\\ronbun\\tmp\\additional_fixes_20261106\\workflow_integrity_final.xml",
+        "sha256": "123a8cb074abbde6ec7a287ed27ea8d7f77b26f372ea4d0f35d061727c5d28f1",
+        "cases": 17,
+        "additional_unique_cases": 1,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "repository": "ronbun",
+        "path": "C:\\ronbun\\tmp\\additional_fixes_20261106\\threshold_final.xml",
+        "sha256": "5d22dd336dd447bffd129d37308466e3e3c6a96e64df1fecd0a20188d195bcde",
+        "cases": 71,
+        "additional_unique_cases": 71,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "repository": "FaceX-Zoo",
+        "path": "C:\\ronbun\\tmp\\additional_fixes_20261106\\resume_final.xml",
+        "sha256": "f10a6c7ea21c09057b75974dad2ea2b6554d6bf7552f1e1a69a483e88b8f4bad",
+        "cases": 47,
+        "additional_unique_cases": 47,
+        "failures": 0,
+        "skipped": 0
+      }
+    ],
+    "scope": "Focused regression suites only; not every test in either repository"
+  },
+  "checkpoint": {
+    "path": "F:\\models\\facex\\checkpoints\\shared_v1_boundary_mobilefacenet\\pretrain_arcface_seed8972\\pretrain_mobilefacenet_1024d_recovery_e12_b21162_386e280a.pt",
+    "sha256": "4acef9dcfc51b848d0354f1c00ab03dbaf12c8016c0f886125d8eeb984add182",
+    "unchanged": true,
+    "epoch": 12,
+    "next_batch_zero_based": 21162,
+    "next_batch_one_based": 21163,
+    "cpu_evidence": {
+      "path": "C:\\ronbun\\publish\\support\\additional_fixes_20261106_v1\\checkpoint_restore.json",
+      "sha256": "a8eb784a1063d5128763d6641aa32f5d681158008ec8a578834c1d86ed22056a"
+    },
+    "gpu_evidence": {
+      "path": "C:\\ronbun\\publish\\support\\additional_fixes_20261106_v1\\checkpoint_restore_gpu.json",
+      "sha256": "12fcc751ae034f12286aa37eb8e4ef0966fd5fa91da9c8b10ee34b22a388d6bd"
+    },
+    "cuda_rng_exact": true,
+    "formal_training_started": false,
+    "weights_updated": false
+  },
+  "preservation": {
+    "baseline_audit": "C:\\ronbun\\publish\\support\\additional_audit_20261106_v1\\evidence.json",
+    "baseline_audit_sha256": "81f8e0d0f9ec67db1fd22ce511582ad7e1291bc617cd330cc925297b6f50c675",
+    "files": [
+      {
+        "path": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\02_pretrain.ipynb",
+        "sha256_before": "3b17209668a4315a202b3077e3ca0aa3fab77baa74eec75ba6dc59250b9a40da",
+        "sha256_after": "3b17209668a4315a202b3077e3ca0aa3fab77baa74eec75ba6dc59250b9a40da",
+        "unchanged": true
+      },
+      {
+        "path": "F:\\face_datasets\\.state\\facex\\shared_v1_boundary\\notebook_settings_mobilefacenet.json",
+        "sha256_before": "96106a2078ea4f5d5efb2dce5e0b714a2a2dabdb642bc56286e8e3b6493dda60",
+        "sha256_after": "96106a2078ea4f5d5efb2dce5e0b714a2a2dabdb642bc56286e8e3b6493dda60",
+        "unchanged": true
+      },
+      {
+        "path": "F:\\FaceX-Zoo\\fine-tune\\modules\\trainer.py",
+        "sha256_before": "a210f01a676cc7790bf4cbd7e31b32128ca5c200fc45a514a5b1e99c4f1fff11",
+        "sha256_after": "a210f01a676cc7790bf4cbd7e31b32128ca5c200fc45a514a5b1e99c4f1fff11",
+        "unchanged": true
+      },
+      {
+        "path": "F:\\FaceX-Zoo\\fine-tune\\modules\\notebook_workflow.py",
+        "sha256_before": "c14ad665b187732b48bb6c27d918c8973a6a41adfc652d0cc77debe4550648e9",
+        "sha256_after": "c14ad665b187732b48bb6c27d918c8973a6a41adfc652d0cc77debe4550648e9",
+        "unchanged": true
+      },
+      {
+        "path": "F:\\FaceX-Zoo\\fine-tune\\modules\\dataset_verification.py",
+        "sha256_before": "e108ed216f598c0384541749e08667635c48e7a777ed86e730bb2ed06ede243e",
+        "sha256_after": "e108ed216f598c0384541749e08667635c48e7a777ed86e730bb2ed06ede243e",
+        "unchanged": true
+      },
+      {
+        "path": "C:\\ronbun\\configs\\experiments\\facex_workflow.yaml",
+        "sha256_before": "959b9f3e5bd966d4dc34bf7e913146945aa31ad944d0637497958249f2f736cf",
+        "sha256_after": "959b9f3e5bd966d4dc34bf7e913146945aa31ad944d0637497958249f2f736cf",
+        "unchanged": true
+      }
+    ]
+  },
+  "data_verification": {
+    "mode": "immutable_verified_reuse",
+    "force_reverify": false,
+    "reused_full_verification": true,
+    "reused_decode_receipt": true,
+    "image_hashes_checked": 0,
+    "images_decoded": 0,
+    "verified_images": 3141890,
+    "receipt_path": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\verification_cache\\immutable_v1\\297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139.json",
+    "receipt_sha256": "57c587d5ffa8e8fca1d9f5ab6c89d9e798804e86c599869e331013a425c1dc74",
+    "contract_sha256": "297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139",
+    "limitation": "User keeps verified source/prepared images and lists unchanged; image changes are not detected on reuse."
+  },
+  "source_compatibility": {
+    "path": "F:\\FaceX-Zoo\\fine-tune\\configs\\verification_resume_compatibility.json",
+    "sha256": "1a57c91f46f08ea03a0d989750de8e5cac9c1ae49d21245626ae96e57341bc97",
+    "current_sources_match": true,
+    "transition_id": "20261106_resume_state_validation"
+  },
+  "repositories": {
+    "ronbun": {
+      "root": "C:\\ronbun",
+      "head": "8eee6458f99380f1b5dc5c197b93a5d9c0850386",
+      "branch": "refacto1",
+      "status": [
+        "M .gitignore",
+        " M notebooks/WORKFLOW_GUIDE.md",
+        " M research/calibration/conditional.py",
+        " M research/calibration/continuous.py",
+        " M research/calibration/rejection.py",
+        " M research/experiments/facex_calibration_study.py",
+        " M research/experiments/facex_inputs.py",
+        " M research/experiments/facex_workflow.py",
+        " M research/experiments/fiqa_threshold_calibration.py",
+        " M tests/research/test_facex_review_regressions.py",
+        " M tests/research/test_facex_staged_study.py",
+        " M tests/research/test_facex_workflow.py",
+        " M tests/research/test_rejection.py",
+        "?? architect/20261102.md",
+        "?? architect/20261104.md",
+        "?? architect/20261106.md",
+        "?? publish/FaceXZoo_ronbun_7건개선_검증_20261106_v1.md",
+        "?? publish/FaceXZoo_검증기록재사용_및_학습재개점검_20261104_v1.md",
+        "?? publish/FaceXZoo_전처리기준_및_데이터분할_미팅요약_20261105_v1.md",
+        "?? publish/support/additional_fixes_20261106_v1/",
+        "?? publish/support/immutable_verification_20261104/",
+        "?? publish/support/meeting_protocol_20261105/",
+        "?? tests/research/test_empirical_threshold_boundary.py",
+        "?? tests/research/test_facex_input_resume_integrity.py",
+        "?? tests/research/test_facex_workflow_integrity.py"
+      ],
+      "diff_check_passed": true,
+      "staged_paths": []
+    },
+    "FaceX-Zoo": {
+      "root": "F:\\FaceX-Zoo",
+      "head": "f751ec86a4e5eea500b9390462eba8cf7bf3b6d1",
+      "branch": "refacto1",
+      "status": [
+        "M fine-tune/README.md",
+        " M fine-tune/modules/baseline_policy.py",
+        " M fine-tune/modules/checkpoint_manager.py",
+        " M fine-tune/modules/notebook_workflow.py",
+        " M fine-tune/modules/trainer.py",
+        " M fine-tune/notebooks/00_environment_and_data.ipynb",
+        " M fine-tune/notebooks/01_prepare_vggface2.ipynb",
+        " M fine-tune/notebooks/02_pretrain.ipynb",
+        " M fine-tune/notebooks/03_finetune.ipynb",
+        " M fine-tune/notebooks/04_export_and_validate.ipynb",
+        " M fine-tune/scripts/prepare_alignment.py",
+        "?? fine-tune/configs/verification_resume_compatibility.json",
+        "?? fine-tune/modules/checkpoint_compatibility.py",
+        "?? fine-tune/modules/dataset_verification.py",
+        "?? fine-tune/tests/test_immutable_verification.py",
+        "?? fine-tune/tests/test_resume_state_contract.py"
+      ],
+      "diff_check_passed": true,
+      "staged_paths": []
+    }
+  },
+  "source_sha256": {
+    "C:\\ronbun\\.gitignore": "534ccc894b6f67b1d21a50d7671cc732c76788cfcfab92a64690965263df4d39",
+    "C:\\ronbun\\notebooks\\WORKFLOW_GUIDE.md": "f2c2c96a5a12af7d2cdb43e448d6e41effcdb7f381b04209d80e2e63d75cf32d",
+    "C:\\ronbun\\research\\calibration\\conditional.py": "d1b9773ab44ec8d339f9509c41e8b9141e045d54fd0ed533194c93dfd622d331",
+    "C:\\ronbun\\research\\calibration\\continuous.py": "9cc41247d204d6e82fdd3d94e9e27cca2daf473b1f079bb784fc51a63b99c246",
+    "C:\\ronbun\\research\\calibration\\rejection.py": "b736209c77bc75ba2d2ce4041be3decf41fe8f2ca6dd50b73e8abb68a29c833b",
+    "C:\\ronbun\\research\\experiments\\facex_calibration_study.py": "12779470ca2acf0a835355aed4a3449397fc9641d4de32dcd7d731f54ae0fe7d",
+    "C:\\ronbun\\research\\experiments\\facex_inputs.py": "f2c02ccee455d06116ed2804757fc49b1c48c0c5fdcc0cbb8bbdb4b8d398f183",
+    "C:\\ronbun\\research\\experiments\\facex_workflow.py": "049e849eeddf8821a2c06fb065ad2e6d26cd22a594f0a8d1f9a985e2f5880afb",
+    "C:\\ronbun\\research\\experiments\\fiqa_threshold_calibration.py": "2ee1312e4ce7f04a66186b42138234781f46a56210324583cfc3c41fc2daa72c",
+    "C:\\ronbun\\tests\\research\\test_empirical_threshold_boundary.py": "df4996e4530cff64250aefbb7cba275e3e1351ec8ebe527ff9cb0ce1518be0e2",
+    "C:\\ronbun\\tests\\research\\test_facex_input_resume_integrity.py": "be1d0dee7df81e61cdbb84f82f1101ccb77d6797a0d65f571ad1a9d02eaf4327",
+    "C:\\ronbun\\tests\\research\\test_facex_review_regressions.py": "17c99b09142a41554e80d283429b67af9f15d3cc31d5dc2ce2aa06143af904f2",
+    "C:\\ronbun\\tests\\research\\test_facex_staged_study.py": "73b6213485feb9aec56156c2aabcdcc431fbb922e25b801da423737df75b87a7",
+    "C:\\ronbun\\tests\\research\\test_facex_workflow.py": "f99cfe5491d9f1f459417f075a02e720467d78e60cc8f79669f5d6b2ec08feb5",
+    "C:\\ronbun\\tests\\research\\test_facex_workflow_integrity.py": "4d9185d60a4f089a0fad574f7cfe41a4ea710b6d776778c73012a81133de0dc4",
+    "C:\\ronbun\\tests\\research\\test_rejection.py": "db3ab5acba366411e186396c5349ffb6e0ddeb92eb8d3208f8f8b7e2c55f8141",
+    "F:\\FaceX-Zoo\\fine-tune\\README.md": "4f3766355a1050b57f9d3ed2c7fbe4b7bf3de0be3fc6c3ef79fbaa7814144f03",
+    "F:\\FaceX-Zoo\\fine-tune\\configs\\verification_resume_compatibility.json": "1a57c91f46f08ea03a0d989750de8e5cac9c1ae49d21245626ae96e57341bc97",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\baseline_policy.py": "501f7b7f013c071aede283bf0d1ddda417a5fddba026c15d871924384591261e",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\checkpoint_compatibility.py": "64de1ebe444199cac2ae6795cc5cf4ac971831d7eb76ed679622d353de476596",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\checkpoint_manager.py": "38b507e45aac136501747e68c0db7ec41deb82fc5804f146f54e40739c611a7e",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\dataset_verification.py": "e108ed216f598c0384541749e08667635c48e7a777ed86e730bb2ed06ede243e",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\notebook_workflow.py": "c14ad665b187732b48bb6c27d918c8973a6a41adfc652d0cc77debe4550648e9",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\trainer.py": "a210f01a676cc7790bf4cbd7e31b32128ca5c200fc45a514a5b1e99c4f1fff11",
+    "F:\\FaceX-Zoo\\fine-tune\\tests\\test_immutable_verification.py": "b764a1c0e9fc6da25eceb2f34fafe8553f000377847cd4c7d727bf23735235bf",
+    "F:\\FaceX-Zoo\\fine-tune\\tests\\test_resume_state_contract.py": "f2a04a3712b1f2a0c7fcdebc8be2f608191847cbc2a0a355d0893582e1e3bc26"
+  },
+  "reexecution": {
+    "parent": "No parent restart from epoch 1. On next resume restart kernel and execute 02 from settings with explicit verified recovery path.",
+    "data": "Keep immutable_verified_reuse and FORCE_DATA_REVERIFY=False. 00/01 need not rerun while verified images and lists remain unchanged.",
+    "calibration": "New source fingerprints may require new inputs. Refit and evaluate Global and Continuous together in a new run; preserve old artifacts.",
+    "legacy_partial": "Preserve partial caches missing integrity records; create a new artifact instead of silently trusting them."
+  },
+  "limits": [
+    "No formal training, full image scan, embedding campaign or real-data performance comparison was run.",
+    "Existing image mutations cannot be detected by immutable receipt reuse; user immutability assumption remains.",
+    "Synthetic integrity tests do not establish that existing research artifacts were corrupt."
+  ],
+  "git_actions": {
+    "staging_performed": false,
+    "commits_created": false,
+    "push_performed": false
+  },
+  "report": "C:\\ronbun\\publish\\FaceXZoo_ronbun_7건개선_검증_20261106_v1.md"
+}

@@ -1,0 +1,425 @@
+{
+  "created_at_kst": "2026-11-05T02:17:20.686751+09:00",
+  "scope": "Metadata, role lists, pair partitions, native MATLAB protocol and PDF review; no image decode or model training",
+  "heads": {
+    "ronbun": "8eee6458f99380f1b5dc5c197b93a5d9c0850386",
+    "facex": "f751ec86a4e5eea500b9390462eba8cf7bf3b6d1"
+  },
+  "dirty_worktrees": true,
+  "sources": [
+    {
+      "path": "F:\\face_datasets\\protocols\\shared_v1\\handoff.json",
+      "sha256": "adf7d25dd08fc9307ca3448ebc334f46867b7bb954e8cabf6205e9fc5700b007",
+      "bytes": 675
+    },
+    {
+      "path": "F:\\face_datasets\\.state\\facex\\shared_v1_boundary\\notebook_settings_mobilefacenet.json",
+      "sha256": "96106a2078ea4f5d5efb2dce5e0b714a2a2dabdb642bc56286e8e3b6493dda60",
+      "bytes": 8811
+    },
+    {
+      "path": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\report.json",
+      "sha256": "13dab76e855ce4b8c66eaea799694e334cc9f7c50b53f2a41e115145b46aed53",
+      "bytes": 2521
+    },
+    {
+      "path": "C:\\ronbun\\configs\\experiments\\facex_workflow.yaml",
+      "sha256": "959b9f3e5bd966d4dc34bf7e913146945aa31ad944d0637497958249f2f736cf",
+      "bytes": 2386
+    },
+    {
+      "path": "C:\\ronbun\\research\\protocols\\facex_handoff.py",
+      "sha256": "99ea282e7db5f023dd850b82c67d3de720c39e28e85a174fc3306e3bcb8d77d6",
+      "bytes": 9366
+    },
+    {
+      "path": "C:\\ronbun\\research\\datasets\\lfw_pairs.py",
+      "sha256": "6a5dc569fc0dcd096d6ee9b808ef041f0864c54b81dc4e9384f565aa5b53bae8",
+      "bytes": 7860
+    },
+    {
+      "path": "C:\\ronbun\\research\\experiments\\facex_workflow.py",
+      "sha256": "103ee61ce8705a935976f1fb736f906c15cdb2ecd4b5492b4f9c4b36fc2c51b5",
+      "bytes": 36397
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\modules\\alignment.py",
+      "sha256": "73e9fa03d453a5c32dec82ceaf80d204e20e28e5aaf08462c063d6aabfaa93de",
+      "bytes": 18212
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\modules\\dataset.py",
+      "sha256": "e2243d1aba45c6b28f1782252308952a356bcd3669477554fb50016fc0072ae6",
+      "bytes": 13310
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\fine-tune\\modules\\research_protocol.py",
+      "sha256": "cbf9607a59a07301756030b1887869a0c03183ef9cfed1733bfca18894a8d3e9",
+      "bytes": 13305
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\paper\\UCFace.pdf",
+      "sha256": "ad96d1534b8336a5c1d7ae7450e1d7d0e05901de3b230f7f0b6c69106e047173",
+      "bytes": 14997512
+    },
+    {
+      "path": "F:\\FaceX-Zoo\\paper\\부록.pdf",
+      "sha256": "1db2267e5367120d257c83abc93626df8beeda586b75b4e6c6dc289c29d80905",
+      "bytes": 524789
+    },
+    {
+      "path": "F:\\face_datasets\\SCface_database\\protocols\\shared_v1\\dca1e3f6d9df4daf750a\\protocol.json",
+      "sha256": "74ad89ce1454e65aa4b147b317055e8e2573d7fb257db00bc62624737581dee9",
+      "bytes": 2002
+    },
+    {
+      "path": "F:\\face_datasets\\SCface_database\\protocols\\shared_v1\\dca1e3f6d9df4daf750a\\roles.csv",
+      "sha256": "95a8c996353f34acb1de029b6f188b7963773216db275d170643020f006a1101",
+      "bytes": 232420
+    },
+    {
+      "path": "F:\\face_datasets\\SCface_database\\protocols\\shared_v1\\dca1e3f6d9df4daf750a\\train_list.txt",
+      "sha256": "2ac033720042e8cdd2ca4e412a4b81d8acb50cb9e16759aa596f5e8f727d0019",
+      "bytes": 34440
+    },
+    {
+      "path": "F:\\face_datasets\\QMUL-SurvFace\\protocols\\shared_v1\\9aeb13b96df3ae0e1912\\protocol.json",
+      "sha256": "a5357182556ab1952a2a675bc555ab99b2e1a0181c9fd06ff09876f9c784d6b7",
+      "bytes": 57527
+    },
+    {
+      "path": "F:\\face_datasets\\QMUL-SurvFace\\protocols\\shared_v1\\9aeb13b96df3ae0e1912\\roles.csv",
+      "sha256": "be171ed212db0c8115230a91d80df9db3a93cd5ea017218626cbc37dcd8dce4c",
+      "bytes": 59263487
+    },
+    {
+      "path": "F:\\face_datasets\\QMUL-SurvFace\\protocols\\shared_v1\\9aeb13b96df3ae0e1912\\train_list.txt",
+      "sha256": "6653cbd051e11b53860eebdcc63b527fef9094c46214c23b2efe9e74b445e7ac",
+      "bytes": 7034194
+    },
+    {
+      "path": "F:\\face_datasets\\tinyface\\protocols\\shared_v1\\394221dea5af128174d4\\protocol.json",
+      "sha256": "3df9ba0963741df3538870df7fdb7a8e363856c4dc9a5b9da83c1c96d9056b98",
+      "bytes": 34961
+    },
+    {
+      "path": "F:\\face_datasets\\tinyface\\protocols\\shared_v1\\394221dea5af128174d4\\roles.csv",
+      "sha256": "4b92e525a7c4171529577f452cbc8bc67992dc2c620997b78ac3335912d5d777",
+      "bytes": 29139234
+    },
+    {
+      "path": "F:\\face_datasets\\tinyface\\protocols\\shared_v1\\394221dea5af128174d4\\train_list.txt",
+      "sha256": "56619a33aa9c5d6091a0d39717176d7f2ca3d76a05e16d4eb9e6cf4673244093",
+      "bytes": 260477
+    },
+    {
+      "path": "F:\\face_datasets\\LFW\\protocols\\shared_v1\\pairs.txt",
+      "sha256": "ea42330c62c92989f9d7c03237ed5d591365e89b3e649747777b70e692dc1592",
+      "bytes": 155335
+    },
+    {
+      "path": "F:\\face_datasets\\LFW\\protocols\\shared_v1\\image_manifest.csv",
+      "sha256": "e7b3da1b001f64b0d48bce286c612332a5c6ba0a889798365cd7656bc436154c",
+      "bytes": 1911801
+    },
+    {
+      "path": "F:\\face_datasets\\RFW\\protocols\\shared_v1\\pair_protocol.csv",
+      "sha256": "3316fe5ac2a0587da06359bda23f8e3fefc1540d8194e4ef0650125d9640fa06",
+      "bytes": 3948830
+    },
+    {
+      "path": "F:\\face_datasets\\RFW\\protocols\\shared_v1\\image_manifest.csv",
+      "sha256": "28d573375a0ddb0e907d5a7b8b79af36bfa44cc688e00472777c32c2ba0b2bfe",
+      "bytes": 12619080
+    }
+  ],
+  "vggface2": {
+    "identities": 8631,
+    "report": {
+      "completed": true,
+      "total": 3141890,
+      "processed": 3141890,
+      "prepared": 3141890,
+      "failed": 0,
+      "reused_images": 2077255,
+      "regenerated_images": 1064635,
+      "policy": {
+        "input_size": [
+          112,
+          112
+        ],
+        "color": "BGR",
+        "output_format": "png",
+        "adapter_sha256": "73e9fa03d453a5c32dec82ceaf80d204e20e28e5aaf08462c063d6aabfaa93de",
+        "opencv": "5.0.0",
+        "face_detection": "none",
+        "failure_policy": "record_and_block",
+        "input_size_source": "UCFace supplement, Augmentations",
+        "version": "vggface2_official5_arcface112_v2",
+        "method": "landmark_alignment",
+        "landmark_archive": "F:\\face_datasets\\VGGFace2\\meta\\bb_landmark.tar.gz",
+        "landmark_archive_sha256": "7d5c68eaf56c6f7f93910fc88da7d2b0fd61e77848b9c9c4dba6b78cdad2db11",
+        "landmark_member": "bb_landmark/loose_landmark_train.csv",
+        "landmark_order": [
+          "left_eye",
+          "right_eye",
+          "nose",
+          "left_mouth",
+          "right_mouth"
+        ],
+        "coordinate_space": "released_loose_crop_pixels",
+        "interpolation": "opencv_warpAffine_default_linear",
+        "border": "constant_zero",
+        "source_hashes": {
+          "core/image_cropper/arcface_cropper/FaceRecImageCropper.py": "ed9464f6e3901806065caa83211a05e88c5fa2c9b2dbe215b1e01721150e3882",
+          "core/image_cropper/BaseImageCropper.py": "0eba763530e75669566ff5f86d49cb25c670e829b90305a9308dad4f391b450c",
+          "utils/lms_trans.py": "a3e9247e251dbeda71e882bb3b07bf4d5ebdabc5d0939ed0969796bd152bcdff"
+        },
+        "skimage": "0.26.0"
+      },
+      "execution": {
+        "device": "cpu",
+        "provided_landmark_rows": 3141890
+      },
+      "source_list": "F:\\face_datasets\\VGGFace2\\protocols\\official_train_v1\\train_list.txt",
+      "source_list_sha256": "d78bddffdd93dd74ce0c13c07e205e8adc403158a982cd5f55f473d6a65faefb",
+      "raw_root": "F:\\face_datasets\\VGGFace2\\extracted\\official_train_v1",
+      "storage_schema": "shared-preprocessing-v1",
+      "recovery_attempt": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\recovery\\1793598207965056200-0dd76b3b0dde402c957a7124f5cf9687",
+      "manifest": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\manifest.jsonl",
+      "manifest_sha256": "4d5fbaf67b0752f590e88af381f7ba9d538e422d22630d404c4a378d9da98ead",
+      "train_list": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\train_list.txt",
+      "train_list_sha256": "b99ac7567d262346e601aa57b91aeeaa3ef0cf02c61ec95434327781d45a34d4"
+    }
+  },
+  "datasets": {
+    "scface": {
+      "roles": {
+        "pq_development": {
+          "identities": 50,
+          "images": 800
+        },
+        "test_gallery": {
+          "identities": 80,
+          "images": 80
+        },
+        "test_registered_probe": {
+          "identities": 80,
+          "images": 1200
+        }
+      },
+      "fr_training": {
+        "identities": 50,
+        "images": 800
+      },
+      "protocol_role_counts": {
+        "pq_development": {
+          "identities": 50,
+          "images": 800
+        },
+        "test_gallery": {
+          "identities": 80,
+          "images": 80
+        },
+        "test_registered_probe": {
+          "identities": 80,
+          "images": 1200
+        }
+      },
+      "audit": null,
+      "split_policy": null,
+      "calibration_gallery_fr_train_overlap": 0,
+      "num_classes": 50
+    },
+    "survface": {
+      "roles": {
+        "calibration_fit": {
+          "identities": 744,
+          "images": 33754
+        },
+        "calibration_gallery": {
+          "identities": 3000,
+          "images": 61433
+        },
+        "calibration_registered_probe": {
+          "identities": 3000,
+          "images": 62545
+        },
+        "calibration_safety": {
+          "identities": 320,
+          "images": 10929
+        },
+        "pq_development": {
+          "identities": 1255,
+          "images": 52227
+        },
+        "test_gallery": {
+          "identities": 3000,
+          "images": 60294
+        },
+        "test_registered_probe": {
+          "identities": 3000,
+          "images": 60423
+        },
+        "test_unknown_probe": {
+          "identities": 2319,
+          "images": 121736
+        }
+      },
+      "fr_training": {
+        "identities": 4255,
+        "images": 176205
+      },
+      "protocol_role_counts": {
+        "calibration_fit": {
+          "identities": 744,
+          "images": 33754
+        },
+        "calibration_gallery": {
+          "identities": 3000,
+          "images": 61433
+        },
+        "calibration_registered_probe": {
+          "identities": 3000,
+          "images": 62545
+        },
+        "calibration_safety": {
+          "identities": 320,
+          "images": 10929
+        },
+        "pq_development": {
+          "identities": 1255,
+          "images": 52227
+        },
+        "test_gallery": {
+          "identities": 3000,
+          "images": 60294
+        },
+        "test_registered_probe": {
+          "identities": 3000,
+          "images": 60423
+        },
+        "test_unknown_probe": {
+          "identities": 2319,
+          "images": 121736
+        }
+      },
+      "audit": null,
+      "split_policy": null,
+      "calibration_gallery_fr_train_overlap": 3000,
+      "num_classes": 4255
+    },
+    "tinyface": {
+      "roles": {
+        "pq_development": {
+          "identities": 2570,
+          "images": 7804
+        },
+        "test_gallery": {
+          "identities": 2569,
+          "images": 4443
+        },
+        "test_gallery_distractor": {
+          "identities": 0,
+          "images": 153428
+        },
+        "test_registered_probe": {
+          "identities": 2563,
+          "images": 3728
+        }
+      },
+      "fr_training": {
+        "identities": 2570,
+        "images": 7804
+      },
+      "protocol_role_counts": {
+        "pq_development": {
+          "identities": 2570,
+          "images": 7804
+        },
+        "test_gallery": {
+          "identities": 2569,
+          "images": 4443
+        },
+        "test_gallery_distractor": {
+          "identities": 0,
+          "images": 153428
+        },
+        "test_registered_probe": {
+          "identities": 2563,
+          "images": 3728
+        }
+      },
+      "audit": null,
+      "split_policy": null,
+      "calibration_gallery_fr_train_overlap": 0,
+      "num_classes": 2570
+    }
+  },
+  "pair_population": {
+    "lfw": {
+      "images": 13233,
+      "identities": 5749,
+      "pairs": 6000
+    },
+    "rfw": {
+      "images": 40607,
+      "identities": 11429,
+      "pairs": 24000
+    }
+  },
+  "native_protocol_arrays": {
+    "tinyface/Testing_Set/probe_img_ID_pairs.mat": {
+      "images": 3728,
+      "identities": 2563,
+      "sha256": "31b0c387517274b949d87ccdc6ec44b5c9181a1b900cb313876453f5081a019d"
+    },
+    "tinyface/Testing_Set/gallery_match_img_ID_pairs.mat": {
+      "images": 4443,
+      "identities": 2569,
+      "sha256": "7a333180a1f7a1057f16fe1eb31bf21016cb3120aefae491b2d74ef2cfd87182"
+    },
+    "QMUL-SurvFace/Face_Identification_Test_Set/gallery_img_ID_pairs.mat": {
+      "images": 60294,
+      "identities": 3000,
+      "sha256": "aa0f4c476a6deec558b610e820d3099617a02cf5e6a5d31f4cd47bd62b307c5d"
+    },
+    "QMUL-SurvFace/Face_Identification_Test_Set/mated_probe_img_ID_pairs.mat": {
+      "images": 60423,
+      "identities": 3000,
+      "sha256": "730452b1eb99b4e64f1c9a2fd2f8198b202cff828f6bfa10841b826413c0f7c6"
+    }
+  },
+  "survface_unknown_probe": {
+    "labeled_images": 93260,
+    "labeled_identities": 2319,
+    "unlabeled_images": 28476,
+    "total_images": 121736
+  },
+  "paper_differences": {
+    "tinyface_probe_identities": {
+      "paper": 2569,
+      "local_native_mat": 2563
+    },
+    "survface_gallery_images": {
+      "paper": 60423,
+      "local_native_mat": 60294
+    },
+    "survface_registered_probe_images": {
+      "paper": 60294,
+      "local_native_mat": 60423
+    }
+  },
+  "checks": {
+    "protocol_hashes": true,
+    "role_counts_match_protocol": true,
+    "pair_partitions_checked": 50,
+    "test_pair_labels_per_fold": [
+      300,
+      300
+    ],
+    "vggface2_completion_record": true,
+    "image_decode_repeated": false,
+    "training_executed": false
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "verified_kst": "2026-11-07T00:14:36.764440+09:00",
+  "checkpoint": "F:\\models\\facex\\checkpoints\\shared_v1_boundary_mobilefacenet\\pretrain_arcface_seed8972\\pretrain_mobilefacenet_1024d_recovery_e12_b21162_386e280a.pt",
+  "original_checkpoint_sha256": "4acef9dcfc51b848d0354f1c00ab03dbaf12c8016c0f886125d8eeb984add182",
+  "current_checkpoint_sha256": "4acef9dcfc51b848d0354f1c00ab03dbaf12c8016c0f886125d8eeb984add182",
+  "epoch": 12,
+  "resume_batch": 21162,
+  "scheduler_last_epoch": 11,
+  "optimizer_lr": [
+    0.0001
+  ],
+  "optimizer_state_count": 184,
+  "backbone_and_head_exact": true,
+  "optimizer_state_exact": true,
+  "scheduler_state_exact": true,
+  "cpu_rng_state_exact": true,
+  "cuda_rng_state": "exactly restored on CUDA",
+  "device": "NVIDIA GeForce GTX 1080 Ti",
+  "torch_version": "2.7.1+cu118",
+  "cuda_runtime": "11.8",
+  "source_transition": {
+    "id": "20261106_resume_state_validation",
+    "previous_config_hash": "39768f1a8bbeab2cfea25bb0034752d90915e7f4cf31f18558c412e9a67b7919",
+    "current_config_hash": "2ace9174288a9e716ba38ca4edeb4110d161187284187920967a03bb850dc0d3"
+  },
+  "data_verification": {
+    "mode": "immutable_verified_reuse",
+    "force_reverify": false,
+    "reused_full_verification": true,
+    "reused_decode_receipt": true,
+    "image_hashes_checked": 0,
+    "images_decoded": 0,
+    "verified_images": 3141890,
+    "receipt_path": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\verification_cache\\immutable_v1\\297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139.json",
+    "receipt_sha256": "57c587d5ffa8e8fca1d9f5ab6c89d9e798804e86c599869e331013a425c1dc74",
+    "contract_sha256": "297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139",
+    "limitation": "User keeps verified source/prepared images and lists unchanged; image changes are not detected on reuse."
+  },
+  "image_scan_calls": 0,
+  "settings_unchanged": true,
+  "notebook_unchanged": true,
+  "train_loader": "None: actual current configuration used for metadata equality; no data iterator started",
+  "formal_training_started": false,
+  "weights_updated": false
+}

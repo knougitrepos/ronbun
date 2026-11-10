@@ -1,0 +1,26 @@
+{
+  "data_assertions": "passed",
+  "out_of_canvas_text": [],
+  "final_size_px": [
+    1500,
+    800
+  ],
+  "png_px": [
+    3000,
+    1600
+  ],
+  "color": "grayscale only; color and grayscale are identical",
+  "visual_inspection": "passed: PDF rendered independently with Poppler at 1500x800; no overlap/clipping; all values legible",
+  "grayscale_inspection": "passed: grayscale only; no semantics depend on color",
+  "checked_at_kst": "2026-11-05T02:18:55.523937+09:00",
+  "adversarial_review": {
+    "science": "Counts match metadata and native MAT; custom roles and FR-seen gallery disclosed; no performance claims",
+    "layout": "Numeric columns right-aligned; no vertical rules; no text collisions at final size"
+  },
+  "selected_references": [
+    "GPT-6 Astra governing table grammar",
+    "style_contract.md",
+    "form_selection.md",
+    "quality_gates.md"
+  ]
+}

@@ -29,12 +29,27 @@ def _config(path):
     config = expand_paths(config, variables)
     if config.get("embedding_dim") != 1024:
         raise ValueError("The active FaceX workflow requires 1024D")
-    if not config.get("datasets") or not set(config["datasets"]) <= set(EVALUATION_DATASETS):
-        raise ValueError("Unknown dataset selection")
+    _validate_datasets(config.get("datasets"))
     targets = config["target_rates"]
     if not targets or len(set(targets)) != len(targets) or any(not 0 < t < 1 for t in targets):
         raise ValueError("Explicit unique target rates in (0,1) required")
     return config
+
+
+def _validate_datasets(datasets):
+    if (not isinstance(datasets, (list, tuple)) or not datasets
+            or any(not isinstance(d, str) or d not in EVALUATION_DATASETS for d in datasets)):
+        raise ValueError("Select a nonempty list of known datasets")
+    if len(datasets) != len(set(datasets)):
+        raise ValueError("Select unique datasets; duplicate datasets would double-count results")
+    return list(datasets)
+
+
+def _selected_datasets(config, datasets):
+    selected = _validate_datasets(config["datasets"] if datasets is None else datasets)
+    if not set(selected) <= set(config["datasets"]):
+        raise ValueError("Dataset selection is not predeclared")
+    return selected
 
 
 def validate_study(config):
@@ -85,7 +100,7 @@ def _population(config, handoff, dataset):
 
 def inspect_workflow(config_path, *, datasets=None):
     config = _config(config_path)
-    selected = list(datasets or config["datasets"])
+    selected = _selected_datasets(config, datasets)
     if not set(selected) <= set(config["datasets"]):
         raise ValueError("Dataset selection is not predeclared")
     handoff = load_handoff(config["handoff"]) if Path(config["handoff"]).is_file() else {}
@@ -108,6 +123,7 @@ def inspect_workflow(config_path, *, datasets=None):
 
 
 def _workload(config, datasets):
+    datasets = _selected_datasets(config, datasets)
     handoff = load_handoff(config["handoff"])
     models = _models(config, handoff)
     if not models:
@@ -164,12 +180,12 @@ def _read_optional_csv(path):
 
 def prepare_inputs(config_path, *, datasets=None, output_root=None):
     config = _config(config_path)
-    selected = list(datasets or config["datasets"])
+    selected = _selected_datasets(config, datasets)
     _, _, populations, jobs, identity = _workload(config, selected)
     root = _root(config, output_root)
     required = sum(len(populations[d][0]) * 4104 for _, _, _, d in jobs)
-    if shutil.disk_usage(root).free < required * 1.1:
-        raise RuntimeError(f"Insufficient free space for input caches; estimate={required} bytes")
+    # Informational total only. materialize_inputs checks incremental allocation
+    # under its artifact lock, after validating any completed reusable cache.
     records = {}
     for alias, spec, _, dataset in jobs:
         path = materialize_inputs(config["project_root"], populations[dataset][0], spec, dataset, root,
@@ -450,7 +466,7 @@ def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_resul
     if baseline_report is not None:
         config["study"]["baseline_report"] = str(baseline_report)
     stage = validate_study(config)
-    selected = list(datasets or config["datasets"])
+    selected = _selected_datasets(config, datasets)
     if stage == "calibration_size":
         from research.experiments.facex_calibration_study import run_study
         keep = config.get("keep_raw_results", True) if keep_raw_results is None else bool(keep_raw_results)
@@ -466,15 +482,16 @@ def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_resul
     uid = "facex-" + canonical_sha256(contract)[:24]
     destination = root / "reports" / uid
     if destination.exists():
-        read_results(destination)
+        read_results(destination, expected_contract=contract)
         return dict(report_dir=str(destination), reused=True)
     work = destination.with_name(uid + ".partial")
     work.mkdir(parents=True, exist_ok=True)
     lock = work / "RUNNING.lock"
-    with lock.open("x", encoding="utf-8") as stream:
-        stream.write(json.dumps(dict(pid=os.getpid(), run_uid=uid)))
-    write_json(work / "run_manifest.json", dict(status="running", run_uid=uid, contract=contract))
+    stream = lock.open("x", encoding="utf-8")
     try:
+        with stream:
+            stream.write(json.dumps(dict(pid=os.getpid(), run_uid=uid)))
+        write_json(work / "run_manifest.json", dict(status="running", run_uid=uid, contract=contract))
         all_metrics, all_paired = [], []
         import faiss
         faiss.omp_set_num_threads(2)
@@ -571,11 +588,20 @@ def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_resul
     return dict(report_dir=str(destination), run_uid=uid, reused=False)
 
 
-def read_results(directory):
+def read_results(directory, *, expected_contract=None):
     root = Path(directory)
     manifest = json.loads((root / "run_manifest.json").read_text(encoding="utf-8"))
     if manifest.get("status") != "completed" or not (root / "COMPLETED").is_file():
         raise ValueError("Result is incomplete; inspect the explicit .partial directory")
+    contract = manifest.get("contract")
+    if not isinstance(contract, dict) or not contract:
+        raise ValueError("Result lacks its pinned contract")
+    prefix = "facex-fit-safety-" if manifest.get("study_stage") == "calibration_size" else "facex-"
+    expected_uid = prefix + canonical_sha256(contract)[:24]
+    if manifest.get("run_uid") != expected_uid or root.name != expected_uid:
+        raise ValueError("Result UID, directory and contract mismatch")
+    if expected_contract is not None and contract != expected_contract:
+        raise ValueError("Result contract differs from the requested experiment")
     for name, digest in manifest["files"].items():
         if sha256_file(root / name) != digest:
             raise ValueError(f"Published result changed: {name}")

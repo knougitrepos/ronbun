@@ -1,0 +1,16 @@
+dataset,role,identities,images
+scface,pq_development,50,800
+scface,test_gallery,80,80
+scface,test_registered_probe,80,1200
+survface,calibration_fit,744,33754
+survface,calibration_gallery,3000,61433
+survface,calibration_registered_probe,3000,62545
+survface,calibration_safety,320,10929
+survface,pq_development,1255,52227
+survface,test_gallery,3000,60294
+survface,test_registered_probe,3000,60423
+survface,test_unknown_probe,2319,121736
+tinyface,pq_development,2570,7804
+tinyface,test_gallery,2569,4443
+tinyface,test_gallery_distractor,0,153428
+tinyface,test_registered_probe,2563,3728

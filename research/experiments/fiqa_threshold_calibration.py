@@ -545,7 +545,11 @@ def replay_survface_adc_condition_scores(
         row["absolute_difference"] <= 1e-12 for row in threshold_audit_rows
     ):
         raise RuntimeError(
-            "replayed calibration scores do not reproduce persisted Step-4 thresholds"
+            "replayed calibration scores do not reproduce persisted Step-4 thresholds. "
+            "The source may use the historical observed-score boundary policy. "
+            "Keep the completed source unchanged and load its verified condition-score "
+            "artifact if available; otherwise regenerate calibration under the current "
+            "boundary policy in a separate run. Never rewrite persisted thresholds."
         )
 
     manifest_base: dict[str, Any] = {

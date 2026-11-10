@@ -193,3 +193,30 @@ results/lfw_pair_inputs_v1/**/.inprogress/
 !/publish/support/shared_storage_20261028/
 /publish/support/shared_storage_20261028/*
 !/publish/support/shared_storage_20261028/validation.json
+
+# Compact immutable-data verification evidence; images/checkpoints/test copies stay local.
+!/publish/FaceXZoo_검증기록재사용_및_학습재개점검_20261104_v1.md
+!/publish/support/immutable_verification_20261104/
+/publish/support/immutable_verification_20261104/*
+!/publish/support/immutable_verification_20261104/verification.json
+
+# Professor meeting: verified preprocessing and dataset-role summaries.
+!/publish/FaceXZoo_전처리기준_및_데이터분할_미팅요약_20261105_v1.md
+!/publish/support/meeting_protocol_20261105/
+/publish/support/meeting_protocol_20261105/*
+!/publish/support/meeting_protocol_20261105/evidence.json
+!/publish/support/meeting_protocol_20261105/dataset_role_counts.csv
+!/publish/support/meeting_protocol_20261105/pair_partitions.csv
+!/publish/support/meeting_protocol_20261105/dataset_roles.svg
+!/publish/support/meeting_protocol_20261105/dataset_roles.pdf
+!/publish/support/meeting_protocol_20261105/dataset_roles.png
+!/publish/support/meeting_protocol_20261105/visual_spec.json
+!/publish/support/meeting_protocol_20261105/visual_qa.json
+
+# Compact seven-fix verification; checkpoints, synthetic payloads and test logs stay local.
+!/publish/FaceXZoo_ronbun_7건개선_검증_20261106_v1.md
+!/publish/support/additional_fixes_20261106_v1/
+/publish/support/additional_fixes_20261106_v1/*
+!/publish/support/additional_fixes_20261106_v1/validation.json
+!/publish/support/additional_fixes_20261106_v1/checkpoint_restore.json
+!/publish/support/additional_fixes_20261106_v1/checkpoint_restore_gpu.json

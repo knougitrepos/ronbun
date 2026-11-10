@@ -113,8 +113,13 @@ PQ 기본 연구설정은 SurvFace8bit/TinyFace7bit/SCFace4bit이다. Faiss 경�
 ## 결과 읽기
 
 완료 조건은 run_manifest.json status=completed와 COMPLETED 파일 및 출력hash 일치이다.
+추가로 manifest의 contract에서 계산한 UID, 저장된 run_uid와 디렉터리명이 같아야 한다.
+자동 재사용은 현재 요청 contract와도 일치해야 한다. 다른 조건의 report를 이름만 바꾸어
+복사하면 거부한다. 이동·백업 복원 시 원래 UID 디렉터리명을 유지한다.
 진행 중/실패한 실행은 명시적인 `.partial` 폴더에 남고 완료 결과로 읽지 않는다.
 RUNNING.lock에는PID가 있다. 비정상 종료 후에는 해당 프로세스가 종료됐는지 확인한 뒤 잠금을 처리한다.
+초기 manifest 쓰기 등 일반 예외에서는 해당 실행이 획득한 lock을 해제한다.
+datasets는 설정과 실행 인자 모두 중복 없는 비어 있지 않은 목록이어야 한다.
 
 먼저 HOW_TO_READ.md, chatgpt_summary.json, overview.csv 순으로 읽는다.
 그다음 summary_parts가 지정하는 모델·데이터셋별 metrics/paired를 선택한다.
@@ -128,6 +133,14 @@ Continuous는 비등록자 조건부quantile을 학습하며 TPIR을 직접 최�
 목표 FPIR/FMR와 realized 값은 다를 수 있다. target_met_on_test/both_target_met를 반올림 전 수치로 확인한다.
 목표 초과 조건도 표에서 제외하지 않으며 FPIR 상승을 TPIR 개선과 함께 해석한다.
 Origin cosine, PCA cosine, PQ negative_squared_l2_adc는 별도 점수 공간에서 각각 보정한다.
+2026-11-06부터 Global threshold 및 Continuous의 held-out safety offset에 사용하는
+공통 경험적 quantile은 다음 거부 score의 바로 위 float64 값(nextafter)을 선택한다.
+score >= threshold 규칙에서 동점은 함께 처리하고, calibration 오인식률 상한을
+넘지 않는 가장 허용적인 경계를 사용한다. Continuous는 기존대로 offset을 0 이상으로
+제한하고 실제 덧셈 후 판정도 확인한다. 이 변경은 test FPIR/FMR 보장을 뜻하지 않는다.
+이전 threshold로 계산한 완료 결과는 보존한다. 새 방법 비교는 동일 partition과 조건에서
+Global과 Continuous를 함께 다시 보정·평가하고 새 UID에 저장한다. 이전 점수와 새 임계값의
+결과를 같은 조건으로 섞어 보고하지 않는다.
 paired TPIR 구간은 genuine 인물 단위 bootstrap이며 gallery/threshold 고정 조건부 구간이다.
 FPIR/FMR Wilson 구간은 probe/pair 수준의 설명용 구간으로 반복 인물 의존성을 완전히 반영하지 않는다.
 작은 tail 표본 또는 분포 이동에 대해 수학적 오류율 보장을 주장하지 않는다.
@@ -145,6 +158,15 @@ rank가 비어 있으면 Top-20 밖이거나 genuine이 없다는 뜻이며 전�
 LFW/RFW 상세는 group/fold별 decisions.csv로 나눈다. 모든 상세 파일은 완료 manifest와
 작업별 재개 기록의 hash 검증 대상이다. 빈 paired 표는 rank-only 실행에서 정상이다.
 입력 population hash는 추출 호출당 한 번 계산하고 각 배치의 진행 기록에서 재사용한다.
+완료본을 읽을 때도 population.csv 내용의 hash와 manifest의 population_hash를 대조한다.
+중단 재개는 배치별 저장 임베딩·raw_norm·quality와 이미지 hash ledger의 검증 기록을
+확인한 뒤 수행한다. 검증된 마지막 배치 이후의 미확정 꼬리는 다시 계산한다.
+기록이 없거나 변경된 과거 partial은 자동으로 신뢰하지 않는다. 기존 파일을 보존하고
+별도 output_root/새 artifact에서 재추출한다. 원본 이미지 불변 전제만으로 파생 cache의
+무결성이 확보되지는 않는다.
+디스크 사전 검사는 완료 cache 재사용 확인 뒤 artifact 잠금 안에서 수행한다.
+이미 할당한 부분 파일을 고려해 추가 공간을 추정한다. estimated_input_bytes는 전체
+벡터 payload 규모를 설명하는 수치이며 재사용 시 요구하는 추가 공간과 다르다.
 완료 입력 cache를 02에서 재사용할 때도 image_hashes.jsonl과 현재 원본 바이트를 전수 대조한다.
 동일 경로의 원본 내용이 바뀌면 중단하며 이전 완료 artifact를 덮어쓰지 않는다. 의도적으로 원본을
 교체했다면 별도 output_root에서 새 입력·실험을 생성한다. 이미 고정한 입력을 읽는 03/04는

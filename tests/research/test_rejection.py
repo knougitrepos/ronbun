@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from research.calibration.rejection import (
@@ -57,7 +58,7 @@ def test_non_mated_only_threshold_is_tie_preserving_and_ignores_mated_scores():
         target_fpir=0.50,
     )
 
-    assert threshold == 0.80
+    assert threshold == np.nextafter(0.70, np.inf)
     changed_mated = choose_non_mated_fpir_threshold(
         scores=[0.01, 1.00, 0.80, 0.80, 0.70, 0.60],
         is_mated=[True, True, False, False, False, False],

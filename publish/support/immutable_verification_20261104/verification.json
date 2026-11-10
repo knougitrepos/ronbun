@@ -1,0 +1,203 @@
+{
+  "status": "validated_without_training",
+  "checked_at_kst": "2026-11-04T23:43:14+09:00",
+  "base_commits": {
+    "facex": "f751ec86a4e5eea500b9390462eba8cf7bf3b6d1",
+    "ronbun": "8eee6458f99380f1b5dc5c197b93a5d9c0850386"
+  },
+  "checkpoint": {
+    "checkpoint": "F:\\models\\facex\\checkpoints\\shared_v1_boundary_mobilefacenet\\pretrain_arcface_seed8972\\pretrain_mobilefacenet_1024d_recovery_e12_b21162_386e280a.pt",
+    "sha256": "4acef9dcfc51b848d0354f1c00ab03dbaf12c8016c0f886125d8eeb984add182",
+    "bytes": 124055589,
+    "epoch": 11,
+    "epoch_state": {
+      "epoch": 12,
+      "next_batch": 21162,
+      "loss_sum": 6191209.775161743,
+      "loss_count": 1354368
+    },
+    "scheduler": {
+      "milestones": {
+        "10": 1,
+        "20": 1,
+        "30": 1
+      },
+      "gamma": 0.1,
+      "base_lrs": [
+        0.001
+      ],
+      "last_epoch": 11,
+      "_step_count": 12,
+      "_get_lr_called_within_step": false,
+      "_last_lr": [
+        0.0001
+      ]
+    },
+    "optimizer_parameters": 184,
+    "optimizer_lr": 0.0001,
+    "rng_keys": [
+      "torch_rng",
+      "cuda_rng",
+      "numpy_rng",
+      "python_rng"
+    ],
+    "backbone_tensors": 333,
+    "head_tensors": 1,
+    "config_hash_valid": true,
+    "previous_code_matches": true,
+    "history_epochs": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "all_tensors_finite": true
+  },
+  "receipt_reuse": [
+    {
+      "attempt": 1,
+      "seconds": 5.094038700000965,
+      "mode": "immutable_verified_reuse",
+      "force_reverify": false,
+      "reused_full_verification": true,
+      "reused_decode_receipt": true,
+      "image_hashes_checked": 0,
+      "images_decoded": 0,
+      "verified_images": 3141890,
+      "receipt_path": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\verification_cache\\immutable_v1\\297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139.json",
+      "receipt_sha256": "57c587d5ffa8e8fca1d9f5ab6c89d9e798804e86c599869e331013a425c1dc74",
+      "contract_sha256": "297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139",
+      "limitation": "User keeps verified source/prepared images and lists unchanged; image changes are not detected on reuse."
+    },
+    {
+      "attempt": 2,
+      "seconds": 5.098036700001103,
+      "mode": "immutable_verified_reuse",
+      "force_reverify": false,
+      "reused_full_verification": true,
+      "reused_decode_receipt": true,
+      "image_hashes_checked": 0,
+      "images_decoded": 0,
+      "verified_images": 3141890,
+      "receipt_path": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\verification_cache\\immutable_v1\\297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139.json",
+      "receipt_sha256": "57c587d5ffa8e8fca1d9f5ab6c89d9e798804e86c599869e331013a425c1dc74",
+      "contract_sha256": "297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139",
+      "limitation": "User keeps verified source/prepared images and lists unchanged; image changes are not detected on reuse."
+    }
+  ],
+  "restore": {
+    "device": "NVIDIA GeForce GTX 1080 Ti",
+    "start_epoch": 12,
+    "next_batch_index": 21162,
+    "next_step_one_based": 21163,
+    "total_batches": 49093,
+    "lr": 0.0001,
+    "scheduler_last_epoch": 11,
+    "optimizer_parameters": 184,
+    "history_epochs": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "resume_source": {
+      "checkpoint": "F:\\models\\facex\\checkpoints\\shared_v1_boundary_mobilefacenet\\pretrain_arcface_seed8972\\pretrain_mobilefacenet_1024d_recovery_e12_b21162_386e280a.pt",
+      "sha256": "4acef9dcfc51b848d0354f1c00ab03dbaf12c8016c0f886125d8eeb984add182",
+      "source_training_numerics": {
+        "version": "target_only_fp32_zero_radicand_eps_v1",
+        "arcface_sqrt_floor": "zero_radicand_only",
+        "magface_sqrt_floor": "zero_radicand_only",
+        "margin_dtype": "float32",
+        "boundary_epsilon": 1.1920928955078125e-07,
+        "margin_scope": "target_class_only",
+        "target_boundary": "where(1-c*c == 0, fp32_eps, 1-c*c) before sqrt",
+        "loss_check": "every_batch_before_backward",
+        "gradient_check": "every_batch_before_optimizer_step_inf_norm_no_clipping",
+        "on_nonfinite": "abort_without_saving_current_state"
+      },
+      "verification_source_transition": {
+        "id": "20261104_immutable_dataset_verification",
+        "previous_config_hash": "39768f1a8bbeab2cfea25bb0034752d90915e7f4cf31f18558c412e9a67b7919",
+        "current_config_hash": "ca32926b03f451b197218a46ed31f8620827ad6f9b51394ec907747d861cc866"
+      }
+    },
+    "training_executed": false,
+    "checkpoint_unchanged": true,
+    "data_verification": {
+      "mode": "immutable_verified_reuse",
+      "force_reverify": false,
+      "reused_full_verification": true,
+      "reused_decode_receipt": true,
+      "image_hashes_checked": 0,
+      "images_decoded": 0,
+      "verified_images": 3141890,
+      "receipt_path": "F:\\face_datasets\\VGGFace2\\processed\\shared_v1_boundary_mobilefacenet\\verification_cache\\immutable_v1\\297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139.json",
+      "receipt_sha256": "57c587d5ffa8e8fca1d9f5ab6c89d9e798804e86c599869e331013a425c1dc74",
+      "contract_sha256": "297c45e278648760fdc8ac0c8e70b49192786001bc4ef7c2853ad4ab6fded139",
+      "limitation": "User keeps verified source/prepared images and lists unchanged; image changes are not detected on reuse."
+    }
+  },
+  "tests": {
+    "suites": [
+      {
+        "file": "tests_core.xml",
+        "passed": 44
+      },
+      {
+        "file": "tests_compat_scoped.xml",
+        "passed": 105
+      }
+    ],
+    "unique_passed": 136,
+    "excluded": 6,
+    "exclusion": "Interactive saved notebook outputs/EXECUTE=True conflict with distribution safe-default and implicit plan-mode tests. Interrupted this diagnostic invocation; used isolated fresh-kernel plan copies for all five notebooks instead."
+  },
+  "notebooks": [
+    {
+      "notebook": "00_environment_and_data.ipynb",
+      "status": "passed",
+      "seconds": 8.367193600002793,
+      "mode": "plan; settings redirected to temporary path"
+    },
+    {
+      "notebook": "01_prepare_vggface2.ipynb",
+      "status": "passed",
+      "seconds": 6.91260300000431,
+      "mode": "plan; settings redirected to temporary path"
+    },
+    {
+      "notebook": "02_pretrain.ipynb",
+      "status": "passed",
+      "seconds": 6.803050699993037,
+      "mode": "plan; settings redirected to temporary path"
+    },
+    {
+      "notebook": "03_finetune.ipynb",
+      "status": "passed",
+      "seconds": 6.950587300001644,
+      "mode": "plan; settings redirected to temporary path"
+    },
+    {
+      "notebook": "04_export_and_validate.ipynb",
+      "status": "passed",
+      "seconds": 6.833601999998791,
+      "mode": "plan; settings redirected to temporary path"
+    }
+  ],
+  "preserved": "Original notebook outputs/metadata, preprocessing images/reports, source checkpoint and saved settings JSON unchanged.",
+  "training_executed": false
+}

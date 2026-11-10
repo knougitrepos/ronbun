@@ -1,0 +1,39 @@
+{
+  "claim": "데이터셋별 FR 학습과 보정·평가 역할을 구분한다.",
+  "visual_form": "table",
+  "metric": {
+    "name": "FR training population",
+    "unit": "identities / images",
+    "direction": "neutral",
+    "precision_decimals": 0
+  },
+  "target": {
+    "medium": "meeting screen/table insert",
+    "width_px": 1500,
+    "height_px": 800
+  },
+  "series_order": [
+    "VGGFace2",
+    "TinyFace",
+    "SCFace",
+    "SurvFace",
+    "LFW",
+    "RFW"
+  ],
+  "uncertainty": {
+    "available": false,
+    "type": "none",
+    "note": "Exact manifest counts, not estimated performance"
+  },
+  "output_formats": [
+    "svg",
+    "pdf",
+    "png"
+  ],
+  "annotation_plan": "Define no-training dash; flag custom SurvFace holdout and SCFace identity selection",
+  "references": [
+    "gpt6_astra_north_star.md: tables 1,2,4,6,7,8",
+    "style_contract.md: table rules"
+  ],
+  "source": "evidence.json and dataset_role_counts.csv"
+}

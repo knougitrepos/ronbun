@@ -38,7 +38,7 @@ def rank_workflow(tmp_path, monkeypatch, dataset):
     pop.to_csv(source / "population.csv", index=False)
     for name, values in (("embeddings.npy", vectors), ("raw_norm.npy", np.ones(len(pop))), ("quality.npy", np.ones(len(pop)))):
         np.save(source / name, values)
-    inputs.write_json(source / "manifest.json", dict(status="completed", model_uid="fixture", files={
+    inputs.write_json(source / "manifest.json", dict(status="completed", model_uid="fixture", population_hash=inputs.population_hash(pop), files={
         p.name: sha256_file(p) for p in source.iterdir()}))
     (source / "COMPLETED").write_text("completed")
     config = dict(project_root=str(Path(__file__).resolve().parents[2]), embedding_dim=1024,
@@ -199,7 +199,8 @@ def test_population_hash_once_per_extraction_not_per_batch(tmp_path, monkeypatch
     monkeypatch.setattr(inputs, "population_hash", counted)
     path = inputs.materialize_inputs(tmp_path, pop, spec, "scface", tmp_path / "outputs", dict(source="raw_norm"), batch_size=batch_size)
     manifest, frame, *_ = inputs.read_inputs(path)
-    assert calls == [7]
+    # Initial contract plus producer/read-back audits; never once per batch.
+    assert calls == [7, 7, 7]
     assert manifest["population_hash"] == expected
     assert manifest["transform"]["interpolation"] == "bilinear"
     assert frame.source_identity_id.eq("001").all()

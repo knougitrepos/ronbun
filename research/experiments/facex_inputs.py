@@ -1,6 +1,7 @@
 """CUDA inputs shared by the five-dataset FaceX workflow."""
 import hashlib
 import json
+import os
 import shutil
 import tarfile
 import tempfile
@@ -18,7 +19,10 @@ def write_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(path.suffix + ".tmp")
-    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    with temp.open("w", encoding="utf-8") as stream:
+        stream.write(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
     temp.replace(path)
 
 
@@ -195,26 +199,112 @@ def publish_quality_cache(path, contract, inputs_dir, count):
             shutil.rmtree(work)
 
 
-def read_inputs(path, *, expected_uid=None):
+def _read_population(path):
+    # Keep IDs, leading zeroes and optional numeric-looking metadata byte-stable.
+    return pd.read_csv(path, keep_default_na=False, dtype=str)
+
+
+def _close_arrays(arrays):
+    for array in arrays:
+        if array is not None and getattr(array, "_mmap", None) is not None:
+            array._mmap.close()
+
+
+def read_inputs(path, *, expected_uid=None, expected_population_hash=None):
     path = Path(path)
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
     if manifest.get("status") != "completed" or not (path / "COMPLETED").is_file():
         raise ValueError("Input artifact is incomplete")
     if expected_uid and manifest["model_uid"] != expected_uid:
         raise ValueError("Input checkpoint mismatch")
+    required = {"population.csv", "embeddings.npy", "raw_norm.npy"}
+    if not required.issubset(manifest.get("files", {})) or not manifest.get("population_hash"):
+        raise ValueError("Input manifest lacks population/content integrity metadata")
     for name, digest in manifest["files"].items():
         if sha256_file(path / name) != digest:
             raise ValueError(f"Input file changed: {name}")
-    population = pd.read_csv(path / "population.csv", keep_default_na=False,
-                             dtype={"image_id": str, "identity_id": str, "source_identity_id": str})
+    population = _read_population(path / "population.csv")
+    if (population_hash(population) != manifest["population_hash"]
+            or expected_population_hash is not None and manifest["population_hash"] != expected_population_hash):
+        raise ValueError("Input population hash differs from its pinned contract")
     vectors = np.load(path / "embeddings.npy", mmap_mode="r")
     norms = np.load(path / "raw_norm.npy", mmap_mode="r")
     quality = np.load(path / "quality.npy", mmap_mode="r") if "quality.npy" in manifest["files"] else None
     if (vectors.shape != (len(population), 1024) or norms.shape != (len(population),)
             or quality is not None and quality.shape != norms.shape
             or quality is None and manifest.get("quality", {}).get("source") != "not_required"):
+        _close_arrays((vectors, norms, quality))
         raise ValueError("Input shape/coverage mismatch")
     return manifest, population, vectors, norms, quality
+
+
+RESUME_SCHEMA = "facex-input-batch-integrity-v2"
+
+
+def _batch_receipt(arrays, start, stop, records, previous):
+    """Hash each newly committed row once, never rehash the growing prefix."""
+    return dict(start=start, stop=stop, previous=previous,
+                arrays={name: hashlib.sha256(np.ascontiguousarray(array[start:stop]).tobytes()).hexdigest()
+                        for name, array in arrays.items()},
+                image_hashes=canonical_sha256(records))
+
+
+def _sync_file(path):
+    with Path(path).open("rb+") as stream:
+        os.fsync(stream.fileno())
+
+
+def _verify_committed_batches(work, progress, arrays, population):
+    """Audit the committed prefix; uncommitted crash tails are not trusted."""
+    start = progress["completed_images"]
+    count = progress.get("committed_batches")
+    if (progress.get("schema") != RESUME_SCHEMA or type(start) is not int
+            or not 0 <= start <= len(population) or type(count) is not int or count < 0):
+        raise ValueError("Unverified/invalid partial input; preserve it and use a new output root")
+    if (sha256_file(work / "population.csv") != progress.get("population_csv_sha256")
+            or population_hash(_read_population(work / "population.csv")) != progress["population_hash"]):
+        raise ValueError("Interrupted input population changed")
+    # Binary lines permit recovery even when an uncommitted tail ends mid-UTF8.
+    raw_lines = (work / "image_hashes.jsonl").read_bytes().splitlines(keepends=True)
+    batch_lines = (work / "batch_integrity.jsonl").read_bytes().splitlines(keepends=True)
+    if len(raw_lines) < start or len(batch_lines) < count:
+        raise ValueError("Interrupted input integrity ledger is incomplete")
+    previous, cursor = None, 0
+    try:
+        records = [json.loads(line) for line in raw_lines[:start]]
+        for line in batch_lines[:count]:
+            entry = json.loads(line)
+            stop = entry["stop"]
+            if (type(stop) is not int or not cursor < stop <= start
+                    or entry.get("start") != cursor or entry.get("previous") != previous):
+                raise ValueError("Interrupted input batch coverage changed")
+            expected = _batch_receipt(arrays, cursor, stop, records[cursor:stop], previous)
+            if entry != expected:
+                raise ValueError("Interrupted input committed batch content changed")
+            previous, cursor = canonical_sha256(entry), stop
+    except (KeyError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ValueError("Interrupted input integrity ledger is invalid") from exc
+    if cursor != start or previous != progress.get("batch_chain_sha256"):
+        raise ValueError("Interrupted input batch commit differs from progress")
+    for i, record in enumerate(records):
+        if str(record.get("image_id")) != str(population.iloc[i].image_id):
+            raise ValueError("Interrupted input ledger ordering changed")
+    return records, raw_lines[:start], batch_lines[:count]
+
+
+def _check_input_space(work, count, start, names, batch_size, *, population_bytes=0,
+                       publish_quality=False):
+    """Additional allocation estimate; completed artifacts bypass this check."""
+    required = sum(max(0, count * (1024 if name == "embeddings.npy" else 1) * 4 + 128
+                       - ((work / name).stat().st_size if (work / name).exists() else 0)) for name in names)
+    remaining = count - start
+    # Append-only raw/batch journals, atomic progress replacement and final manifest.
+    required += population_bytes + remaining * 200 + ((remaining + batch_size - 1) // batch_size) * 1024 + 10240
+    if publish_quality:
+        required += count * 204 + 128  # shared quality array plus image-hash ledger copy
+    if shutil.disk_usage(work).free < required * 1.1:
+        raise RuntimeError(f"Insufficient free space for additional input cache data; estimate={required} bytes")
+    return required
 
 
 def materialize_inputs(project, population, spec, dataset, root, quality_config, *, batch_size=16, quality_required=True):
@@ -243,7 +333,9 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
     from research.runtime.storage import artifact_lock
     with artifact_lock(destination):
         if destination.exists():
-            read_inputs(destination, expected_uid=spec.model_uid)
+            _, _, *cached_arrays = read_inputs(destination, expected_uid=spec.model_uid,
+                                              expected_population_hash=population_digest)
+            _close_arrays(cached_arrays)
             verify_raw_inputs(project, population, destination / "image_hashes.jsonl")
             return destination
         shared_quality = shared_hashes = quality_path = quality_contract = None
@@ -254,44 +346,74 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
         work = destination.with_name(destination.name + ".partial")
         work.mkdir(parents=True, exist_ok=True)
         progress_path = work / "progress.json"
+        names = ["embeddings.npy", "raw_norm.npy"] + (["quality.npy"] if quality_required else [])
         if progress_path.exists():
             progress = json.loads(progress_path.read_text(encoding="utf-8"))
             if (progress["population_hash"] != population_digest or progress["model_uid"] != spec.model_uid
                     or progress.get("transform") != transform):
                 raise ValueError("Interrupted input lineage changed")
+            if progress.get("schema") != RESUME_SCHEMA or progress.get("quality") != quality_config:
+                raise ValueError("Unverified partial input; preserve it and use a new output root")
             start, mode = progress["completed_images"], "r+"
+            if type(start) is not int or not 0 <= start <= len(population):
+                raise ValueError("Invalid completed image count")
+            population_csv = None
         else:
+            if any(work.iterdir()):
+                raise ValueError("Unverified partial input without progress; preserve it and use a new output root")
             start, mode = 0, "w+"
-            population.to_csv(work / "population.csv", index=False)
-        arrays = {
-            "embeddings.npy": np.lib.format.open_memmap(work / "embeddings.npy", mode=mode, dtype=np.float32, shape=(len(population), 1024)),
-            "raw_norm.npy": np.lib.format.open_memmap(work / "raw_norm.npy", mode=mode, dtype=np.float32, shape=(len(population),)),
-        }
-        if quality_required:
-            arrays["quality.npy"] = np.lib.format.open_memmap(work / "quality.npy", mode=mode, dtype=np.float32, shape=(len(population),))
+            population_csv = population.fillna("").astype(str).to_csv(index=False).encode("utf-8")
+        _check_input_space(work, len(population), start, names, batch_size,
+                           population_bytes=len(population_csv) if population_csv else 0,
+                           publish_quality=quality_path is not None and not quality_path.exists())
+        arrays = {}
         reader = ImageReader(project, interpolation=transform["interpolation"])
         try:
-            if start:
+            for name in names:
+                shape = (len(population), 1024) if name == "embeddings.npy" else (len(population),)
+                array = np.lib.format.open_memmap(work / name, mode=mode, dtype=np.float32, shape=shape)
+                arrays[name] = array
+                if array.shape != shape or array.dtype != np.float32:
+                    raise ValueError("Interrupted input array shape/dtype changed")
+            if population_csv is not None:
+                (work / "population.csv").write_bytes(population_csv)
+                _sync_file(work / "population.csv")
+                for name, array in arrays.items():
+                    array.flush()
+                    _sync_file(work / name)
+                for name in ("image_hashes.jsonl", "batch_integrity.jsonl"):
+                    (work / name).write_bytes(b"")
+                    _sync_file(work / name)
+                progress = dict(schema=RESUME_SCHEMA, completed_images=0, committed_batches=0,
+                                batch_chain_sha256=None, model_uid=spec.model_uid,
+                                population_hash=population_digest, transform=transform, quality=quality_config,
+                                population_csv_sha256=sha256_file(work / "population.csv"))
+                write_json(progress_path, progress)
+            else:
+                records, raw_lines, batch_lines = _verify_committed_batches(work, progress, arrays, population)
                 # Verify the raw bytes of previously checkpointed images before resume.
-                lines = (work / "image_hashes.jsonl").read_text(encoding="utf-8").splitlines()
-                if len(lines) < start:
-                    raise ValueError("Interrupted input hash ledger is incomplete")
-                for i, line in enumerate(lines[:start]):
-                    record = json.loads(line)
+                for i, record in enumerate(records):
                     if (str(record["image_id"]) != str(population.iloc[i].image_id)
                             or hashlib.sha256(reader.read_bytes(population.iloc[i].image_path)).hexdigest() != record["sha256"]):
                         raise ValueError("Raw input changed during resume")
                     if shared_hashes is not None and record != shared_hashes[i]:
                         raise ValueError("Interrupted input differs from shared quality")
                 if shared_quality is not None:
-                    arrays["quality.npy"][:start] = shared_quality[:start]
-                (work / "image_hashes.jsonl").write_text("\n".join(lines[:start]) + "\n", encoding="utf-8")
+                    if not np.array_equal(arrays["quality.npy"][:start], shared_quality[:start]):
+                        raise ValueError("Interrupted quality differs from completed shared quality")
+                # Drop only uncommitted journal tails after checking every committed byte.
+                for name, lines in (("image_hashes.jsonl", raw_lines), ("batch_integrity.jsonl", batch_lines)):
+                    with (work / name).open("rb+") as stream:
+                        stream.truncate(sum(map(len, lines)))
+                        stream.flush()
+                        os.fsync(stream.fileno())
             adapter = create_pytorch_adapter_from_spec(spec, device="cuda")
             if source == "cr_fiqa" and shared_quality is None:
                 from research.fiqa.cr_fiqa import load_cr_fiqa, infer_cr_fiqa_scores
                 fiqa_model, _ = load_cr_fiqa(Path(project) / quality_config["checkpoint"],
                                           variant=quality_config.get("variant", "L"), device="cuda")
-            with (work / "image_hashes.jsonl").open("a" if start else "w", encoding="utf-8") as ledger:
+            with (work / "image_hashes.jsonl").open("a", encoding="utf-8") as ledger, \
+                    (work / "batch_integrity.jsonl").open("a", encoding="utf-8") as receipts:
                 for offset in range(start, len(population), batch_size):
                     batch = population.iloc[offset:offset + batch_size]
                     decoded = [reader.read(path) for path in batch.image_path]
@@ -305,6 +427,9 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
                     stop = offset + len(batch)
                     arrays["embeddings.npy"][offset:stop] = result.normalized_embedding
                     arrays["raw_norm.npy"][offset:stop] = result.raw_norm.reshape(-1)
+                    if not all(np.isfinite(array[offset:stop]).all() for array in arrays.values()
+                               if array is not arrays.get("quality.npy")):
+                        raise ValueError("Nonfinite embedding/norm output")
                     if quality_required:
                         q = (shared_quality[offset:stop] if shared_quality is not None else
                              infer_cr_fiqa_scores(fiqa_model, images, batch_size=batch_size, device="cuda")
@@ -312,15 +437,25 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
                         if not np.isfinite(q).all():
                             raise ValueError("Nonfinite quality scores")
                         arrays["quality.npy"][offset:stop] = q
-                    for image_id, (_, digest) in zip(batch.image_id, decoded):
-                        ledger.write(json.dumps(dict(image_id=image_id, sha256=digest)) + "\n")
+                    records = [dict(image_id=str(image_id), sha256=digest)
+                               for image_id, (_, digest) in zip(batch.image_id, decoded)]
+                    for record in records:
+                        ledger.write(json.dumps(record) + "\n")
                     ledger.flush()
-                    for array in arrays.values():
+                    os.fsync(ledger.fileno())
+                    for name, array in arrays.items():
                         array.flush()
-                    write_json(progress_path, dict(completed_images=stop, model_uid=spec.model_uid,
-                                                  population_hash=population_digest, transform=transform))
+                        _sync_file(work / name)
+                    receipt = _batch_receipt(arrays, offset, stop, records, progress["batch_chain_sha256"])
+                    receipts.write(json.dumps(receipt) + "\n")
+                    receipts.flush()
+                    os.fsync(receipts.fileno())
+                    progress = {**progress, "completed_images": stop,
+                                "committed_batches": progress["committed_batches"] + 1,
+                                "batch_chain_sha256": canonical_sha256(receipt)}
+                    write_json(progress_path, progress)
             del adapter, fiqa_model
-            files = [*arrays, "population.csv", "image_hashes.jsonl"]
+            files = [*arrays, "population.csv", "image_hashes.jsonl", "batch_integrity.jsonl"]
             for array in arrays.values():
                 array.flush()
                 array._mmap.close()

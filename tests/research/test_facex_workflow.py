@@ -223,7 +223,8 @@ def test_complete_publication_reuse_and_raw_retention(tmp_path, monkeypatch):
     pop.to_csv(source / "population.csv", index=False)
     for name, values in (("embeddings.npy", vectors), ("raw_norm.npy", np.ones(len(pop))), ("quality.npy", quality)):
         np.save(source / name, values)
-    write_json(source / "manifest.json", dict(status="completed", model_uid="synthetic", files={
+    from research.experiments.facex_inputs import population_hash
+    write_json(source / "manifest.json", dict(status="completed", model_uid="synthetic", population_hash=population_hash(pop), files={
         p.name: sha256_file(p) for p in source.iterdir()}))
     (source / "COMPLETED").write_text("done")
     config = dict(project_root=str(Path(__file__).resolve().parents[2]), embedding_dim=1024,

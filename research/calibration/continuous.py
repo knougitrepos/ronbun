@@ -11,7 +11,7 @@ from research.calibration.conditional import (
     _validated_rows, deterministic_calibration_partition,
     apply_threshold_model, explicit_calibration_partition,
 )
-from research.calibration.rejection import choose_non_mated_fpir_threshold
+from research.calibration.rejection import EMPIRICAL_THRESHOLD_RULE, choose_non_mated_fpir_threshold
 from research.runtime.hashing import canonical_sha256
 
 
@@ -105,7 +105,7 @@ def _heldout_safety_offset(scores, safety_base, *, target_fpir):
     # Check the actual floating-point decision and move conservatively if needed.
     adjustment = max(float(np.max(np.abs(np.spacing(safety_base)))), np.finfo(float).eps)
     for _ in range(8):
-        if np.mean(scores >= safety_base + offset) <= target_fpir + 1e-15:
+        if np.mean(scores >= safety_base + offset) <= target_fpir:
             break
         offset += adjustment
         adjustment *= 2
@@ -170,6 +170,7 @@ def fit_continuous_threshold(
         "optimizer_blas_threads": 1,
         "fit_objective": "smoothed_pinball_plus_ridge", "fit_features_source": "fit_non_mated_only",
         "safety_rule": "max(0,heldout_non_mated_residual_quantile)",
+        "empirical_threshold_rule": EMPIRICAL_THRESHOLD_RULE,
         "formal_fpir_guarantee": False, "threshold_fit_on_test": False,
         **({"partition_method": "explicit_manifest_labels", "assignment_sha256": canonical_sha256(
             rows[["sample_id", "identity_id"]].assign(role=partition.to_numpy()).to_dict("records"))}

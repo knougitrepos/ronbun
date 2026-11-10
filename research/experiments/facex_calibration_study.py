@@ -134,14 +134,15 @@ def run_study(config, selected, root, *, keep_raw_results):
     uid = "facex-fit-safety-" + canonical_sha256(contract)[:24]
     destination = root / "reports" / uid
     if destination.exists():
-        read_results(destination)
+        read_results(destination, expected_contract=contract)
         return dict(report_dir=str(destination), run_uid=uid, reused=True)
     work = destination.with_name(uid + ".partial")
     work.mkdir(parents=True, exist_ok=True)
     lock = work / "RUNNING.lock"
-    with lock.open("x", encoding="utf-8") as stream:
-        stream.write(json.dumps(dict(pid=os.getpid(), run_uid=uid)))
+    stream = lock.open("x", encoding="utf-8")
     try:
+        with stream:
+            stream.write(json.dumps(dict(pid=os.getpid(), run_uid=uid)))
         write_json(work / "run_manifest.json", dict(status="running", run_uid=uid, contract=contract))
         all_tables = []
         handoff = load_handoff(config["handoff"])
