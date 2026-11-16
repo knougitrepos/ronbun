@@ -100,7 +100,7 @@ def test_baseline_then_frozen_study_publication_and_lineage(tmp_path, monkeypatc
         files={p.name: sha256_file(p) for p in source.iterdir()}))
     (source / "COMPLETED").write_text("done")
     config = dict(project_root=str(Path(__file__).resolve().parents[2]), embedding_dim=1024,
-        handoff=str(tmp_path / "handoff.json"), models={}, datasets=["survface"], target_rates=[.1],
+        handoff=str(tmp_path / "handoff.json"), models={"model": {"training_dataset": "survface"}}, datasets=["survface"], target_rates=[.1],
         quality=dict(source="raw_norm"), bootstrap_resamples=100,
         compression=dict(survface=[dict(family="origin")]),
         sample_efficiency=dict(fit_fractions=[1.], safety_fractions=[1.], folds=2))

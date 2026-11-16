@@ -12,7 +12,8 @@ def test_active_notebooks_safe_and_five_dataset_configuration(name, monkeypatch)
     from research.experiments import facex_workflow as workflow
     monkeypatch.chdir(ROOT)
     calls = []
-    monkeypatch.setattr(workflow, "inspect_workflow", lambda *a, **kw: pd.DataFrame({"dataset": kw["datasets"]}))
+    defaults = ["survface", "tinyface", "scface", "lfw", "rfw"]
+    monkeypatch.setattr(workflow, "inspect_workflow", lambda *a, **kw: pd.DataFrame({"dataset": kw["datasets"] or defaults}))
     def forbidden(*a, **kw):
         calls.append(True)
         raise AssertionError("Default notebook must not extract/train/run")
@@ -26,7 +27,7 @@ def test_active_notebooks_safe_and_five_dataset_configuration(name, monkeypatch)
         if cell.cell_type == "code":
             assert not cell.outputs and cell.execution_count is None
             exec(compile(cell.source, name, "exec"), scope)
-    assert scope["DATASETS"] == ["survface", "tinyface", "scface", "lfw", "rfw"]
+    assert workflow._selected_datasets(workflow._config(scope["CONFIG_PATH"]), scope["DATASETS"]) == defaults
     if name.startswith(("02", "03")):
         assert scope["EXECUTE"] is False
     else:

@@ -220,3 +220,9 @@ results/lfw_pair_inputs_v1/**/.inprogress/
 !/publish/support/additional_fixes_20261106_v1/validation.json
 !/publish/support/additional_fixes_20261106_v1/checkpoint_restore.json
 !/publish/support/additional_fixes_20261106_v1/checkpoint_restore_gpu.json
+
+# UCFace baseline correction: verified summary only; weights and raw runs stay external.
+!/publish/UCFace_baseline_방향교정_20261115_v1.md
+!/publish/support/ucface_baseline_correction_20261115/
+/publish/support/ucface_baseline_correction_20261115/*
+!/publish/support/ucface_baseline_correction_20261115/verification.json

@@ -1,0 +1,24 @@
+# ArcFace seed 8972, with each gallery restricted to its frozen native protocol.
+project_root: ${PROJECT_ROOT}
+handoff: ${DATASET_ROOT}/protocols/shared_v1/handoff.json
+output_root: ${DATASET_ROOT}/../ronbun_results/facex_workflow
+models:
+  scface_arcface_aligned_s8972:
+    training_dataset: scface
+    evaluation_datasets: [scface]
+    spec: ${MODEL_ROOT}/facex/ronbun_registry/arcface-17aec48d7fb653e5ee0b--spec-cd580208071f92c1.json
+  tinyface_arcface_aligned_s8972:
+    training_dataset: tinyface
+    evaluation_datasets: [tinyface]
+    spec: ${MODEL_ROOT}/facex/ronbun_registry/arcface-d9e71f85b07b1e7540f4--spec-9db2322d9850e71a.json
+datasets: [scface, tinyface]
+embedding_dim: 1024
+batch_size: 64
+quality: {source: raw_norm}
+codec_seed: 8972
+target_rates: [0.01, 0.05, 0.10, 0.20]
+keep_raw_results: true
+compression:
+  tinyface: [{family: origin}, {family: pca, dimensions: 256}, {family: pq, m: 128, nbits: 7}, {family: pq, m: 64, nbits: 7}, {family: pq, m: 32, nbits: 7}]
+  scface: [{family: origin}, {family: pca, dimensions: 256}, {family: pq, m: 128, nbits: 4}, {family: pq, m: 64, nbits: 4}, {family: pq, m: 32, nbits: 4}]
+pq_min_points_per_centroid: 39

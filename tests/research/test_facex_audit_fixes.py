@@ -18,7 +18,8 @@ from test_facex_review_regressions import stub_extraction, metadata_policy
 def selection_fixture(tmp_path, monkeypatch):
     handoff_path = tmp_path / "handoff.json"
     handoff_path.write_text("{}")
-    config = dict(handoff=str(handoff_path), project_root=str(tmp_path), models={"surv": {}},
+    config = dict(handoff=str(handoff_path), project_root=str(tmp_path),
+                  models={"surv": {"training_dataset": "survface"}, "tiny": {"training_dataset": "tinyface"}},
                   datasets=["survface", "tinyface", "scface", "lfw", "rfw"], quality=dict(source="raw_norm"))
     handoff = {d: (dict(num_classes=1, images=2, role_counts={}), pd.DataFrame())
                for d in ("survface", "scface", "tinyface")}
@@ -50,6 +51,10 @@ def test_unused_models_filtered_but_pair_only_keeps_external_codec_inputs(tmp_pa
     _, models, _, jobs, _ = workflow._workload(config, ["lfw"])
     assert set(models) == {"surv", "tiny"}
     assert {(a, d) for a, _, _, d in jobs} == {("surv", "survface"), ("tiny", "tinyface"), ("surv", "lfw"), ("tiny", "lfw")}
+    config["models"]["tiny"]["evaluation_datasets"] = ["tinyface"]
+    _, models, _, jobs, _ = workflow._workload(config, ["lfw"])
+    assert set(models) == {"surv"}
+    assert {(a, d) for a, _, _, d in jobs} == {("surv", "lfw"), ("surv", "survface")}
 
 
 def test_input_index_tracks_planning_and_population_loader_code(tmp_path, monkeypatch):

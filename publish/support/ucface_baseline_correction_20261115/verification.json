@@ -1,0 +1,120 @@
+{
+  "schema": "ucface-baseline-correction-verification-v1",
+  "date_kst": "2026-11-15",
+  "scope": "Code correction and bounded validation; no completed UCFace reproduction claim",
+  "repository_heads": {
+    "FaceX-Zoo": "d5a6cba000a192cfe6e91b4d76b0ad75338e37da",
+    "ronbun": "79c203885ab3b32aec984408943064e799ce1ab3"
+  },
+  "purpose": "local_protocol_baseline",
+  "exact_ucface_reproduction": false,
+  "selected_model_count": 12,
+  "selected_status_counts": {
+    "reuse_completed": 9,
+    "train_new": 2,
+    "resume": 1
+  },
+  "interrupted_checkpoint": {
+    "checkpoint": "F:\\models\\facex\\selected\\ucface_recipes_v1\\checkpoint\\tinyface_cosface_pfld_five_point_alignment_s8972\\finetune_tinyface_cosface_seed8972\\finetune_mobilefacenet_1024d_cosface_recovery_e21_b42_9b3aff4a.pt",
+    "sha256": "9c6afc833183c45fd4da70d48f12829492a7dbdf81dcebb24263792d5e77c647",
+    "status": "stopped",
+    "completed_epochs": 20,
+    "resume_epoch": 21,
+    "next_batch_index": 42,
+    "total_batches": 122,
+    "config_hash": "2a5335c7a1e0b98a9a38a2b4d9489147303a30b43fd427fb82c3649f4e218ab3",
+    "restored_states": [
+      "backbone",
+      "head",
+      "optimizer",
+      "scheduler",
+      "RNG"
+    ],
+    "training_executed": false,
+    "locks": []
+  },
+  "scientific_code_fingerprints_match_recovery": true,
+  "notebook_checks": [
+    {
+      "notebook": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\03_finetune.ipynb",
+      "plan_only_run_all": "passed",
+      "execute_true_guard": "passed",
+      "rows": 12,
+      "training_or_export": false
+    },
+    {
+      "notebook": "F:\\FaceX-Zoo\\fine-tune\\notebooks\\04_export_and_validate.ipynb",
+      "plan_only_run_all": "passed",
+      "execute_true_guard": "passed",
+      "rows": 12,
+      "training_or_export": false
+    }
+  ],
+  "real_origin_handoff": {
+    "config": "F:\\models\\facex\\diagnostics\\ucface_reproduction_review_20261115\\handoff_check\\ronbun_origin.yaml",
+    "compression": {
+      "scface": [
+        {
+          "family": "origin"
+        }
+      ]
+    },
+    "exact_ucface_reproduction": false,
+    "training": false,
+    "embeddings": false
+  },
+  "tests": [
+    {
+      "command": "py -3.11 -m pytest fine-tune/tests/test_selected_campaign.py fine-tune/tests/test_ucface_controls.py -q",
+      "passed": 15
+    },
+    {
+      "command": "py -3.11 -m pytest fine-tune/tests/test_notebook_workflow.py -q",
+      "passed": 8
+    },
+    {
+      "command": "py -3.11 -m pytest tests/research/test_facex_inventory.py tests/research/test_facex_alignment_controls.py -q",
+      "passed": 18
+    }
+  ],
+  "unique_tests_passed": 41,
+  "formal_training_resumed": false,
+  "full_embeddings_extracted": false,
+  "compression_experiments_run": false,
+  "reproduction_remaining": [
+    "Full-training SurvFace protocol and alignment recipe",
+    "SCFace author identity list and detailed preprocessing provenance",
+    "Origin metrics comparison under explicitly matched conditions"
+  ],
+  "source_file_sha256": {
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\ucface_reference.py": "1692517c93f9e21210c9f4f56cd4afb3a8fe1f1dc94f8cd4c820ec6e202a9cc8",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\selected_campaign.py": "ee050f77c390e378fdfb81257574e3392f2a5e3f4dffe315ec872959af077d6f",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\ucface_controls.py": "90da2842f7c0d3f51567b686ac327012d5a57e312ce2e62ee0d685f1f3a568a0",
+    "F:\\FaceX-Zoo\\fine-tune\\modules\\process_runner.py": "16bce32e7dc1ed5d81e077aba40ea2c481762028979e44865b4dd4b01ec86875",
+    "F:\\FaceX-Zoo\\fine-tune\\scripts\\run_campaign.py": "652a9f5d2510dd73e0da8107a6ea1558e4893c4f5c33f0c040faaee70ed8b32e",
+    "F:\\FaceX-Zoo\\fine-tune\\notebooks\\03_finetune.ipynb": "e7fa8c6ac32c46f6a04a105cb742d458ad1641891f03f48d548bae0ec5731e05",
+    "F:\\FaceX-Zoo\\fine-tune\\notebooks\\04_export_and_validate.ipynb": "b23a71536ba4d6e76cb41aad50d989576ec4a516fa931f6dc772c4ef51526792",
+    "C:\\ronbun\\research\\experiments\\facex_inventory.py": "d0aa419306e06c0e1d6c68f72b3804f109a22fc34594a6fef486797d7f642a7b",
+    "C:\\ronbun\\notebooks\\02_inputs.ipynb": "9e94c9f4fe8e13dd3d42a92a6af3a643773cf0781984fb365e1372608d16a90a"
+  },
+  "evidence_root": "F:\\models\\facex\\diagnostics\\ucface_reproduction_review_20261115",
+  "selection_file": "F:\\models\\facex\\selected\\ucface_recipes_v1\\plans\\selection_v2_local_protocol.json",
+  "retention": {
+    "existing_checkpoints": "preserved",
+    "datasets": "preserved",
+    "completed_runs": "preserved",
+    "committed": false,
+    "pushed": false
+  },
+  "report": {
+    "path": "C:\\ronbun\\publish\\UCFace_baseline_방향교정_20261115_v1.md",
+    "sha256": "f677f19482e48c92a0f99f77319c81e2c2d1420a1fcd6263eaa1254631fdf895",
+    "bytes": 10825,
+    "estimated_text_tokens": 2236
+  },
+  "summary_size_basis": "UTF-8 byte size; approximate text tokens=Unicode characters / 3; excludes linked checkpoints and full raw results",
+  "summary": {
+    "bytes": 4968,
+    "estimated_text_tokens": 1654
+  }
+}

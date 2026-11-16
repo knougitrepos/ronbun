@@ -42,7 +42,7 @@ def rank_workflow(tmp_path, monkeypatch, dataset):
         p.name: sha256_file(p) for p in source.iterdir()}))
     (source / "COMPLETED").write_text("completed")
     config = dict(project_root=str(Path(__file__).resolve().parents[2]), embedding_dim=1024,
-                  models={}, datasets=[dataset], target_rates=[.1], quality=dict(source="raw_norm"),
+                  models={"model": {"training_dataset": dataset}}, datasets=[dataset], target_rates=[.1], quality=dict(source="raw_norm"),
                   compression={dataset: [dict(family="origin")]})
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(config))

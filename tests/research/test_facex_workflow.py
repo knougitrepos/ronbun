@@ -80,6 +80,9 @@ def test_survface_frozen_roles_and_paired_realized_rates():
     assert (metrics.rank_failure_count + metrics.threshold_failure_count + metrics.true_positive_count).eq(20).all()
     assert len(paired) == 1
     assert len(models["models"]) == 2
+    assert metrics.origin_test_roc_fpir.le(.1).all()
+    assert metrics.origin_test_roc_tpir_at_20.eq(1).all()
+    assert metrics.unknown_cosine_ge_095_count.eq(0).all()
     assert models["models"][1]["model"]["settings"]["fit_non_mated_count"] == 60
     assert models["models"][1]["model"]["settings"]["safety_non_mated_count"] == 60
 
@@ -228,7 +231,7 @@ def test_complete_publication_reuse_and_raw_retention(tmp_path, monkeypatch):
         p.name: sha256_file(p) for p in source.iterdir()}))
     (source / "COMPLETED").write_text("done")
     config = dict(project_root=str(Path(__file__).resolve().parents[2]), embedding_dim=1024,
-                  models={}, datasets=["survface"], target_rates=[.1], bootstrap_resamples=100,
+                  models={"model": {"training_dataset": "survface"}}, datasets=["survface"], target_rates=[.1], bootstrap_resamples=100,
                   quality=dict(source="raw_norm"), compression=dict(survface=[dict(family="origin")]))
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(config))

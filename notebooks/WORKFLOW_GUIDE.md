@@ -189,3 +189,30 @@ DB 저장·검색 API의 검증과 PostgreSQL 검색 성능 벤치마크 완료�
 
 과거 sample_efficiency.enabled=True의 inline fit-only 진단은 새 workflow에서 사용하지 않는다.
 상단의 별도 calibration_size 단계와 그 metrics.csv를 사용한다.
+
+### ArcFace 대조 실험 실행
+
+SCFace·TinyFace는 02와 03 첫 셀의 `CONFIG_PATH`를 `configs/experiments/facex_alignment_controls.yaml`로 지정하고 `DATASETS = None`으로 실행한다. YAML은 등록된 두 모델과 평가할 데이터셋을 고정한다. 입력 변환은 모델 export의 `affine.csv`에서 이미지 ID로 찾고 원본 바이트 해시를 확인한다. 두 데이터셋은 1:N 순위 평가이며 품질 임계값을 학습하지 않는다. 04에서는 03이 반환한 정확한 `REPORT_DIR`를 지정한다.
+
+2026-11-15부터 SurvFace `continuous_margin`은 기본 모델 생성/논문 baseline 비교에서 제외했다. 기존 진단 모듈은 명시적인 대조 연구용으로만 남기며 새 baseline의 필수 단계로 실행하지 않는다. 저자 답변과 FaceX-Zoo의 기본 ArcFace 수식에 없는 변경을 기본 조건에 추가하지 않는다.
+
+04의 순위 표는 Origin 대비 압축 후 Rank-1 변화(%p)를 보여준다. SurvFace의 Origin test ROC 표는 시험 집합에서 측정한 기술 통계이며, 배포용 임계값은 별도 보정 인물에서 결정한다. `compression_change_pp`는 각 점수 공간에서 다시 보정한 Global-safe의 Origin 대비 TPIR@20 변화다. `calibration_change_pp`는 같은 모델·압축 조건에서 Continuous-FIQA와 Global-safe의 TPIR@20 차이다. 두 방법의 실제 FPIR 및 `both_target_met`를 함께 읽는다. 이전 보고서는 당시 저장한 열만 표시한다.
+# FaceX 선택 모델 목록 연결
+
+FaceX 03에서 필요한 dataset·recipe·head·seed만 선택하고 04에서 전체 선택 모델의 완료 export를 검증하면 `MODEL_INVENTORY` JSON 경로를 출력한다. ronbun 02 첫 설정 셀의 `MODEL_INVENTORY`에 그 경로를 넣고, `INVENTORY_CONFIG_PATH`에 새 YAML 파일명을 지정한다. `EXECUTE=True`일 때 `research.experiments.facex_inventory.write_inventory_config`가 전체 목록·export 해시·학습 분할·정렬 파일을 검사하고 기존 registry에 등록한다. `EXECUTE=False`에서는 등록·추출하지 않는다. `MODEL_INVENTORY=None`이면 기존 `CONFIG_PATH` 방식을 그대로 사용한다.
+
+새 v2 inventory는 `INVENTORY_PURPOSE="local_protocol_baseline"`로 읽는다. `exact_ucface_reproduction=False`, parent/전처리 출처 한계 및 데이터셋별 논문/현재 학습 수량을 YAML의 `model_scope`와 최종 report config에 보존한다. `diagnostic_control`은 명시적 대조 모델에만 쓰고, 과거 v1 inventory는 `legacy_local_control`을 명시해야 읽을 수 있다. continuous-margin recipe 또는 ArcFace `margin_am != 0`을 일반 baseline으로 등록하려 하면 차단한다. 기존 등록 ModelSpec/YAML과 완료 결과는 변경하지 않는다.
+
+`INVENTORY_ORIGIN_ONLY=True`가 새 inventory 설정의 기본값이다. 생성된 YAML은 각 데이터셋의 `{family: origin}`만 포함하므로 PCA/PQ를 학습하지 않는다. 먼저 원본 cosine 성능을 확인한다. SurvFace에서 독립 calibration 임계값의 TPIR와 논문 비교용 test ROC는 서로 다른 평가라는 점을 유지한다. Origin 비교 후 압축 실험은 `INVENTORY_ORIGIN_ONLY=False`와 별도의 `INVENTORY_CONFIG_PATH`로 만들고 같은 모델·cohort의 Origin/PCA/PQ를 비교한다. `MODEL_INVENTORY=None`으로 읽는 기존 YAML은 이 옵션으로 바뀌지 않는다.
+
+등록 후 출력한 YAML을 03의 `CONFIG_PATH`로 사용하고 `DATASETS=None`, `STUDY_STAGE="baseline"`에서 시작한다. 여기서 baseline은 ronbun 실험의 기준 단계이며 UCFace 논문 재현 인증을 의미하지 않는다. 04는 새 실험의 정확한 report 경로로 분석한다. 이전 결과를 자동으로 최신 결과에 연결하지 않는다. 기존 export를 재사용하면 모델 UID도 유지된다. 입력 재사용 여부는 population·모델·전처리·소스 해시를 확인하는 기존 cache 계약이 최종 판정한다. 신규 모델에는 새로운 임베딩과 각 모델의 PCA/PQ·보정 학습이 필요하다.
+
+목록 변경 시 inventory와 YAML을 새 이름으로 생성한다. 이미 존재하는 다른 YAML은 덮어쓰지 않는다. 현재 생성기는 SCFace/TinyFace/SurvFace의 각 native 데이터셋 평가를 선택하며 LFW/RFW 학습을 만들지 않는다. 원본 보존은 기준 YAML의 `keep_raw_results`를 이어받으며, 압축 전 Origin 성능과 압축 후 성능·보정 효과는 별도로 읽는다. 새 모델이 UCFace 수치에 도달했거나 보정이 개선됐다는 결론은 실제 완료 결과로 판단한다.
+
+노트북 대신 등록만 실행할 수도 있다:
+
+```powershell
+py -3.11 -m research.experiments.facex_inventory --inventory "완료 inventory.json 전체 경로" --baseline configs/experiments/facex_workflow.yaml --registry F:/models/facex/ronbun_registry --output F:/ronbun_results/facex_workflow/configs/selected_models_v2_origin.yaml
+```
+
+CLI 역시 Origin만 기본으로 생성한다. Origin 확인 후 별도 압축 설정을 만들 때 `--with-compression`을 사용한다.

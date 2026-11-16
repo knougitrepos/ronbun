@@ -124,7 +124,7 @@ def diagnostics(population, vectors, quality, codecs, dataset, config, pairs=Non
 
 
 def run_study(config, selected, root, *, keep_raw_results):
-    from research.experiments.facex_workflow import _population, _science_hash, read_results
+    from research.experiments.facex_workflow import _population, _science_hash, evaluation_datasets, read_results
     from research.protocols.facex_handoff import load_handoff
     baseline, prior, models = validate_baseline(config, config["study"].get("baseline_report"), selected)
     contract = dict(config=config, datasets=selected, science=_science_hash(),
@@ -148,11 +148,12 @@ def run_study(config, selected, root, *, keep_raw_results):
         handoff = load_handoff(config["handoff"])
         with threadpool_limits(limits=2):
             for alias, (spec, trained_on) in models.items():
-                if not any(d in (trained_on, "lfw", "rfw") for d in selected):
+                scope = evaluation_datasets(config["models"][alias])
+                if not scope.intersection(selected):
                     continue
                 codecs = frozen_codecs(baseline, alias)
                 for dataset in selected:
-                    if dataset not in (trained_on, "lfw", "rfw"):
+                    if dataset not in scope:
                         continue
                     item = contract["inputs"]["inputs"][f"{alias}/{dataset}"]
                     if sha256_file(Path(item["path"]) / "manifest.json") != item["manifest_sha256"]:
@@ -185,7 +186,7 @@ def run_study(config, selected, root, *, keep_raw_results):
             formal_fpir_guarantee=False, final_test_used=False, final_safety_used=False))
         files = {p.relative_to(work).as_posix(): sha256_file(p) for p in work.rglob("*")
                  if p.is_file() and p.name not in ("RUNNING.lock", "run_manifest.json", "COMPLETED")}
-        expected_jobs = sum(d in (trained, "lfw", "rfw") for _, trained in models.values() for d in selected)
+        expected_jobs = sum(d in evaluation_datasets(config["models"][alias]) for alias in models for d in selected)
         if len(all_tables) != expected_jobs:
             raise ValueError("Incomplete diagnostic job coverage")
         write_json(work / "run_manifest.json", dict(status="completed", run_uid=uid, contract=contract, files=files,

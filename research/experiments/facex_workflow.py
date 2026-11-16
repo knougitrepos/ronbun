@@ -63,6 +63,18 @@ def validate_study(config):
     return stage
 
 
+def evaluation_datasets(entry):
+    own = entry["training_dataset"]
+    allowed = {own, "lfw", "rfw"}
+    declared = entry.get("evaluation_datasets")
+    if declared is None:
+        return allowed
+    selected = set(_validate_datasets(declared))
+    if not selected <= allowed:
+        raise ValueError("Evaluation scope includes an unrelated training dataset")
+    return selected
+
+
 def _models(config, handoff):
     from research.embeddings.manifests import read_model_spec
     result = {}
@@ -81,7 +93,10 @@ def _models(config, handoff):
         if meta.get("protocol_record", {}).get("training_identity_sha256") != expected["training_identity_sha256"]:
             raise ValueError("Export training identity hash mismatch")
         from research.experiments.facex_inputs import input_transform_from_metadata
-        input_transform_from_metadata(meta)
+        transform = input_transform_from_metadata(meta)
+        scope = evaluation_datasets(entry)
+        if transform.get("geometry_package") and scope != {dataset}:
+            raise ValueError(f"Set evaluation_datasets to [{dataset}] for this alignment control")
         result[alias] = (spec, dataset)
     if len({spec.model_uid for spec, _ in result.values()}) != len(result):
         raise ValueError("Duplicate model UID under multiple aliases")
@@ -110,7 +125,7 @@ def inspect_workflow(config_path, *, datasets=None):
         is_pair = dataset in ("lfw", "rfw")
         ready = (all((Path(config["project_root"]) / config["pairs"][dataset][k]).is_file() for k in ("image_manifest", "pairs_file"))
                  if is_pair else dataset in handoff)
-        matched = [alias for alias, (_, trained_on) in models.items() if is_pair or trained_on == dataset]
+        matched = [alias for alias in models if dataset in evaluation_datasets(config["models"][alias])]
         row = dict(dataset=dataset, protocol_ready=ready, selected_models=len(matched), model_aliases=matched,
                    task=("pair TAR/FMR" if is_pair else "TPIR@20/FPIR" if dataset == "survface" else "rank"),
                    status="model_specs_required" if not matched else "ready_for_inputs" if ready else "protocol_required")
@@ -130,19 +145,21 @@ def _workload(config, datasets):
         raise ValueError("Configure exact registered model specs in models; no automatic latest checkpoint selection")
     if not set(datasets) <= set(config["datasets"]):
         raise ValueError("Select predeclared datasets")
-    missing = [d for d in datasets if not any(d in (trained_on, "lfw", "rfw") for _, trained_on in models.values())]
+    scopes = {a: evaluation_datasets(config["models"][a]) for a in models}
+    missing = [d for d in datasets if not any(d in scope for scope in scopes.values())]
     if missing or not datasets:
         raise ValueError(f"No applicable registered model for selected datasets: {missing or datasets}")
-    models = {a: (s, d) for a, (s, d) in models.items() if set(datasets) & {d, "lfw", "rfw"}}
+    models = {a: model for a, model in models.items() if set(datasets) & scopes[a]}
     populations = {}
     jobs = []
     for alias, (spec, trained_on) in models.items():
-        needed = {trained_on} | (set(datasets) & {trained_on, "lfw", "rfw"})
+        needed = {trained_on} | (set(datasets) & scopes[alias])
         for dataset in sorted(needed):
             if dataset not in populations:
                 populations[dataset] = _population(config, handoff, dataset)
             jobs.append((alias, spec, trained_on, dataset))
     identity = dict(models={a: s.model_uid for a, (s, _) in models.items()}, datasets=sorted(datasets),
+                    jobs=sorted([a, d] for a, _, _, d in jobs),
                     handoff=sha256_file(config["handoff"]), quality=config["quality"],
                     populations={n: canonical_sha256(f.fillna("").astype(str).to_dict("records"))
                                  for n, (f, _) in populations.items()},
@@ -331,6 +348,18 @@ def evaluate_survface(population, vectors, quality, codecs, config, *, details=N
         for frame, source, q in ((cal, cal_rows, quality[cal_mask]), (test, test_rows, quality[test_mask])):
             frame["sample_id"], frame["identity_id"], frame["fiqa_score"] = source.image_id, source.identity_id, q
         for target in config["target_rates"]:
+            if family == "origin":
+                # Descriptive ROC on this test cohort only. Never export it as a fitted rule.
+                from research.calibration.rejection import choose_non_mated_fpir_threshold
+                scores = test.score.to_numpy(dtype=np.float64)
+                mated = test.is_mated.to_numpy(dtype=bool)
+                cutoff = choose_non_mated_fpir_threshold(scores, mated, target)
+                genuine = test.true_identity_score.to_numpy(dtype=np.float64)
+                roc, _ = _events_summary(test, scores >= cutoff, genuine >= cutoff)
+                diagnostic = dict(origin_test_roc_tpir_at_20=roc["tpir"], origin_test_roc_fpir=roc["realized_fpir"],
+                                  origin_test_roc_threshold=cutoff, unknown_cosine_ge_095_count=int((scores[~mated] >= .95).sum()))
+            else:
+                diagnostic = {}
             common = dict(target_fpir=target, score_space=space, partition_labels=labels.to_numpy())
             fitted = {"global_safe": fit_global_threshold(cal, **common),
                       "continuous_fiqa": fit_continuous_threshold(cal, **common)}
@@ -340,7 +369,7 @@ def evaluate_survface(population, vectors, quality, codecs, config, *, details=N
                 summary, event = _events_summary(test, test.score.to_numpy() >= tau,
                                                 test.true_identity_score.to_numpy() >= tau)
                 row = dict(compression_profile=profile, score_space=space, method=method, target_fpir=target,
-                           target_met_on_test=bool(summary["realized_fpir"] <= target), **summary)
+                           target_met_on_test=bool(summary["realized_fpir"] <= target), **summary, **diagnostic)
                 rows.append(row)
                 events.append(event)
                 models.append(dict(compression_profile=profile, target=target, method=method, model=model.as_dict()))
@@ -506,7 +535,7 @@ def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_resul
                                     seed=config.get("codec_seed", 8972), min_points=config.get("pq_min_points_per_centroid", 39))
                 write_json(work / f"{alias}_codec_inventory.json", {p: info for p, (_, _, info) in codecs.items()})
                 for dataset in selected:
-                    if dataset not in (trained_on, "lfw", "rfw"):
+                    if dataset not in evaluation_datasets(config["models"][alias]):
                         continue
                     job = f"{alias}_{dataset}"
                     item = index["inputs"][f"{alias}/{dataset}"]
@@ -573,8 +602,8 @@ def run_workflow(config_path, *, datasets=None, output_root=None, keep_raw_resul
                    detailed_upload="Choose the model/dataset summary_parts of interest; full metrics.csv/paired.csv are optional"))
         files["chatgpt_summary.json"] = sha256_file(work / "chatgpt_summary.json")
         write_json(work / "run_manifest.json", dict(status="completed", run_uid=uid, contract=contract, files=files,
-                   completed_jobs=len(all_metrics), expected_jobs=sum(d in (trained, "lfw", "rfw")
-                       for _, trained in models.values() for d in selected),
+                   completed_jobs=len(all_metrics), expected_jobs=sum(d in evaluation_datasets(config["models"][alias])
+                       for alias in models for d in selected),
                    keep_raw_results=keep, formal_fpir_guarantee=False,
                    gallery_aggregation="SurvFace: mean of unit image embeddings then L2; TinyFace/SCFace: image gallery",
                     raw_retention_scope="details: SurvFace query scores/decisions, TinyFace/SCFace probe ranks, LFW/RFW pair decisions; input/resume caches and codecs retained",

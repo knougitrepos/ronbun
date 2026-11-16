@@ -33,6 +33,20 @@ def population_hash(population):
 def input_transform_from_metadata(metadata):
     """Consume a declared export policy; never infer a missing resize recipe."""
     policy = metadata.get("preprocessing", {}).get("alignment_policy")
+    if isinstance(policy, dict) and policy.get("method") == "direct_similarity_transform":
+        versions = {"scface": "scface_two_eye_arc112_v1", "tinyface": "tinyface_pfld_five_point_arc112_v1"}
+        dataset = metadata["dataset"]
+        package = metadata.get("input_geometry", {})
+        expected = dict(input_size=[112, 112], color="BGR", interpolation="bicubic", border="zero",
+                        face_detection="none", opencv=cv2.__version__)
+        if (dataset not in versions or policy.get("version") != versions[dataset]
+                or any(policy.get(k) != v for k, v in expected.items())
+                or package.get("schema") != "raw_to_arc112_affine_v1" or package.get("file") != "affine.csv"
+                or not isinstance(package.get("rows"), int) or package["rows"] <= 0
+                or len(package.get("sha256", "")) != 64):
+            raise ValueError("Unsupported alignment control or geometry package")
+        return dict(version=versions[dataset], dataset=dataset, method=policy["method"],
+                    source_color_order="rgb", model_color_order="bgr", geometry_package=package, **expected)
     if (not isinstance(policy, dict) or policy.get("method") != "resize_only"
             or policy.get("interpolation") not in ("bicubic", "bilinear")
             or policy.get("input_size") != [112, 112] or policy.get("color") != "BGR"
@@ -50,7 +64,11 @@ def resolve_input_transform(spec):
     path, metadata, _ = _read_validated_export(spec.checkpoint.path)
     if spec.model_uid != _spec_from_metadata(path, metadata, spec.preprocessing.source_color_order).model_uid:
         raise ValueError("Input model spec differs from its export")
-    return input_transform_from_metadata(metadata)
+    transform = input_transform_from_metadata(metadata)
+    if package := transform.get("geometry_package"):
+        if sha256_file(path.parent / package["file"]) != package["sha256"]:
+            raise ValueError("Alignment package checksum mismatch")
+    return transform
 
 
 def input_path(root, uid, dataset, population_digest, quality, transform):
@@ -121,13 +139,21 @@ class ImageReader:
         else:
             return (self.root / path).read_bytes()
 
-    def read(self, path):
+    def read(self, path, *, affine=None):
         payload = self.read_bytes(path)
         image = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
         if image is None:
             raise ValueError(f"Image decode failed: {path}")
-        image = cv2.cvtColor(cv2.resize(image, (112, 112), interpolation=self.interpolation), cv2.COLOR_BGR2RGB)
-        return image, hashlib.sha256(payload).hexdigest()
+        digest = hashlib.sha256(payload).hexdigest()
+        if affine is None:
+            image = cv2.resize(image, (112, 112), interpolation=self.interpolation)
+        else:
+            expected, matrix = affine
+            if digest != expected:
+                raise ValueError(f"Raw image differs from alignment source: {path}")
+            image = cv2.warpAffine(image, matrix, (112, 112), flags=cv2.INTER_CUBIC,
+                                   borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        return cv2.cvtColor(image, cv2.COLOR_BGR2RGB), digest
 
     def close(self):
         for archive in self.archives.values():
@@ -307,6 +333,16 @@ def _check_input_space(work, count, start, names, batch_size, *, population_byte
     return required
 
 
+def load_affines(path, package, population):
+    table = pd.read_csv(path, dtype={"image_id": str, "source_sha256": str}, float_precision="round_trip")
+    columns = ["a", "b", "tx", "c", "d", "ty"]
+    matrices = table[columns].to_numpy(dtype=np.float64).reshape(-1, 2, 3)
+    if (len(table) != package["rows"] or not table.image_id.is_unique or not population.image_id.is_unique
+            or set(table.image_id) != set(population.image_id) or not np.isfinite(matrices).all()):
+        raise ValueError("Affine map and requested cohort differ")
+    return dict(zip(table.image_id, zip(table.source_sha256, matrices)))
+
+
 def materialize_inputs(project, population, spec, dataset, root, quality_config, *, batch_size=16, quality_required=True):
     from research.embeddings.registry import create_pytorch_adapter_from_spec
     import torch
@@ -318,6 +354,9 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
     if batch_size < 1:
         raise ValueError("Positive batch size required")
     transform = resolve_input_transform(spec)
+    geometry = transform.get("geometry_package")
+    if geometry and dataset != transform["dataset"]:
+        raise ValueError("Alignment control applies only to its declared dataset")
     population = population.reset_index(drop=True)
     population_digest = population_hash(population)
     quality_config = dict(quality_config) if quality_required else dict(source="not_required")
@@ -368,6 +407,8 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
                            publish_quality=quality_path is not None and not quality_path.exists())
         arrays = {}
         reader = ImageReader(project, interpolation=transform["interpolation"])
+        affines = (load_affines(Path(spec.checkpoint.path).parent / geometry["file"], geometry, population)
+                   if geometry else None)
         try:
             for name in names:
                 shape = (len(population), 1024) if name == "embeddings.npy" else (len(population),)
@@ -416,7 +457,8 @@ def materialize_inputs(project, population, spec, dataset, root, quality_config,
                     (work / "batch_integrity.jsonl").open("a", encoding="utf-8") as receipts:
                 for offset in range(start, len(population), batch_size):
                     batch = population.iloc[offset:offset + batch_size]
-                    decoded = [reader.read(path) for path in batch.image_path]
+                    decoded = ([reader.read(row.image_path, affine=affines[row.image_id]) for row in batch.itertuples()]
+                               if affines is not None else [reader.read(path) for path in batch.image_path])
                     stop = offset + len(batch)
                     if shared_hashes is not None:
                         for image_id, (_, digest), record in zip(batch.image_id, decoded, shared_hashes[offset:stop]):
